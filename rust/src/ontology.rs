@@ -88,10 +88,11 @@ pub struct Expansion {
 
 // ------------------------------------------------
 use crate::utils::FilePath;
+use std::rc::Rc;
 
 pub struct LaTeXFile {
     pub path: FilePath,
-    ch : Vec<Box<dyn LaTeXObject>>
+    ch : Vec<Rc<dyn LaTeXObject>>
 }
 impl LaTeXFile {
     fn new(fp : FilePath) -> LaTeXFile {
@@ -100,7 +101,7 @@ impl LaTeXFile {
             ch : Vec::new()
         }
     }
-    pub(crate) fn add(&mut self,tk : Box<dyn LaTeXObject>) {
+    pub(crate) fn add(&mut self,tk : Rc<dyn LaTeXObject>) {
         self.ch.push(tk)
     }
 }

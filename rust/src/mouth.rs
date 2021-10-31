@@ -2,6 +2,7 @@ enum MouthState { N,S,M }
 
 use std::borrow::BorrowMut;
 use std::iter::{Peekable, Map};
+use std::rc::Rc;
 use std::slice::IterMut;
 use std::str::{Chars, from_utf8, Split};
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token,LaTeXObject};
@@ -12,28 +13,28 @@ use crate::state::State;
 
 pub trait Mouth {
     fn has_next(&mut self,nocomment : bool) -> bool;
-    fn pop_next(&mut self,nocomment : bool) -> Box<dyn Token>;
+    fn pop_next(&mut self,nocomment : bool) -> Rc<dyn Token>;
     fn preview(&mut self) -> String;
     fn pushback(&mut self);
-    fn peek<'a>(&'a mut self) -> &'a Box<dyn Token>;
+    fn peek(&mut self) -> Rc<dyn Token>;
 }
 
 pub struct TokenMouth {
-    tokens : Vec<Box<dyn Token>>
+    tokens : Vec<Rc<dyn Token>>
 }
 impl Mouth for TokenMouth {
     fn has_next(&mut self, nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
-    fn pop_next(&mut self, nocomment: bool) -> Box<dyn Token> {
+    fn pop_next(&mut self, nocomment: bool) -> Rc<dyn Token> {
         self.tokens.remove(0)
     }
     fn preview(&mut self) -> String {
         self.tokens.iter().map(|x| {x.origstring()}).collect::<Vec<&str>>().join("")
     }
     fn pushback(&mut self) {}
-    fn peek<'a>(&'a mut self) -> &'a Box<dyn Token> {
-        self.tokens.first().expect("")
+    fn peek(&mut self) -> Rc<dyn Token> {
+        Rc::clone(self.tokens.first().expect(""))
     }
 }
 
@@ -190,7 +191,7 @@ impl Mouth for StringMouth<'_> {
                                                 start: (next.1,next.2),
                                                 end: (next.1,next.2+1)
                                             }));
-                                            ltxf.add(Box::new(tk))
+                                            ltxf.add(Rc::new(tk))
                                             // TODO
                                         }
                                         _ => {}
@@ -212,7 +213,7 @@ impl Mouth for StringMouth<'_> {
                                                     end: (next.1, next.2 + end)
                                                 }
                                             };
-                                            ltxf.add(Box::new(tk))
+                                            ltxf.add(Rc::new(tk))
                                         }
                                         _ => {}
                                     }
@@ -261,7 +262,7 @@ impl Mouth for StringMouth<'_> {
             }
         }
     }
-    fn pop_next(&mut self, nocomment: bool) -> Box<dyn Token> {
+    fn pop_next(&mut self, nocomment: bool) -> Rc<dyn Token> {
         todo!()
     }
     fn preview(&mut self) -> String {
@@ -270,7 +271,7 @@ impl Mouth for StringMouth<'_> {
     fn pushback(&mut self) {
         todo!()
     }
-    fn peek<'a>(&'a mut self) -> &'a Box<dyn Token> {
+    fn peek(&mut self) -> Rc<dyn Token> {
         todo!()
     }
 }
