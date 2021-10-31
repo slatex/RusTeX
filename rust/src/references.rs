@@ -1,8 +1,8 @@
-use crate::ontology::LaTeXFile;
+use crate::utils::FilePath;
 
-#[derive(Copy, Clone)]
-pub struct FileReference<'a> {
-    pub file:&'a LaTeXFile,
+#[derive(Clone)]
+pub struct FileReference {
+    pub file:FilePath,
     pub start:(u32,u32),
     pub end:(u32,u32)
 }
@@ -14,9 +14,9 @@ pub struct ExpansionReference<'a> {
     pub exp: &'a Expansion
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum SourceReference<'a> {
-    File(FileReference<'a>),
+    File(FileReference),
     Exp(ExpansionReference<'a>),
     None
 }

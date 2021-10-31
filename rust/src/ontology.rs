@@ -4,11 +4,11 @@ use crate::references::{SourceReference, FileReference};
 
 // ------------------------------------------------
 
-pub struct Comment<'a> {
+pub struct Comment {
     pub text: String,
-    pub reference : FileReference<'a>
+    pub reference : FileReference
 }
-impl LaTeXObject for Comment<'_> {}
+impl LaTeXObject for Comment {}
 
 // ------------------------------------------------
 
@@ -34,7 +34,7 @@ pub trait CharacterToken {
 }
 
 // #[derive(Debug, Copy, Clone)]
-#[derive(Copy, Clone)]
+
 pub struct PrimitiveCharacterToken<'a> {
     _char: u8,
     _reference: SourceReference<'a>,
@@ -90,13 +90,13 @@ pub struct Expansion {
 use crate::utils::FilePath;
 
 pub struct LaTeXFile {
-    pub fp : FilePath,
+    pub path: FilePath,
     ch : Vec<Box<dyn LaTeXObject>>
 }
 impl LaTeXFile {
     fn new(fp : FilePath) -> LaTeXFile {
         LaTeXFile {
-            fp:fp,
+            path:fp,
             ch : Vec::new()
         }
     }

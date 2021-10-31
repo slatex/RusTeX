@@ -42,9 +42,18 @@ extern crate itertools;
 use itertools::Itertools;
 use self::itertools::MultiPeek;
 
-enum StringMouthSource<'a> {
-    File(&'a LaTeXFile),
+enum StringMouthSource {
+    File(LaTeXFile),
     Exp(Expansion)
+}
+
+impl StringMouthSource {
+    pub fn getFile(&mut self) -> Option<&mut LaTeXFile> {
+        match self {
+            StringMouthSource::File(s) => Some(s),
+            _ => None
+        }
+    }
 }
 
 struct StringMouth<'a> {
@@ -58,7 +67,7 @@ struct StringMouth<'a> {
     pos: u32,
     atendofline:Option<u8>,
     charbuffer:Option<(u8,u32,u32)>,
-    source : StringMouthSource<'a>,
+    source : StringMouthSource,
 }
 
 impl StringMouth<'_> {
@@ -173,14 +182,15 @@ impl Mouth for StringMouth<'_> {
                             }
                             _ => match self.interpreter_state.catcodes().get_code(next.0) {
                                 CategoryCode::Ignored => {
-                                    match self.source {
-                                        StringMouthSource::File(ltxf) => {
+                                    match self.source.getFile() {
+                                        Some(ltxf) => {
                                             let tk = PrimitiveCharacterToken::new(
                                                 next.0,CategoryCode::Ignored,SourceReference::File(FileReference {
-                                                file:&ltxf,
+                                                file:ltxf.path.clone(),
                                                 start: (next.1,next.2),
                                                 end: (next.1,next.2+1)
                                             }));
+                                            ltxf.add(Box::new(tk))
                                             // TODO
                                         }
                                         _ => {}
@@ -190,19 +200,19 @@ impl Mouth for StringMouth<'_> {
                                 CategoryCode::Comment => if nocomment {
                                     let mut rest : Vec<u8> = self.string.as_mut().unwrap().map(|x| *x).collect();
                                     rest.insert(0,next.0);
-                                    match self.source {
-                                        StringMouthSource::File(ltxf) => {
+                                    match self.source.getFile() {
+                                        Some(ltxf) => {
                                             let txt = unsafe{std::str::from_utf8_unchecked(rest.as_slice())}.to_string();
                                             let end = txt.len() as u32;
                                             let tk = Comment {
                                                 text: txt,
                                                 reference: FileReference {
-                                                    file: &ltxf,
+                                                    file: ltxf.path.clone(),
                                                     start: (next.1, next.2),
                                                     end: (next.1, next.2 + end)
                                                 }
                                             };
-                                            // TODO
+                                            ltxf.add(Box::new(tk))
                                         }
                                         _ => {}
                                     }

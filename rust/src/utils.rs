@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct FilePath {
     _path: String,
     _pb : PathBuf
