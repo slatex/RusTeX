@@ -5,7 +5,7 @@ use std::iter::{Peekable, Map};
 use std::rc::Rc;
 use std::slice::IterMut;
 use std::str::{Chars, from_utf8, from_utf8_unchecked, Split};
-use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence};
+use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence, TokenI, LaTeXObjectI};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::{PrimitiveCharacterToken,PrimitiveToken};
 use crate::references::{SourceReference,FileReference};
@@ -209,7 +209,7 @@ impl Mouth for StringMouth<'_> {
                                             }; //self.make_file_reference(rf,next.1,next.2);
                                             let tk = PrimitiveCharacterToken::new(
                                                 next.0,CategoryCode::Ignored,SourceReference::File((nrf)));
-                                            ltxf.add(Rc::new(tk.as_token().as_object()))
+                                            ltxf.add(tk.as_object())
                                             // TODO
                                         }
                                         _ => {}
@@ -232,7 +232,7 @@ impl Mouth for StringMouth<'_> {
                                                 text: txt,
                                                 reference: nrf
                                             };
-                                            ltxf.add(Rc::new(tk.as_object()))
+                                            ltxf.add(tk.as_object())
                                         }
                                         _ => {}
                                     }
@@ -328,16 +328,15 @@ impl Mouth for StringMouth<'_> {
                 CategoryCode::Active => {todo!()}
                 _ => {todo!()}
             };
-            /*
-            let rc = Rc::new(*ret);
+            let obj = LaTeXObject::Token(Rc::clone(&ret));
+
             match self.source.getFile() {
                 Some((ltxf, _)) => {
-                    ltxf.add(Rc::clone(&rc))
+                    ltxf.add(Rc::new(obj))
                 }
                 _ => {}
             }
-             */
-            Rc::new(ret)
+            ret
         }
     }
     fn peek(&mut self) -> Rc<Token> {

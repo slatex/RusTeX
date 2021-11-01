@@ -1,33 +1,46 @@
 use crate::references::{SourceReference, FileReference};
 use std::rc::Rc;
 
-// ------------------------------------------------
-
-pub struct Comment {
-    pub text: String,
-    pub reference : FileReference
+pub(crate) trait LaTeXObjectI {
+    fn as_object(self) -> Rc<LaTeXObject>;
 }
 
-impl Comment {
-    pub fn as_object(self) -> LaTeXObject {
-        LaTeXObject::Comment(self)
+pub(crate) trait TokenI:LaTeXObjectI {
+    fn as_token(self) -> Rc<Token>;
+}
+/*
+impl<T> LaTeXObjectI for T where T : TokenI {
+    fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Token(self.as_token()))
     }
 }
+ */
 
-// ------------------------------------------------
-
-
-pub trait PrimitiveToken {
+pub(crate) trait PrimitiveToken : TokenI {
     //fn origstring(&self) -> &'a str;
     fn reference(&self) -> &SourceReference;
 }
 
-pub trait TokenReference {}
+pub(crate) trait TokenReference : TokenI {
+    fn previous(&self) -> Rc<Token>;
+    fn orig(&self) -> Rc<dyn PrimitiveToken>;
+}
 
 // -----------------------------------------------
 
-use crate::catcodes::CategoryCode;
+pub(crate) trait CharacterTokenI:TokenI {
+    fn as_character_token(self) -> Rc<CharacterToken>;
+}
+/*
+impl<T> TokenI for T where T: CharacterTokenI {
+    fn as_token(self) -> Rc<Token> {
+        Rc::new(Token::Char(self.as_character_token()))
+    }
+}
 
+ */
+
+use crate::catcodes::CategoryCode;
 
 // #[derive(Debug, Copy, Clone)]
 
@@ -35,6 +48,24 @@ pub struct PrimitiveCharacterToken {
     _char: u8,
     _reference: SourceReference,
     _catcode: CategoryCode
+}
+
+impl LaTeXObjectI for PrimitiveCharacterToken {
+    fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Token(self.as_token()))
+    }
+}
+
+impl TokenI for PrimitiveCharacterToken {
+    fn as_token(self) -> Rc<Token> {
+        Rc::new(Token::Char(self.as_character_token()))
+    }
+}
+
+impl CharacterTokenI for PrimitiveCharacterToken {
+    fn as_character_token(self) -> Rc<CharacterToken> {
+        Rc::new(CharacterToken::Prim(Rc::new(self)))
+    }
 }
 
 impl PrimitiveToken for PrimitiveCharacterToken {
@@ -51,17 +82,64 @@ impl PrimitiveCharacterToken {
             _reference:r
         }
     }
-    pub fn as_token(self) -> Token {
-        Token::Char(CharacterToken::Prim(self))
+    pub(crate) fn as_character_token(self) -> Rc<CharacterToken> {
+        Rc::new(CharacterToken::Prim(Rc::new(self)))
     }
 }
 
 
 // ------------------------------------------------
 
+pub(crate) trait CommandI : TokenI {
+    fn as_command(self) -> Rc<Command>;
+}
+/*
+impl<T> TokenI for T where T : CommandI {
+    fn as_token(self) -> Rc<Token> {
+        Rc::new(Token::Command(self.as_command()))
+    }
+}
+ */
+
+pub(crate) trait ControlSequenceI : CommandI {
+    fn as_cs(self) -> Rc<ControlSequence>;
+}
+
+/*
+impl<A> CommandI for A where A : ControlSequenceI {
+    fn as_command(self) -> Rc<Command> {
+        Rc::new(Command::Cs(self.as_cs()))
+    }
+}
+ */
+
 pub struct PrimitiveControlSequence {
     _name:String,
     _reference: SourceReference,
+}
+
+impl CommandI for PrimitiveControlSequence {
+    fn as_command(self) -> Rc<Command> {
+        Rc::new(Command::Cs(self.as_cs()))
+    }
+}
+
+impl TokenI for PrimitiveControlSequence {
+    fn as_token(self) -> Rc<Token> {
+        Rc::new(Token::Command(self.as_command()))
+    }
+}
+
+impl LaTeXObjectI for PrimitiveControlSequence {
+    fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Token(self.as_token()))
+    }
+}
+
+impl ControlSequenceI for PrimitiveControlSequence {
+    fn as_cs(self) -> Rc<ControlSequence> {
+        Rc::new(ControlSequence::Prim(Rc::new(self)))
+    }
 }
 
 impl PrimitiveControlSequence {
@@ -70,9 +148,6 @@ impl PrimitiveControlSequence {
             _name:name,
             _reference:rf
         }
-    }
-    pub fn as_token(self) -> Token {
-        Token::Command(Command::Cs(ControlSequence::Prim(self)))
     }
 }
 impl PrimitiveToken for PrimitiveControlSequence {
@@ -105,20 +180,32 @@ impl LaTeXFile {
     }
 }
 
+
+// ------------------------------------------------
+pub struct Comment {
+    pub text: String,
+    pub reference : FileReference
+}
+impl Comment {
+    pub(crate) fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Comment(Rc::new(self)))
+    }
+}
+
 // --------------------------------------------------------------------------
 
 pub enum ControlSequence {
-    Prim(PrimitiveControlSequence),
+    Prim(Rc<PrimitiveControlSequence>),
     Ref
 }
 
 pub enum Command {
-    Cs(ControlSequence),
-    Active(CharacterToken)
+    Cs(Rc<ControlSequence>),
+    Active(Rc<CharacterToken>)
 }
 
 pub enum CharacterToken {
-    Prim(PrimitiveCharacterToken),
+    Prim(Rc<PrimitiveCharacterToken>),
     Ref
 }
 
@@ -128,20 +215,20 @@ impl CharacterToken {
 }
 
 pub enum Token {
-    Command(Command),
-    Char(CharacterToken)
+    Command(Rc<Command>),
+    Char(Rc<CharacterToken>)
 }
 
 impl Token {
     pub fn origstring(&self) -> &str {
         ""
     }
-    pub fn as_object(self) -> LaTeXObject {
-        LaTeXObject::Token(self)
+    pub(crate) fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Token(Rc::new(self)))
     }
 }
 
 pub enum LaTeXObject {
-    Comment(Comment),
-    Token(Token)
+    Comment(Rc<Comment>),
+    Token(Rc<Token>)
 }
