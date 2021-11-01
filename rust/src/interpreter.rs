@@ -9,13 +9,13 @@ use crate::ontology::{CharacterToken, PrimitiveCharacterToken, PrimitiveToken, T
 use crate::catcodes::CategoryCodeScheme;
 use crate::references::SourceReference;
 
-fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Box<dyn Token>> {
+fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
     let mut ns = s.as_bytes();
-    let mut retvec: Vec<Box<dyn Token>> = Vec::new();
+    let mut retvec: Vec<PrimitiveCharacterToken> = Vec::new();
     for next in ns {
         let b = match cats.get_code(*next) {
             cc =>
-                Box::new(PrimitiveCharacterToken::new(*next,cc,SourceReference::None))
+                PrimitiveCharacterToken::new(*next,cc,SourceReference::None)
         };
         retvec.push(b)
     }
@@ -45,7 +45,7 @@ impl<'a> Interpreter<'a> {
         ret
     }
 
-    pub fn string_to_tokens(s : &str) -> Vec<Box<dyn Token>> {
+    pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
         use std::mem;
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)

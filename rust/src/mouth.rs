@@ -1,11 +1,11 @@
 enum MouthState { N,S,M }
 
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
 use std::iter::{Peekable, Map};
 use std::rc::Rc;
 use std::slice::IterMut;
-use std::str::{Chars, from_utf8, Split};
-use crate::ontology::{Comment, Expansion, LaTeXFile, Token,LaTeXObject};
+use std::str::{Chars, from_utf8, from_utf8_unchecked, Split};
+use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::{PrimitiveCharacterToken,PrimitiveToken};
 use crate::references::{SourceReference,FileReference};
@@ -13,27 +13,27 @@ use crate::state::State;
 
 pub trait Mouth {
     fn has_next(&mut self,nocomment : bool) -> bool;
-    fn pop_next(&mut self,nocomment : bool) -> Rc<dyn Token>;
+    fn pop_next(&mut self,nocomment : bool) -> Rc<Token>;
     fn preview(&mut self) -> String;
     fn pushback(&mut self);
-    fn peek(&mut self) -> Rc<dyn Token>;
+    fn peek(&mut self) -> Rc<Token>;
 }
 
 pub struct TokenMouth {
-    tokens : Vec<Rc<dyn Token>>
+    tokens : Vec<Rc<Token>>
 }
 impl Mouth for TokenMouth {
     fn has_next(&mut self, nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
-    fn pop_next(&mut self, nocomment: bool) -> Rc<dyn Token> {
+    fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
         self.tokens.remove(0)
     }
     fn preview(&mut self) -> String {
         self.tokens.iter().map(|x| {x.origstring()}).collect::<Vec<&str>>().join("")
     }
     fn pushback(&mut self) {}
-    fn peek(&mut self) -> Rc<dyn Token> {
+    fn peek(&mut self) -> Rc<Token> {
         Rc::clone(self.tokens.first().expect(""))
     }
 }
@@ -44,14 +44,20 @@ use itertools::Itertools;
 use self::itertools::MultiPeek;
 
 enum StringMouthSource {
-    File(LaTeXFile),
+    File((LaTeXFile,Rc<LaTeXFile>)),
     Exp(Expansion)
 }
 
 impl StringMouthSource {
-    pub fn getFile(&mut self) -> Option<&mut LaTeXFile> {
+    pub fn getFile(&mut self) -> Option<(&mut LaTeXFile,Rc<LaTeXFile>)> {
         match self {
-            StringMouthSource::File(s) => Some(s),
+            StringMouthSource::File((s,r)) => Some((s,Rc::clone(r))),
+            _ => None
+        }
+    }
+    pub fn getFileRef(&self) -> Option<Rc<LaTeXFile>> {
+        match self {
+            StringMouthSource::File((_,r)) => Some(Rc::clone(r)),
             _ => None
         }
     }
@@ -61,7 +67,7 @@ struct StringMouth<'a> {
     _str: &'a str,
     mouth_state:MouthState,
     interpreter_state:&'a State<'a>,
-    peekbuffer : Option<Box<dyn Token>>,
+    peekbuffer : Option<Rc<Token>>,
     string : Option<MultiPeek<std::slice::Iter<'a,u8>>>,//Option<std::slice::Iter<'a,u8>>,
     allstrings : Vec<&'a str>,
     line: u32,
@@ -107,8 +113,8 @@ impl StringMouth<'_> {
                 o => self.atendofline =  Some(o)
             };
             //self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let mut string = self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let mut astr = (*string).iter().multipeek();
+            let string = self.allstrings.pop().unwrap().trim_end().as_bytes();
+            let astr = (*string).iter().multipeek();
             self.string = Some(astr);
             self.line += 1;
             self.pos = 0;
@@ -126,12 +132,8 @@ impl StringMouth<'_> {
 
      */
     fn next_char(&mut self) -> Option<(u8, u32, u32)> {
-        match self.charbuffer {
-            Some(cb) => {
-                self.charbuffer = None;
-                Some(cb)
-            },
-            None => match self.string {
+        if let Some(tk) = self.charbuffer.take() { Some(tk) } else {
+            match self.string {
                 None => match self.do_line() {
                     true => self.next_char(),
                     false => None
@@ -153,6 +155,7 @@ impl StringMouth<'_> {
             }
         }
     }
+
     fn do_s(&mut self) {
         use crate::catcodes::CategoryCode;
         while (self.has_next(true)) {
@@ -164,6 +167,19 @@ impl StringMouth<'_> {
                     break
                 }
             }
+        }
+    }
+    fn make_reference(&mut self,line:u32,pos:u32) -> SourceReference {
+        match self.source.getFile() {
+            None => SourceReference::None,
+            Some((_,r)) => SourceReference::File(self.make_file_reference(r,line,pos))
+        }
+    }
+    fn make_file_reference(&mut self,f : Rc<LaTeXFile>,line:u32,pos:u32) -> FileReference {
+        FileReference {
+            file:f,
+            start: (line,pos),
+            end: (self.line,self.pos)
         }
     }
 }
@@ -183,37 +199,40 @@ impl Mouth for StringMouth<'_> {
                             }
                             _ => match self.interpreter_state.catcodes().get_code(next.0) {
                                 CategoryCode::Ignored => {
+                                    self.pos += 1;
                                     match self.source.getFile() {
-                                        Some(ltxf) => {
-                                            let tk = PrimitiveCharacterToken::new(
-                                                next.0,CategoryCode::Ignored,SourceReference::File(FileReference {
-                                                file:ltxf.path.clone(),
+                                        Some((ltxf,rf)) => {
+                                            let nrf = FileReference {
+                                                file:rf,
                                                 start: (next.1,next.2),
-                                                end: (next.1,next.2+1)
-                                            }));
-                                            ltxf.add(Rc::new(tk))
+                                                end: (self.line,self.pos)
+                                            }; //self.make_file_reference(rf,next.1,next.2);
+                                            let tk = PrimitiveCharacterToken::new(
+                                                next.0,CategoryCode::Ignored,SourceReference::File((nrf)));
+                                            ltxf.add(Rc::new(tk.as_token().as_object()))
                                             // TODO
                                         }
                                         _ => {}
                                     }
-                                    self.pos += 1;
                                 }
                                 CategoryCode::Comment => if nocomment {
                                     let mut rest : Vec<u8> = self.string.as_mut().unwrap().map(|x| *x).collect();
                                     rest.insert(0,next.0);
                                     match self.source.getFile() {
-                                        Some(ltxf) => {
+                                        Some((ltxf,rf)) => {
                                             let txt = unsafe{std::str::from_utf8_unchecked(rest.as_slice())}.to_string();
                                             let end = txt.len() as u32;
+                                            self.pos += end;
+                                            let nrf = FileReference {
+                                                file:rf,
+                                                start: (next.1,next.2),
+                                                end: (self.line,self.pos)
+                                            };
                                             let tk = Comment {
                                                 text: txt,
-                                                reference: FileReference {
-                                                    file: ltxf.path.clone(),
-                                                    start: (next.1, next.2),
-                                                    end: (next.1, next.2 + end)
-                                                }
+                                                reference: nrf
                                             };
-                                            ltxf.add(Rc::new(tk))
+                                            ltxf.add(Rc::new(tk.as_object()))
                                         }
                                         _ => {}
                                     }
@@ -236,7 +255,7 @@ impl Mouth for StringMouth<'_> {
                                     }
                                 }
                                 CategoryCode::Superscript => {
-                                    let mut string = self.string.as_mut().unwrap();
+                                    let string = self.string.as_mut().unwrap();
                                     if string.len() > 1 && string.peek().is_some() && **string.peek().unwrap() == next.0 {
                                         let (startl,startpos) = (next.1,next.2);
                                         self.pos += 2;
@@ -262,16 +281,74 @@ impl Mouth for StringMouth<'_> {
             }
         }
     }
-    fn pop_next(&mut self, nocomment: bool) -> Rc<dyn Token> {
-        todo!()
+    fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
+        if !self.has_next(true) {panic!("Mouth is empty")}
+        if let Some(tk) = self.peekbuffer.take() { tk } else {
+            let (char,l,p) = self.next_char().unwrap();
+            let catcode = |x:u8| self.interpreter_state.catcodes().get_code(x);
+            let ret = match catcode(char) {
+                CategoryCode::Escape => {
+                    let mut buf : Vec<u8> = Vec::new();
+                    let string = self.string.as_mut().unwrap();
+                    match string.peek() {
+                        None => {self.mouth_state = MouthState::M}
+                        Some(nc) => {
+                            match catcode(**nc) {
+                                CategoryCode::Letter => {
+                                    while match string.peek() {
+                                        None => false,
+                                        Some(s) => matches!(catcode(**s),CategoryCode::Letter)
+                                    } {
+                                        let nc = string.next().unwrap();
+                                        self.pos += 1;
+                                        buf.push(*nc);
+                                    }
+                                    self.mouth_state = MouthState::S;
+                                }
+                                CategoryCode::Space => {
+                                    let nc = string.next().unwrap();
+                                    self.pos += 1;
+                                    buf.push(*nc);
+                                    self.mouth_state = MouthState::S
+                                }
+                                _ => {
+                                    let nc = string.next().unwrap();
+                                    self.pos += 1;
+                                    buf.push(*nc);
+                                    self.mouth_state = MouthState::M
+                                }
+                            }
+                        }
+                    }
+                    let name = unsafe { from_utf8_unchecked(buf.as_slice()) };
+                    PrimitiveControlSequence::new(name.to_owned(),self.make_reference(l,p)).as_token()
+                }
+                CategoryCode::EOL => {todo!()}
+                CategoryCode::Space => {todo!()}
+                CategoryCode::Active => {todo!()}
+                _ => {todo!()}
+            };
+            /*
+            let rc = Rc::new(*ret);
+            match self.source.getFile() {
+                Some((ltxf, _)) => {
+                    ltxf.add(Rc::clone(&rc))
+                }
+                _ => {}
+            }
+             */
+            Rc::new(ret)
+        }
+    }
+    fn peek(&mut self) -> Rc<Token> {
+        let next = self.pop_next(true);
+        self.peekbuffer = Some(Rc::clone(&next));
+        next
     }
     fn preview(&mut self) -> String {
         todo!()
     }
     fn pushback(&mut self) {
-        todo!()
-    }
-    fn peek(&mut self) -> Rc<dyn Token> {
         todo!()
     }
 }
