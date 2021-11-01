@@ -1,40 +1,67 @@
+use std::any::Any;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Mutex;
 use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
+use crate::commands::TeXCommand;
+
 #[derive(Clone)]
 struct StackFrame<'a> {
-    parent : Option<&'a StackFrame<'a>>,
-    pub catcodes:CategoryCodeScheme,
-    pub newlinechar: u8,
-    pub endlinechar: u8
+    parent: Option<&'a StackFrame<'a>>,
+    pub(in crate::state) catcodes: CategoryCodeScheme,
+    pub(in crate::state) newlinechar: u8,
+    pub(in crate::state) endlinechar: u8,
+    pub(in crate::state) commands: HashMap<&'a str,&'a TeXCommand>
 }
+
 impl StackFrame<'_> {
-    pub fn new<'a>(parent: Option<&'a StackFrame>) -> StackFrame<'a> {
+    pub(in crate::state) fn initial_pdf_etex<'a>() -> StackFrame<'a> {
+        use crate::commands::etex::etex_commands;
+        let mut cmds: HashMap<&str,&TeXCommand> = HashMap::new();
+        for (n,c) in etex_commands() {
+            cmds.insert(n,c);
+        }
         StackFrame {
-            parent:parent,
-            catcodes:match parent {
-                Some(p) => p.catcodes.clone(),
-                None => STARTING_SCHEME.clone()
-            },
-            newlinechar:match parent {
-                Some(p) => p.newlinechar,
-                None => 10
-            },
-            endlinechar:match parent {
-                Some(p) => p.newlinechar,
-                None => 13
-            },
+            parent: None,
+            catcodes: STARTING_SCHEME.clone(),
+            commands: cmds,
+            newlinechar: 10,
+            endlinechar:13
+        }
+    }
+    pub(in crate::state) fn new<'a>(parent: &'a StackFrame<'a>) -> StackFrame<'a> {
+        StackFrame {
+            parent: Some(parent),
+            catcodes: parent.catcodes.clone(),
+            commands: HashMap::new(),
+            newlinechar: parent.newlinechar,
+            endlinechar: parent.newlinechar
+        }
+    }
+    pub(in crate::state) fn get_command(&self,name:&str) -> Option<&TeXCommand> {
+        match self.commands.get(name) {
+            Some(cmd) => Some(*cmd),
+            None => match self.parent {
+                Some(p) => p.get_command(name),
+                None => None
+            }
         }
     }
 }
+
 #[derive(Clone)]
 pub struct State<'a> {
-    stacks : Vec<Box<StackFrame<'a>>>
+    stacks: Vec<Box<StackFrame<'a>>>
 }
+
 impl State<'_> {
-    pub fn dummy(&self) {}
-    pub fn new<'a>() -> State<'a> {
+    pub(in crate::state) fn new<'a>() -> State<'a> {
         State {
-            stacks:vec![Box::new(StackFrame::new(None))]
+            stacks: vec![Box::new(StackFrame::initial_pdf_etex())]
         }
+    }
+    pub fn get_command(&self, name: &str) -> Option<&TeXCommand> {
+        self.stacks.last().unwrap().get_command(name)
     }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
         &self.stacks.last().expect("Stack frames empty").catcodes
@@ -49,25 +76,20 @@ impl State<'_> {
 
 use crate::interpreter::Interpreter;
 
-lazy_static! {
-    static ref DEFAULT_PDF_LATEX_STATE : State<'static> = {
-        use std::env;
-        use crate::utils::{kpsewhich,FilePath};
-        use crate::interpreter::Mode;
-
-        let maindir = FilePath::from_path(env::current_dir().expect("No current directory!"));
-        //let mut st = State::new();
-        let mut interpreter = Interpreter::new_from_state(State::new());
-        let pdftex_cfg = kpsewhich("pdftexconfig.tex",&maindir).expect("pdftexconfig.tex not found");
-        let latex_ltx = kpsewhich("latex.ltx",&maindir).expect("No latex.ltx found");
-
-        // TODO
-        println!("{}",pdftex_cfg.path());
-        println!("{}",latex_ltx.path());
-
-        interpreter.kill_state()
-    };
-}
 pub fn default_pdf_latex_state<'a>() -> State<'a> {
-    DEFAULT_PDF_LATEX_STATE.clone()
+    use std::env;
+    use crate::utils::{kpsewhich,FilePath};
+    use crate::interpreter::Mode;
+
+    let maindir = FilePath::from_path(env::current_dir().expect("No current directory!"));
+    //let mut st = State::new();
+    let mut interpreter = Interpreter::new_from_state(State::new());
+    let pdftex_cfg = kpsewhich("pdftexconfig.tex",&maindir).expect("pdftexconfig.tex not found");
+    let latex_ltx = kpsewhich("latex.ltx",&maindir).expect("No latex.ltx found");
+
+    // TODO
+    println!("{}",pdftex_cfg.path());
+    println!("{}",latex_ltx.path());
+
+    interpreter.kill_state()
 }

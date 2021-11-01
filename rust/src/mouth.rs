@@ -12,7 +12,7 @@ use crate::references::{SourceReference,FileReference};
 use crate::state::State;
 
 use crate::debug;
-
+/*
 pub trait Mouth {
     fn has_next(&mut self,nocomment : bool) -> bool;
     fn pop_next(&mut self,nocomment : bool) -> Rc<Token>;
@@ -21,10 +21,28 @@ pub trait Mouth {
     fn peek(&mut self) -> Rc<Token>;
 }
 
+ */
+
+pub enum Mouth<'a> {
+    Token(TokenMouth),
+    Str(StringMouth<'a>),
+    File(StringMouth<'a>)
+}
+
+impl Mouth<'_> {
+    fn has_next(&mut self,nocomment : bool) -> bool {
+        match self {
+            Mouth::Token(tm) => tm.has_next(nocomment),
+            Mouth::Str(sm) => sm.has_next(nocomment),
+            Mouth::File(sm) => sm.has_next(nocomment)
+        }
+    }
+}
+
 pub struct TokenMouth {
     tokens : Vec<Rc<Token>>
 }
-impl Mouth for TokenMouth {
+impl TokenMouth {
     fn has_next(&mut self, nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
@@ -135,25 +153,27 @@ impl StringMouth<'_> {
 
      */
     fn next_char(&mut self) -> Option<(u8, u32, u32)> {
-        if let Some(tk) = self.charbuffer.take() { Some(tk) } else {
-            match self.string {
-                None => match self.do_line() {
-                    true => self.next_char(),
-                    false => None
-                }
-                Some(ref mut it) => {
-                    if it.len() == 0 {
-                        match self.atendofline {
-                            Some(cb) => {
-                                self.atendofline = None;
-                                Some((cb, self.line + 1, self.pos + 1))
-                            },
-                            None => match self.do_line() {
-                                true => self.next_char(),
-                                false => None
+        loop {
+            if let Some(tk) = self.charbuffer.take() { return Some(tk) } else {
+                match self.string {
+                    None => match self.do_line() {
+                        true => {},
+                        false => return None
+                    }
+                    Some(ref mut it) => {
+                        if it.len() == 0 {
+                            match self.atendofline {
+                                Some(cb) => {
+                                    self.atendofline = None;
+                                    return Some((cb, self.line + 1, self.pos + 1))
+                                },
+                                None => match self.do_line() {
+                                    true => {},
+                                    false => return None
+                                }
                             }
-                        }
-                    } else { Some((*it.next().unwrap(), self.line + 1, self.pos + 1)) }
+                        } else { return Some((*it.next().unwrap(), self.line + 1, self.pos + 1)) }
+                    }
                 }
             }
         }
@@ -185,9 +205,8 @@ impl StringMouth<'_> {
             end: (self.line,self.pos)
         }
     }
-}
-impl Mouth for StringMouth<'_> {
-    fn has_next(&mut self, nocomment: bool) -> bool {
+
+    pub fn has_next(&mut self, nocomment: bool) -> bool {
         match self.peekbuffer {
             Some(_) => true,
             None => {
@@ -290,7 +309,7 @@ impl Mouth for StringMouth<'_> {
             }
         }
     }
-    fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
+    pub fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
         if !self.has_next(true) {panic!("Mouth is empty")}
         if let Some(tk) = self.peekbuffer.take() { tk } else {
             let (char,l,p) = self.next_char().unwrap();
@@ -385,29 +404,26 @@ impl Mouth for StringMouth<'_> {
         todo!()
     }
 }
-/*
-pub struct StringMouth<'a> {
-    _str : &'a str,
-    _mst : MouthState,
-    _ist : &'a State<'a>,
-    _strs : Vec<&'a str>,
-    _string : Option<MultiPeek<std::slice::Iter<'a,u8>>>,
-    _pkbf : Option<Box<dyn Token>>,
-    _cbf:Option<(u8,u32,u32)>,
-    _eol:Option<u8>,
-    _line: u32,
-    _pos: u32,
-}
-impl StringMouth<'_> {
-}
-pub struct FileMouth {
 
+struct Mouths<'a> {
+    mouths: Vec<Mouth<'a>>
 }
-impl FileMouth {
-    pub fn new<'a>(state:&State<'a>, ltf : LaTeXFile) -> StringMouth<'a> {
-        panic!("TODO")
+impl Mouths<'_> {
+    fn has_next(&mut self) -> bool {
+        loop {
+            /*
+            match self.mouths.last() {
+                None => return false,
+                Some(Mouth::Token(mut tm)) => {
+                    if tm.has_next(true) { return true }
+                    self.next_mouth()
+                },
+                Some(Mouth::File(_)) => todo!(),
+                Some(Mouth::Str(_)) => todo!()
+            }
+             */
+            todo!()
+        }
     }
+    fn next_mouth(&mut self) {}
 }
-
-
- */
