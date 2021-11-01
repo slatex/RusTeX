@@ -88,6 +88,18 @@ lazy_static! {
             map
         }
     };
+    pub static ref STARTING_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
+        catcodes:{
+            let mut map : HashMap<u8,CategoryCode> = HashMap::new();
+            map.insert(92,Escape);
+            map.insert(32,Space);
+            map.insert(13,EOL);
+            for i in 65..90 { map.insert(i,Letter); }
+            for i in 97..122 { map.insert(i,Letter); }
+            map.insert(37,Comment);
+            map
+        }
+    };
     pub static ref DEFAULT_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
         catcodes:{
             let mut map : HashMap<u8,CategoryCode> = HashMap::new();
@@ -96,7 +108,11 @@ lazy_static! {
             map.insert(125,EndGroup);
             map.insert(36,MathShift);
             map.insert(38,AlignmentTab);
+            map.insert(35,Parameter);
+            map.insert(94,Superscript);
+            map.insert(95,Subscript);
             map.insert(32,Space);
+            map.insert(13,EOL);
             for i in 65..90 { map.insert(i,Letter); }
             for i in 97..122 { map.insert(i,Letter); }
             map.insert(126,Active);

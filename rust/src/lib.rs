@@ -1,11 +1,11 @@
-mod ontology;
-mod references;
-mod mouth;
+pub mod ontology;
+pub mod references;
+pub mod mouth;
 pub mod state;
-mod interpreter;
-mod utils;
-mod commands;
-mod catcodes;
+pub mod interpreter;
+pub mod utils;
+pub mod commands;
+pub mod catcodes;
 
 #[macro_use]
 extern crate lazy_static;
@@ -97,13 +97,7 @@ lazy_static! {
     };
 }
 
-/*
-  lazy val (texversion, etexversion, etexrevision, pdftexversion, pdftexrevision) = {
-      val pdf2 = string.takeWhile(_ != '.')
-      string = string.drop(pdf2.length + 1)
-      pdf = pdf + pdf2
-      val prev = string.takeWhile(_.isDigit)
-      (tex, e, rev, pdf, prev)
-    }
-  }
- */
+static DEBUG : bool = true;
+pub fn debug(s : String) {
+    if DEBUG {println!("{}",s)}
+}

@@ -1,4 +1,4 @@
-use crate::catcodes::{CategoryCodeScheme,DEFAULT_SCHEME};
+use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
 #[derive(Clone)]
 struct StackFrame<'a> {
     parent : Option<&'a StackFrame<'a>>,
@@ -12,7 +12,7 @@ impl StackFrame<'_> {
             parent:parent,
             catcodes:match parent {
                 Some(p) => p.catcodes.clone(),
-                None => DEFAULT_SCHEME.clone()
+                None => STARTING_SCHEME.clone()
             },
             newlinechar:match parent {
                 Some(p) => p.newlinechar,

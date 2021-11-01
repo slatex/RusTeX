@@ -1,12 +1,13 @@
 use crate::references::{SourceReference, FileReference};
 use std::rc::Rc;
 
-pub(crate) trait LaTeXObjectI {
+pub trait LaTeXObjectI {
     fn as_object(self) -> Rc<LaTeXObject>;
 }
 
-pub(crate) trait TokenI:LaTeXObjectI {
+pub trait TokenI:LaTeXObjectI {
     fn as_token(self) -> Rc<Token>;
+    fn as_string(&self) -> String;
 }
 /*
 impl<T> LaTeXObjectI for T where T : TokenI {
@@ -56,9 +57,25 @@ impl LaTeXObjectI for PrimitiveCharacterToken {
     }
 }
 
+use std::str::from_utf8;
+
 impl TokenI for PrimitiveCharacterToken {
     fn as_token(self) -> Rc<Token> {
         Rc::new(Token::Char(self.as_character_token()))
+    }
+    fn as_string(&self) -> String {
+        let mut ret = "<".to_string();
+        if self._char == 13 {
+            ret.push_str("\\r")
+        } else if self._char == 173 {
+            ret.push_str("\\u00AD")
+        } else {
+            ret.push_str(from_utf8(&[self._char]).expect(&*("Nope: ".to_owned() + self._char.to_string().as_str())))
+        }
+        ret.push(',');
+        ret.push_str(self._catcode.toint().to_string().as_str());
+        ret.push('>');
+        ret
     }
 }
 
@@ -82,15 +99,12 @@ impl PrimitiveCharacterToken {
             _reference:r
         }
     }
-    pub(crate) fn as_character_token(self) -> Rc<CharacterToken> {
-        Rc::new(CharacterToken::Prim(Rc::new(self)))
-    }
 }
 
 
 // ------------------------------------------------
 
-pub(crate) trait CommandI : TokenI {
+pub trait CommandI : TokenI {
     fn as_command(self) -> Rc<Command>;
 }
 /*
@@ -128,6 +142,12 @@ impl TokenI for PrimitiveControlSequence {
     fn as_token(self) -> Rc<Token> {
         Rc::new(Token::Command(self.as_command()))
     }
+    fn as_string(&self) -> String {
+        let mut ret = "<<".to_string();
+        ret.push_str(self._name.as_str());
+        ret.push_str(">>");
+        ret
+    }
 }
 
 impl LaTeXObjectI for PrimitiveControlSequence {
@@ -156,8 +176,58 @@ impl PrimitiveToken for PrimitiveControlSequence {
     }
 }
 
+// ---------------------------------------------------------------------------
+
+pub(crate) trait ActiveCharacterTokenI : CommandI {
+    fn as_active(self) -> Rc<ActiveCharacterToken>;
+}
+
+pub struct PrimitiveActiveCharacterToken {
+    _char:u8,
+    _reference:SourceReference
+}
+
+impl PrimitiveActiveCharacterToken {
+    pub fn new(c : u8, r: SourceReference) -> PrimitiveActiveCharacterToken {
+        PrimitiveActiveCharacterToken {
+            _char:c,
+            _reference:r
+        }
+    }
+}
+
+impl CommandI for PrimitiveActiveCharacterToken {
+    fn as_command(self) -> Rc<Command> {
+        Rc::new(Command::Active(self.as_active()))
+    }
+}
+
+impl TokenI for PrimitiveActiveCharacterToken {
+    fn as_token(self) -> Rc<Token> {
+        Rc::new(Token::Command(self.as_command()))
+    }
+    fn as_string(&self) -> String {
+        let mut ret = "<!<".to_string();
+        ret.push_str(from_utf8(&[self._char]).unwrap());
+        ret.push('>');
+        ret
+    }
+}
+
+impl LaTeXObjectI for PrimitiveActiveCharacterToken {
+    fn as_object(self) -> Rc<LaTeXObject> {
+        Rc::new(LaTeXObject::Token(self.as_token()))
+    }
+}
+
+impl ActiveCharacterTokenI for PrimitiveActiveCharacterToken {
+    fn as_active(self) -> Rc<ActiveCharacterToken> {
+        Rc::new(ActiveCharacterToken::Prim(Rc::new(self)))
+    }
+}
+
 pub struct Expansion {
-    pub cs : Rc<ControlSequence>,
+    pub cs : Rc<Command>,
     pub exp : Vec<Rc<Token>>
 }
 
@@ -198,10 +268,41 @@ pub enum ControlSequence {
     Prim(Rc<PrimitiveControlSequence>),
     Ref
 }
+impl ControlSequence {
+    pub fn as_string(&self) -> String {
+        match self {
+            ControlSequence::Prim(p) => p.as_string(),
+            ControlSequence::Ref => todo!()
+        }
+    }
+}
+
+pub enum ActiveCharacterToken {
+    Prim(Rc<PrimitiveActiveCharacterToken>),
+    Ref
+}
+
+impl ActiveCharacterToken {
+    pub fn as_string(&self) -> String {
+        match self {
+            ActiveCharacterToken::Prim(p) => p.as_string(),
+            ActiveCharacterToken::Ref => todo!()
+        }
+    }
+}
 
 pub enum Command {
     Cs(Rc<ControlSequence>),
-    Active(Rc<CharacterToken>)
+    Active(Rc<ActiveCharacterToken>)
+}
+
+impl Command {
+    pub fn as_string(&self) -> String {
+        match self {
+            Command::Cs(p) => p.as_string(),
+            Command::Active(ac) => ac.as_string()
+        }
+    }
 }
 
 pub enum CharacterToken {
@@ -212,6 +313,12 @@ pub enum CharacterToken {
 impl CharacterToken {
     pub fn get_char(&self) -> u8 {todo!()}
     pub fn catcode(&self) -> &CategoryCode {todo!()}
+    pub fn as_string(&self) -> String {
+        match self {
+            CharacterToken::Prim(p) => p.as_string(),
+            CharacterToken::Ref => todo!()
+        }
+    }
 }
 
 pub enum Token {
@@ -225,6 +332,12 @@ impl Token {
     }
     pub(crate) fn as_object(self) -> Rc<LaTeXObject> {
         Rc::new(LaTeXObject::Token(Rc::new(self)))
+    }
+    pub fn as_string(&self) -> String {
+        match self {
+            Token::Command(cmd) => cmd.as_string(),
+            Token::Char(ct) => ct.as_string(),
+        }
     }
 }
 

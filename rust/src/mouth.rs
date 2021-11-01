@@ -5,11 +5,13 @@ use std::iter::{Peekable, Map};
 use std::rc::Rc;
 use std::slice::IterMut;
 use std::str::{Chars, from_utf8, from_utf8_unchecked, Split};
-use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence, TokenI, LaTeXObjectI};
+use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence, TokenI, LaTeXObjectI, PrimitiveActiveCharacterToken};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::{PrimitiveCharacterToken,PrimitiveToken};
 use crate::references::{SourceReference,FileReference};
 use crate::state::State;
+
+use crate::debug;
 
 pub trait Mouth {
     fn has_next(&mut self,nocomment : bool) -> bool;
@@ -63,7 +65,7 @@ impl StringMouthSource {
     }
 }
 
-struct StringMouth<'a> {
+pub struct StringMouth<'a> {
     _str: &'a str,
     mouth_state:MouthState,
     interpreter_state:&'a State<'a>,
@@ -90,6 +92,7 @@ impl StringMouth<'_> {
             for s in string.split(from_utf8(&[newlinechar]).unwrap()) {
                 ret.push(s)
             }
+            ret.reverse();
             ret
         };
         StringMouth {
@@ -220,7 +223,7 @@ impl Mouth for StringMouth<'_> {
                                     rest.insert(0,next.0);
                                     match self.source.getFile() {
                                         Some((ltxf,rf)) => {
-                                            let txt = unsafe{std::str::from_utf8_unchecked(rest.as_slice())}.to_string();
+                                            let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
                                             let end = txt.len() as u32;
                                             self.pos += end;
                                             let nrf = FileReference {
@@ -254,24 +257,30 @@ impl Mouth for StringMouth<'_> {
                                         }
                                     }
                                 }
+                                CategoryCode::Space if matches!(self.mouth_state,MouthState::N) => { self.pos += 1 }
                                 CategoryCode::Superscript => {
                                     let string = self.string.as_mut().unwrap();
-                                    if string.len() > 1 && string.peek().is_some() && **string.peek().unwrap() == next.0 {
+                                    let len = string.len();
+                                    let peek = string.peek();
+                                    if (len > 1 && peek.is_some() && (**peek.unwrap()) == next.0) {
                                         let (startl,startpos) = (next.1,next.2);
                                         self.pos += 2;
                                         string.next();
                                         let next = *string.next().unwrap();
-                                        let maybenext = string.peek().map(|x| **x);
-                                        if ((48 <= next && next <= 57) || (97 <= next && next <= 102)) &&
-                                            match maybenext {
-                                                None => false,
-                                                Some(c) => (c <= next && next <= c) || (c <= next && next <= c)
-                                            } {
+                                        let maybenext = string.peek();
+                                        fn cond(i:u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
+                                        if (cond(next)) && maybenext.is_some() && cond(**maybenext.unwrap()) {
                                             self.pos += 1;
-                                            self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
-                                        }   else if next < 128 { self.charbuffer = Some((next-64,startl,startpos)) }
+                                            self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,**maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
+                                        } else if next < 64 {
+                                            panic!("next<64 in line {}, column {}",self.line,self.pos)
+                                        }  else if next < 128 {
+                                            self.charbuffer = Some((next-64,startl,startpos))
+                                        }
                                             else { panic!("Invalid character after ^^") }
-                                    } else { self.charbuffer = Some(next); return true }
+                                    } else {
+                                        self.charbuffer = Some(next); return true
+                                    }
                                 },
                                 _ => { self.charbuffer = Some(next); return true }
                             }
@@ -320,13 +329,38 @@ impl Mouth for StringMouth<'_> {
                             }
                         }
                     }
-                    let name = unsafe { from_utf8_unchecked(buf.as_slice()) };
+                    let name = from_utf8(buf.as_slice()).unwrap();
                     PrimitiveControlSequence::new(name.to_owned(),self.make_reference(l,p)).as_token()
                 }
-                CategoryCode::EOL => {todo!()}
-                CategoryCode::Space => {todo!()}
-                CategoryCode::Active => {todo!()}
-                _ => {todo!()}
+                CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {
+                    self.mouth_state = MouthState::S;
+                    self.pos += 1;
+                    PrimitiveCharacterToken::new(char,CategoryCode::Space,self.make_reference(l,p)).as_token()
+                }
+                CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
+                    while(self.has_next(nocomment)) {
+                        let (n,l2,p2) = self.next_char().unwrap();
+                        if !matches!(catcode(n),CategoryCode::EOL) {
+                            self.charbuffer = Some((n,l2,p2));
+                            break
+                        }
+                    }
+                    PrimitiveControlSequence::new("par".to_owned(),self.make_reference(l,p)).as_token()
+                }
+                CategoryCode::Space if matches!(self.mouth_state,MouthState::M) => {
+                    self.mouth_state = MouthState::S;
+                    self.pos += 1;
+                    PrimitiveCharacterToken::new(char,CategoryCode::Space,self.make_reference(l,p)).as_token()
+                }
+                CategoryCode::Active => {
+                    self.pos += 1;
+                    PrimitiveActiveCharacterToken::new(char,self.make_reference(l,p)).as_token()
+                }
+                _ => {
+                    self.pos += 1;
+                    self.mouth_state = MouthState::M;
+                    PrimitiveCharacterToken::new(char,catcode(char),self.make_reference(l,p)).as_token()
+                }
             };
             let obj = LaTeXObject::Token(Rc::clone(&ret));
 

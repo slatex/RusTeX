@@ -36,7 +36,7 @@ pub fn kpsewhich(s : &str, indir : &FilePath) -> Option<FilePath> {
             .arg(s).output().expect("kpsewhich not found!")
             .stdout;
         match str::from_utf8(rs.as_slice()) {
-            Ok(v) => Some(FilePath::new(v)),
+            Ok(v) => Some(FilePath::new(v.trim_end())),
             Err(_) => panic!("")
         }
     }
