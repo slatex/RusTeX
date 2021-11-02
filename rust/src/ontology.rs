@@ -8,6 +8,7 @@ pub trait LaTeXObjectI {
 pub trait TokenI:LaTeXObjectI {
     fn as_token(self) -> Rc<Token>;
     fn as_string(&self) -> String;
+    fn copied(&self,exp:&Expansion) -> Rc<Token>;
 }
 /*
 impl<T> LaTeXObjectI for T where T : TokenI {
@@ -17,14 +18,14 @@ impl<T> LaTeXObjectI for T where T : TokenI {
 }
  */
 
-pub(crate) trait PrimitiveToken : TokenI {
+pub(crate) trait PrimitiveToken<T> : TokenI {
     //fn origstring(&self) -> &'a str;
     fn reference(&self) -> &SourceReference;
 }
 
-pub(crate) trait TokenReference : TokenI {
-    fn previous(&self) -> Rc<Token>;
-    fn orig(&self) -> Rc<dyn PrimitiveToken>;
+pub(crate) trait TokenReference<T> : TokenI {
+    fn previous(&self) -> Rc<T>;
+    fn orig(&self) -> Rc<dyn PrimitiveToken<T>>;
 }
 
 // -----------------------------------------------
@@ -77,6 +78,9 @@ impl TokenI for PrimitiveCharacterToken {
         ret.push('>');
         ret
     }
+    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+        todo!()
+    }
 }
 
 impl CharacterTokenI for PrimitiveCharacterToken {
@@ -85,7 +89,8 @@ impl CharacterTokenI for PrimitiveCharacterToken {
     }
 }
 
-impl PrimitiveToken for PrimitiveCharacterToken {
+impl PrimitiveToken<CharacterToken> for PrimitiveCharacterToken {
+
     fn reference(&self) -> &SourceReference {
         &self._reference
     }
@@ -148,6 +153,9 @@ impl TokenI for PrimitiveControlSequence {
         ret.push_str(">>");
         ret
     }
+    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+        todo!()
+    }
 }
 
 impl LaTeXObjectI for PrimitiveControlSequence {
@@ -170,7 +178,7 @@ impl PrimitiveControlSequence {
         }
     }
 }
-impl PrimitiveToken for PrimitiveControlSequence {
+impl PrimitiveToken<ControlSequence> for PrimitiveControlSequence {
     fn reference(&self) -> &SourceReference {
         &self._reference
     }
@@ -212,6 +220,9 @@ impl TokenI for PrimitiveActiveCharacterToken {
         ret.push('>');
         ret
     }
+    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+        todo!()
+    }
 }
 
 impl LaTeXObjectI for PrimitiveActiveCharacterToken {
@@ -229,6 +240,15 @@ impl ActiveCharacterTokenI for PrimitiveActiveCharacterToken {
 pub struct Expansion {
     pub cs : Rc<Command>,
     pub exp : Vec<Rc<Token>>
+}
+
+impl Expansion {
+    pub fn dummy(tks : Vec<Rc<Token>>) -> Expansion {
+        Expansion {
+            cs: Rc::new((Command::dummy())),
+            exp: tks
+        }
+    }
 }
 
 // ------------------------------------------------
@@ -275,6 +295,11 @@ impl ControlSequence {
             ControlSequence::Ref => todo!()
         }
     }
+    pub fn dummy() -> ControlSequence {
+        ControlSequence::Prim(
+            Rc::new(PrimitiveControlSequence::new("DUMMY".to_owned(),SourceReference::None))
+        )
+    }
 }
 
 pub enum ActiveCharacterToken {
@@ -296,12 +321,16 @@ pub enum Command {
     Active(Rc<ActiveCharacterToken>)
 }
 
+
 impl Command {
     pub fn as_string(&self) -> String {
         match self {
             Command::Cs(p) => p.as_string(),
             Command::Active(ac) => ac.as_string()
         }
+    }
+    pub fn dummy() -> Command {
+        Command::Cs(Rc::new(ControlSequence::dummy()))
     }
 }
 
@@ -338,6 +367,9 @@ impl Token {
             Token::Command(cmd) => cmd.as_string(),
             Token::Char(ct) => ct.as_string(),
         }
+    }
+    pub fn copied(&self,exp:&Expansion) -> Rc<Token> {
+        todo!()
     }
 }
 

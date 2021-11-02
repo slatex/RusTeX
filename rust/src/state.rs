@@ -11,13 +11,13 @@ struct StackFrame<'a> {
     pub(in crate::state) catcodes: CategoryCodeScheme,
     pub(in crate::state) newlinechar: u8,
     pub(in crate::state) endlinechar: u8,
-    pub(in crate::state) commands: HashMap<&'a str,&'a TeXCommand>
+    pub(in crate::state) commands: HashMap<&'a str,Rc<TeXCommand>>
 }
 
 impl StackFrame<'_> {
     pub(in crate::state) fn initial_pdf_etex<'a>() -> StackFrame<'a> {
         use crate::commands::etex::etex_commands;
-        let mut cmds: HashMap<&str,&TeXCommand> = HashMap::new();
+        let mut cmds: HashMap<&str,Rc<TeXCommand>> = HashMap::new();
         for (n,c) in etex_commands() {
             cmds.insert(n,c);
         }
@@ -38,9 +38,9 @@ impl StackFrame<'_> {
             endlinechar: parent.newlinechar
         }
     }
-    pub(in crate::state) fn get_command(&self,name:&str) -> Option<&TeXCommand> {
+    pub(in crate::state) fn get_command(&self,name:&str) -> Option<Rc<TeXCommand>> {
         match self.commands.get(name) {
-            Some(cmd) => Some(*cmd),
+            Some(cmd) => Some(Rc::clone(cmd)),
             None => match self.parent {
                 Some(p) => p.get_command(name),
                 None => None
@@ -60,7 +60,7 @@ impl State<'_> {
             stacks: vec![Box::new(StackFrame::initial_pdf_etex())]
         }
     }
-    pub fn get_command(&self, name: &str) -> Option<&TeXCommand> {
+    pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand>> {
         self.stacks.last().unwrap().get_command(name)
     }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
@@ -79,7 +79,7 @@ use crate::interpreter::Interpreter;
 pub fn default_pdf_latex_state<'a>() -> State<'a> {
     use std::env;
     use crate::utils::{kpsewhich,FilePath};
-    use crate::interpreter::Mode;
+    use crate::interpreter::TeXMode;
 
     let maindir = FilePath::from_path(env::current_dir().expect("No current directory!"));
     //let mut st = State::new();

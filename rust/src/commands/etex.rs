@@ -1,13 +1,12 @@
-use crate::commands::TeXCommand;
+use crate::commands::{primitive_meaning, PrimitiveTeXCommand, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Command, Expansion, PrimitiveCharacterToken, Token, TokenI};
 use crate::VERSION_INFO;
 use std::rc::Rc;
 use std::slice::Iter;
 
-pub static ETEREVISION : TeXCommand = TeXCommand {
+pub static ETEXREVISION : PrimitiveTeXCommand = PrimitiveTeXCommand {
     expandable:true,
-    protected:false,
     apply: |cs: Rc<Command>, int: &Interpreter| {
         let mut vs : Vec<Rc<Token>> = Vec::new();
         for x in Interpreter::string_to_tokens(VERSION_INFO.etexrevision()) {
@@ -20,6 +19,6 @@ pub static ETEREVISION : TeXCommand = TeXCommand {
     }
 };
 
-pub fn etex_commands<'a>() -> Vec<(&'a str,&'a TeXCommand)> {vec![
-    ("etexrevision",&ETEREVISION)
+pub fn etex_commands<'a>() -> Vec<(&'a str,Rc<TeXCommand>)> {vec![
+    ("etexrevision",Rc::new(TeXCommand::Primitive(&ETEXREVISION)))
 ]}

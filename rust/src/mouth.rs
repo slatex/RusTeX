@@ -30,19 +30,37 @@ pub enum Mouth<'a> {
 }
 
 impl Mouth<'_> {
-    fn has_next(&mut self,nocomment : bool) -> bool {
+    pub(crate) fn has_next(&mut self, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
             Mouth::Str(sm) => sm.has_next(nocomment),
             Mouth::File(sm) => sm.has_next(nocomment)
         }
     }
+    pub(crate) fn get_next(&mut self) -> Rc<Token> {
+        match self {
+            Mouth::Token(tm) => tm.pop_next(true),
+            Mouth::Str(sm) => sm.pop_next(true),
+            Mouth::File(sm) => sm.pop_next(true)
+        }
+    }
 }
 
 pub struct TokenMouth {
+    exp: Expansion,
     tokens : Vec<Rc<Token>>
 }
 impl TokenMouth {
+    fn new(exp:Expansion) -> TokenMouth {
+        let mut vec : Vec<Rc<Token>> = Vec::new();
+        for tk in &exp.exp {
+            vec.push(tk.copied(&exp))
+        }
+        TokenMouth {
+            exp:exp,
+            tokens:vec
+        }
+    }
     fn has_next(&mut self, nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
@@ -405,25 +423,44 @@ impl StringMouth<'_> {
     }
 }
 
-struct Mouths<'a> {
-    mouths: Vec<Mouth<'a>>
-}
-impl Mouths<'_> {
-    fn has_next(&mut self) -> bool {
-        loop {
-            /*
-            match self.mouths.last() {
-                None => return false,
-                Some(Mouth::Token(mut tm)) => {
-                    if tm.has_next(true) { return true }
-                    self.next_mouth()
-                },
-                Some(Mouth::File(_)) => todo!(),
-                Some(Mouth::Str(_)) => todo!()
+
+impl<'a> Interpreter<'a> {
+    fn has_next(&mut self) -> bool { loop {
+        match self.mouths.last_mut() {
+            None => return false,
+            Some(m) => {
+                if m.has_next(true) {return true} else {
+                    match m {
+                        Mouth::File(fm) => todo!(),
+                        _ => if !self.next_mouth() { return false }
+                    }
+                }
             }
-             */
-            todo!()
+        }
+    } }
+    fn next_mouth(&mut self) -> bool {
+        if (self.mouths.len() > 1) {
+            self.mouths.pop();
+            true
+        } else { false }
+    }
+    fn next_token(&mut self) -> Rc<Token> {
+        if self.has_next() {
+            self.mouths.last_mut().unwrap().get_next()
+        } else {
+            panic!("Mouths empty!")
         }
     }
-    fn next_mouth(&mut self) {}
+    fn push_expansion(&mut self, exp : Expansion) {
+        if !exp.exp.is_empty() {
+            let nm = Mouth::Token(TokenMouth::new(exp));
+            self.mouths.push(nm)
+        }
+    }
+    fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
+        if !tks.is_empty() {
+            let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks)));
+            self.mouths.push(nm)
+        }
+    }
 }
