@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
 use crate::commands::TeXCommand;
+use crate::interpreter::files::VFile;
 
 #[derive(Clone)]
 struct StackFrame<'a> {
@@ -11,7 +12,7 @@ struct StackFrame<'a> {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<&'a str,Rc<TeXCommand>>
+    pub(crate) commands: HashMap<&'a str,Rc<TeXCommand>>,
 }
 
 impl StackFrame<'_> {
@@ -26,7 +27,7 @@ impl StackFrame<'_> {
             catcodes: STARTING_SCHEME.clone(),
             commands: cmds,
             newlinechar: 10,
-            endlinechar:13
+            endlinechar:13,
         }
     }
     pub(crate) fn new<'a>(parent: &'a StackFrame<'a>) -> StackFrame<'a> {
@@ -49,15 +50,19 @@ impl StackFrame<'_> {
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+
 #[derive(Clone)]
 pub struct State<'a> {
-    stacks: Vec<Box<StackFrame<'a>>>
+    stacks: Vec<Box<StackFrame<'a>>>,
+    files: Vec<&'a VFile>
 }
 
 impl State<'_> {
     pub(crate) fn new<'a>() -> State<'a> {
         State {
             stacks: vec![Box::new(StackFrame::initial_pdf_etex())],
+            files:Vec::new()
         }
     }
     pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand>> {
@@ -80,12 +85,12 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
     use std::env;
     use crate::utils::{kpsewhich,FilePath};
     use crate::interpreter::TeXMode;
+    use crate::utils::PWD;
 
-    let maindir = FilePath::from_path(env::current_dir().expect("No current directory!"));
     //let mut st = State::new();
     let mut interpreter = Interpreter::new_from_state(State::new());
-    let pdftex_cfg = kpsewhich("pdftexconfig.tex",&maindir).expect("pdftexconfig.tex not found");
-    let latex_ltx = kpsewhich("latex.ltx",&maindir).expect("No latex.ltx found");
+    let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
+    let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
 
     println!("{}",pdftex_cfg.path());
     println!("{}",latex_ltx.path());

@@ -11,6 +11,7 @@ use crate::references::SourceReference;
 
 pub mod mouth;
 pub mod state;
+mod files;
 
 fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
     let mut ns = s.as_bytes();
@@ -26,31 +27,36 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> 
 }
 
 use crate::interpreter::state::{State,default_pdf_latex_state};
-use crate::utils::FilePath;
+use crate::utils::{FilePath, kpsewhich};
+use crate::interpreter::files::VFile;
 
 pub struct Interpreter<'a> {
     state : Option<State<'a>>,
     pub mode : TeXMode,
-    mouths: Vec<Mouth<'a>>
+    mouths: Vec<Mouth<'a>>,
+    job : Option<Rc<VFile>>,
 }
 
 use std::rc::Rc;
+use crate::utils::PWD;
 
 impl<'a> Interpreter<'a> {
     pub fn new() -> Interpreter<'a> {
         let mut ret = Interpreter {
-            state: None,
+            state: Some(default_pdf_latex_state()),
             mode: TeXMode::Vertical,
-            mouths:Vec::new()
+            mouths:Vec::new(),
+            job:None
         };
-        ret.state = Some(default_pdf_latex_state());
+        //ret.state = Some(default_pdf_latex_state());
         ret
     }
     pub fn new_from_state(mut state:State<'a>) ->Interpreter<'a> {
         let mut ret = Interpreter {
             state:Some(state),
             mode: TeXMode::Vertical,
-            mouths:Vec::new()
+            mouths:Vec::new(),
+            job:None
         };
         ret
     }
@@ -66,6 +72,10 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn do_file(&mut self,file:FilePath) {
+
+    }
+
+    fn do_v_mode(&mut self) {
 
     }
 

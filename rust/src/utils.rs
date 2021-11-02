@@ -5,6 +5,26 @@ pub struct FilePath {
     _path: String,
     _pb : PathBuf
 }
+
+impl FilePath {
+    pub fn up(self) -> FilePath {
+        todo!()
+    }
+}
+
+use std::env;
+
+lazy_static! {
+    pub static ref PWD : FilePath = FilePath::from_path(env::current_dir().expect("No current directory!"));
+    pub static ref TEXMF1 : FilePath = kpsewhich("article.sty",&PWD).expect("article.sty not found").up().up().up().up();
+
+    /*
+    kpsewhich("article.sty").getOrElse(
+    error("article.sty not found - do you have LaTeX installed?", None)
+  ).up.up.up.up :: kpsewhich("pdftexconfig.tex").getOrElse{???}.up.up.up.up :: Nil
+     */
+}
+
 impl FilePath {
     pub fn new(s : &str) -> FilePath {
         FilePath {

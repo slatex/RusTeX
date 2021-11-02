@@ -375,5 +375,6 @@ impl Token {
 
 pub enum LaTeXObject {
     Comment(Rc<Comment>),
-    Token(Rc<Token>)
+    Token(Rc<Token>),
+    File(Rc<LaTeXFile>)
 }
