@@ -9,7 +9,7 @@ use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, Primiti
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::{PrimitiveCharacterToken,PrimitiveToken};
 use crate::references::{SourceReference,FileReference};
-use crate::state::State;
+use crate::interpreter::state::State;
 
 use crate::debug;
 /*
@@ -79,6 +79,7 @@ impl TokenMouth {
 use crate::interpreter::Interpreter;
 extern crate itertools;
 use itertools::Itertools;
+use crate::utils::FilePath;
 use self::itertools::MultiPeek;
 
 enum StringMouthSource {
@@ -87,13 +88,13 @@ enum StringMouthSource {
 }
 
 impl StringMouthSource {
-    pub fn getFile(&mut self) -> Option<(&mut LaTeXFile,Rc<LaTeXFile>)> {
+    pub fn get_file(&mut self) -> Option<(&mut LaTeXFile, Rc<LaTeXFile>)> {
         match self {
             StringMouthSource::File((s,r)) => Some((s,Rc::clone(r))),
             _ => None
         }
     }
-    pub fn getFileRef(&self) -> Option<Rc<LaTeXFile>> {
+    pub fn get_file_ref(&self) -> Option<Rc<LaTeXFile>> {
         match self {
             StringMouthSource::File((_,r)) => Some(Rc::clone(r)),
             _ => None
@@ -211,7 +212,7 @@ impl StringMouth<'_> {
         }
     }
     fn make_reference(&mut self,line:u32,pos:u32) -> SourceReference {
-        match self.source.getFile() {
+        match self.source.get_file() {
             None => SourceReference::None,
             Some((_,r)) => SourceReference::File(self.make_file_reference(r,line,pos))
         }
@@ -240,7 +241,7 @@ impl StringMouth<'_> {
                             _ => match self.interpreter_state.catcodes().get_code(next.0) {
                                 CategoryCode::Ignored => {
                                     self.pos += 1;
-                                    match self.source.getFile() {
+                                    match self.source.get_file() {
                                         Some((ltxf,rf)) => {
                                             let nrf = FileReference {
                                                 file:rf,
@@ -258,7 +259,7 @@ impl StringMouth<'_> {
                                 CategoryCode::Comment => if nocomment {
                                     let mut rest : Vec<u8> = self.string.as_mut().unwrap().map(|x| *x).collect();
                                     rest.insert(0,next.0);
-                                    match self.source.getFile() {
+                                    match self.source.get_file() {
                                         Some((ltxf,rf)) => {
                                             let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
                                             let end = txt.len() as u32;
@@ -401,7 +402,7 @@ impl StringMouth<'_> {
             };
             let obj = LaTeXObject::Token(Rc::clone(&ret));
 
-            match self.source.getFile() {
+            match self.source.get_file() {
                 Some((ltxf, _)) => {
                     ltxf.add(Rc::new(obj))
                 }
@@ -425,7 +426,7 @@ impl StringMouth<'_> {
 
 
 impl<'a> Interpreter<'a> {
-    fn has_next(&mut self) -> bool { loop {
+    pub(in crate::interpreter) fn has_next(&mut self) -> bool { loop {
         match self.mouths.last_mut() {
             None => return false,
             Some(m) => {
@@ -444,23 +445,26 @@ impl<'a> Interpreter<'a> {
             true
         } else { false }
     }
-    fn next_token(&mut self) -> Rc<Token> {
+    pub(in crate::interpreter) fn next_token(&mut self) -> Rc<Token> {
         if self.has_next() {
             self.mouths.last_mut().unwrap().get_next()
         } else {
             panic!("Mouths empty!")
         }
     }
-    fn push_expansion(&mut self, exp : Expansion) {
+    pub(in crate::interpreter) fn push_expansion(&mut self, exp : Expansion) {
         if !exp.exp.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(exp));
             self.mouths.push(nm)
         }
     }
-    fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
+    pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
         if !tks.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks)));
             self.mouths.push(nm)
         }
+    }
+    pub(in crate::interpreter) fn push_file(&mut self, file : FilePath) {
+
     }
 }

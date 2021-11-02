@@ -1,7 +1,5 @@
 pub mod ontology;
 pub mod references;
-pub mod mouth;
-pub mod state;
 pub mod interpreter;
 pub mod utils;
 pub mod commands;

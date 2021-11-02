@@ -1,4 +1,4 @@
-use crate::commands::{primitive_meaning, PrimitiveTeXCommand, TeXCommand};
+use crate::commands::{PrimitiveTeXCommand, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Command, Expansion, PrimitiveCharacterToken, Token, TokenI};
 use crate::VERSION_INFO;

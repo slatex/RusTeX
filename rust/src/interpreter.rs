@@ -4,11 +4,13 @@ pub enum TeXMode {
 
 use std::any::Any;
 use std::borrow::Borrow;
-use crate::state::{State, default_pdf_latex_state};
 use crate::ontology::{CharacterToken, PrimitiveCharacterToken, PrimitiveToken, Token};
 use crate::catcodes::CategoryCodeScheme;
-use crate::mouth::Mouth;
+use mouth::Mouth;
 use crate::references::SourceReference;
+
+pub mod mouth;
+pub mod state;
 
 fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
     let mut ns = s.as_bytes();
@@ -23,12 +25,16 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> 
     retvec
 }
 
+use crate::interpreter::state::{State,default_pdf_latex_state};
+use crate::utils::FilePath;
+
 pub struct Interpreter<'a> {
     state : Option<State<'a>>,
     pub mode : TeXMode,
-    pub(crate) mouths: Vec<Mouth<'a>>
+    mouths: Vec<Mouth<'a>>
 }
 
+use std::rc::Rc;
 
 impl<'a> Interpreter<'a> {
     pub fn new() -> Interpreter<'a> {
@@ -40,8 +46,8 @@ impl<'a> Interpreter<'a> {
         ret.state = Some(default_pdf_latex_state());
         ret
     }
-    pub fn new_from_state(state:State<'a>) -> Interpreter<'a> {
-        let ret = Interpreter {
+    pub fn new_from_state(mut state:State<'a>) ->Interpreter<'a> {
+        let mut ret = Interpreter {
             state:Some(state),
             mode: TeXMode::Vertical,
             mouths:Vec::new()
@@ -55,8 +61,12 @@ impl<'a> Interpreter<'a> {
         tokenize(s,&OTHER_SCHEME)
     }
 
-
-    pub fn kill_state(&mut self) -> State<'a> {
+    pub(in crate::interpreter) fn kill_state(&mut self) -> State<'a> {
         self.state.take().expect("State killed already")
     }
+
+    pub fn do_file(&mut self,file:FilePath) {
+
+    }
+
 }
