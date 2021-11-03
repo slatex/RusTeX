@@ -12,15 +12,15 @@ struct StackFrame<'a> {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<&'a str,Rc<TeXCommand>>,
+    pub(crate) commands: HashMap<&'a str,TeXCommand>,
 }
 
 impl StackFrame<'_> {
     pub(crate) fn initial_pdf_etex<'a>() -> StackFrame<'a> {
         use crate::commands::etex::etex_commands;
-        let mut cmds: HashMap<&str,Rc<TeXCommand>> = HashMap::new();
-        for (n,c) in etex_commands() {
-            cmds.insert(n,c);
+        let mut cmds: HashMap<&str,TeXCommand> = HashMap::new();
+        for c in etex_commands() {
+            cmds.insert(c.name,TeXCommand::Primitive(c));
         }
         StackFrame {
             parent: None,
@@ -39,9 +39,9 @@ impl StackFrame<'_> {
             endlinechar: parent.newlinechar
         }
     }
-    pub(crate) fn get_command(&self, name:&str) -> Option<Rc<TeXCommand>> {
+    pub(crate) fn get_command(&self, name:&str) -> Option<&TeXCommand> {
         match self.commands.get(name) {
-            Some(cmd) => Some(Rc::clone(cmd)),
+            Some(cmd) => Some(cmd),
             None => match self.parent {
                 Some(p) => p.get_command(name),
                 None => None
@@ -65,7 +65,7 @@ impl State<'_> {
             files:HashMap::new()
         }
     }
-    pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand>> {
+    pub fn get_command(&self, name: &str) -> Option<&TeXCommand> {
         self.stacks.last().unwrap().get_command(name)
     }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
@@ -87,16 +87,14 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
     use crate::interpreter::TeXMode;
     use crate::utils::PWD;
 
-    //let mut st = State::new();
-    let mut interpreter = Interpreter::new_from_state(State::new());
+    let mut st = State::new();
+    let mut interpreter = Interpreter::new_from_state(st);
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
 
     println!("{}",pdftex_cfg.to_str().expect("wut"));
     println!("{}",latex_ltx.to_str().expect("wut"));
-
     interpreter.do_file(pdftex_cfg.as_path());
     interpreter.do_file(latex_ltx.as_path());
-
     interpreter.kill_state()
 }

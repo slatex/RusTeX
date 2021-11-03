@@ -65,7 +65,7 @@ lazy_static! {
             .stdout;
         let mut retstr = match str::from_utf8(rs.as_slice()) {
             Ok(v) => v,
-            Err(_) => panic!("")
+            Err(_) => panic!("utils.rs 68")
         };
         if retstr.starts_with("MiKTeX") {
             // TODO better

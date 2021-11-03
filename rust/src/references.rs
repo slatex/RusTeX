@@ -2,7 +2,7 @@ use crate::ontology::LaTeXFile;
 use std::rc::Rc;
 
 pub struct FileReference {
-    pub file:Rc<LaTeXFile>,
+    pub file:String,
     pub start:(u32,u32),
     pub end:(u32,u32)
 }

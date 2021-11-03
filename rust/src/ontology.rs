@@ -79,7 +79,7 @@ impl TokenI for PrimitiveCharacterToken {
         ret
     }
     fn copied(&self, exp: &Expansion) -> Rc<Token> {
-        todo!()
+        todo!("ontology.rs 82")
     }
 }
 
@@ -154,7 +154,7 @@ impl TokenI for PrimitiveControlSequence {
         ret
     }
     fn copied(&self, exp: &Expansion) -> Rc<Token> {
-        todo!()
+        todo!("ontology.rs 157")
     }
 }
 
@@ -221,7 +221,7 @@ impl TokenI for PrimitiveActiveCharacterToken {
         ret
     }
     fn copied(&self, exp: &Expansion) -> Rc<Token> {
-        todo!()
+        todo!("ontology.rs 224")
     }
 }
 
@@ -258,9 +258,9 @@ pub struct LaTeXFile {
     ch : Vec<Rc<LaTeXObject>>
 }
 impl LaTeXFile {
-    fn new(fp : &Path) -> LaTeXFile {
+    pub(crate) fn new(fp : String) -> LaTeXFile {
         LaTeXFile {
-            path:fp.to_str().expect("wut").to_string(),
+            path:fp,
             ch : Vec::new()
         }
     }
@@ -291,7 +291,7 @@ impl ControlSequence {
     pub fn as_string(&self) -> String {
         match self {
             ControlSequence::Prim(p) => p.as_string(),
-            ControlSequence::Ref => todo!()
+            ControlSequence::Ref => todo!("ontology.rs 294")
         }
     }
     pub fn dummy() -> ControlSequence {
@@ -310,7 +310,7 @@ impl ActiveCharacterToken {
     pub fn as_string(&self) -> String {
         match self {
             ActiveCharacterToken::Prim(p) => p.as_string(),
-            ActiveCharacterToken::Ref => todo!()
+            ActiveCharacterToken::Ref => todo!("ontology.rs 313")
         }
     }
 }
@@ -339,8 +339,8 @@ pub enum CharacterToken {
 }
 
 impl CharacterToken {
-    pub fn get_char(&self) -> u8 {todo!()}
-    pub fn catcode(&self) -> &CategoryCode {todo!()}
+    pub fn get_char(&self) -> u8 {todo!("ontology.rs 342")}
+    pub fn catcode(&self) -> &CategoryCode {todo!("ontology.rs 343")}
     pub fn as_string(&self) -> String {
         match self {
             CharacterToken::Prim(p) => p.as_string(),

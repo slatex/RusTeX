@@ -16,9 +16,10 @@ pub static ETEXREVISION : PrimitiveTeXCommand = PrimitiveTeXCommand {
             cs: cs,
             exp:vs
         }
-    }
+    },
+    name: "etexrevision"
 };
 
-pub fn etex_commands<'a>() -> Vec<(&'a str,Rc<TeXCommand>)> {vec![
-    ("etexrevision",Rc::new(TeXCommand::Primitive(&ETEXREVISION)))
+pub fn etex_commands() -> Vec<&'static PrimitiveTeXCommand> {vec![
+    &ETEXREVISION
 ]}

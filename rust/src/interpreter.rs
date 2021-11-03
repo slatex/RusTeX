@@ -32,7 +32,7 @@ use crate::utils::kpsewhich;
 use crate::interpreter::files::VFile;
 
 pub struct Interpreter<'a> {
-    state : Option<State<'a>>,
+    state : Option<&'a State<'a>>,
     pub mode : TeXMode,
     mouths: Vec<Mouth<'a>>,
     job : Option<PathBuf>,
@@ -87,19 +87,22 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn do_file(&mut self,file:&Path) -> Result<LaTeXFile,&str> {
+    pub fn do_file(&'a mut self, file:&Path) {
         if !file.exists() {
-            return Result::Err("File does not exist")
+            return ()//Result::Err("File does not exist")
         }
         self.job = Some(file.canonicalize().expect("File name not canonicalizable").to_path_buf());
         //let vf = self.borrow_mut().getvf(file);
-        let vf = VFile::new(file,self);
+        let mut vf = VFile::new(file,self);
         self.push_file(vf);
-        todo!()
+        while self.has_next() {
+            self.do_v_mode()
+        }
+        todo!("interpreter.rs 101")
     }
 
     fn do_v_mode(&mut self) {
-
+        todo!("interpreter.rs 105")
     }
 
 }

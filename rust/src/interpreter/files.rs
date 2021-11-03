@@ -14,8 +14,8 @@ enum VFileBase {
 #[derive(Clone)]
 pub struct VFile {
     source:VFileBase,
-    string: Option<String>,
-    id : String
+    pub(in crate::interpreter) string: Option<String>,
+    pub(in crate::interpreter) id : String
 }
 
 extern crate pathdiff;
@@ -26,33 +26,43 @@ impl VFile {
     fn get_map<'a>(int: &'a mut Interpreter) {
 
     }
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, int : &'a mut Interpreter) -> &'a mut VFile {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path, int : &'a mut Interpreter) -> VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename = if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else {
             pathdiff::diff_paths(fp,int.in_file()).unwrap().to_str().unwrap().to_ascii_uppercase()
         };
-        int.state.as_mut().expect("Interpreter currently has no state!").files.entry(simplename.clone()).or_insert_with(||{
-            if simplename == "<texmf>/LANGUAGE.DAT" {
-                VFile {
-                    source:VFileBase::Virtual,
-                    string:Some(LANGUAGE_DAT.to_string()),
-                    id:simplename
-                }
-            } else if simplename == "UNICODEDATA.TXT" {
-                VFile {
-                    source:VFileBase::Virtual,
-                    string:Some(UNICODEDATA_TXT.to_string()),
-                    id:simplename
-                }
-            } else {
-                VFile {
-                    source:VFileBase::Real(fp.to_path_buf()),
-                    string:if fp.exists() {fs::read_to_string(fp).ok()} else {Some("".to_string())},
-                    id:simplename
+        let opt = int.state.as_mut().expect("Interpreter currently has no state!").files.remove(simplename.as_str());
+        match opt {
+            Some(vf) => vf,
+            _ => {
+                if simplename == "<texmf>/LANGUAGE.DAT" {
+                    VFile {
+                        source:VFileBase::Virtual,
+                        string:Some(LANGUAGE_DAT.to_string()),
+                        id:simplename
+                    }
+                } else if simplename == "UNICODEDATA.TXT" {
+                    VFile {
+                        source:VFileBase::Virtual,
+                        string:Some(UNICODEDATA_TXT.to_string()),
+                        id:simplename
+                    }
+                } else {
+                    VFile {
+                        source:VFileBase::Real(fp.to_path_buf()),
+                        string:if fp.exists() {fs::read_to_string(fp).ok()} else {Some("".to_string())},
+                        id:simplename
+                    }
                 }
             }
+        }
+        /*
+        int.state.as_mut().expect("Interpreter currently has no state!").files.entry(simplename.clone()).or_insert_with(||{
+
         })
+
+         */
     }
 }

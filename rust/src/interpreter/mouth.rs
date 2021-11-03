@@ -82,32 +82,31 @@ use itertools::Itertools;
 use self::itertools::MultiPeek;
 
 enum StringMouthSource {
-    File((LaTeXFile,Rc<LaTeXFile>)),
+    File(LaTeXFile),
     Exp(Expansion)
 }
 
 impl StringMouthSource {
-    pub fn get_file(&mut self) -> Option<(&mut LaTeXFile, Rc<LaTeXFile>)> {
+    pub fn get_file(&mut self) -> Option<&mut LaTeXFile> {
         match self {
-            StringMouthSource::File((s,r)) => Some((s,Rc::clone(r))),
+            StringMouthSource::File(s) => Some(s),
             _ => None
         }
     }
-    pub fn get_file_ref(&self) -> Option<Rc<LaTeXFile>> {
+    pub fn get_file_ref(&self) -> Option<&LaTeXFile> {
         match self {
-            StringMouthSource::File((_,r)) => Some(Rc::clone(r)),
+            StringMouthSource::File(r) => Some(r),
             _ => None
         }
     }
 }
 
 pub struct StringMouth<'a> {
-    _str: &'a str,
     mouth_state:MouthState,
     interpreter_state:&'a State<'a>,
     peekbuffer : Option<Rc<Token>>,
     string : Option<MultiPeek<std::slice::Iter<'a,u8>>>,//Option<std::slice::Iter<'a,u8>>,
-    allstrings : Vec<&'a str>,
+    allstrings : Vec<String>,
     line: u32,
     pos: u32,
     atendofline:Option<u8>,
@@ -116,7 +115,15 @@ pub struct StringMouth<'a> {
 }
 
 impl StringMouth<'_> {
+    pub fn new_from_file<'a>(state:&'a State<'a>, file:VFile) -> StringMouth {
+        let ltxf = LaTeXFile::new(file.id);
+        let string = file.string.expect("This shouldn't happen");
+        StringMouth::new_i(state,StringMouthSource::File(ltxf),string)
+    }
     pub fn new<'a>(state:&'a State<'a>, source:Expansion, string : &'a str) -> StringMouth<'a> {
+        StringMouth::new_i(state,StringMouthSource::Exp(source),string.to_string())
+    }
+    fn new_i<'a>(state:&'a State<'a>, source:StringMouthSource, string : String) -> StringMouth<'a> {
         use std::str::{from_utf8};
         let newlinechar = state.newlinechar();
         let it = if string.is_empty() {
@@ -124,15 +131,14 @@ impl StringMouth<'_> {
         } else if newlinechar==u8::MAX {
             vec![string]
         } else {
-            let mut ret:Vec<&str> = Vec::new();
+            let mut ret:Vec<String> = Vec::new();
             for s in string.split(from_utf8(&[newlinechar]).unwrap()) {
-                ret.push(s)
+                ret.push(s.to_string())
             }
             ret.reverse();
             ret
         };
         StringMouth {
-            _str:string,
             mouth_state:MouthState::N,
             interpreter_state:state,
             allstrings:it,
@@ -142,24 +148,24 @@ impl StringMouth<'_> {
             line:0,
             pos:0,
             charbuffer: None,
-            source: StringMouthSource::Exp(source)
+            source
         }
     }
-    fn do_line<'a>(&mut self) -> bool {
+    fn do_line(&mut self) -> bool { /*
         if self.allstrings.is_empty() { false } else {
             match self.interpreter_state.endlinechar() {
                 u8::MAX => {},
                 o => self.atendofline =  Some(o)
             };
             //self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let string = self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let astr = (*string).iter().multipeek();
-            self.string = Some(astr);
+            let string = self.allstrings.pop().unwrap().trim_end().as_bytes().iter().multipeek();
+            self.string = Some(string);
             self.line += 1;
             self.pos = 0;
             self.mouth_state = MouthState::N;
             true
-        }
+        } */
+        todo!()
     }
     /*
     fn ignored(source: &StringMouthSource, tk : Box<dyn LaTeXObject>) {
@@ -210,15 +216,15 @@ impl StringMouth<'_> {
             }
         }
     }
-    fn make_reference(&mut self,line:u32,pos:u32) -> SourceReference {
-        match self.source.get_file() {
+    fn make_reference(&self,line:u32,pos:u32) -> SourceReference {
+        match self.source.get_file_ref() {
             None => SourceReference::None,
-            Some((_,r)) => SourceReference::File(self.make_file_reference(r,line,pos))
+            Some(r) => SourceReference::File(self.make_file_reference(r,line,pos))
         }
     }
-    fn make_file_reference(&mut self,f : Rc<LaTeXFile>,line:u32,pos:u32) -> FileReference {
+    fn make_file_reference(&self,f : &LaTeXFile,line:u32,pos:u32) -> FileReference {
         FileReference {
-            file:f,
+            file:f.path.clone(),
             start: (line,pos),
             end: (self.line,self.pos)
         }
@@ -240,13 +246,14 @@ impl StringMouth<'_> {
                             _ => match self.interpreter_state.catcodes().get_code(next.0) {
                                 CategoryCode::Ignored => {
                                     self.pos += 1;
-                                    match self.source.get_file() {
-                                        Some((ltxf,rf)) => {
+                                    let file = self.source.get_file();
+                                    match file {
+                                        Some(ltxf) => {
                                             let nrf = FileReference {
-                                                file:rf,
+                                                file:ltxf.path.clone(),
                                                 start: (next.1,next.2),
                                                 end: (self.line,self.pos)
-                                            }; //self.make_file_reference(rf,next.1,next.2);
+                                            };
                                             let tk = PrimitiveCharacterToken::new(
                                                 next.0,CategoryCode::Ignored,SourceReference::File((nrf)));
                                             ltxf.add(tk.as_object())
@@ -259,15 +266,15 @@ impl StringMouth<'_> {
                                     let mut rest : Vec<u8> = self.string.as_mut().unwrap().map(|x| *x).collect();
                                     rest.insert(0,next.0);
                                     match self.source.get_file() {
-                                        Some((ltxf,rf)) => {
+                                        Some(ltxf) => {
                                             let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
                                             let end = txt.len() as u32;
                                             self.pos += end;
                                             let nrf = FileReference {
-                                                file:rf,
+                                                file:ltxf.path.clone(),
                                                 start: (next.1,next.2),
                                                 end: (self.line,self.pos)
-                                            };
+                                            };///self.make_file_reference(ltxf,next.1,next.2);
                                             let tk = Comment {
                                                 text: txt,
                                                 reference: nrf
@@ -402,7 +409,7 @@ impl StringMouth<'_> {
             let obj = LaTeXObject::Token(Rc::clone(&ret));
 
             match self.source.get_file() {
-                Some((ltxf, _)) => {
+                Some(ltxf) => {
                     ltxf.add(Rc::new(obj))
                 }
                 _ => {}
@@ -425,6 +432,7 @@ impl StringMouth<'_> {
 
 use std::path::Path;
 use crate::interpreter::files::VFile;
+use crate::interpreter::mouth::Mouth::Str;
 
 impl<'a> Interpreter<'a> {
     pub(in crate::interpreter) fn has_next(&mut self) -> bool { loop {
@@ -465,7 +473,8 @@ impl<'a> Interpreter<'a> {
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter) fn push_file(&mut self, file : &mut VFile) {
-        todo!()
+    pub(in crate::interpreter) fn push_file(&'a mut self, file : VFile) {
+        let fm = StringMouth::new_from_file(self.state.as_ref().expect("This should not happen"),file);
+        self.mouths.push(Mouth::File(fm))
     }
 }
