@@ -8,7 +8,8 @@ pub mod catcodes;
 #[macro_use]
 extern crate lazy_static;
 
-static LANGUAGE_DAT : &'static [u8] = include_bytes!("resources/language.dat");
+static LANGUAGE_DAT : &'static str = include_str!("resources/language.dat");
+static UNICODEDATA_TXT : &'static str = include_str!("resources/UnicodeData.txt");
 
 #[cfg(test)]
 mod tests {

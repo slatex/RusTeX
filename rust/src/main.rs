@@ -16,11 +16,11 @@ fn main() {
         exp: vec![]
     };
 
-    use rustex::utils::{kpsewhich,FilePath};
+    use rustex::utils::{kpsewhich,PWD};
     use std::{env,fs};
-    let latexltx = kpsewhich("latex.ltx",&FilePath::from_path(env::current_dir().unwrap())).unwrap();
+    let latexltx = kpsewhich("latex.ltx",&PWD).expect("latex.ltx not found!");
 
-    let content = fs::read_to_string(latexltx.path()).unwrap();
+    let content = fs::read_to_string(latexltx).unwrap();
 
     let mut mouth = StringMouth::new(&state,dummyexp,content.as_str());
     let mut ret: Vec<Rc<Token>> = Vec::new();

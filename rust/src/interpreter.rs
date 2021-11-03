@@ -3,11 +3,12 @@ pub enum TeXMode {
 }
 
 use std::any::Any;
-use std::borrow::Borrow;
-use crate::ontology::{CharacterToken, PrimitiveCharacterToken, PrimitiveToken, Token};
+use std::borrow::{Borrow, BorrowMut};
+use crate::ontology::{CharacterToken, LaTeXFile, PrimitiveCharacterToken, PrimitiveToken, Token};
 use crate::catcodes::CategoryCodeScheme;
 use mouth::Mouth;
 use crate::references::SourceReference;
+use std::path::{Path, PathBuf};
 
 pub mod mouth;
 pub mod state;
@@ -27,14 +28,14 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> 
 }
 
 use crate::interpreter::state::{State,default_pdf_latex_state};
-use crate::utils::{FilePath, kpsewhich};
+use crate::utils::kpsewhich;
 use crate::interpreter::files::VFile;
 
 pub struct Interpreter<'a> {
     state : Option<State<'a>>,
     pub mode : TeXMode,
     mouths: Vec<Mouth<'a>>,
-    job : Option<Rc<VFile>>,
+    job : Option<PathBuf>,
 }
 
 use std::rc::Rc;
@@ -71,8 +72,30 @@ impl<'a> Interpreter<'a> {
         self.state.take().expect("State killed already")
     }
 
-    pub fn do_file(&mut self,file:FilePath) {
+    pub fn jobname(&self) -> &str {
+        let job = self.job.as_ref().expect("Interpreter without running job has no jobname");
+        job.file_stem().unwrap().to_str().unwrap()
+    }
+    fn in_file(&self) -> &Path {
+        self.job.as_ref().expect("Interpreter without running job has no jobname").parent().unwrap()
+    }
 
+    pub fn kpsewhich(&self,filename:&str) -> PathBuf {
+        match kpsewhich(filename,self.in_file()) {
+            None => PathBuf::from(self.in_file().to_str().unwrap().to_owned() + "/" + filename).canonicalize().unwrap(),
+            Some(fp) => fp
+        }
+    }
+
+    pub fn do_file(&mut self,file:&Path) -> Result<LaTeXFile,&str> {
+        if !file.exists() {
+            return Result::Err("File does not exist")
+        }
+        self.job = Some(file.canonicalize().expect("File name not canonicalizable").to_path_buf());
+        //let vf = self.borrow_mut().getvf(file);
+        let vf = VFile::new(file,self);
+        self.push_file(vf);
+        todo!()
     }
 
     fn do_v_mode(&mut self) {

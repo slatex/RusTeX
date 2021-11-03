@@ -55,14 +55,14 @@ impl StackFrame<'_> {
 #[derive(Clone)]
 pub struct State<'a> {
     stacks: Vec<Box<StackFrame<'a>>>,
-    files: Vec<&'a VFile>
+    pub(in crate::interpreter) files: HashMap<String,VFile>
 }
 
 impl State<'_> {
     pub(crate) fn new<'a>() -> State<'a> {
         State {
             stacks: vec![Box::new(StackFrame::initial_pdf_etex())],
-            files:Vec::new()
+            files:HashMap::new()
         }
     }
     pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand>> {
@@ -83,7 +83,7 @@ use crate::interpreter::Interpreter;
 
 pub fn default_pdf_latex_state<'a>() -> State<'a> {
     use std::env;
-    use crate::utils::{kpsewhich,FilePath};
+    use crate::utils::kpsewhich;
     use crate::interpreter::TeXMode;
     use crate::utils::PWD;
 
@@ -92,11 +92,11 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
 
-    println!("{}",pdftex_cfg.path());
-    println!("{}",latex_ltx.path());
+    println!("{}",pdftex_cfg.to_str().expect("wut"));
+    println!("{}",latex_ltx.to_str().expect("wut"));
 
-    interpreter.do_file(pdftex_cfg);
-    interpreter.do_file(latex_ltx);
+    interpreter.do_file(pdftex_cfg.as_path());
+    interpreter.do_file(latex_ltx.as_path());
 
     interpreter.kill_state()
 }

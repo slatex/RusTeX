@@ -79,7 +79,6 @@ impl TokenMouth {
 use crate::interpreter::Interpreter;
 extern crate itertools;
 use itertools::Itertools;
-use crate::utils::FilePath;
 use self::itertools::MultiPeek;
 
 enum StringMouthSource {
@@ -424,6 +423,8 @@ impl StringMouth<'_> {
     }
 }
 
+use std::path::Path;
+use crate::interpreter::files::VFile;
 
 impl<'a> Interpreter<'a> {
     pub(in crate::interpreter) fn has_next(&mut self) -> bool { loop {
@@ -464,7 +465,7 @@ impl<'a> Interpreter<'a> {
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter) fn push_file(&mut self, file : FilePath) {
-
+    pub(in crate::interpreter) fn push_file(&mut self, file : &mut VFile) {
+        todo!()
     }
 }

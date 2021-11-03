@@ -252,16 +252,15 @@ impl Expansion {
 }
 
 // ------------------------------------------------
-use crate::utils::FilePath;
-
+use std::path::Path;
 pub struct LaTeXFile {
-    pub path: FilePath,
+    pub path: String,
     ch : Vec<Rc<LaTeXObject>>
 }
 impl LaTeXFile {
-    fn new(fp : FilePath) -> LaTeXFile {
+    fn new(fp : &Path) -> LaTeXFile {
         LaTeXFile {
-            path:fp,
+            path:fp.to_str().expect("wut").to_string(),
             ch : Vec::new()
         }
     }
