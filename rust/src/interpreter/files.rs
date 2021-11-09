@@ -1,6 +1,5 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::ffi::OsString;
-use crate::interpreter::Interpreter;
 use std::path::{PathBuf,Path};
 use crate::utils::{TEXMF1,TEXMF2};
 use std::fs;
@@ -21,19 +20,25 @@ pub struct VFile {
 extern crate pathdiff;
 
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use crate::interpreter::state::State;
+
+pub(in crate::interpreter) struct FileStore {
+    pub files: HashMap<String,VFile>
+}
 
 impl VFile {
-    fn get_map<'a>(int: &'a mut Interpreter) {
+    fn get_map<'a>(int: &'a mut State<'a>) {
 
     }
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, int : &'a mut Interpreter) -> VFile {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&'a mut FileStore) -> VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename = if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else {
-            pathdiff::diff_paths(fp,int.in_file()).unwrap().to_str().unwrap().to_ascii_uppercase()
+            pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_ascii_uppercase()
         };
-        let opt = int.state.as_mut().expect("Interpreter currently has no state!").files.remove(simplename.as_str());
+        let opt = filestore.files.remove(simplename.as_str());
         match opt {
             Some(vf) => vf,
             _ => {
@@ -58,6 +63,7 @@ impl VFile {
                 }
             }
         }
+
         /*
         int.state.as_mut().expect("Interpreter currently has no state!").files.entry(simplename.clone()).or_insert_with(||{
 

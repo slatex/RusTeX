@@ -1,5 +1,6 @@
-mod primitives;
+pub mod primitives;
 pub mod etex;
+pub mod pdftex;
 
 use crate::ontology::{Command, Expansion, Token};
 use crate::interpreter::Interpreter;
@@ -8,15 +9,27 @@ use crate::references::SourceReference;
 use std::fmt;
 use std::fmt::Formatter;
 
-pub struct PrimitiveTeXCommand {
+pub struct PrimitiveExecutable {
     pub apply:fn(cs:Rc<Command>,itp:&Interpreter) -> Expansion,
     pub expandable : bool,
     pub name: &'static str
 }
 
+pub struct RegisterReference {
+    pub index: i8,
+    pub name: &'static str
+}
+
+pub struct DimenReference {
+    pub index: i8,
+    pub name: &'static str
+}
+
 #[derive(Clone)]
 pub enum TeXCommand {
-    Primitive(&'static PrimitiveTeXCommand),
+    Primitive(&'static PrimitiveExecutable),
+    Register(&'static RegisterReference),
+    Dimen(&'static DimenReference),
     Def
 }
 impl fmt::Display for TeXCommand {
@@ -31,5 +44,13 @@ impl fmt::Display for TeXCommand {
 impl TeXCommand {
     pub fn defmacro(tks : Vec<Token>,source:Rc<Token>,protected:bool) -> TeXCommand {
         todo!("commands.rs 33")
+    }
+    pub fn name(&self) -> &str {
+        match self {
+            TeXCommand::Primitive(pr) => pr.name,
+            TeXCommand::Register(reg) => reg.name,
+            TeXCommand::Dimen(dr) => dr.name,
+            TeXCommand::Def => todo!()
+        }
     }
 }

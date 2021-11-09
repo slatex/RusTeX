@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 pub struct FileReference {
     pub file:String,
-    pub start:(u32,u32),
-    pub end:(u32,u32)
+    pub start:(usize,usize),
+    pub end:(usize,usize)
 }
 
 use crate::ontology::Expansion;

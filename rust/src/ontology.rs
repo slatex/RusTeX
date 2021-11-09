@@ -299,6 +299,12 @@ impl ControlSequence {
             Rc::new(PrimitiveControlSequence::new("DUMMY".to_owned(),SourceReference::None))
         )
     }
+    pub fn name(&self) -> &str {
+        match self {
+            ControlSequence::Prim(pr) => pr._name.as_str(),
+            ControlSequence::Ref => todo!()
+        }
+    }
 }
 
 pub enum ActiveCharacterToken {
@@ -331,6 +337,12 @@ impl Command {
     pub fn dummy() -> Command {
         Command::Cs(Rc::new(ControlSequence::dummy()))
     }
+    pub fn name(&self) -> &str {
+        match self {
+            Command::Cs(cs) => cs.name(),
+            Command::Active(ch) => todo!()
+        }
+    }
 }
 
 pub enum CharacterToken {
@@ -339,8 +351,18 @@ pub enum CharacterToken {
 }
 
 impl CharacterToken {
-    pub fn get_char(&self) -> u8 {todo!("ontology.rs 342")}
-    pub fn catcode(&self) -> &CategoryCode {todo!("ontology.rs 343")}
+    pub fn get_char(&self) -> u8 {
+        match self {
+            CharacterToken::Prim(p) => p._char,
+            CharacterToken::Ref => todo!()
+        }
+    }
+    pub fn catcode(&self) -> CategoryCode {
+        match self {
+            CharacterToken::Prim(p) => p._catcode,
+            CharacterToken::Ref => todo!()
+        }
+    }
     pub fn as_string(&self) -> String {
         match self {
             CharacterToken::Prim(p) => p.as_string(),

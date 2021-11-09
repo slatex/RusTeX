@@ -2,6 +2,7 @@ enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
 use std::iter::{Peekable, Map};
+use std::ops::Deref;
 use std::rc::Rc;
 use std::slice::IterMut;
 use std::str::{Chars, from_utf8, from_utf8_unchecked, Split};
@@ -12,36 +13,26 @@ use crate::references::{SourceReference,FileReference};
 use crate::interpreter::state::State;
 
 use crate::debug;
-/*
-pub trait Mouth {
-    fn has_next(&mut self,nocomment : bool) -> bool;
-    fn pop_next(&mut self,nocomment : bool) -> Rc<Token>;
-    fn preview(&mut self) -> String;
-    fn pushback(&mut self);
-    fn peek(&mut self) -> Rc<Token>;
-}
 
- */
-
-pub enum Mouth<'a> {
+pub enum Mouth {
     Token(TokenMouth),
-    Str(StringMouth<'a>),
-    File(StringMouth<'a>)
+    Str(StringMouth),
+    File(StringMouth)
 }
 
-impl Mouth<'_> {
-    pub(crate) fn has_next(&mut self, nocomment : bool) -> bool {
+impl Mouth {
+    pub(crate) fn has_next(&mut self,state:&State, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
-            Mouth::Str(sm) => sm.has_next(nocomment),
-            Mouth::File(sm) => sm.has_next(nocomment)
+            Mouth::Str(sm) => sm.has_next(state,nocomment),
+            Mouth::File(sm) => sm.has_next(state,nocomment)
         }
     }
-    pub(crate) fn get_next(&mut self) -> Rc<Token> {
+    pub(crate) fn get_next(&mut self,state:&State) -> Rc<Token> {
         match self {
             Mouth::Token(tm) => tm.pop_next(true),
-            Mouth::Str(sm) => sm.pop_next(true),
-            Mouth::File(sm) => sm.pop_next(true)
+            Mouth::Str(sm) => sm.pop_next(state,true),
+            Mouth::File(sm) => sm.pop_next(state,true)
         }
     }
 }
@@ -101,29 +92,28 @@ impl StringMouthSource {
     }
 }
 
-pub struct StringMouth<'a> {
+pub struct StringMouth {
     mouth_state:MouthState,
-    interpreter_state:&'a State<'a>,
     peekbuffer : Option<Rc<Token>>,
-    string : Option<MultiPeek<std::slice::Iter<'a,u8>>>,//Option<std::slice::Iter<'a,u8>>,
+    string : Option<String>,
     allstrings : Vec<String>,
-    line: u32,
-    pos: u32,
+    line: usize,
+    pos: usize,
     atendofline:Option<u8>,
-    charbuffer:Option<(u8,u32,u32)>,
+    charbuffer:Option<(u8,usize,usize)>,
     source : StringMouthSource,
 }
 
-impl StringMouth<'_> {
-    pub fn new_from_file<'a>(state:&'a State<'a>, file:VFile) -> StringMouth {
+impl StringMouth {
+    pub fn new_from_file<'a,'b>(state:&'b State<'b>, file:VFile) -> StringMouth {
         let ltxf = LaTeXFile::new(file.id);
         let string = file.string.expect("This shouldn't happen");
         StringMouth::new_i(state,StringMouthSource::File(ltxf),string)
     }
-    pub fn new<'a>(state:&'a State<'a>, source:Expansion, string : &'a str) -> StringMouth<'a> {
+    pub fn new<'a,'b>(state:&'b State<'b>, source:Expansion, string : &'a str) -> StringMouth {
         StringMouth::new_i(state,StringMouthSource::Exp(source),string.to_string())
     }
-    fn new_i<'a>(state:&'a State<'a>, source:StringMouthSource, string : String) -> StringMouth<'a> {
+    fn new_i<'a,'b>(state:&'b State<'b>, source:StringMouthSource, string : String) -> StringMouth {
         use std::str::{from_utf8};
         let newlinechar = state.newlinechar();
         let it = if string.is_empty() {
@@ -140,7 +130,6 @@ impl StringMouth<'_> {
         };
         StringMouth {
             mouth_state:MouthState::N,
-            interpreter_state:state,
             allstrings:it,
             string:None,
             peekbuffer:None,
@@ -151,64 +140,59 @@ impl StringMouth<'_> {
             source
         }
     }
-    fn do_line(&mut self) -> bool { /*
+    fn do_line(&mut self,state:&State) -> bool {
         if self.allstrings.is_empty() { false } else {
-            match self.interpreter_state.endlinechar() {
+            match state.endlinechar() {
                 u8::MAX => {},
                 o => self.atendofline =  Some(o)
             };
             //self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let string = self.allstrings.pop().unwrap().trim_end().as_bytes().iter().multipeek();
+            let string = self.allstrings.pop().unwrap();
             self.string = Some(string);
             self.line += 1;
             self.pos = 0;
             self.mouth_state = MouthState::N;
             true
-        } */
-        todo!()
-    }
-    /*
-    fn ignored(source: &StringMouthSource, tk : Box<dyn LaTeXObject>) {
-        match source {
-            StringMouthSource::File(mut ltxf) => ltxf.add(tk as Box<dyn LaTeXObject>),
-            _ => {}
         }
     }
 
-     */
-    fn next_char(&mut self) -> Option<(u8, u32, u32)> {
+    fn next_char(&mut self,state:&State) -> Option<(u8, usize, usize)> {
         loop {
             if let Some(tk) = self.charbuffer.take() { return Some(tk) } else {
                 match self.string {
-                    None => match self.do_line() {
+                    None => match self.do_line(state) {
                         true => {},
                         false => return None
                     }
-                    Some(ref mut it) => {
-                        if it.len() == 0 {
+                    Some(ref str) => {
+                        if str.len() <= self.pos {
                             match self.atendofline {
                                 Some(cb) => {
                                     self.atendofline = None;
-                                    return Some((cb, self.line + 1, self.pos + 1))
+                                    return Some((cb, self.line + 1, self.pos))
                                 },
-                                None => match self.do_line() {
+                                None => match self.do_line(state) {
                                     true => {},
                                     false => return None
                                 }
                             }
-                        } else { return Some((*it.next().unwrap(), self.line + 1, self.pos + 1)) }
+                        } else {
+                            let ret = str.as_bytes().get(self.pos).unwrap();
+                            self.pos += 1;
+                            return Some((*ret, self.line + 1, self.pos))
+                        }
                     }
                 }
             }
         }
     }
 
-    fn do_s(&mut self) {
+    fn do_s(&mut self,state:&State) {
         use crate::catcodes::CategoryCode;
-        while (self.has_next(true)) {
-            let next = self.next_char().unwrap();
-            match self.interpreter_state.catcodes().get_code(next.0) {
-                CategoryCode::Space | CategoryCode::EOL => { self.pos += 1 }
+        while (self.has_next(state,true)) {
+            let next = self.next_char(state).unwrap();
+            match state.catcodes().get_code(next.0) {
+                CategoryCode::Space | CategoryCode::EOL => {}
                 _ => {
                     self.charbuffer = Some(next);
                     break
@@ -216,13 +200,13 @@ impl StringMouth<'_> {
             }
         }
     }
-    fn make_reference(&self,line:u32,pos:u32) -> SourceReference {
+    fn make_reference(&self,line:usize,pos:usize) -> SourceReference {
         match self.source.get_file_ref() {
             None => SourceReference::None,
             Some(r) => SourceReference::File(self.make_file_reference(r,line,pos))
         }
     }
-    fn make_file_reference(&self,f : &LaTeXFile,line:u32,pos:u32) -> FileReference {
+    fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> FileReference {
         FileReference {
             file:f.path.clone(),
             start: (line,pos),
@@ -230,22 +214,21 @@ impl StringMouth<'_> {
         }
     }
 
-    pub fn has_next(&mut self, nocomment: bool) -> bool {
+    pub fn has_next(&mut self,state:&State, nocomment: bool) -> bool {
         match self.peekbuffer {
             Some(_) => true,
             None => {
                 loop {
-                    match self.next_char() {
+                    match self.next_char(state) {
                         None => return false, // ret = Some(false),
                         Some(next) => match self.mouth_state {
                             MouthState::S => {
                                 self.charbuffer = Some(next);
                                 self.mouth_state = MouthState::M;
-                                self.do_s();
+                                self.do_s(state);
                             }
-                            _ => match self.interpreter_state.catcodes().get_code(next.0) {
+                            _ => match state.catcodes().get_code(next.0) {
                                 CategoryCode::Ignored => {
-                                    self.pos += 1;
                                     let file = self.source.get_file();
                                     match file {
                                         Some(ltxf) => {
@@ -263,12 +246,12 @@ impl StringMouth<'_> {
                                     }
                                 }
                                 CategoryCode::Comment => if nocomment {
-                                    let mut rest : Vec<u8> = self.string.as_mut().unwrap().map(|x| *x).collect();
+                                    let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().as_bytes())[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
                                     rest.insert(0,next.0);
                                     match self.source.get_file() {
                                         Some(ltxf) => {
                                             let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
-                                            let end = txt.len() as u32;
+                                            let end = txt.len();
                                             self.pos += end;
                                             let nrf = FileReference {
                                                 file:ltxf.path.clone(),
@@ -283,15 +266,14 @@ impl StringMouth<'_> {
                                         }
                                         _ => {}
                                     }
-                                    self.do_line();
+                                    self.do_line(state);
                                     loop {
-                                        match self.next_char() {
+                                        match self.next_char(state) {
                                             None => break,
                                             Some(n) => {
-                                                let cc = self.interpreter_state.catcodes().get_code(n.0);
+                                                let cc = state.catcodes().get_code(n.0);
                                                 match cc {
-                                                    CategoryCode::Space => { self.pos += 1 }
-                                                    CategoryCode::EOL => { self.pos += 1 }
+                                                    CategoryCode::Space | CategoryCode::EOL => { }
                                                     _ => {
                                                         self.charbuffer = Some(n);
                                                         break
@@ -301,21 +283,21 @@ impl StringMouth<'_> {
                                         }
                                     }
                                 }
-                                CategoryCode::Space if matches!(self.mouth_state,MouthState::N) => { self.pos += 1 }
+                                CategoryCode::Space if matches!(self.mouth_state,MouthState::N) => { }
                                 CategoryCode::Superscript => {
-                                    let string = self.string.as_mut().unwrap();
-                                    let len = string.len();
-                                    let peek = string.peek();
-                                    if (len > 1 && peek.is_some() && (**peek.unwrap()) == next.0) {
+                                    let string = self.string.as_ref().unwrap();
+                                    let len = string.as_bytes()[self.pos..].len();
+                                    let peek = string.as_bytes().get(self.pos);
+                                    if (len > 1 && peek.is_some() && (*peek.unwrap()) == next.0) {
                                         let (startl,startpos) = (next.1,next.2);
-                                        self.pos += 2;
-                                        string.next();
-                                        let next = *string.next().unwrap();
-                                        let maybenext = string.peek();
+                                        self.pos += 1;
+                                        let next = *string.as_bytes().get(self.pos).unwrap();
+                                        self.pos += 1;
+                                        let maybenext = string.as_bytes().get(self.pos as usize);
                                         fn cond(i:u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
-                                        if (cond(next)) && maybenext.is_some() && cond(**maybenext.unwrap()) {
+                                        if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
                                             self.pos += 1;
-                                            self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,**maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
+                                            self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,*maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
                                         } else if next < 64 {
                                             panic!("next<64 in line {}, column {}",self.line,self.pos)
                                         }  else if next < 128 {
@@ -334,38 +316,38 @@ impl StringMouth<'_> {
             }
         }
     }
-    pub fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
-        if !self.has_next(true) {panic!("Mouth is empty")}
+    pub fn pop_next(&mut self,state:&State, nocomment: bool) -> Rc<Token> {
+        if !self.has_next(state,true) {panic!("Mouth is empty")}
         if let Some(tk) = self.peekbuffer.take() { tk } else {
-            let (char,l,p) = self.next_char().unwrap();
-            let catcode = |x:u8| self.interpreter_state.catcodes().get_code(x);
+            let (char,l,p) = self.next_char(state).unwrap();
+            let catcode = |x:u8| state.catcodes().get_code(x);
             let ret = match catcode(char) {
                 CategoryCode::Escape => {
                     let mut buf : Vec<u8> = Vec::new();
-                    let string = self.string.as_mut().unwrap();
-                    match string.peek() {
+                    let string = self.string.as_ref().unwrap().as_bytes();
+                    match string.get(self.pos) {
                         None => {self.mouth_state = MouthState::M}
                         Some(nc) => {
-                            match catcode(**nc) {
+                            match catcode(*nc) {
                                 CategoryCode::Letter => {
-                                    while match string.peek() {
+                                    while match string.get(self.pos) {
                                         None => false,
-                                        Some(s) => matches!(catcode(**s),CategoryCode::Letter)
+                                        Some(s) => matches!(catcode(*s),CategoryCode::Letter)
                                     } {
-                                        let nc = string.next().unwrap();
+                                        let nc = string.get(self.pos).unwrap();
                                         self.pos += 1;
                                         buf.push(*nc);
                                     }
                                     self.mouth_state = MouthState::S;
                                 }
                                 CategoryCode::Space => {
-                                    let nc = string.next().unwrap();
+                                    let nc = string.get(self.pos).unwrap();
                                     self.pos += 1;
                                     buf.push(*nc);
                                     self.mouth_state = MouthState::S
                                 }
                                 _ => {
-                                    let nc = string.next().unwrap();
+                                    let nc = string.get(self.pos).unwrap();
                                     self.pos += 1;
                                     buf.push(*nc);
                                     self.mouth_state = MouthState::M
@@ -378,12 +360,11 @@ impl StringMouth<'_> {
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {
                     self.mouth_state = MouthState::S;
-                    self.pos += 1;
                     PrimitiveCharacterToken::new(char,CategoryCode::Space,self.make_reference(l,p)).as_token()
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
-                    while(self.has_next(nocomment)) {
-                        let (n,l2,p2) = self.next_char().unwrap();
+                    while(self.has_next(state,nocomment)) {
+                        let (n,l2,p2) = self.next_char(state).unwrap();
                         if !matches!(catcode(n),CategoryCode::EOL) {
                             self.charbuffer = Some((n,l2,p2));
                             break
@@ -393,15 +374,12 @@ impl StringMouth<'_> {
                 }
                 CategoryCode::Space if matches!(self.mouth_state,MouthState::M) => {
                     self.mouth_state = MouthState::S;
-                    self.pos += 1;
                     PrimitiveCharacterToken::new(char,CategoryCode::Space,self.make_reference(l,p)).as_token()
                 }
                 CategoryCode::Active => {
-                    self.pos += 1;
                     PrimitiveActiveCharacterToken::new(char,self.make_reference(l,p)).as_token()
                 }
                 _ => {
-                    self.pos += 1;
                     self.mouth_state = MouthState::M;
                     PrimitiveCharacterToken::new(char,catcode(char),self.make_reference(l,p)).as_token()
                 }
@@ -417,8 +395,8 @@ impl StringMouth<'_> {
             ret
         }
     }
-    fn peek(&mut self) -> Rc<Token> {
-        let next = self.pop_next(true);
+    fn peek(&mut self,state:&State) -> Rc<Token> {
+        let next = self.pop_next(state,true);
         self.peekbuffer = Some(Rc::clone(&next));
         next
     }
@@ -434,47 +412,92 @@ use std::path::Path;
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::Mouth::Str;
 
-impl<'a> Interpreter<'a> {
-    pub(in crate::interpreter) fn has_next(&mut self) -> bool { loop {
-        match self.mouths.last_mut() {
-            None => return false,
-            Some(m) => {
-                if m.has_next(true) {return true} else {
-                    match m {
-                        Mouth::File(fm) => todo!(),
-                        _ => if !self.next_mouth() { return false }
+pub (in crate::interpreter) struct Mouths {
+    mouths: Vec<Mouth>,
+    buffer: Option<Rc<Token>>
+}
+
+impl Mouths {
+    pub fn new() -> Mouths {
+        Mouths {
+            mouths:Vec::new(),
+            buffer:None
+        }
+    }
+    pub(in crate::interpreter::mouth) fn has_next(&mut self,state:&State) -> bool {
+        match self.buffer {
+            Some(_) => true,
+            _ => loop {
+                match self.mouths.last_mut() {
+                    None => return false,
+                    Some(m) => {
+                        if m.has_next(state,true) {return true} else {
+                            match m {
+                                Mouth::File(fm) => todo!(),
+                                _ => if !self.next_mouth() { return false }
+                            }
+                        }
                     }
                 }
             }
         }
-    } }
+    }
     fn next_mouth(&mut self) -> bool {
         if (self.mouths.len() > 1) {
             self.mouths.pop();
             true
         } else { false }
     }
-    pub(in crate::interpreter) fn next_token(&mut self) -> Rc<Token> {
-        if self.has_next() {
-            self.mouths.last_mut().unwrap().get_next()
-        } else {
-            panic!("Mouths empty!")
+    pub(in crate::interpreter) fn next_token(&mut self,state:&State) -> Rc<Token> {
+        match self.buffer {
+            Some(_) => self.buffer.take().unwrap(),
+            _ => if self.has_next(state) {
+                self.mouths.last_mut().unwrap().get_next(state)
+            } else {
+                panic!("Mouths empty!")
+            }
         }
     }
-    pub(in crate::interpreter) fn push_expansion(&mut self, exp : Expansion) {
+    pub(in crate::interpreter::mouth) fn push_expansion(&mut self, exp : Expansion) {
         if !exp.exp.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(exp));
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
+    pub(in crate::interpreter::mouth) fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
         if !tks.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks)));
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter) fn push_file(&'a mut self, file : VFile) {
-        let fm = StringMouth::new_from_file(self.state.as_ref().expect("This should not happen"),file);
+    /*
+    pub(in crate::interpreter) fn push_file<'a>(&'a mut self,state : &'a State<'a>, file : VFile) {
+        let fm = StringMouth::new_from_file(state,file);
         self.mouths.push(Mouth::File(fm))
     }
+
+     */
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,state:&State,file:VFile) {
+        self.mouths.push(Mouth::File(StringMouth::new_from_file(state,file)))
+    }
+
+    pub(in crate::interpreter) fn requeue(&mut self, tk : Rc<Token>) {
+        self.buffer = Some(tk)
+    }
+}
+
+impl Interpreter<'_,'_> {
+    pub fn push_file(&mut self,file:VFile) {
+        self.mouths.push_file(&self.state,file)
+    }
+    pub fn has_next(&mut self) -> bool {
+        self.mouths.has_next(&self.state)
+    }
+    /*
+    pub fn push_file(&mut self,file : VFile) {
+        let mut fm = StringMouth::new_from_file(&self.state,file);
+        self.mouths.mouths.push(Mouth::File(fm))
+    }
+
+     */
 }
