@@ -5,7 +5,7 @@ use crate::VERSION_INFO;
 use std::rc::Rc;
 use std::slice::Iter;
 
-pub static PAR : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutable {
+pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
     apply:|cs: Rc<Command>, int: &Interpreter| {
@@ -14,8 +14,8 @@ pub static PAR : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutable {
             exp: vec![]
         }
     }
-});
-pub static RELAX : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutable {
+};
+pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
     apply:|cs: Rc<Command>, int: &Interpreter| {
@@ -24,8 +24,8 @@ pub static RELAX : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutable {
             exp: vec![]
         }
     }
-});
+};
 
-pub fn tex_commands() -> Vec<&'static TeXCommand> {vec![
-    &PAR, &RELAX
+pub fn tex_commands() -> Vec<TeXCommand> {vec![
+    TeXCommand::Primitive(&PAR), TeXCommand::Primitive(&RELAX)
 ]}

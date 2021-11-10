@@ -15,7 +15,7 @@ struct StackFrame<'a> {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<&'a str,Option<&'a TeXCommand>>,
+    pub(crate) commands: HashMap<&'a str,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i8,Option<i32>>,
     pub(crate) dimensions: HashMap<i8,Option<i32>>
 }
@@ -25,7 +25,7 @@ impl StackFrame<'_> {
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
-        let mut cmds: HashMap<&str,Option<&TeXCommand>> = HashMap::new();
+        let mut cmds: HashMap<&str,Option<TeXCommand>> = HashMap::new();
         for c in tex_commands() {
             cmds.insert(c.name(),Some(c));
         }
@@ -60,9 +60,10 @@ impl StackFrame<'_> {
             dimensions:dims
         }
     }
-    pub(crate) fn get_command(&self, name:&str) -> Option<&TeXCommand> {
+    pub(crate) fn get_command(&self, name:&str) -> Option<TeXCommand> {
         match self.commands.get(name) {
-            Some(r) => *r,
+            Some(Some(r)) => Some(*r),
+            Some(None) => None,
             None => match self.parent {
                 Some(p) => p.get_command(name),
                 None => None
@@ -102,7 +103,20 @@ impl State<'_> {
             stacks: vec![Box::new(StackFrame::initial_pdf_etex())]
         }
     }
-    pub fn get_command(&self, name: &str) -> Option<&TeXCommand> {
+    pub fn with_commands<'a>(mut procs:Vec<TeXCommand>) -> State<'a> {
+        let mut st = State::new();
+        while !procs.is_empty() {
+            let p = procs.pop().unwrap();
+            let name = p.name();
+            st.change(StateChange::Cs(CommandChange{
+                name,
+                cmd: Some(p),
+                global: false
+            }));
+        }
+        st
+    }
+    pub fn get_command(&self, name: &str) -> Option<TeXCommand> {
         self.stacks.last().unwrap().get_command(name)
     }
     pub fn get_register(&self, index:i8) -> i32 {
@@ -133,6 +147,20 @@ impl State<'_> {
                     self.stacks.iter_mut().map(|s| s.registers.insert(regch.index,Some(regch.value)));
                 } else {
                     self.stacks.last_mut().unwrap().registers.insert(regch.index,Some(regch.value));
+                }
+            }
+            StateChange::Dimen(regch) => {
+                if regch.global {
+                    self.stacks.iter_mut().map(|s| s.dimensions.insert(regch.index,Some(regch.value)));
+                } else {
+                    self.stacks.last_mut().unwrap().dimensions.insert(regch.index,Some(regch.value));
+                }
+            }
+            StateChange::Cs(cmd) => {
+                if cmd.global {
+                    self.stacks.iter_mut().map(|s| s.commands.insert(cmd.name,cmd.cmd));
+                } else {
+                    self.stacks.last_mut().unwrap().commands.insert(cmd.name,cmd.cmd);
                 }
             }
             _ => todo!()
@@ -167,6 +195,14 @@ pub struct RegisterStateChange {
     pub global:bool
 }
 
+pub struct CommandChange {
+    pub name:&'static str,
+    pub cmd:Option<TeXCommand>,
+    pub global:bool
+}
+
 pub enum StateChange {
-    Register(RegisterStateChange)
+    Register(RegisterStateChange),
+    Dimen(RegisterStateChange),
+    Cs(CommandChange)
 }

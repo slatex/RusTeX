@@ -4,6 +4,7 @@ pub mod interpreter;
 pub mod utils;
 pub mod commands;
 pub mod catcodes;
+mod javabridge;
 
 #[macro_use]
 extern crate lazy_static;

@@ -18,6 +18,30 @@ pub enum CategoryCode {
     Invalid
 }
 
+impl std::fmt::Display for CategoryCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use CategoryCode::*;
+        write!(f,"{}",match self {
+            Escape => "Escape",
+            BeginGroup => "BeginGroup",
+            EndGroup => "EndGroup",
+            MathShift => "MathShift",
+            AlignmentTab => "AlignmentTab",
+            EOL => "EOL",
+            Parameter => "Parameter",
+            Superscript => "Superscript",
+            Subscript => "Subscript",
+            Ignored => "Ignored",
+            Space => "Space",
+            Letter => "Letter",
+            Other => "Other",
+            Active => "Active",
+            Comment => "Comment",
+            Invalid => "Invalid"
+        })
+    }
+}
+
 impl CategoryCode {
     pub fn fromint(int : i32) -> CategoryCode {
         use CategoryCode::*;
@@ -65,6 +89,8 @@ impl CategoryCode {
 }
 
 use std::collections::HashMap;
+use std::fmt::Formatter;
+
 #[derive(Clone)]
 pub struct CategoryCodeScheme {
     catcodes : HashMap<u8,CategoryCode>// = HashMap::new();

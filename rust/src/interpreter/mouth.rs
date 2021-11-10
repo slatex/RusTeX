@@ -42,10 +42,16 @@ pub struct TokenMouth {
     tokens : Vec<Rc<Token>>
 }
 impl TokenMouth {
-    fn new(exp:Expansion) -> TokenMouth {
+    fn new(exp:Expansion,copy:bool) -> TokenMouth {
         let mut vec : Vec<Rc<Token>> = Vec::new();
-        for tk in &exp.exp {
-            vec.push(tk.copied(&exp))
+        if copy {
+            for tk in &exp.exp {
+                vec.push(tk.copied(&exp))
+            }
+        } else {
+            for tk in &exp.exp {
+                vec.push(Rc::clone(tk))
+            }
         }
         TokenMouth {
             exp:exp,
@@ -101,7 +107,7 @@ pub struct StringMouth {
     pos: usize,
     atendofline:Option<u8>,
     charbuffer:Option<(u8,usize,usize)>,
-    source : StringMouthSource,
+    pub(in crate::interpreter::mouth) source : StringMouthSource,
 }
 
 impl StringMouth {
@@ -460,13 +466,13 @@ impl Mouths {
     }
     pub(in crate::interpreter::mouth) fn push_expansion(&mut self, exp : Expansion) {
         if !exp.exp.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(exp));
+            let nm = Mouth::Token(TokenMouth::new(exp,true));
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter::mouth) fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
+    pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Rc<Token>>) {
         if !tks.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks)));
+            let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks),false));
             self.mouths.push(nm)
         }
     }
@@ -483,6 +489,23 @@ impl Mouths {
 
     pub(in crate::interpreter) fn requeue(&mut self, tk : Rc<Token>) {
         self.buffer = Some(tk)
+    }
+
+    pub fn current_line(&self) -> String {
+        match self.mouths.iter().rev().find(|m| match m {
+            Mouth::File(sm) => true,
+            _ => false
+        }) {
+            Some(Mouth::File(m)) => {
+                match &m.source {
+                    StringMouthSource::File(lf) => {
+                        (lf.path.clone() + " (" + m.line.to_string().as_str() + ", " + m.pos.to_string().as_str() + ")")
+                    }
+                    _ => "".to_string()
+                }
+            }
+            _ => "".to_string()
+        }
     }
 }
 

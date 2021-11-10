@@ -5,16 +5,16 @@ use crate::VERSION_INFO;
 use std::rc::Rc;
 use std::slice::Iter;
 
-pub static PDFOUTPUT : TeXCommand = TeXCommand::Register(&RegisterReference {
+pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
     index:-35
-});
+};
 
-pub static PDFPAGEHEIGHT : TeXCommand = TeXCommand::Dimen(&DimenReference {
+pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
     name: "pdfpageheight",
     index:-17
-});
+};
 
-pub fn pdftex_commands() -> Vec<&'static TeXCommand> {vec![
-    &PDFOUTPUT,&PDFPAGEHEIGHT
+pub fn pdftex_commands() -> Vec<TeXCommand> {vec![
+    TeXCommand::Register(&PDFOUTPUT),TeXCommand::Dimen(&PDFPAGEHEIGHT)
 ]}

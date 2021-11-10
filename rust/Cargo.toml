@@ -14,7 +14,7 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# robusta_jni = "0.2"
+robusta_jni = "0.2"
 lazy_static = "1.4.0"
 itertools = "0.10.1"
 pathdiff = "0.1.0"

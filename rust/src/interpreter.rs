@@ -7,7 +7,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::ops::Deref;
 use crate::ontology::{CharacterToken, LaTeXFile, PrimitiveCharacterToken, PrimitiveToken, Token};
-use crate::catcodes::CategoryCodeScheme;
+use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -20,6 +20,7 @@ use crate::interpreter::state::{RegisterStateChange, State, StateChange};
 pub mod mouth;
 pub mod state;
 mod files;
+pub mod dimensions;
 
 fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
     let mut ns = s.as_bytes();
@@ -53,7 +54,8 @@ pub struct Interpreter<'state,'inner> {
     pub state:State<'state>,
     pub jobinfo:Jobinfo<'inner>,
     mouths:Mouths,
-    filestore:FileStore
+    filestore:FileStore,
+    mode:TeXMode,
 }
 impl Interpreter<'_,'_> {
     pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
@@ -68,7 +70,8 @@ impl Interpreter<'_,'_> {
             mouths:Mouths::new(),
             filestore:FileStore {
                 files:HashMap::new()
-            }
+            },
+            mode:TeXMode::Vertical
         };
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),int.filestore.borrow_mut());
         int.push_file(vf);
@@ -81,21 +84,35 @@ impl Interpreter<'_,'_> {
         int.state
     }
 
-    pub fn do_assignment(&mut self,p : &TeXCommand,globally:bool) -> Result<(),String> {
+    pub fn do_assignment(&mut self,p : TeXCommand,globally:bool) -> Result<(),String> {
         let global = globally; // TODO!
         match p {
+            TeXCommand::Dimen(reg) => {
+                self.read_eq();
+                let dim = self.read_dimension();
+                match dim {
+                    Err(s) => Err(s),
+                    Ok(i) => {
+                        self.state.change(StateChange::Dimen(RegisterStateChange {
+                            index: reg.index,
+                            value: i,
+                            global
+                        }));
+                        Ok(())
+                    }
+                }
+            }
             TeXCommand::Register(reg) => {
                 self.read_eq();
                 let num = self.read_number();
                 match num {
-                    Err(s) => return Err(s),
+                    Err(s) => Err(s),
                     Ok(i) => {
-                        /*
                         self.state.change(StateChange::Register(RegisterStateChange {
                             index: reg.index,
                             value: i,
                             global
-                        })); */
+                        }));
                         Ok(())
                     }
                 }
@@ -104,7 +121,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn get_command(&self,s : &str) -> Result<&TeXCommand,String> {
+    pub fn get_command(&self,s : &str) -> Result<TeXCommand,String> {
         match self.state.get_command(s) {
             Some(p) => Ok(p),
             None => Err("Unknown control sequence: ".to_owned() + s)
@@ -113,6 +130,7 @@ impl Interpreter<'_,'_> {
 
     pub fn do_top(&mut self) -> Result<(),String> {
         use crate::commands::{TeXCommand,RegisterReference};
+        use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
         println!("85: {}",next.as_string());
         match next.deref() {
@@ -122,13 +140,17 @@ impl Interpreter<'_,'_> {
                     Ok(p) => {
                         match p {
                             TeXCommand::Register(reg) => return self.do_assignment(p,false),
-                            _ => todo!()
+                            TeXCommand::Dimen(reg) => return self.do_assignment(p,false),
+                            TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                            _ => todo!("{}",cmd.as_string())
+
                         }
                     },
                     Err(s) => Err(s)
                 }
             },
-            Token::Char(ch) => todo!()
+            Token::Char(ch) if matches!(ch.catcode(),CategoryCode::Space) || matches!(ch.catcode(),CategoryCode::EOL) => Ok(()),
+            Token::Char(ch) => todo!("Character: {}, {}",ch.get_char(),ch.catcode())
         }
     }
 
@@ -180,6 +202,111 @@ impl Interpreter<'_,'_> {
         }
     }
 
+    fn point_to_int(&mut self,f:f32) -> i32 {
+        use crate::interpreter::dimensions::*;
+        let istrue = self.read_keyword(vec!("true")).is_some();
+        match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu")) {
+            Some(s) if s == "mm" => mm(f).round() as i32,
+            Some(o) => todo!("{}",o),
+            None => todo!("{}",self.current_line())
+        }
+    }
+
+    fn current_line(&self) -> String {
+        self.mouths.current_line()
+    }
+
+    pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Option<String> {
+        use std::str;
+        let mut tokens:Vec<Rc<Token>> = Vec::new();
+        let mut ret : String = "".to_string();
+        self.skip_ws();
+        while self.has_next() {
+            let next = self.mouths.next_token(&self.state);
+            match next.deref() {
+                Token::Char(ct) if matches!(ct.catcode(),CategoryCode::Space) || matches!(ct.catcode(),CategoryCode::EOL) => break,
+                Token::Char(ct) => {
+                    let ret2 = ret.clone() + str::from_utf8(&[ct.get_char()]).unwrap();
+                    if kws.iter().any(|x| x.starts_with(&ret2)) {
+                        kws = kws.iter().filter(|s| s.starts_with(&ret2)).map(|x| *x).collect();
+                        ret = ret2;
+                        tokens.push(Rc::clone(&next));
+                        if kws.is_empty() { break }
+                        if kws.len() == 1 && kws.contains(&ret.as_str()) { break }
+                    } else {
+                        if kws.len() == 1 && kws.contains(&ret.as_str()) {
+                            self.mouths.requeue(next);
+                        } else {
+                            tokens.push(Rc::clone(&next));
+                        }
+                        break
+                    }
+                }
+                _ => todo!("{}",next.as_string())
+            }
+        }
+        if kws.len() == 1 && kws.contains(&ret.as_str()) {
+            Some(ret)
+        } else {
+            self.mouths.push_tokens(tokens);
+            None
+        }
+    }
+
+    pub fn read_dimension(&mut self) -> Result<i32,String> {
+        use crate::catcodes::CategoryCode;
+        use crate::commands::{TeXCommand,RegisterReference,DimenReference};
+        use std::str;
+        let mut isnegative = false;
+        let mut ret = "".to_string();
+        let mut isfloat = false;
+        self.skip_ws();
+        while self.has_next() {
+            let next = self.mouths.next_token(&self.state);
+            match next.deref() {
+                Token::Char(ct) =>
+                    match ct.catcode() {
+                        CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
+                            {
+                                let num = f32::from_str(ret.as_str());
+                                match num {
+                                    Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
+                                    Err(s) => return Err("Number error (should be impossible)".to_string())
+                                }
+                            }
+                        _ if ct.get_char().is_ascii_digit() =>
+                            {
+                                ret += str::from_utf8(&[ct.get_char()]).unwrap()
+                            }
+                        _ if ct.get_char() == 46 && !isfloat =>
+                            {
+                                isfloat = true;
+                                ret += "."
+                            }
+                        _ =>
+                            todo!("{}",next.as_string())
+                    }
+                Token::Command(cmd) =>
+                    match self.get_command(cmd.name()) {
+                        Err(s) => return Err(s),
+                        Ok(p) => {
+                            match p {
+                                TeXCommand::Register(reg) => {
+                                    if isnegative {
+                                        return Ok(-self.state.get_register(reg.index))
+                                    } else {
+                                        return Ok(self.state.get_register(reg.index))
+                                    }
+                                }
+                                _ => todo!("{}",cmd.as_string())
+                            }
+                        }
+                    }
+            }
+        }
+        Err("File ended unexpectedly".to_string())
+    }
+
     pub fn read_number(&mut self) -> Result<i32,String> {
         use crate::catcodes::CategoryCode;
         use crate::commands::{TeXCommand,RegisterReference,DimenReference};
@@ -190,7 +317,6 @@ impl Interpreter<'_,'_> {
         self.skip_ws();
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            println!("166: {}",next.as_string());
             match next.deref() {
                 Token::Char(ct) =>
                     match ct.catcode() {
@@ -232,7 +358,6 @@ impl Interpreter<'_,'_> {
                                 _ => todo!("{}",cmd.as_string())
                             }
                         }
-
                     }
             }
         }
@@ -244,84 +369,21 @@ impl Interpreter<'_,'_> {
     }
 }
 
-/*
-use crate::interpreter::state::{State,default_pdf_latex_state};
-use crate::utils::kpsewhich;
-use crate::interpreter::files::VFile;
 
-pub struct Interpreter<'state,'mouths> {
-    state : State<'state>,
-    pub mode : TeXMode,
-    job : Option<PathBuf>,
-    mouths:Mouths<'mouths>
+use robusta_jni::bridge;
+
+#[bridge]
+pub mod bridge {
+    use robusta_jni::convert::Signature;
+    use crate::interpreter::Interpreter;
+
+    #[derive(Signature)]
+    #[package(com.jazzpirate.rustex.bridge)]
+    struct JInterpreter {
+        interpreter:&'static Interpreter<'static,'static>
+    }
+
+    impl JInterpreter {
+
+    }
 }
-
-use std::rc::Rc;
-use crate::interpreter::mouth::Mouths;
-use crate::utils::PWD;
-
-
-impl<'state,'mouths> Interpreter<'state,'mouths> {
-    pub fn new<'a,'b>() -> Interpreter<'a,'b> {
-        let mut ret = Interpreter {
-            state: default_pdf_latex_state(),
-            mode: TeXMode::Vertical,
-            mouths:Mouths::new(),
-            job:None
-        };
-        //ret.state = Some(default_pdf_latex_state());
-        //ret
-        todo!()
-    }
-    pub fn new_from_state<'a>(state:State<'a>) ->Interpreter {
-        let mut ret = Interpreter {
-            state:state,
-            mode: TeXMode::Vertical,
-            mouths:Mouths::new(),
-            job:None
-        };
-        ret
-    }
-
-
-    pub(in crate::interpreter) fn kill_state<'b>(&mut self) -> State<'b> {
-        //self.state
-        todo!()
-    }
-
-    pub fn jobname(&self) -> &str {
-        let job = self.job.as_ref().expect("Interpreter without running job has no jobname");
-        job.file_stem().unwrap().to_str().unwrap()
-    }
-    fn in_file(&self) -> &Path {
-        self.job.as_ref().expect("Interpreter without running job has no jobname").parent().unwrap()
-    }
-
-    pub fn kpsewhich(&self,filename:&str) -> PathBuf {
-        match kpsewhich(filename,self.in_file()) {
-            None => PathBuf::from(self.in_file().to_str().unwrap().to_owned() + "/" + filename).canonicalize().unwrap(),
-            Some(fp) => fp
-        }
-    }
-
-    pub fn do_file(&'mouths mut self, file:&Path) {
-        if !file.exists() {
-            return ()//Result::Err("File does not exist")
-        }
-        //self.job = Some(file.canonicalize().expect("File name not canonicalizable").to_path_buf());
-        //let vf = self.borrow_mut().getvf(file);
-        let mut vf = VFile::new(file,self);
-        self.mouths.push_file(&self.state,vf);
-        todo!("interpreter.rs 101");
-        while self.mouths.has_next() {
-            self.do_v_mode()
-        }
-    }
-
-    fn do_v_mode<'a>(&'a mut self) {
-        todo!("interpreter.rs 105")
-    }
-
-}
-
- */

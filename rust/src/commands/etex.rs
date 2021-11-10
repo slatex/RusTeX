@@ -5,7 +5,7 @@ use crate::VERSION_INFO;
 use std::rc::Rc;
 use std::slice::Iter;
 
-pub static ETEXREVISION : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutable {
+pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     apply: |cs: Rc<Command>, int: &Interpreter| {
         let mut vs : Vec<Rc<Token>> = Vec::new();
@@ -18,8 +18,8 @@ pub static ETEXREVISION : TeXCommand = TeXCommand::Primitive(&PrimitiveExecutabl
         }
     },
     name: "etexrevision"
-});
+};
 
-pub fn etex_commands() -> Vec<&'static TeXCommand> {vec![
-    &ETEXREVISION
+pub fn etex_commands() -> Vec<TeXCommand> {vec![
+    TeXCommand::Primitive(&ETEXREVISION)
 ]}
