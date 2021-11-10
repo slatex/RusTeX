@@ -61,15 +61,16 @@ pub mod bridge {
 
 use bridge::JExecutable;
 
-#[derive(Copy,Clone,PartialEq)]
-pub enum TeXCommand {
+#[derive(Clone,PartialEq)]
+pub enum TeXCommand<'env,'borrow> {
     Primitive(&'static PrimitiveExecutable),
     Register(&'static RegisterReference),
     Dimen(&'static DimenReference),
-    Java(&'static JExecutable<'static,'static>),
+    Java(Rc<JExecutable<'env,'borrow>>),
     Def
 }
-impl fmt::Display for TeXCommand {
+
+impl<'env,'borrow> fmt::Display for TeXCommand<'env,'borrow> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TeXCommand::Primitive(p) =>
@@ -78,16 +79,16 @@ impl fmt::Display for TeXCommand {
         }
     }
 }
-impl TeXCommand {
-    pub fn defmacro(tks : Vec<Token>,source:Rc<Token>,protected:bool) -> TeXCommand {
+impl<'env,'borrow> TeXCommand<'env,'borrow> {
+    pub fn defmacro<'a>(tks : Vec<Token>,source:Rc<Token>,protected:bool) -> TeXCommand<'a,'a> {
         todo!("commands.rs 33")
     }
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> String {
         match self {
-            TeXCommand::Primitive(pr) => pr.name,
-            TeXCommand::Register(reg) => reg.name,
-            TeXCommand::Dimen(dr) => dr.name,
-            TeXCommand::Java(jr) => jr.name.as_str(),
+            TeXCommand::Primitive(pr) => pr.name.to_string(),
+            TeXCommand::Register(reg) => reg.name.to_string(),
+            TeXCommand::Dimen(dr) => dr.name.to_string(),
+            TeXCommand::Java(jr) => jr.name.clone(),
             TeXCommand::Def => todo!()
         }
     }

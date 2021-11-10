@@ -20,6 +20,6 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     name: "etexrevision"
 };
 
-pub fn etex_commands() -> Vec<TeXCommand> {vec![
+pub fn etex_commands() -> Vec<TeXCommand<'static,'static>> {vec![
     TeXCommand::Primitive(&ETEXREVISION)
 ]}

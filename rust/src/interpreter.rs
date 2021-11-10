@@ -84,9 +84,9 @@ impl Interpreter<'_,'_> {
         int.state
     }
 
-    pub fn do_assignment(&mut self,p : TeXCommand,globally:bool) -> Result<(),String> {
+    pub fn do_assignment(&mut self,p : Rc<TeXCommand>,globally:bool) -> Result<(),String> {
         let global = globally; // TODO!
-        match p {
+        match p.deref() {
             TeXCommand::Dimen(reg) => {
                 self.read_eq();
                 let dim = self.read_dimension();
@@ -121,7 +121,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn get_command(&self,s : &str) -> Result<TeXCommand,String> {
+    pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,String> {
         match self.state.get_command(s) {
             Some(p) => Ok(p),
             None => Err("Unknown control sequence: ".to_owned() + s)
@@ -138,10 +138,10 @@ impl Interpreter<'_,'_> {
                 let proc = self.get_command(cmd.name());
                 match proc {
                     Ok(p) => {
-                        match p {
+                        match p.deref() {
                             TeXCommand::Register(reg) => return self.do_assignment(p,false),
                             TeXCommand::Dimen(reg) => return self.do_assignment(p,false),
-                            TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                            TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                             _ => todo!("{}",cmd.as_string())
 
                         }
@@ -290,7 +290,7 @@ impl Interpreter<'_,'_> {
                     match self.get_command(cmd.name()) {
                         Err(s) => return Err(s),
                         Ok(p) => {
-                            match p {
+                            match p.deref() {
                                 TeXCommand::Register(reg) => {
                                     if isnegative {
                                         return Ok(-self.state.get_register(reg.index))
@@ -347,7 +347,7 @@ impl Interpreter<'_,'_> {
                     match self.get_command(cmd.name()) {
                         Err(s) => return Err(s),
                         Ok(p) => {
-                            match p {
+                            match p.deref() {
                                 TeXCommand::Register(reg) => {
                                     if isnegative {
                                         return Ok(-self.state.get_register(reg.index))

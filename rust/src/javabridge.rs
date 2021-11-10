@@ -15,9 +15,10 @@ pub mod java {
     struct Bridge {}
     impl Bridge {
         pub extern "jni" fn test<'env,'borrow>(mut vec: Vec<JExecutable<'env,'borrow>>) -> bool {
+            use std::rc::Rc;
             let mut nvec : Vec<TeXCommand> = Vec::new();
             while !vec.is_empty() {
-                nvec.push(TeXCommand::Java(&vec.pop().unwrap()))
+                nvec.push(TeXCommand::Java(Rc::new(vec.pop().unwrap())))
             }
             let mut st = State::with_commands(nvec);
             let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
