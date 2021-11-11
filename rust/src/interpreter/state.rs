@@ -1,11 +1,7 @@
-use std::any::Any;
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::Mutex;
-use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME,DEFAULT_SCHEME};
-use crate::commands::{RegisterReference, TeXCommand};
-use crate::interpreter::files::VFile;
+use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
+use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich,PWD};
 
@@ -35,8 +31,8 @@ impl<'sf> StackFrame<'sf> {
         for c in pdftex_commands() {
             cmds.insert(c.name(),Some(Rc::new(c)));
         }
-        let mut reg: HashMap<i8,Option<i32>> = HashMap::new();
-        let mut dims: HashMap<i8,Option<i32>> = HashMap::new();
+        let reg: HashMap<i8,Option<i32>> = HashMap::new();
+        let dims: HashMap<i8,Option<i32>> = HashMap::new();
         StackFrame {
             parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -144,27 +140,33 @@ impl<'s> State<'s> {
         match change {
             StateChange::Register(regch) => {
                 if regch.global {
-                    self.stacks.iter_mut().map(|s| s.registers.insert(regch.index,Some(regch.value)));
+                    for s in self.stacks.iter_mut() {
+                        s.registers.insert(regch.index,Some(regch.value));
+                    }
                 } else {
                     self.stacks.last_mut().unwrap().registers.insert(regch.index,Some(regch.value));
                 }
             }
             StateChange::Dimen(regch) => {
                 if regch.global {
-                    self.stacks.iter_mut().map(|s| s.dimensions.insert(regch.index,Some(regch.value)));
+                    for s in self.stacks.iter_mut() {
+                        s.dimensions.insert(regch.index,Some(regch.value));
+                    }
                 } else {
                     self.stacks.last_mut().unwrap().dimensions.insert(regch.index,Some(regch.value));
                 }
             }
             StateChange::Cs(cmd) => {
                 if cmd.global {
-                    self.stacks.iter_mut().map(|s| s.commands.remove(&*cmd.name));
+                    for s in self.stacks.iter_mut() {
+                        s.commands.remove(&*cmd.name);
+                    }
                     self.stacks.first_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
                 } else {
                     self.stacks.last_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
                 }
             }
-            _ => todo!()
+            //_ => todo!()
         }
     }
 }

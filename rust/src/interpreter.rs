@@ -2,14 +2,13 @@ pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
 }
 
-use std::any::Any;
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
-use crate::ontology::{CharacterToken, LaTeXFile, PrimitiveCharacterToken, PrimitiveToken, Token};
+use std::ops::Deref;
+use crate::ontology::{PrimitiveCharacterToken, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
 use crate::commands::TeXCommand;
@@ -23,7 +22,7 @@ mod files;
 pub mod dimensions;
 
 fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
-    let mut ns = s.as_bytes();
+    let ns = s.as_bytes();
     let mut retvec: Vec<PrimitiveCharacterToken> = Vec::new();
     for next in ns {
         let b = match cats.get_code(*next) {
@@ -61,7 +60,6 @@ pub struct Interpreter<'state,'inner> {
 }
 impl Interpreter<'_,'_> {
     pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
-        use std::mem;
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
@@ -132,7 +130,6 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn do_top(&mut self) -> Result<(),String> {
-        use crate::commands::{TeXCommand,RegisterReference};
         use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
         println!("Here: {}",next.as_string());
@@ -143,8 +140,8 @@ impl Interpreter<'_,'_> {
                     None => return Err("Unknown control sequence: ".to_owned() + cmd.name() + " at " + self.current_line().as_str())
                 };
                 match p.deref() {
-                    TeXCommand::Register(reg) => return self.do_assignment(p,false),
-                    TeXCommand::Dimen(reg) => return self.do_assignment(p,false),
+                    TeXCommand::Register(_reg) => return self.do_assignment(p,false),
+                    TeXCommand::Dimen(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     TeXCommand::Java(exec) =>
                         unsafe {
@@ -153,7 +150,7 @@ impl Interpreter<'_,'_> {
                             let ptr = Box::new(self);
                             let pointer : *mut u8 = std::mem::transmute(ptr);
                             jin.pointer.set(pointer as i64).unwrap();
-                            exec.execute(jenv,&jin);
+                            exec.execute(jenv,&jin).unwrap();
                             Ok(())
                         }
                     _ => todo!("{}",cmd.as_string())
@@ -166,7 +163,6 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn skip_ws(&mut self) {
-        use crate::catcodes::CategoryCode;
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
             match next.deref() {
@@ -187,7 +183,6 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn read_eq(&mut self) {
-        use crate::catcodes::CategoryCode;
         self.skip_ws();
         let next = self.mouths.next_token(&self.state);
         match next.deref() {
@@ -212,7 +207,7 @@ impl Interpreter<'_,'_> {
 
     fn point_to_int(&mut self,f:f32) -> i32 {
         use crate::interpreter::dimensions::*;
-        let istrue = self.read_keyword(vec!("true")).is_some();
+        let _istrue = self.read_keyword(vec!("true")).is_some();
         match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu")) {
             Some(s) if s == "mm" => mm(f).round() as i32,
             Some(o) => todo!("{}",o),
@@ -262,8 +257,6 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn read_dimension(&mut self) -> Result<i32,String> {
-        use crate::catcodes::CategoryCode;
-        use crate::commands::{TeXCommand,RegisterReference,DimenReference};
         use std::str;
         let mut isnegative = false;
         let mut ret = "".to_string();
@@ -279,7 +272,7 @@ impl Interpreter<'_,'_> {
                                 let num = f32::from_str(ret.as_str());
                                 match num {
                                     Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
-                                    Err(s) => return Err("Number error (should be impossible)".to_string())
+                                    Err(_s) => return Err("Number error (should be impossible)".to_string())
                                 }
                             }
                         _ if ct.get_char().is_ascii_digit() =>
@@ -316,8 +309,6 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn read_number(&mut self) -> Result<i32,String> {
-        use crate::catcodes::CategoryCode;
-        use crate::commands::{TeXCommand,RegisterReference,DimenReference};
         use std::str;
         let mut isnegative = false;
         let mut ishex = false;
@@ -336,8 +327,8 @@ impl Interpreter<'_,'_> {
                                     i32::from_str(ret.as_str())
                                 };
                                 match num {
-                                    Ok(n) => return Ok((if isnegative {-n} else {n})),
-                                    Err(s) => return Err("Number error (should be impossible)".to_string())
+                                    Ok(n) => return Ok(if isnegative {-n} else {n}),
+                                    Err(_s) => return Err("Number error (should be impossible)".to_string())
                                 }
                             }
                         _ if ct.get_char().is_ascii_digit() =>
@@ -372,26 +363,22 @@ impl Interpreter<'_,'_> {
         Err("File ended unexpectedly".to_string())
     }
 
-    fn expand_until_space(i:i32) -> Result<i32,String> {
+    fn expand_until_space(_i:i32) -> Result<i32,String> {
         todo!()
     }
 }
 
 
 use robusta_jni::bridge;
-use robusta_jni::jni::objects::JObject;
-use robusta_jni::jni::sys::{_jobject, jlong};
 use crate::interpreter::bridge::JInterpreter;
 
 #[bridge]
 pub mod bridge {
-    use std::borrow::Borrow;
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field, JavaValue};
-    use robusta_jni::jni::objects::{AutoLocal, JObject};
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
+    use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::JNIEnv;
     use crate::interpreter::Interpreter;
     use robusta_jni::jni::errors::Result as JniResult;
-    use robusta_jni::jni::sys::jlong;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue,FromJavaValue)]
     #[package(com.jazzpirate.rustex.bridge)]
@@ -412,7 +399,7 @@ pub mod bridge {
 
 
         pub extern "jni" fn jobname(self) -> String {
-            let mut int = self.getInt();
+            let int = self.getInt();
             int.jobinfo.path.file_stem().unwrap().to_str().unwrap().to_string()
         }
 

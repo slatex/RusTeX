@@ -78,7 +78,7 @@ impl TokenI for PrimitiveCharacterToken {
         ret.push('>');
         ret
     }
-    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+    fn copied(&self, _exp: &Expansion) -> Rc<Token> {
         todo!("ontology.rs 82")
     }
 }
@@ -153,7 +153,7 @@ impl TokenI for PrimitiveControlSequence {
         ret.push_str(">>");
         ret
     }
-    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+    fn copied(&self, _exp: &Expansion) -> Rc<Token> {
         todo!("ontology.rs 157")
     }
 }
@@ -220,7 +220,7 @@ impl TokenI for PrimitiveActiveCharacterToken {
         ret.push('>');
         ret
     }
-    fn copied(&self, exp: &Expansion) -> Rc<Token> {
+    fn copied(&self, _exp: &Expansion) -> Rc<Token> {
         todo!("ontology.rs 224")
     }
 }
@@ -245,14 +245,14 @@ pub struct Expansion {
 impl Expansion {
     pub fn dummy(tks : Vec<Rc<Token>>) -> Expansion {
         Expansion {
-            cs: Rc::new((Command::dummy())),
+            cs: Rc::new(Command::dummy()),
             exp: tks
         }
     }
 }
 
 // ------------------------------------------------
-use std::path::Path;
+
 pub struct LaTeXFile {
     pub path: String,
     ch : Vec<Rc<LaTeXObject>>
@@ -340,7 +340,7 @@ impl Command {
     pub fn name(&self) -> &str {
         match self {
             Command::Cs(cs) => cs.name(),
-            Command::Active(ch) => todo!()
+            Command::Active(_ch) => todo!()
         }
     }
 }
@@ -389,7 +389,7 @@ impl Token {
             Token::Char(ct) => ct.as_string(),
         }
     }
-    pub fn copied(&self,exp:&Expansion) -> Rc<Token> {
+    pub fn copied(&self,_exp:&Expansion) -> Rc<Token> {
         todo!()
     }
 }

@@ -5,7 +5,6 @@ pub mod pdftex;
 use crate::ontology::{Command, Expansion, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
-use crate::references::SourceReference;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -34,9 +33,8 @@ pub struct DimenReference {
 use robusta_jni::bridge;
 #[bridge]
 pub mod bridge {
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
+    use robusta_jni::convert::{Signature, IntoJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
     use robusta_jni::jni::objects::AutoLocal;
-    use crate::interpreter::Interpreter;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::JNIEnv;
     use crate::interpreter::bridge::JInterpreter;
@@ -80,7 +78,7 @@ impl<'env,'borrow> fmt::Display for TeXCommand<'env,'borrow> {
     }
 }
 impl<'env,'borrow> TeXCommand<'env,'borrow> {
-    pub fn defmacro<'a>(tks : Vec<Token>,source:Rc<Token>,protected:bool) -> TeXCommand<'a,'a> {
+    pub fn defmacro<'a>(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand<'a,'a> {
         todo!("commands.rs 33")
     }
     pub fn name(&self) -> String {

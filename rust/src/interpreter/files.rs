@@ -1,5 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::ffi::OsString;
 use std::path::{PathBuf,Path};
 use crate::utils::{TEXMF1,TEXMF2};
 use std::fs;
@@ -19,7 +17,6 @@ pub struct VFile {
 
 extern crate pathdiff;
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use crate::interpreter::state::State;
 
@@ -28,7 +25,7 @@ pub(in crate::interpreter) struct FileStore {
 }
 
 impl VFile {
-    fn get_map<'a>(int: &'a mut State<'a>) {
+    fn get_map<'a>(_int: &'a mut State<'a>) {
 
     }
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&'a mut FileStore) -> VFile {

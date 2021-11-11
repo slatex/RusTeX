@@ -1,4 +1,3 @@
-use crate::ontology::LaTeXFile;
 use std::rc::Rc;
 
 pub struct FileReference {

@@ -1,18 +1,12 @@
 enum MouthState { N,S,M }
 
-use std::borrow::{Borrow, BorrowMut};
-use std::iter::{Peekable, Map};
-use std::ops::Deref;
 use std::rc::Rc;
-use std::slice::IterMut;
-use std::str::{Chars, from_utf8, from_utf8_unchecked, Split};
+use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, PrimitiveControlSequence, TokenI, LaTeXObjectI, PrimitiveActiveCharacterToken};
-use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::ontology::{PrimitiveCharacterToken,PrimitiveToken};
+use crate::catcodes::CategoryCode;
+use crate::ontology::PrimitiveCharacterToken;
 use crate::references::{SourceReference,FileReference};
 use crate::interpreter::state::State;
-
-use crate::debug;
 
 pub enum Mouth {
     Token(TokenMouth),
@@ -58,10 +52,10 @@ impl TokenMouth {
             tokens:vec
         }
     }
-    fn has_next(&mut self, nocomment: bool) -> bool {
+    fn has_next(&mut self, _nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
-    fn pop_next(&mut self, nocomment: bool) -> Rc<Token> {
+    fn pop_next(&mut self, _nocomment: bool) -> Rc<Token> {
         self.tokens.remove(0)
     }
     fn preview(&mut self) -> String {
@@ -74,9 +68,6 @@ impl TokenMouth {
 }
 
 use crate::interpreter::Interpreter;
-extern crate itertools;
-use itertools::Itertools;
-use self::itertools::MultiPeek;
 
 enum StringMouthSource {
     File(LaTeXFile),
@@ -120,7 +111,6 @@ impl StringMouth {
         StringMouth::new_i(state,StringMouthSource::Exp(source),string.to_string())
     }
     fn new_i<'a,'b>(state:&'b State<'b>, source:StringMouthSource, string : String) -> StringMouth {
-        use std::str::{from_utf8};
         let newlinechar = state.newlinechar();
         let it = if string.is_empty() {
             vec![]
@@ -194,8 +184,7 @@ impl StringMouth {
     }
 
     fn do_s(&mut self,state:&State) {
-        use crate::catcodes::CategoryCode;
-        while (self.has_next(state,true)) {
+        while self.has_next(state,true) {
             let next = self.next_char(state).unwrap();
             match state.catcodes().get_code(next.0) {
                 CategoryCode::Space | CategoryCode::EOL => {}
@@ -244,7 +233,7 @@ impl StringMouth {
                                                 end: (self.line,self.pos)
                                             };
                                             let tk = PrimitiveCharacterToken::new(
-                                                next.0,CategoryCode::Ignored,SourceReference::File((nrf)));
+                                                next.0,CategoryCode::Ignored,SourceReference::File(nrf));
                                             ltxf.add(tk.as_object())
                                             // TODO
                                         }
@@ -263,7 +252,7 @@ impl StringMouth {
                                                 file:ltxf.path.clone(),
                                                 start: (next.1,next.2),
                                                 end: (self.line,self.pos)
-                                            };///self.make_file_reference(ltxf,next.1,next.2);
+                                            };//self.make_file_reference(ltxf,next.1,next.2);
                                             let tk = Comment {
                                                 text: txt,
                                                 reference: nrf
@@ -294,7 +283,7 @@ impl StringMouth {
                                     let string = self.string.as_ref().unwrap();
                                     let len = string.as_bytes()[self.pos..].len();
                                     let peek = string.as_bytes().get(self.pos);
-                                    if (len > 1 && peek.is_some() && (*peek.unwrap()) == next.0) {
+                                    if len > 1 && peek.is_some() && *peek.unwrap() == next.0 {
                                         let (startl,startpos) = (next.1,next.2);
                                         self.pos += 1;
                                         let next = *string.as_bytes().get(self.pos).unwrap();
@@ -369,7 +358,7 @@ impl StringMouth {
                     PrimitiveCharacterToken::new(char,CategoryCode::Space,self.make_reference(l,p)).as_token()
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
-                    while(self.has_next(state,nocomment)) {
+                    while self.has_next(state,nocomment) {
                         let (n,l2,p2) = self.next_char(state).unwrap();
                         if !matches!(catcode(n),CategoryCode::EOL) {
                             self.charbuffer = Some((n,l2,p2));
@@ -414,9 +403,7 @@ impl StringMouth {
     }
 }
 
-use std::path::Path;
 use crate::interpreter::files::VFile;
-use crate::interpreter::mouth::Mouth::Str;
 
 pub (in crate::interpreter) struct Mouths {
     mouths: Vec<Mouth>,
@@ -439,7 +426,7 @@ impl Mouths {
                     Some(m) => {
                         if m.has_next(state,true) {return true} else {
                             match m {
-                                Mouth::File(fm) => todo!(),
+                                Mouth::File(_fm) => todo!(),
                                 _ => if !self.next_mouth() { return false }
                             }
                         }
@@ -449,7 +436,7 @@ impl Mouths {
         }
     }
     fn next_mouth(&mut self) -> bool {
-        if (self.mouths.len() > 1) {
+        if self.mouths.len() > 1 {
             self.mouths.pop();
             true
         } else { false }
@@ -493,13 +480,13 @@ impl Mouths {
 
     pub fn current_line(&self) -> String {
         match self.mouths.iter().rev().find(|m| match m {
-            Mouth::File(sm) => true,
+            Mouth::File(_sm) => true,
             _ => false
         }) {
             Some(Mouth::File(m)) => {
                 match &m.source {
                     StringMouthSource::File(lf) => {
-                        (lf.path.clone() + " (" + m.line.to_string().as_str() + ", " + m.pos.to_string().as_str() + ")")
+                        lf.path.clone() + " (" + m.line.to_string().as_str() + ", " + m.pos.to_string().as_str() + ")"
                     }
                     _ => "".to_string()
                 }

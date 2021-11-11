@@ -1,10 +1,7 @@
 use std::path::{Path,PathBuf};
 
-
-use std::env;
-
 lazy_static! {
-    pub static ref PWD : PathBuf = env::current_dir().expect("No current directory!")
+    pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")
         .as_path().to_path_buf();
     pub static ref TEXMF1 : PathBuf = kpsewhich("article.sty",&PWD).expect("article.sty not found")
         .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();//.up().up().up().up();

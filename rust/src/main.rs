@@ -1,4 +1,3 @@
-use rustex::catcodes::CategoryCode;
 use rustex::interpreter::mouth::StringMouth;
 use rustex::ontology::{CommandI, Expansion, PrimitiveControlSequence, Token};
 use rustex::references::SourceReference;
@@ -12,9 +11,9 @@ fn do_latexltx() {
 
 fn do_test() {
     use std::rc::Rc;
-    let mut state = State::new();
+    let state = State::new();
     use rustex::utils::{kpsewhich,PWD};
-    use std::{env,fs};
+    use std::fs;
     let latexltx = kpsewhich("pdftexconfig.tex",&PWD).expect("latex.ltx not found!");
     let content = fs::read_to_string(latexltx).unwrap();
     let dummyexp = Expansion {
