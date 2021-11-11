@@ -66,15 +66,15 @@ use bridge::JExecutable;
 pub trait ExternalCommand {}
 
 #[derive(Clone,PartialEq)]
-pub enum TeXCommand {
+pub enum TeXCommand<'env,'borrow> {
     Primitive(&'static PrimitiveExecutable),
     Register(&'static RegisterReference),
     Dimen(&'static DimenReference),
-    Ext(Rc<dyn ExternalCommand>),
+    Java(Rc<JExecutable<'env,'borrow>>),
     Def
 }
 
-impl<'env,'borrow> fmt::Display for TeXCommand {
+impl<'env,'borrow> fmt::Display for TeXCommand<'env,'borrow> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TeXCommand::Primitive(p) =>
