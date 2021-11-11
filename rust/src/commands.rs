@@ -70,7 +70,7 @@ pub enum TeXCommand<'env,'borrow> {
     Primitive(&'static PrimitiveExecutable),
     Register(&'static RegisterReference),
     Dimen(&'static DimenReference),
-    Ext(Rc<JExecutable<'env,'borrow>>),
+    Java(Rc<JExecutable<'env,'borrow>>),
     Def
 }
 
