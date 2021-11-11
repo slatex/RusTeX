@@ -32,3 +32,36 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
         }
     }
 }
+
+pub fn with_encoded_pointer<'a,S,T>(obj:&'a T,f: fn(i:i64) -> S) -> S {
+    let i = encode_pointer(obj);
+    f(i)
+}
+
+pub fn with_encoded_pointer_mut<'a,S,T>(obj:&'a mut T,f: fn(i:i64) -> S) -> S {
+    let i = encode_pointer_mut(obj);
+    f(i)
+}
+
+pub fn encode_pointer<'a,T>(obj:&'a T) -> i64 {
+    let bx = Box::new(obj);
+    unsafe { std::mem::transmute::<Box<&T>,*mut u8>(bx) as i64 }
+}
+
+pub fn decode_pointer<'a,T>(i:i64) -> &'a T {
+    unsafe {
+        let bx: Box<&T> = std::mem::transmute(i as *mut u8);
+        *bx
+    }
+}
+
+pub fn encode_pointer_mut<'a,T>(obj:&'a mut T) -> i64 {
+    let bx = Box::new(obj);
+    unsafe { std::mem::transmute::<Box<&mut T>,*mut u8>(bx) as i64 }
+}
+pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
+    unsafe {
+        let bx: Box<&mut T> = std::mem::transmute(i as *mut u8);
+        *bx
+    }
+}

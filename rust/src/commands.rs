@@ -30,6 +30,8 @@ pub struct DimenReference {
     pub name: &'static str
 }
 
+// -------------------------------------------------------------------------------------------------
+
 use robusta_jni::bridge;
 #[bridge]
 pub mod bridge {
@@ -59,12 +61,16 @@ pub mod bridge {
 
 use bridge::JExecutable;
 
+// -------------------------------------------------------------------------------------------------
+
+//pub trait ExternalCommand {}
+
 #[derive(Clone,PartialEq)]
 pub enum TeXCommand<'env,'borrow> {
     Primitive(&'static PrimitiveExecutable),
     Register(&'static RegisterReference),
     Dimen(&'static DimenReference),
-    Java(Rc<JExecutable<'env,'borrow>>),
+    Ext(Rc<JExecutable<'env,'borrow>>),
     Def
 }
 
