@@ -1,4 +1,3 @@
-
 use robusta_jni::bridge;
 
 #[bridge]
