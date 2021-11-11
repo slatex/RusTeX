@@ -35,7 +35,7 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> 
 }
 
 pub struct Jobinfo<'a> {
-    pub(crate) path : &'a Path
+    pub path : &'a Path
 }
 
 impl Jobinfo<'_> {
@@ -48,22 +48,20 @@ impl Jobinfo<'_> {
         self.path.parent().unwrap()
     }
 }
-use robusta_jni::jni::JNIEnv;
 
 pub struct Interpreter<'state,'inner> {
     pub state:State<'state>,
     pub jobinfo:Jobinfo<'inner>,
     mouths:Mouths,
     filestore:FileStore,
-    mode:TeXMode,
-    jenv : Option<&'inner JNIEnv<'inner>>
+    mode:TeXMode
 }
 impl Interpreter<'_,'_> {
     pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
-    pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>,jenv: Option<&'a JNIEnv<'a>>) -> State<'a> {
+    pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>) -> State<'a> {
         let mut int = Interpreter {
             state:s,
             jobinfo:Jobinfo::new(p),
@@ -71,8 +69,7 @@ impl Interpreter<'_,'_> {
             filestore:FileStore {
                 files:HashMap::new()
             },
-            mode:TeXMode::Vertical,
-            jenv
+            mode:TeXMode::Vertical
         };
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),int.filestore.borrow_mut());
         int.push_file(vf);

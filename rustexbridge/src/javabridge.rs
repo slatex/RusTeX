@@ -1,16 +1,15 @@
 use robusta_jni::bridge;
-use crate::javabridge::java::{JExecutable, JInterpreter};
 
 #[bridge]
 pub mod java {
-    use crate::commands::TeXCommand;
-    use crate::interpreter::state::State;
-    use crate::utils::{kpsewhich,PWD};
-    use crate::interpreter::Interpreter;
+    use rustex::commands::TeXCommand;
+    use rustex::interpreter::state::State;
+    use rustex::utils::{kpsewhich, PWD};
+    use rustex::interpreter::Interpreter;
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::JNIEnv;
-    use crate::commands::ExternalCommand;
+    use rustex::commands::ExternalCommand;
     use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
     use crate::javabridge::JavaCommand;
 
@@ -25,7 +24,7 @@ pub mod java {
         #[constructor]
         pub extern "java" fn new(env: &'borrow JNIEnv<'env>) -> JniResult<Self> {}
         fn getInt(&self) -> &mut Interpreter {
-            use crate::utils::decode_pointer_mut;
+            use rustex::utils::decode_pointer_mut;
             decode_pointer_mut(self.pointer.get().unwrap())
         }
 
@@ -74,20 +73,21 @@ pub mod java {
 
             println!("{}",pdftex_cfg.to_str().expect("wut"));
             println!("{}",latex_ltx.to_str().expect("wut"));
-            st = Interpreter::do_file_with_state(&pdftex_cfg,st,Some(env));
-            st = Interpreter::do_file_with_state(&latex_ltx,st,Some(env));
+            st = Interpreter::do_file_with_state(&pdftex_cfg,st);
+            st = Interpreter::do_file_with_state(&latex_ltx,st);
             true
         }
     }
 }
 
 use robusta_jni::jni::JNIEnv;
-use crate::commands::ExternalCommand;
-use crate::interpreter::Interpreter;
+use rustex::commands::ExternalCommand;
+use rustex::interpreter::Interpreter;
+use crate::javabridge::java::{JExecutable, JInterpreter};
 
 struct JavaCommand<'env,'borrow> {
-    pub(in crate::javabridge) je : JExecutable<'env,'borrow>,
-    pub(in crate::javabridge) env: &'borrow JNIEnv<'env>
+    pub je : JExecutable<'env,'borrow>,
+    pub env: &'borrow JNIEnv<'env>
 }
 impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
     fn name(&self) -> String {
@@ -95,7 +95,7 @@ impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
     }
 
     fn execute(&self, int: &mut Interpreter) -> bool {
-        use crate::utils::encode_pointer_mut;
+        use rustex::utils::encode_pointer_mut;
         let mut ji = JInterpreter::new(self.env).unwrap();
         ji.pointer.set(encode_pointer_mut(int));
         self.je.execute(self.env,&ji).unwrap()

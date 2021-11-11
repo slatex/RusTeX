@@ -179,8 +179,8 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
 
     println!("{}",pdftex_cfg.to_str().expect("wut"));
     println!("{}",latex_ltx.to_str().expect("wut"));
-    st = Interpreter::do_file_with_state(&pdftex_cfg,st,None);
-    st = Interpreter::do_file_with_state(&latex_ltx,st,None);
+    st = Interpreter::do_file_with_state(&pdftex_cfg,st);
+    st = Interpreter::do_file_with_state(&latex_ltx,st);
     st
     /*
 
