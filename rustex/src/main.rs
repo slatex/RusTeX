@@ -1,5 +1,5 @@
 use rustex::interpreter::mouth::StringMouth;
-use rustex::ontology::{CommandI, Expansion, PrimitiveControlSequence, Token};
+use rustex::ontology::{Expansion, Token};
 use rustex::references::SourceReference;
 use rustex::interpreter::state::State;
 
@@ -16,12 +16,9 @@ fn do_test() {
     use std::fs;
     let latexltx = kpsewhich("pdftexconfig.tex",&PWD).expect("latex.ltx not found!");
     let content = fs::read_to_string(latexltx).unwrap();
-    let dummyexp = Expansion {
-        cs: PrimitiveControlSequence::new("narf".to_owned(),SourceReference::None).as_command(),
-        exp: vec![]
-    };
+    let dummyexp = Expansion::dummy(vec!());
     let mut mouth = StringMouth::new(&state,dummyexp,content.as_str());
-    let mut ret: Vec<Rc<Token>> = Vec::new();
+    let mut ret: Vec<Token> = Vec::new();
     while mouth.has_next(&state,true) {
         ret.push(mouth.pop_next(&state,true))
     }

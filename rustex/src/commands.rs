@@ -2,14 +2,14 @@ pub mod primitives;
 pub mod etex;
 pub mod pdftex;
 
-use crate::ontology::{Command, Expansion, Token};
+use crate::ontology::{Expansion, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::Formatter;
 
 pub struct PrimitiveExecutable {
-    pub apply:fn(cs:Rc<Command>,itp:&Interpreter) -> Expansion,
+    pub apply:fn(cs:Token,itp:&Interpreter) -> Expansion,
     pub expandable : bool,
     pub name: &'static str
 }

@@ -5,12 +5,12 @@ pub enum TeXMode {
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::ops::Deref;
-use crate::ontology::{PrimitiveCharacterToken, Token};
+use crate::ontology::Token;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::Path;
 use std::rc::Rc;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 use crate::commands::TeXCommand;
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
@@ -21,15 +21,16 @@ pub mod state;
 mod files;
 pub mod dimensions;
 
-fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> {
+fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
     let ns = s.as_bytes();
-    let mut retvec: Vec<PrimitiveCharacterToken> = Vec::new();
+    let mut retvec: Vec<Token> = Vec::new();
     for next in ns {
-        let b = match cats.get_code(*next) {
-            cc =>
-                PrimitiveCharacterToken::new(*next,cc,SourceReference::None)
-        };
-        retvec.push(b)
+        retvec.push(Token {
+            catcode: cats.get_code(*next),
+            nameOpt: None,
+            char: *next,
+            reference: Box::new(SourceReference::None)
+        })
     }
     retvec
 }
@@ -57,7 +58,7 @@ pub struct Interpreter<'state,'inner> {
     mode:TeXMode
 }
 impl Interpreter<'_,'_> {
-    pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
+    pub fn string_to_tokens(s : &str) -> Vec<Token> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
@@ -129,11 +130,11 @@ impl Interpreter<'_,'_> {
     pub fn do_top(&mut self) -> Result<(),String> {
         use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
-        match next.deref() {
-            Token::Command(cmd) => {
-                let p = match self.state.get_command(cmd.name()) {
+        match next.catcode {
+            CategoryCode::Active | CategoryCode::Escape => {
+                let p = match self.state.get_command(&next.cmdname()) {
                     Some(pr) => pr,
-                    None => return Err("Unknown control sequence: ".to_owned() + cmd.name() + " at " + self.current_line().as_str())
+                    None => return Err("Unknown control sequence: ".to_owned() + &next.cmdname() + " at " + self.current_line().as_str())
                 };
                 match p.deref() {
                     TeXCommand::Register(_reg) => return self.do_assignment(p,false),
@@ -144,27 +145,20 @@ impl Interpreter<'_,'_> {
                             true => Ok(()),
                             false => Err("External Command ".to_owned() + exec.name().as_str() + " errored!")
                         }
-                    _ => todo!("{}",cmd.as_string())
+                    _ => todo!("{}",next.as_string())
 
                 }
             },
-            Token::Char(ch) if matches!(ch.catcode(),CategoryCode::Space) || matches!(ch.catcode(),CategoryCode::EOL) => Ok(()),
-            Token::Char(ch) => todo!("Character: {}, {}",ch.get_char(),ch.catcode())
+            CategoryCode::Space | CategoryCode::EOL if matches!(self.mode,TeXMode::Vertical) => Ok(()),
+            _ => todo!("Character: {}, {}",next.char,next.catcode)
         }
     }
 
     pub fn skip_ws(&mut self) {
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            match next.deref() {
-                Token::Char(ch) =>
-                match ch.catcode() {
-                    CategoryCode::Space | CategoryCode::EOL => {}
-                    _ => {
-                        self.mouths.requeue(next);
-                        break
-                    }
-                }
+            match next.catcode {
+                CategoryCode::Space | CategoryCode::EOL => {}
                 _ => {
                     self.mouths.requeue(next);
                     break
@@ -176,22 +170,14 @@ impl Interpreter<'_,'_> {
     pub fn read_eq(&mut self) {
         self.skip_ws();
         let next = self.mouths.next_token(&self.state);
-        match next.deref() {
-            Token::Char(ch) =>
-                match ch.get_char() {
-                    61 => {
-                        let next = self.mouths.next_token(&self.state);
-                        match next.deref() {
-                            Token::Char(ch) =>
-                                match ch.catcode() {
-                                    CategoryCode::Space => {},
-                                    _ => self.mouths.requeue(next)
-                                }
-                            _ => self.mouths.requeue(next)
-                        }
-                    }
+        match next.char {
+            61 => {
+                let next = self.mouths.next_token(&self.state);
+                match next.catcode {
+                    CategoryCode::Space => {},
                     _ => self.mouths.requeue(next)
                 }
+            }
             _ => self.mouths.requeue(next)
         }
     }
@@ -213,31 +199,31 @@ impl Interpreter<'_,'_> {
 
     pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Option<String> {
         use std::str;
-        let mut tokens:Vec<Rc<Token>> = Vec::new();
+        let mut tokens:Vec<Token> = Vec::new();
         let mut ret : String = "".to_string();
         self.skip_ws();
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            match next.deref() {
-                Token::Char(ct) if matches!(ct.catcode(),CategoryCode::Space) || matches!(ct.catcode(),CategoryCode::EOL) => break,
-                Token::Char(ct) => {
-                    let ret2 = ret.clone() + str::from_utf8(&[ct.get_char()]).unwrap();
+            match next.catcode {
+                CategoryCode::Space | CategoryCode::EOL => break,
+                CategoryCode::Active | CategoryCode::Escape => todo!("{}",next.as_string()),
+                _ => {
+                    let ret2 = ret.clone() + str::from_utf8(&[next.char]).unwrap();
                     if kws.iter().any(|x| x.starts_with(&ret2)) {
                         kws = kws.iter().filter(|s| s.starts_with(&ret2)).map(|x| *x).collect();
                         ret = ret2;
-                        tokens.push(Rc::clone(&next));
+                        tokens.push(next);
                         if kws.is_empty() { break }
                         if kws.len() == 1 && kws.contains(&ret.as_str()) { break }
                     } else {
                         if kws.len() == 1 && kws.contains(&ret.as_str()) {
                             self.mouths.requeue(next);
                         } else {
-                            tokens.push(Rc::clone(&next));
+                            tokens.push(next);
                         }
                         break
                     }
                 }
-                _ => todo!("{}",next.as_string())
             }
         }
         if kws.len() == 1 && kws.contains(&ret.as_str()) {
@@ -256,31 +242,9 @@ impl Interpreter<'_,'_> {
         self.skip_ws();
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            match next.deref() {
-                Token::Char(ct) =>
-                    match ct.catcode() {
-                        CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
-                            {
-                                let num = f32::from_str(ret.as_str());
-                                match num {
-                                    Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
-                                    Err(_s) => return Err("Number error (should be impossible)".to_string())
-                                }
-                            }
-                        _ if ct.get_char().is_ascii_digit() =>
-                            {
-                                ret += str::from_utf8(&[ct.get_char()]).unwrap()
-                            }
-                        _ if ct.get_char() == 46 && !isfloat =>
-                            {
-                                isfloat = true;
-                                ret += "."
-                            }
-                        _ =>
-                            todo!("{}",next.as_string())
-                    }
-                Token::Command(cmd) =>
-                    match self.get_command(cmd.name()) {
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active =>
+                    match self.get_command(&next.cmdname()) {
                         Err(s) => return Err(s),
                         Ok(p) => {
                             match p.deref() {
@@ -291,10 +255,29 @@ impl Interpreter<'_,'_> {
                                         return Ok(self.state.get_register(reg.index))
                                     }
                                 }
-                                _ => todo!("{}",cmd.as_string())
+                                _ => todo!("{}",next.as_string())
                             }
                         }
                     }
+                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
+                    {
+                        let num = f32::from_str(ret.as_str());
+                        match num {
+                            Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
+                            Err(_s) => return Err("Number error (should be impossible)".to_string())
+                        }
+                    }
+                _ if next.char.is_ascii_digit() =>
+                    {
+                        ret += &next.name()
+                    }
+                _ if next.char == 46 && !isfloat =>
+                    {
+                        isfloat = true;
+                        ret += "."
+                    }
+                _ =>
+                    todo!("{}",next.as_string())
             }
         }
         Err("File ended unexpectedly".to_string())
@@ -308,34 +291,9 @@ impl Interpreter<'_,'_> {
         self.skip_ws();
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            match next.deref() {
-                Token::Char(ct) =>
-                    match ct.catcode() {
-                        CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
-                            {
-                                let num = if ishex {
-                                    i32::from_str_radix(ret.as_str(),16)
-                                } else {
-                                    i32::from_str(ret.as_str())
-                                };
-                                match num {
-                                    Ok(n) => return Ok(if isnegative {-n} else {n}),
-                                    Err(_s) => return Err("Number error (should be impossible)".to_string())
-                                }
-                            }
-                        _ if ct.get_char().is_ascii_digit() =>
-                            {
-                                ret += str::from_utf8(&[ct.get_char()]).unwrap()
-                            }
-                        _ if ct.get_char().is_ascii_hexdigit() && ishex =>
-                            {
-                                ret += str::from_utf8(&[ct.get_char()]).unwrap()
-                            }
-                        _ =>
-                            todo!("{}",next.as_string())
-                    }
-                Token::Command(cmd) =>
-                    match self.get_command(cmd.name()) {
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active =>
+                    match self.get_command(&next.cmdname()) {
                         Err(s) => return Err(s),
                         Ok(p) => {
                             match p.deref() {
@@ -346,10 +304,32 @@ impl Interpreter<'_,'_> {
                                         return Ok(self.state.get_register(reg.index))
                                     }
                                 }
-                                _ => todo!("{}",cmd.as_string())
+                                _ => todo!("{}",next.as_string())
                             }
                         }
                     }
+                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
+                    {
+                        let num = if ishex {
+                            i32::from_str_radix(ret.as_str(),16)
+                        } else {
+                            i32::from_str(ret.as_str())
+                        };
+                        match num {
+                            Ok(n) => return Ok(if isnegative {-n} else {n}),
+                            Err(_s) => return Err("Number error (should be impossible)".to_string())
+                        }
+                    }
+                _ if next.char.is_ascii_digit() =>
+                    {
+                        ret += &next.name()
+                    }
+                _ if next.char.is_ascii_hexdigit() && ishex =>
+                    {
+                        ret += &next.name()
+                    }
+                _ =>
+                    todo!("{}",next.as_string())
             }
         }
         Err("File ended unexpectedly".to_string())

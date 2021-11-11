@@ -1,19 +1,15 @@
 use crate::commands::{PrimitiveExecutable, TeXCommand};
 use crate::interpreter::Interpreter;
-use crate::ontology::{Command, Expansion, Token, TokenI};
+use crate::ontology::{Expansion, Token};
 use crate::VERSION_INFO;
 use std::rc::Rc;
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
-    apply: |cs: Rc<Command>, _int: &Interpreter| {
-        let mut vs : Vec<Rc<Token>> = Vec::new();
-        for x in Interpreter::string_to_tokens(VERSION_INFO.etexrevision()) {
-            vs.push(x.as_token())
-        }
+    apply: |cs: Token, _int: &Interpreter| {
         Expansion {
             cs: cs,
-            exp:vs
+            exp:Interpreter::string_to_tokens(VERSION_INFO.etexrevision())
         }
     },
     name: "etexrevision"

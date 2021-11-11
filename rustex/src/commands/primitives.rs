@@ -1,12 +1,12 @@
 use crate::commands::{PrimitiveExecutable, TeXCommand};
 use crate::interpreter::Interpreter;
-use crate::ontology::{Command, Expansion};
+use crate::ontology::{Token, Expansion};
 use std::rc::Rc;
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    apply:|cs: Rc<Command>, _int: &Interpreter| {
+    apply:|cs: Token, _int: &Interpreter| {
         Expansion {
             cs,
             exp: vec![]
@@ -16,7 +16,7 @@ pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    apply:|cs: Rc<Command>, _int: &Interpreter| {
+    apply:|cs: Token, _int: &Interpreter| {
         Expansion {
             cs,
             exp: vec![]

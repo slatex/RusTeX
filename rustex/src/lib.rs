@@ -8,6 +8,9 @@ pub mod catcodes;
 #[macro_use]
 extern crate lazy_static;
 
+static STORE_IN_FILE : bool = true;
+static COPY_TOKENS_FULL : bool = true;
+
 static LANGUAGE_DAT : &'static str = include_str!("resources/language.dat");
 static UNICODEDATA_TXT : &'static str = include_str!("resources/UnicodeData.txt");
 
