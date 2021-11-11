@@ -18,7 +18,8 @@ pub mod java {
             use std::rc::Rc;
             let mut nvec : Vec<TeXCommand> = Vec::new();
             while !vec.is_empty() {
-                nvec.push(TeXCommand::Java(Rc::new(vec.pop().unwrap())))
+                let je = vec.pop().unwrap();
+                nvec.push(TeXCommand::Java(Rc::new(je)))
             }
             let mut st = State::with_commands(nvec);
             let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
