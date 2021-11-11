@@ -24,6 +24,6 @@ pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub fn tex_commands() -> Vec<TeXCommand<'static,'static>> {vec![
+pub fn tex_commands() -> Vec<TeXCommand<'static>> {vec![
     TeXCommand::Primitive(&PAR), TeXCommand::Primitive(&RELAX)
 ]}

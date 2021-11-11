@@ -35,7 +35,7 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<PrimitiveCharacterToken> 
 }
 
 pub struct Jobinfo<'a> {
-    path : &'a Path
+    pub(crate) path : &'a Path
 }
 
 impl Jobinfo<'_> {
@@ -143,15 +143,10 @@ impl Interpreter<'_,'_> {
                     TeXCommand::Register(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Dimen(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                    TeXCommand::Java(exec) =>
-                        unsafe {
-                            let jenv = self.jenv.take().unwrap();
-                            let mut jin = JInterpreter::new(jenv).unwrap();
-                            let ptr = Box::new(self);
-                            let pointer : *mut u8 = std::mem::transmute(ptr);
-                            jin.pointer.set(pointer as i64).unwrap();
-                            exec.execute(jenv,&jin).unwrap();
-                            Ok(())
+                    TeXCommand::Ext(exec) =>
+                        match exec.execute(self) {
+                            true => Ok(()),
+                            false => Err("External Command ".to_owned() + exec.name().as_str() + " errored!")
                         }
                     _ => todo!("{}",cmd.as_string())
 
@@ -365,43 +360,5 @@ impl Interpreter<'_,'_> {
 
     fn expand_until_space(_i:i32) -> Result<i32,String> {
         todo!()
-    }
-}
-
-
-use robusta_jni::bridge;
-use crate::interpreter::bridge::JInterpreter;
-
-#[bridge]
-pub mod bridge {
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
-    use robusta_jni::jni::objects::AutoLocal;
-    use robusta_jni::jni::JNIEnv;
-    use crate::interpreter::Interpreter;
-    use robusta_jni::jni::errors::Result as JniResult;
-
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue,FromJavaValue)]
-    #[package(com.jazzpirate.rustex.bridge)]
-    pub struct JInterpreter<'env: 'borrow, 'borrow> {
-        #[instance]
-        raw: AutoLocal<'env, 'borrow>,
-        #[field] pub pointer: Field<'env, 'borrow, i64>
-    }
-    impl<'env: 'borrow, 'borrow> JInterpreter<'env,'borrow> {
-        #[constructor]
-        pub extern "java" fn new(env: &'borrow JNIEnv<'env>) -> JniResult<Self> {}
-        fn getInt(&self) -> &mut Interpreter {
-            unsafe {
-                let bx : Box<&mut Interpreter> = std::mem::transmute(self.pointer.get().unwrap() as *mut u8);
-                *bx
-            }
-        }
-
-
-        pub extern "jni" fn jobname(self) -> String {
-            let int = self.getInt();
-            int.jobinfo.path.file_stem().unwrap().to_str().unwrap().to_string()
-        }
-
     }
 }

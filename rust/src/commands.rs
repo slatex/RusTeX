@@ -30,51 +30,28 @@ pub struct DimenReference {
     pub name: &'static str
 }
 
-// -------------------------------------------------------------------------------------------------
 
-use robusta_jni::bridge;
-#[bridge]
-pub mod bridge {
-    use robusta_jni::convert::{Signature, IntoJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
-    use robusta_jni::jni::objects::AutoLocal;
-    use robusta_jni::jni::errors::Result as JniResult;
-    use robusta_jni::jni::JNIEnv;
-    use crate::interpreter::bridge::JInterpreter;
-
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
-    #[package(com.jazzpirate.rustex.bridge)]
-    pub struct JExecutable<'env: 'borrow, 'borrow> {
-        #[instance]
-        raw: AutoLocal<'env, 'borrow>,
-        #[field] pub name: Field<'env, 'borrow, String>
-    }
-
-    impl<'env,'borrow> JExecutable<'env,'borrow> {
-        pub extern "java" fn execute(&self,_env: &'borrow JNIEnv<'env>,_int:&JInterpreter) -> JniResult<bool> {}
-    }
-    impl<'env,'borrow>PartialEq for JExecutable<'env,'borrow> {
-        fn eq(&self, other: &Self) -> bool {
-            other.name.get().unwrap() == self.name.get().unwrap()
-        }
-    }
+pub trait ExternalCommand {
+    fn name(&self) -> String;
+    fn execute(&self,int : &mut Interpreter) -> bool;
 }
 
-use bridge::JExecutable;
-
-// -------------------------------------------------------------------------------------------------
-
-pub trait ExternalCommand {}
-
-#[derive(Clone,PartialEq)]
-pub enum TeXCommand<'env,'borrow> {
+#[derive(Clone)]
+pub enum TeXCommand<'a> {
     Primitive(&'static PrimitiveExecutable),
     Register(&'static RegisterReference),
     Dimen(&'static DimenReference),
-    Java(Rc<JExecutable<'env,'borrow>>),
+    Ext(Rc<dyn ExternalCommand + 'a>),
     Def
 }
 
-impl<'env,'borrow> fmt::Display for TeXCommand<'env,'borrow> {
+impl PartialEq for TeXCommand<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl<'a> fmt::Display for TeXCommand<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TeXCommand::Primitive(p) =>
@@ -83,8 +60,8 @@ impl<'env,'borrow> fmt::Display for TeXCommand<'env,'borrow> {
         }
     }
 }
-impl<'env,'borrow> TeXCommand<'env,'borrow> {
-    pub fn defmacro<'a>(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand<'a,'a> {
+impl<'b> TeXCommand<'b> {
+    pub fn defmacro<'a>(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand<'a> {
         todo!("commands.rs 33")
     }
     pub fn name(&self) -> String {
@@ -92,7 +69,7 @@ impl<'env,'borrow> TeXCommand<'env,'borrow> {
             TeXCommand::Primitive(pr) => pr.name.to_string(),
             TeXCommand::Register(reg) => reg.name.to_string(),
             TeXCommand::Dimen(dr) => dr.name.to_string(),
-            TeXCommand::Java(jr) => jr.name.get().unwrap(),
+            TeXCommand::Ext(jr) => jr.name(),
             TeXCommand::Def => todo!()
         }
     }

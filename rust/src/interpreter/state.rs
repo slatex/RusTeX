@@ -11,7 +11,7 @@ struct StackFrame<'a> {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<String,Option<Rc<TeXCommand<'a,'a>>>>,
+    pub(crate) commands: HashMap<String,Option<Rc<TeXCommand<'a>>>>,
     pub(crate) registers: HashMap<i8,Option<i32>>,
     pub(crate) dimensions: HashMap<i8,Option<i32>>
 }
@@ -21,7 +21,7 @@ impl<'sf> StackFrame<'sf> {
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
-        let mut cmds: HashMap<String,Option<Rc<TeXCommand<'a,'a>>>> = HashMap::new();
+        let mut cmds: HashMap<String,Option<Rc<TeXCommand<'a>>>> = HashMap::new();
         for c in tex_commands() {
             cmds.insert(c.name(),Some(Rc::new(c)));
         }
@@ -56,7 +56,7 @@ impl<'sf> StackFrame<'sf> {
             dimensions:dims
         }
     }
-    pub(crate) fn get_command(&self, name:&str) -> Option<Rc<TeXCommand<'sf,'sf>>> {
+    pub(crate) fn get_command(&self, name:&str) -> Option<Rc<TeXCommand<'sf>>> {
         match self.commands.get(name) {
             Some(Some(r)) => Some(Rc::clone(r)),
             Some(None) => None,
@@ -99,7 +99,7 @@ impl<'s> State<'s> {
             stacks: vec![Box::new(StackFrame::initial_pdf_etex())]
         }
     }
-    pub fn with_commands<'a>(mut procs:Vec<TeXCommand<'a,'a>>) -> State<'a> {
+    pub fn with_commands<'a>(mut procs:Vec<TeXCommand<'a>>) -> State<'a> {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
@@ -112,7 +112,7 @@ impl<'s> State<'s> {
         }
         st
     }
-    pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand<'s,'s>>> {
+    pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand<'s>>> {
         self.stacks.last().unwrap().get_command(name)
     }
     pub fn get_register(&self, index:i8) -> i32 {
@@ -200,7 +200,7 @@ pub struct RegisterStateChange {
 
 pub struct CommandChange<'a> {
     pub name:String,
-    pub cmd:Option<Rc<TeXCommand<'a,'a>>>,
+    pub cmd:Option<Rc<TeXCommand<'a>>>,
     pub global:bool
 }
 
