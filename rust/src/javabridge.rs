@@ -9,12 +9,13 @@ pub mod java {
     use crate::interpreter::state::State;
     use crate::utils::{kpsewhich,PWD};
     use crate::interpreter::Interpreter;
+    use robusta_jni::jni::JNIEnv;
 
     #[derive(Signature)]
     #[package(com.jazzpirate.rustex.bridge)]
     struct Bridge {}
     impl Bridge {
-        pub extern "jni" fn test<'env,'borrow>(mut vec: Vec<JExecutable<'env,'borrow>>) -> bool {
+        pub extern "jni" fn test<'env,'borrow>(env: &'borrow JNIEnv<'env>,mut vec: Vec<JExecutable<'env,'borrow>>) -> bool {
             use std::rc::Rc;
             let mut nvec : Vec<TeXCommand> = Vec::new();
             while !vec.is_empty() {
@@ -26,8 +27,8 @@ pub mod java {
 
             println!("{}",pdftex_cfg.to_str().expect("wut"));
             println!("{}",latex_ltx.to_str().expect("wut"));
-            st = Interpreter::do_file_with_state(&pdftex_cfg,st);
-            st = Interpreter::do_file_with_state(&latex_ltx,st);
+            st = Interpreter::do_file_with_state(&pdftex_cfg,st,Some(env));
+            st = Interpreter::do_file_with_state(&latex_ltx,st,Some(env));
             true
         }
     }

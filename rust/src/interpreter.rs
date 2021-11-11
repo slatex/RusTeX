@@ -5,7 +5,7 @@ pub enum TeXMode {
 use std::any::Any;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use crate::ontology::{CharacterToken, LaTeXFile, PrimitiveCharacterToken, PrimitiveToken, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
@@ -49,6 +49,7 @@ impl Jobinfo<'_> {
         self.path.parent().unwrap()
     }
 }
+use robusta_jni::jni::JNIEnv;
 
 pub struct Interpreter<'state,'inner> {
     pub state:State<'state>,
@@ -56,6 +57,7 @@ pub struct Interpreter<'state,'inner> {
     mouths:Mouths,
     filestore:FileStore,
     mode:TeXMode,
+    jenv : Option<&'inner JNIEnv<'inner>>
 }
 impl Interpreter<'_,'_> {
     pub fn string_to_tokens(s : &str) -> Vec<PrimitiveCharacterToken> {
@@ -63,7 +65,7 @@ impl Interpreter<'_,'_> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
-    pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>) -> State<'a> {
+    pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>,jenv: Option<&'a JNIEnv<'a>>) -> State<'a> {
         let mut int = Interpreter {
             state:s,
             jobinfo:Jobinfo::new(p),
@@ -71,7 +73,8 @@ impl Interpreter<'_,'_> {
             filestore:FileStore {
                 files:HashMap::new()
             },
-            mode:TeXMode::Vertical
+            mode:TeXMode::Vertical,
+            jenv
         };
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),int.filestore.borrow_mut());
         int.push_file(vf);
@@ -124,7 +127,7 @@ impl Interpreter<'_,'_> {
     pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,String> {
         match self.state.get_command(s) {
             Some(p) => Ok(p),
-            None => Err("Unknown control sequence: ".to_owned() + s)
+            None => Err("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str())
         }
     }
 
@@ -132,21 +135,29 @@ impl Interpreter<'_,'_> {
         use crate::commands::{TeXCommand,RegisterReference};
         use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
-        println!("85: {}",next.as_string());
+        println!("Here: {}",next.as_string());
         match next.deref() {
             Token::Command(cmd) => {
-                let proc = self.get_command(cmd.name());
-                match proc {
-                    Ok(p) => {
-                        match p.deref() {
-                            TeXCommand::Register(reg) => return self.do_assignment(p,false),
-                            TeXCommand::Dimen(reg) => return self.do_assignment(p,false),
-                            TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                            _ => todo!("{}",cmd.as_string())
-
+                let p = match self.state.get_command(cmd.name()) {
+                    Some(pr) => pr,
+                    None => return Err("Unknown control sequence: ".to_owned() + cmd.name() + " at " + self.current_line().as_str())
+                };
+                match p.deref() {
+                    TeXCommand::Register(reg) => return self.do_assignment(p,false),
+                    TeXCommand::Dimen(reg) => return self.do_assignment(p,false),
+                    TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                    TeXCommand::Java(exec) =>
+                        unsafe {
+                            let jenv = self.jenv.take().unwrap();
+                            let mut jin = JInterpreter::new(jenv).unwrap();
+                            let ptr = Box::new(self);
+                            let pointer : *mut u8 = std::mem::transmute(ptr);
+                            jin.pointer.set(pointer as i64).unwrap();
+                            exec.execute(jenv,&jin);
+                            Ok(())
                         }
-                    },
-                    Err(s) => Err(s)
+                    _ => todo!("{}",cmd.as_string())
+
                 }
             },
             Token::Char(ch) if matches!(ch.catcode(),CategoryCode::Space) || matches!(ch.catcode(),CategoryCode::EOL) => Ok(()),
@@ -158,7 +169,6 @@ impl Interpreter<'_,'_> {
         use crate::catcodes::CategoryCode;
         while self.has_next() {
             let next = self.mouths.next_token(&self.state);
-            println!("114: {}",next.as_string());
             match next.deref() {
                 Token::Char(ch) =>
                 match ch.catcode() {
@@ -180,13 +190,11 @@ impl Interpreter<'_,'_> {
         use crate::catcodes::CategoryCode;
         self.skip_ws();
         let next = self.mouths.next_token(&self.state);
-        println!("136: {}",next.as_string());
         match next.deref() {
             Token::Char(ch) =>
                 match ch.get_char() {
                     61 => {
                         let next = self.mouths.next_token(&self.state);
-                        println!("142: {}",next.as_string());
                         match next.deref() {
                             Token::Char(ch) =>
                                 match ch.catcode() {
@@ -371,19 +379,42 @@ impl Interpreter<'_,'_> {
 
 
 use robusta_jni::bridge;
+use robusta_jni::jni::objects::JObject;
+use robusta_jni::jni::sys::{_jobject, jlong};
+use crate::interpreter::bridge::JInterpreter;
 
 #[bridge]
 pub mod bridge {
-    use robusta_jni::convert::Signature;
+    use std::borrow::Borrow;
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field, JavaValue};
+    use robusta_jni::jni::objects::{AutoLocal, JObject};
+    use robusta_jni::jni::JNIEnv;
     use crate::interpreter::Interpreter;
+    use robusta_jni::jni::errors::Result as JniResult;
+    use robusta_jni::jni::sys::jlong;
 
-    #[derive(Signature)]
+    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue,FromJavaValue)]
     #[package(com.jazzpirate.rustex.bridge)]
-    struct JInterpreter {
-        interpreter:&'static Interpreter<'static,'static>
+    pub struct JInterpreter<'env: 'borrow, 'borrow> {
+        #[instance]
+        raw: AutoLocal<'env, 'borrow>,
+        #[field] pub pointer: Field<'env, 'borrow, i64>
     }
+    impl<'env: 'borrow, 'borrow> JInterpreter<'env,'borrow> {
+        #[constructor]
+        pub extern "java" fn new(env: &'borrow JNIEnv<'env>) -> JniResult<Self> {}
+        fn getInt(&self) -> &mut Interpreter {
+            unsafe {
+                let bx : Box<&mut Interpreter> = std::mem::transmute(self.pointer.get().unwrap() as *mut u8);
+                *bx
+            }
+        }
 
-    impl JInterpreter {
+
+        pub extern "jni" fn jobname(self) -> String {
+            let mut int = self.getInt();
+            int.jobinfo.path.file_stem().unwrap().to_str().unwrap().to_string()
+        }
 
     }
 }

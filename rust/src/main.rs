@@ -1,3 +1,4 @@
+use rustex::catcodes::CategoryCode;
 use rustex::interpreter::mouth::StringMouth;
 use rustex::ontology::{CommandI, Expansion, PrimitiveControlSequence, Token};
 use rustex::references::SourceReference;

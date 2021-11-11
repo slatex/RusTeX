@@ -39,22 +39,22 @@ pub mod bridge {
     use crate::interpreter::Interpreter;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::JNIEnv;
+    use crate::interpreter::bridge::JInterpreter;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package(com.jazzpirate.rustex.bridge)]
     pub struct JExecutable<'env: 'borrow, 'borrow> {
         #[instance]
         raw: AutoLocal<'env, 'borrow>,
-
-        pub name: String
+        #[field] pub name: Field<'env, 'borrow, String>
     }
 
     impl<'env,'borrow> JExecutable<'env,'borrow> {
-        pub extern "java" fn execute(&self,env: &'borrow JNIEnv<'env>) -> JniResult<bool> {}
+        pub extern "java" fn execute(&self,_env: &'borrow JNIEnv<'env>,_int:&JInterpreter) -> JniResult<bool> {}
     }
     impl<'env,'borrow>PartialEq for JExecutable<'env,'borrow> {
         fn eq(&self, other: &Self) -> bool {
-            other.name == self.name
+            other.name.get().unwrap() == self.name.get().unwrap()
         }
     }
 }
@@ -88,7 +88,7 @@ impl<'env,'borrow> TeXCommand<'env,'borrow> {
             TeXCommand::Primitive(pr) => pr.name.to_string(),
             TeXCommand::Register(reg) => reg.name.to_string(),
             TeXCommand::Dimen(dr) => dr.name.to_string(),
-            TeXCommand::Java(jr) => jr.name.clone(),
+            TeXCommand::Java(jr) => jr.name.get().unwrap(),
             TeXCommand::Def => todo!()
         }
     }

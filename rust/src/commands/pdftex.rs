@@ -15,6 +15,13 @@ pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
     index:-17
 };
 
+pub static PDFPAGEWIDTH : DimenReference = DimenReference {
+    name: "pdfpagewidth",
+    index:-17
+};
+
 pub fn pdftex_commands() -> Vec<TeXCommand<'static,'static>> {vec![
-    TeXCommand::Register(&PDFOUTPUT),TeXCommand::Dimen(&PDFPAGEHEIGHT)
+    TeXCommand::Register(&PDFOUTPUT),
+    TeXCommand::Dimen(&PDFPAGEHEIGHT),
+    TeXCommand::Dimen(&PDFPAGEWIDTH),
 ]}

@@ -107,9 +107,9 @@ impl<'s> State<'s> {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
-            //let name = p.name();
+            let name = p.name();
             st.change(StateChange::Cs(CommandChange{
-                name:"",
+                name,
                 cmd: Some(Rc::new(p)),
                 global: false
             }));
@@ -158,7 +158,7 @@ impl<'s> State<'s> {
             }
             StateChange::Cs(cmd) => {
                 if cmd.global {
-                    self.stacks.iter_mut().map(|s| s.commands.remove(cmd.name));
+                    self.stacks.iter_mut().map(|s| s.commands.remove(&*cmd.name));
                     self.stacks.first_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
                 } else {
                     self.stacks.last_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
@@ -177,8 +177,8 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
 
     println!("{}",pdftex_cfg.to_str().expect("wut"));
     println!("{}",latex_ltx.to_str().expect("wut"));
-    st = Interpreter::do_file_with_state(&pdftex_cfg,st);
-    st = Interpreter::do_file_with_state(&latex_ltx,st);
+    st = Interpreter::do_file_with_state(&pdftex_cfg,st,None);
+    st = Interpreter::do_file_with_state(&latex_ltx,st,None);
     st
     /*
 
@@ -197,7 +197,7 @@ pub struct RegisterStateChange {
 }
 
 pub struct CommandChange<'a> {
-    pub name:&'a str,
+    pub name:String,
     pub cmd:Option<Rc<TeXCommand<'a,'a>>>,
     pub global:bool
 }
