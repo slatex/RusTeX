@@ -129,7 +129,6 @@ impl Interpreter<'_,'_> {
     pub fn do_top(&mut self) -> Result<(),String> {
         use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
-        println!("Here: {}",next.as_string());
         match next.deref() {
             Token::Command(cmd) => {
                 let p = match self.state.get_command(cmd.name()) {
@@ -202,6 +201,7 @@ impl Interpreter<'_,'_> {
         let _istrue = self.read_keyword(vec!("true")).is_some();
         match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu")) {
             Some(s) if s == "mm" => mm(f).round() as i32,
+            Some(s) if s == "in" => inch(f).round() as i32,
             Some(o) => todo!("{}",o),
             None => todo!("{}",self.current_line())
         }
