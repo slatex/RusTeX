@@ -120,7 +120,6 @@ impl Display for TeXError {
 }
 impl std::error::Error for TeXError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        // The compiler transparently casts `&sqlx::Error` into a `&dyn Error`
         match self.source.deref() {
             Some(e) => Some(e),
             None => None
