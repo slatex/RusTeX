@@ -3,6 +3,7 @@ pub enum TeXMode {
 }
 
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use crate::ontology::Token;
@@ -54,7 +55,7 @@ impl Jobinfo<'_> {
 pub struct Interpreter<'state,'inner> {
     pub state:State<'state>,
     pub jobinfo:Jobinfo<'inner>,
-    mouths:Mouths,
+    mouths:RefCell<Mouths>,
     filestore:FileStore,
     mode:TeXMode
 }
@@ -67,7 +68,7 @@ impl Interpreter<'_,'_> {
         let mut int = Interpreter {
             state:s,
             jobinfo:Jobinfo::new(p),
-            mouths:Mouths::new(),
+            mouths:RefCell::new(Mouths::new()),
             filestore:FileStore {
                 files:HashMap::new()
             },
@@ -120,7 +121,7 @@ impl Interpreter<'_,'_> {
 
     pub fn do_top(&mut self) -> Result<(),TeXError> {
         use crate::commands::primitives;
-        let next = self.mouths.next_token(&self.state);
+        let next = self.next_token();
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let p = match self.state.get_command(&next.cmdname()) {
@@ -133,7 +134,7 @@ impl Interpreter<'_,'_> {
                     TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     TeXCommand::Primitive(p) => {
                             let ret = (p.apply)(next,self)?;
-                            self.mouths.push_expansion(ret);
+                            self.push_expansion(ret);
                             Ok(())
                         }
                     TeXCommand::Ext(exec) =>
@@ -152,11 +153,11 @@ impl Interpreter<'_,'_> {
 
     pub fn skip_ws(&mut self) {
         while self.has_next() {
-            let next = self.mouths.next_token(&self.state);
+            let next = self.next_token();
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => {}
                 _ => {
-                    self.mouths.requeue(next);
+                    self.requeue(next);
                     break
                 }
             }
@@ -165,16 +166,16 @@ impl Interpreter<'_,'_> {
 
     pub fn read_eq(&mut self) {
         self.skip_ws();
-        let next = self.mouths.next_token(&self.state);
+        let next = self.next_token();
         match next.char {
             61 => {
-                let next = self.mouths.next_token(&self.state);
+                let next = self.next_token();
                 match next.catcode {
                     CategoryCode::Space => {},
-                    _ => self.mouths.requeue(next)
+                    _ => self.requeue(next)
                 }
             }
-            _ => self.mouths.requeue(next)
+            _ => self.requeue(next)
         }
     }
 
@@ -190,7 +191,7 @@ impl Interpreter<'_,'_> {
     }
 
     fn current_line(&self) -> String {
-        self.mouths.current_line()
+        self.mouths.borrow().current_line()
     }
 
     pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Option<String> {
@@ -199,7 +200,7 @@ impl Interpreter<'_,'_> {
         let mut ret : String = "".to_string();
         self.skip_ws();
         while self.has_next() {
-            let next = self.mouths.next_token(&self.state);
+            let next = self.next_token();
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => break,
                 CategoryCode::Active | CategoryCode::Escape => todo!("{}",next.as_string()),
@@ -213,7 +214,7 @@ impl Interpreter<'_,'_> {
                         if kws.len() == 1 && kws.contains(&ret.as_str()) { break }
                     } else {
                         if kws.len() == 1 && kws.contains(&ret.as_str()) {
-                            self.mouths.requeue(next);
+                            self.requeue(next);
                         } else {
                             tokens.push(next);
                         }
@@ -225,7 +226,7 @@ impl Interpreter<'_,'_> {
         if kws.len() == 1 && kws.contains(&ret.as_str()) {
             Some(ret)
         } else {
-            self.mouths.push_tokens(tokens);
+            self.push_tokens(tokens);
             None
         }
     }
@@ -237,7 +238,7 @@ impl Interpreter<'_,'_> {
         let mut isfloat = false;
         self.skip_ws();
         while self.has_next() {
-            let next = self.mouths.next_token(&self.state);
+            let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active =>
                     {
@@ -284,7 +285,7 @@ impl Interpreter<'_,'_> {
         let mut ret = "".to_string();
         self.skip_ws();
         while self.has_next() {
-            let next = self.mouths.next_token(&self.state);
+            let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active =>
                     match self.get_command(&next.cmdname()) {

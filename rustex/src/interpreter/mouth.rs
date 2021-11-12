@@ -1,7 +1,6 @@
 enum MouthState { N,S,M }
 
 use std::borrow::BorrowMut;
-use std::cell::Cell;
 use std::rc::Rc;
 use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
@@ -34,7 +33,7 @@ impl Mouth {
 
 pub struct TokenMouth {
     exp: Rc<Expansion>,
-    tokens : Cell<Vec<Token>>
+    tokens : Vec<Token>
 }
 impl TokenMouth {
     fn new(exp:Expansion,copy:bool) -> TokenMouth {
@@ -51,21 +50,21 @@ impl TokenMouth {
         }
         TokenMouth {
             exp:rc,
-            tokens:Cell::new(vec)
+            tokens:vec
         }
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {
-        !self.tokens.get().is_empty()
+        !self.tokens.is_empty()
     }
     fn pop_next(&mut self, _nocomment: bool) -> Token {
-        self.tokens.get_mut().remove(0)
+        self.tokens.remove(0)
     }
     fn preview(&mut self) -> String {
-        self.tokens.get().iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
+        self.tokens.iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
-        self.tokens.get().first().expect("").clone()
+        self.tokens.first().expect("").clone()
     }
 }
 
@@ -543,11 +542,23 @@ impl Mouths {
 }
 
 impl Interpreter<'_,'_> {
-    pub fn push_file(&mut self,file:VFile) {
-        self.mouths.push_file(&self.state,file)
+    pub fn push_file(&self,file:VFile) {
+        self.mouths.borrow_mut().push_file(&self.state,file)
     }
-    pub fn has_next(&mut self) -> bool {
-        self.mouths.has_next(&self.state)
+    pub fn push_expansion(&self,exp:Expansion) {
+        self.mouths.borrow_mut().push_expansion(exp)
+    }
+    pub fn push_tokens(&self,tks:Vec<Token>) {
+        self.mouths.borrow_mut().push_tokens(tks)
+    }
+    pub fn next_token(&self) -> Token {
+        self.mouths.borrow_mut().next_token(&self.state)
+    }
+    pub fn requeue(&self,token:Token) {
+        self.mouths.borrow_mut().requeue(token)
+    }
+    pub fn has_next(&self) -> bool {
+        self.mouths.borrow_mut().has_next(&self.state)
     }
     /*
     pub fn push_file(&mut self,file : VFile) {
