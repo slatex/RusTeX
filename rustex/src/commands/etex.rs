@@ -7,10 +7,10 @@ use std::rc::Rc;
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     apply: |cs: Token, _int: &mut Interpreter| {
-        Expansion {
+        Ok(Expansion {
             cs: cs,
             exp:Interpreter::string_to_tokens(VERSION_INFO.etexrevision())
-        }
+        })
     },
     name: "etexrevision"
 };

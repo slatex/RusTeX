@@ -7,20 +7,20 @@ pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
     apply:|cs: Token, _int: &mut Interpreter| {
-        Expansion {
+        Ok(Expansion {
             cs,
             exp: vec![]
-        }
+        })
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
     apply:|cs: Token, _int: &mut Interpreter| {
-        Expansion {
+        Ok(Expansion {
             cs,
             exp: vec![]
-        }
+        })
     }
 };
 

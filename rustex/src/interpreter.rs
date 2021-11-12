@@ -131,6 +131,11 @@ impl Interpreter<'_,'_> {
                     TeXCommand::Register(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Dimen(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                    TeXCommand::Primitive(p) => {
+                            let ret = (p.apply)(next,self)?;
+                            self.mouths.push_expansion(ret);
+                            Ok(())
+                        }
                     TeXCommand::Ext(exec) =>
                         match exec.execute(self) {
                             true => Ok(()),

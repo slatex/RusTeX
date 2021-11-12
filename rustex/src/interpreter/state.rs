@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
-use crate::commands::conditionals::Condition;
+use crate::commands::conditionals::{Condition, conditional_commands};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich,PWD};
@@ -23,6 +23,9 @@ impl<'sf> StackFrame<'sf> {
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
         let mut cmds: HashMap<String,Option<Rc<TeXCommand<'a>>>> = HashMap::new();
+        for c in conditional_commands() {
+            cmds.insert(c.name(),Some(Rc::new(c)));
+        }
         for c in tex_commands() {
             cmds.insert(c.name(),Some(Rc::new(c)));
         }

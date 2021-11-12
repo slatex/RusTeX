@@ -1,6 +1,7 @@
 enum MouthState { N,S,M }
 
 use std::borrow::BorrowMut;
+use std::cell::Cell;
 use std::rc::Rc;
 use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
@@ -33,7 +34,7 @@ impl Mouth {
 
 pub struct TokenMouth {
     exp: Rc<Expansion>,
-    tokens : Vec<Token>
+    tokens : Cell<Vec<Token>>
 }
 impl TokenMouth {
     fn new(exp:Expansion,copy:bool) -> TokenMouth {
@@ -50,21 +51,21 @@ impl TokenMouth {
         }
         TokenMouth {
             exp:rc,
-            tokens:vec
+            tokens:Cell::new(vec)
         }
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {
-        !self.tokens.is_empty()
+        !self.tokens.get().is_empty()
     }
     fn pop_next(&mut self, _nocomment: bool) -> Token {
-        self.tokens.remove(0)
+        self.tokens.get_mut().remove(0)
     }
     fn preview(&mut self) -> String {
-        self.tokens.iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
+        self.tokens.get().iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
-        self.tokens.first().expect("").clone()
+        self.tokens.get().first().expect("").clone()
     }
 }
 
@@ -496,7 +497,7 @@ impl Mouths {
             }
         }
     }
-    pub(in crate::interpreter::mouth) fn push_expansion(&mut self, exp : Expansion) {
+    pub(in crate::interpreter) fn push_expansion(&mut self, exp : Expansion) {
         if !exp.exp.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(exp,true));
             self.mouths.push(nm)

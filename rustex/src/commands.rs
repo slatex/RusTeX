@@ -8,9 +8,10 @@ use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::utils::TeXError;
 
 pub struct PrimitiveExecutable {
-    pub apply:fn(cs:Token,itp:&mut Interpreter) -> Expansion,
+    pub apply:fn(cs:Token,itp:&mut Interpreter) -> Result<Expansion,TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }
@@ -39,9 +40,9 @@ pub trait ExternalCommand {
 
 #[derive(Clone)]
 pub enum TeXCommand<'a> {
-    Primitive(&'static PrimitiveExecutable),
-    Register(&'static RegisterReference),
-    Dimen(&'static DimenReference),
+    Primitive(&'a PrimitiveExecutable),
+    Register(&'a RegisterReference),
+    Dimen(&'a DimenReference),
     Ext(Rc<dyn ExternalCommand + 'a>),
     Def
 }

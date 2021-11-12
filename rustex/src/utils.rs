@@ -114,7 +114,7 @@ impl Debug for TeXError {
 
 impl Display for TeXError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"Display: {}",self.msg);
+        write!(f,"{}\n",self.msg);
         self.backtrace.fmt(f)
     }
 }
