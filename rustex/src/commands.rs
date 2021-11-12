@@ -11,9 +11,14 @@ use std::fmt::Formatter;
 use crate::utils::TeXError;
 
 pub struct PrimitiveExecutable {
-    pub apply:fn(cs:Token,itp:&mut Interpreter) -> Result<Expansion,TeXError>,
+    pub (in crate::commands) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError>,
     pub expandable : bool,
     pub name: &'static str
+}
+impl PrimitiveExecutable {
+    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError> {
+        (self._apply)(cs,itp)
+    }
 }
 impl PartialEq for PrimitiveExecutable {
     fn eq(&self, other: &Self) -> bool {
@@ -35,7 +40,7 @@ pub struct DimenReference {
 
 pub trait ExternalCommand {
     fn name(&self) -> String;
-    fn execute(&self,int : &mut Interpreter) -> bool;
+    fn execute(&self,int : &Interpreter) -> bool;
 }
 
 #[derive(Clone)]

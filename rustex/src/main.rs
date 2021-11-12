@@ -17,10 +17,10 @@ fn do_test() {
     let latexltx = kpsewhich("pdftexconfig.tex",&PWD).expect("latex.ltx not found!");
     let content = fs::read_to_string(latexltx).unwrap();
     let dummyexp = Expansion::dummy(vec!());
-    let mut mouth = StringMouth::new(&state,dummyexp,content.as_str());
+    let mut mouth = StringMouth::new(state.newlinechar(),dummyexp,content.as_str());
     let mut ret: Vec<Token> = Vec::new();
-    while mouth.has_next(&state,true) {
-        ret.push(mouth.pop_next(&state,true))
+    while mouth.has_next(state.catcodes(),state.endlinechar(),true) {
+        ret.push(mouth.pop_next(state.catcodes(),state.endlinechar(),true))
     }
     println!("Length: {}",ret.len());
     let string : String = ret.iter().map(|x| x.as_string()).collect::<Vec<_>>().join("");

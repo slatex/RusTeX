@@ -6,7 +6,7 @@ use std::rc::Rc;
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    apply:|cs: Token, _int: &mut Interpreter| {
+    _apply:|cs: Token, _int: &Interpreter| {
         Ok(Expansion {
             cs,
             exp: vec![]
@@ -16,7 +16,7 @@ pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    apply:|cs: Token, _int: &mut Interpreter| {
+    _apply:|cs: Token, _int: &Interpreter| {
         Ok(Expansion {
             cs,
             exp: vec![]

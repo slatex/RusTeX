@@ -53,7 +53,7 @@ impl Jobinfo<'_> {
 }
 
 pub struct Interpreter<'state,'inner> {
-    pub state:State<'state>,
+    state:RefCell<State<'state>>,
     pub jobinfo:Jobinfo<'inner>,
     mouths:RefCell<Mouths>,
     filestore:FileStore,
@@ -66,7 +66,7 @@ impl Interpreter<'_,'_> {
     }
     pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>) -> State<'a> {
         let mut int = Interpreter {
-            state:s,
+            state:RefCell::new(s),
             jobinfo:Jobinfo::new(p),
             mouths:RefCell::new(Mouths::new()),
             filestore:FileStore {
@@ -82,16 +82,16 @@ impl Interpreter<'_,'_> {
                 Err(s) => s.throw()
             }
         }
-        int.state
+        let ret = int.state.borrow().clone(); ret
     }
 
-    pub fn do_assignment(&mut self,p : Rc<TeXCommand>,globally:bool) -> Result<(),TeXError> {
+    pub fn do_assignment(&self,p : Rc<TeXCommand>,globally:bool) -> Result<(),TeXError> {
         let global = globally; // TODO!
         match p.deref() {
             TeXCommand::Dimen(reg) => {
                 self.read_eq();
                 let dim = self.read_dimension()?;
-                self.state.change(StateChange::Register(RegisterStateChange {
+                self.change_state(StateChange::Register(RegisterStateChange {
                     index: reg.index,
                     value: dim,
                     global
@@ -101,7 +101,7 @@ impl Interpreter<'_,'_> {
             TeXCommand::Register(reg) => {
                 self.read_eq();
                 let num = self.read_number()?;
-                self.state.change(StateChange::Register(RegisterStateChange {
+                self.change_state(StateChange::Register(RegisterStateChange {
                     index: reg.index,
                     value: num,
                     global
@@ -113,7 +113,7 @@ impl Interpreter<'_,'_> {
     }
 
     pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,TeXError> {
-        match self.state.get_command(s) {
+        match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
             None => Err(TeXError::new("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str()))
         }
@@ -124,16 +124,13 @@ impl Interpreter<'_,'_> {
         let next = self.next_token();
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
-                let p = match self.state.get_command(&next.cmdname()) {
-                    Some(pr) => pr,
-                    None => return Err(TeXError::new("Unknown control sequence: ".to_owned() + &next.cmdname() + " at " + self.current_line().as_str()))
-                };
+                let p = self.get_command(&next.cmdname())?;
                 match p.deref() {
                     TeXCommand::Register(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Dimen(_reg) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     TeXCommand::Primitive(p) => {
-                            let ret = (p.apply)(next,self)?;
+                            let ret = p.apply(next,self)?;
                             self.push_expansion(ret);
                             Ok(())
                         }
@@ -151,7 +148,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn skip_ws(&mut self) {
+    pub fn skip_ws(&self) {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -164,7 +161,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn read_eq(&mut self) {
+    pub fn read_eq(&self) {
         self.skip_ws();
         let next = self.next_token();
         match next.char {
@@ -179,7 +176,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    fn point_to_int(&mut self,f:f32) -> i32 {
+    fn point_to_int(&self,f:f32) -> i32 {
         use crate::interpreter::dimensions::*;
         let _istrue = self.read_keyword(vec!("true")).is_some();
         match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu")) {
@@ -194,7 +191,7 @@ impl Interpreter<'_,'_> {
         self.mouths.borrow().current_line()
     }
 
-    pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Option<String> {
+    pub fn read_keyword(&self,mut kws:Vec<&str>) -> Option<String> {
         use std::str;
         let mut tokens:Vec<Token> = Vec::new();
         let mut ret : String = "".to_string();
@@ -231,7 +228,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn read_dimension(&mut self) -> Result<i32,TeXError> {
+    pub fn read_dimension(&self) -> Result<i32,TeXError> {
         use std::str;
         let mut isnegative = false;
         let mut ret = "".to_string();
@@ -244,11 +241,11 @@ impl Interpreter<'_,'_> {
                     {
                         let p = self.get_command(&next.cmdname())?;
                         match p.deref() {
-                            TeXCommand::Register(reg) => {
+                            TeXCommand::Dimen(reg) if ret.is_empty() => {
                                 if isnegative {
-                                    return Ok(-self.state.get_register(reg.index))
+                                    return Ok(-self.state_dimension(reg.index))
                                 } else {
-                                    return Ok(self.state.get_register(reg.index))
+                                    return Ok(self.state_dimension(reg.index))
                                 }
                             }
                             _ => todo!("{}",next.as_string())
@@ -278,7 +275,7 @@ impl Interpreter<'_,'_> {
         Err(TeXError::new("File ended unexpectedly".to_string()))
     }
 
-    pub fn read_number(&mut self) -> Result<i32,TeXError> {
+    pub fn read_number(&self) -> Result<i32,TeXError> {
         use std::str;
         let mut isnegative = false;
         let mut ishex = false;
@@ -294,9 +291,9 @@ impl Interpreter<'_,'_> {
                             match p.deref() {
                                 TeXCommand::Register(reg) => {
                                     if isnegative {
-                                        return Ok(-self.state.get_register(reg.index))
+                                        return Ok(-self.state_register(reg.index))
                                     } else {
-                                        return Ok(self.state.get_register(reg.index))
+                                        return Ok(self.state_register(reg.index))
                                     }
                                 }
                                 _ => todo!("{}",next.as_string())

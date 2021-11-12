@@ -23,9 +23,9 @@ pub mod java {
     impl<'env: 'borrow, 'borrow> JInterpreter<'env,'borrow> {
         #[constructor]
         pub extern "java" fn new(env: &'borrow JNIEnv<'env>) -> JniResult<Self> {}
-        fn getInt(&self) -> &mut Interpreter {
-            use rustex::utils::decode_pointer_mut;
-            decode_pointer_mut(self.pointer.get().unwrap())
+        fn getInt(&self) -> &Interpreter {
+            use rustex::utils::decode_pointer;
+            decode_pointer(self.pointer.get().unwrap())
         }
 
 
@@ -94,10 +94,10 @@ impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
         self.je.name.get().unwrap()
     }
 
-    fn execute(&self, int: &mut Interpreter) -> bool {
-        use rustex::utils::encode_pointer_mut;
+    fn execute(&self, int: &Interpreter) -> bool {
+        use rustex::utils::encode_pointer;
         let mut ji = JInterpreter::new(self.env).unwrap();
-        ji.pointer.set(encode_pointer_mut(int));
+        ji.pointer.set(encode_pointer(int));
         self.je.execute(self.env,&ji).unwrap()
     }
 }

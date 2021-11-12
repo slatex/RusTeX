@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
 use crate::commands::conditionals::{Condition, conditional_commands};
@@ -95,7 +96,7 @@ impl<'sf> StackFrame<'sf> {
 #[derive(Clone)]
 pub struct State<'a> {
     stacks: Vec<Box<StackFrame<'a>>>,
-    pub(in crate) conditions:Vec<Condition>
+    pub(in crate) conditions:Vec<Option<bool>>
 }
 
 impl<'s> State<'s> {
@@ -196,6 +197,36 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
     interpreter.kill_state()
 
  */
+}
+
+use std::cell::Ref;
+impl<'s> Interpreter<'s,'_> {
+    pub fn change_state(&self,change:StateChange<'s>) {
+        let mut state = self.state.borrow_mut();
+        state.change(change)
+    }
+
+    pub fn state_newlinechar(&self) -> u8 {
+        self.state.borrow().newlinechar()
+    }
+    pub fn state_endlinechar(&self) -> u8 {
+        self.state.borrow().endlinechar()
+    }
+    pub fn state_catcodes(&self) -> CategoryCodeScheme {
+        self.state.borrow().catcodes().clone()
+    }
+    pub fn state_register(&self,i:i8) -> i32 {
+        self.state.borrow().get_register(i)
+    }
+    pub fn state_dimension(&self,i:i8) -> i32 {
+        self.state.borrow().get_dimension(i)
+    }
+
+    pub fn pushcondition<'a>(&self) -> u8 {
+        let mut state = self.state.borrow_mut();
+        state.conditions.push(None);
+        state.conditions.len() as u8
+    }
 }
 
 pub struct RegisterStateChange {
