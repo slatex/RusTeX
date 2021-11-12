@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
+use crate::commands::conditionals::Condition;
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich,PWD};
@@ -91,12 +92,14 @@ impl<'sf> StackFrame<'sf> {
 #[derive(Clone)]
 pub struct State<'a> {
     stacks: Vec<Box<StackFrame<'a>>>,
+    pub(in crate) conditions:Vec<Condition>
 }
 
 impl<'s> State<'s> {
     pub fn new<'a>() -> State<'a> {
         State {
-            stacks: vec![Box::new(StackFrame::initial_pdf_etex())]
+            stacks: vec![Box::new(StackFrame::initial_pdf_etex())],
+            conditions: vec![]
         }
     }
     pub fn with_commands<'a>(mut procs:Vec<TeXCommand<'a>>) -> State<'a> {

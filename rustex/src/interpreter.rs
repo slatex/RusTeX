@@ -15,6 +15,7 @@ use crate::commands::TeXCommand;
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{RegisterStateChange, State, StateChange};
+use crate::utils::TeXError;
 
 pub mod mouth;
 pub mod state;
@@ -77,64 +78,54 @@ impl Interpreter<'_,'_> {
         while int.has_next() {
             match int.do_top() {
                 Ok(_) => {},
-                Err(s) => panic!("{}",s)
+                Err(s) => s.throw()
             }
         }
         int.state
     }
 
-    pub fn do_assignment(&mut self,p : Rc<TeXCommand>,globally:bool) -> Result<(),String> {
+    pub fn do_assignment(&mut self,p : Rc<TeXCommand>,globally:bool) -> Result<(),TeXError> {
         let global = globally; // TODO!
         match p.deref() {
             TeXCommand::Dimen(reg) => {
                 self.read_eq();
-                let dim = self.read_dimension();
-                match dim {
-                    Err(s) => Err(s),
-                    Ok(i) => {
-                        self.state.change(StateChange::Dimen(RegisterStateChange {
-                            index: reg.index,
-                            value: i,
-                            global
-                        }));
-                        Ok(())
-                    }
-                }
+                let dim = self.read_dimension()?;
+                self.state.change(StateChange::Register(RegisterStateChange {
+                    index: reg.index,
+                    value: dim,
+                    global
+                }));
+                Ok(())
             }
             TeXCommand::Register(reg) => {
                 self.read_eq();
-                let num = self.read_number();
-                match num {
-                    Err(s) => Err(s),
-                    Ok(i) => {
-                        self.state.change(StateChange::Register(RegisterStateChange {
-                            index: reg.index,
-                            value: i,
-                            global
-                        }));
-                        Ok(())
-                    }
-                }
+                let num = self.read_number()?;
+                self.state.change(StateChange::Register(RegisterStateChange {
+                    index: reg.index,
+                    value: num,
+                    global
+                }));
+                Ok(())
             }
             _ => todo!()
         }
     }
 
-    pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,String> {
+    pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,TeXError> {
         match self.state.get_command(s) {
             Some(p) => Ok(p),
-            None => Err("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str())
+            None => Err(TeXError::new("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str()))
         }
     }
 
-    pub fn do_top(&mut self) -> Result<(),String> {
+    pub fn do_top(&mut self) -> Result<(),TeXError> {
         use crate::commands::primitives;
         let next = self.mouths.next_token(&self.state);
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let p = match self.state.get_command(&next.cmdname()) {
                     Some(pr) => pr,
-                    None => return Err("Unknown control sequence: ".to_owned() + &next.cmdname() + " at " + self.current_line().as_str())
+                    None => return Err(TeXError::new("Unknown control sequence: ".to_owned() + &next.cmdname() + " at " + self.current_line().as_str()))
                 };
                 match p.deref() {
                     TeXCommand::Register(_reg) => return self.do_assignment(p,false),
@@ -143,7 +134,7 @@ impl Interpreter<'_,'_> {
                     TeXCommand::Ext(exec) =>
                         match exec.execute(self) {
                             true => Ok(()),
-                            false => Err("External Command ".to_owned() + exec.name().as_str() + " errored!")
+                            false => Err(TeXError::new("External Command ".to_owned() + exec.name().as_str() + " errored!"))
                         }
                     _ => todo!("{}",next.as_string())
 
@@ -234,7 +225,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    pub fn read_dimension(&mut self) -> Result<i32,String> {
+    pub fn read_dimension(&mut self) -> Result<i32,TeXError> {
         use std::str;
         let mut isnegative = false;
         let mut ret = "".to_string();
@@ -244,19 +235,17 @@ impl Interpreter<'_,'_> {
             let next = self.mouths.next_token(&self.state);
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active =>
-                    match self.get_command(&next.cmdname()) {
-                        Err(s) => return Err(s),
-                        Ok(p) => {
-                            match p.deref() {
-                                TeXCommand::Register(reg) => {
-                                    if isnegative {
-                                        return Ok(-self.state.get_register(reg.index))
-                                    } else {
-                                        return Ok(self.state.get_register(reg.index))
-                                    }
+                    {
+                        let p = self.get_command(&next.cmdname())?;
+                        match p.deref() {
+                            TeXCommand::Register(reg) => {
+                                if isnegative {
+                                    return Ok(-self.state.get_register(reg.index))
+                                } else {
+                                    return Ok(self.state.get_register(reg.index))
                                 }
-                                _ => todo!("{}",next.as_string())
                             }
+                            _ => todo!("{}",next.as_string())
                         }
                     }
                 CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
@@ -264,7 +253,7 @@ impl Interpreter<'_,'_> {
                         let num = f32::from_str(ret.as_str());
                         match num {
                             Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
-                            Err(_s) => return Err("Number error (should be impossible)".to_string())
+                            Err(_s) => return Err(TeXError::new("Number error (should be impossible)".to_string()))
                         }
                     }
                 _ if next.char.is_ascii_digit() =>
@@ -280,10 +269,10 @@ impl Interpreter<'_,'_> {
                     todo!("{}",next.as_string())
             }
         }
-        Err("File ended unexpectedly".to_string())
+        Err(TeXError::new("File ended unexpectedly".to_string()))
     }
 
-    pub fn read_number(&mut self) -> Result<i32,String> {
+    pub fn read_number(&mut self) -> Result<i32,TeXError> {
         use std::str;
         let mut isnegative = false;
         let mut ishex = false;
@@ -317,7 +306,7 @@ impl Interpreter<'_,'_> {
                         };
                         match num {
                             Ok(n) => return Ok(if isnegative {-n} else {n}),
-                            Err(_s) => return Err("Number error (should be impossible)".to_string())
+                            Err(_s) => return Err(TeXError::new("Number error (should be impossible)".to_string()))
                         }
                     }
                 _ if next.char.is_ascii_digit() =>
@@ -332,10 +321,10 @@ impl Interpreter<'_,'_> {
                     todo!("{}",next.as_string())
             }
         }
-        Err("File ended unexpectedly".to_string())
+        Err(TeXError::new("File ended unexpectedly".to_string()))
     }
 
-    fn expand_until_space(_i:i32) -> Result<i32,String> {
+    fn expand_until_space(_i:i32) -> Result<i32,TeXError> {
         todo!()
     }
 }

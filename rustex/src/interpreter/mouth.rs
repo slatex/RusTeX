@@ -477,7 +477,7 @@ impl Mouths {
                                         _ => panic!("This shouldn't happen!")
                                     }
                                 }
-                                _ => { }
+                                _ => {}
                             }
                         }
                     }

@@ -1,4 +1,8 @@
-use std::path::{Path,PathBuf};
+use std::any::TypeId;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
+use std::ops::Deref;
+use std::path::{Path, PathBuf};
 
 lazy_static! {
     pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")
@@ -63,5 +67,63 @@ pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
     unsafe {
         let bx: Box<&mut T> = std::mem::transmute(i as *mut u8);
         *bx
+    }
+}
+
+use backtrace::Backtrace;
+
+pub struct TeXError {
+    msg:String,
+    source:Box<Option<TeXError>>,
+    backtrace : Backtrace
+}
+
+impl TeXError {
+    fn backtrace() -> Backtrace {
+        let mut bt = Backtrace::new_unresolved();
+        let mut frames = Vec::new();
+        for b in bt.frames() {
+            frames.push(b.clone())
+        }
+        frames.remove(0);
+        frames.remove(0);
+        Backtrace::from(frames)
+    }
+    pub fn new(msg:String) -> TeXError {
+        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace()}
+    }
+    pub fn derive(self,msg:String) -> TeXError {
+        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
+    }
+    pub fn throw<A>(mut self) -> A {
+        self.backtrace.resolve();
+        panic!("{}",self)
+    }
+    pub fn print(&mut self) {
+        self.backtrace.resolve();
+        println!("{}",self)
+    }
+}
+
+impl Debug for TeXError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"Debug: {}",self.msg);
+        self.backtrace.fmt(f)
+    }
+}
+
+impl Display for TeXError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"Display: {}",self.msg);
+        self.backtrace.fmt(f)
+    }
+}
+impl std::error::Error for TeXError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        // The compiler transparently casts `&sqlx::Error` into a `&dyn Error`
+        match self.source.deref() {
+            Some(e) => Some(e),
+            None => None
+        }
     }
 }
