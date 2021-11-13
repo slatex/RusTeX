@@ -75,10 +75,7 @@ pub static COUNTDEF: PrimitiveAssignment<'static> = PrimitiveAssignment {
 
         int.change_state(StateChange::Cs(CommandChange {
             name: cmd.cmdname(),
-            cmd: Some(Rc::new(TeXCommand::AV(AssignableValue::Register(&RegisterReference {
-                index: num as i8,
-                name: &cmd.cmdname()
-            })))),
+            cmd: Some(Rc::new(TeXCommand::AV(AssignableValue::Register((num as u8, cmd.cmdname()))))),
             global
         }));
         Ok(())

@@ -44,20 +44,22 @@ pub struct AssValue<'a, T> {
 
 #[derive(Clone)]
 pub enum AssignableValue<'a> {
-    Dim(&'a AssValue<'a,i32>),
+    Dim((u8,String)),
+    Register((u8, String)),
     Int(&'a AssValue<'a,i32>),
-    Register(&'a RegisterReference),
-    Dimen(&'a DimenReference)
+    PrimReg(&'a RegisterReference),
+    PrimDim(&'a DimenReference)
 }
 
 impl AssignableValue<'_> {
     pub fn name(&self) -> String {
         use AssignableValue::*;
         match self {
-            Dim(d) => d.name.to_string(),
+            Dim((_,s)) => s.to_string(),
+            Register((_,s)) => s.to_string(),
             Int(i) => i.name.to_string(),
-            Register(r) => r.name.to_string(),
-            Dimen(d) => d.name.to_string()
+            PrimReg(r) => r.name.to_string(),
+            PrimDim(d) => d.name.to_string()
         }
     }
 }
@@ -68,11 +70,12 @@ pub struct IntCommand<'a> {
 }
 
 pub enum HasNum<'a> {
-    AssDim(&'a AssValue<'a,i32>),
+    Dim((u8,String)),
+    Register((u8,String)),
     AssInt(&'a AssValue<'a,i32>),
     Int(&'a IntCommand<'a>),
-    Register(&'a RegisterReference),
-    Dimen(&'a DimenReference),
+    PrimReg(&'a RegisterReference),
+    PrimDim(&'a DimenReference),
     Ext(Rc<dyn ExternalCommand + 'a>)
 }
 
@@ -80,12 +83,13 @@ impl HasNum<'_> {
     pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
         use HasNum::*;
         match self {
-            AssDim(d) => (d._getvalue)(int),
+            Dim((i,_)) => Ok(int.state_dimension(*i as i8)),
+            Register((i,_)) => Ok(int.state_register(*i as i8)),
             AssInt(i) => (i._getvalue)(int),
-            Register(r) => Ok(int.state_register(r.index)),
-            Dimen(r) => Ok(int.state_dimension(r.index)),
+            Int(i) => (i._getvalue)(int),
+            PrimReg(r) => Ok(int.state_register(r.index)),
+            PrimDim(r) => Ok(int.state_dimension(r.index)),
             Ext(r) => r.get_num(int),
-            Int(i) => (i._getvalue)(int)
         }
     }
 }
@@ -142,8 +146,27 @@ impl Assignment<'_> {
             Assignment::Prim(p) => (p._assign)(int,global),
             Assignment::Value(av) => match av {
                 AssignableValue::Int(d) => (d._assign)(int,global),
-                AssignableValue::Dim(d) => (d._assign)(int,global),
-                AssignableValue::Register(r) => {
+                AssignableValue::Register((i,_)) => {
+                    int.read_eq();
+                    let num = int.read_number()?;
+                    int.change_state(StateChange::Register(RegisterStateChange {
+                        index: *i as i8,
+                        value: num,
+                        global
+                    }));
+                    Ok(())
+                }
+                AssignableValue::Dim((i,_)) => {
+                    int.read_eq();
+                    let num = int.read_dimension()?;
+                    int.change_state(StateChange::Dimen(RegisterStateChange {
+                        index: *i as i8,
+                        value: num,
+                        global
+                    }));
+                    Ok(())
+                }
+                AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     int.change_state(StateChange::Register(RegisterStateChange {
@@ -153,7 +176,7 @@ impl Assignment<'_> {
                     }));
                     Ok(())
                 },
-                AssignableValue::Dimen(r) => {
+                AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     int.change_state(StateChange::Dimen(RegisterStateChange {
@@ -240,10 +263,11 @@ impl<'b> TeXCommand<'b> {
     pub fn as_hasnum(&self) -> Option<HasNum<'_>> {
         match self {
             TeXCommand::AV(av) => match av {
-                AssignableValue::Dim(d) => Some(HasNum::AssDim(d)),
+                AssignableValue::Register((d,s)) => Some(HasNum::Register((*d,s.clone()))),//Some(HasNum::AssDim(d)),
+                AssignableValue::Dim((d,s)) => Some(HasNum::Dim((*d,s.clone()))),//Some(HasNum::AssDim(d)),
                 AssignableValue::Int(d) => Some(HasNum::AssInt(d)),
-                AssignableValue::Dimen(d) => Some(HasNum::Dimen(d)),
-                AssignableValue::Register(d) => Some(HasNum::Register(d)),
+                AssignableValue::PrimDim(d) => Some(HasNum::PrimDim(d)),
+                AssignableValue::PrimReg(d) => Some(HasNum::PrimReg(d)),
             },
             TeXCommand::Ext(ext) if ext.has_num() => Some(HasNum::Ext(Rc::clone(&ext))),
             TeXCommand::Int(i) => Some(HasNum::Int(i)),
