@@ -18,7 +18,7 @@ fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 
 pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeXError> {
     let mut inifs = initifs;
-    log!("false loop: {}",inifs);
+    //log!("false loop: {}",inifs);
     while int.has_next() {
         let next = int.next_token();
         match next.catcode {

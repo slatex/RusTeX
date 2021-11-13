@@ -14,7 +14,7 @@ macro_rules! log {
     ($head:tt,$($tl:expr),*) => (if crate::LOG {
         //println!($head,$($tl),*);
         let retstr = std::format!("{}",std::format_args!($head,$($tl),*));
-        println!("{}",ansi_term::Colour::Yellow.bold().paint(retstr));
+        println!("{} {}",ansi_term::Colour::Red.bold().paint("Log:"),ansi_term::Colour::Yellow.bold().paint(retstr));
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
     })
 }
