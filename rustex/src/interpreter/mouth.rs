@@ -6,7 +6,6 @@ use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::{SourceReference,FileReference};
-use crate::interpreter::state::State;
 
 pub enum Mouth {
     Token(TokenMouth),
@@ -15,18 +14,18 @@ pub enum Mouth {
 }
 
 impl Mouth {
-    pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8, nocomment : bool) -> bool {
+    pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
-            Mouth::Str(sm) => sm.has_next(catcodes,endlinechar,nocomment),
-            Mouth::File(sm) => sm.has_next(catcodes,endlinechar,nocomment)
+            Mouth::Str(sm) => sm.has_next(catcodes,nocomment),
+            Mouth::File(sm) => sm.has_next(catcodes,nocomment)
         }
     }
-    pub(crate) fn get_next(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8) -> Token {
+    pub(crate) fn get_next(&mut self,catcodes:&CategoryCodeScheme) -> Token {
         match self {
             Mouth::Token(tm) => tm.pop_next(true),
-            Mouth::Str(sm) => sm.pop_next(catcodes,endlinechar,true),
-            Mouth::File(sm) => sm.pop_next(catcodes,endlinechar,true)
+            Mouth::Str(sm) => sm.pop_next(catcodes,true),
+            Mouth::File(sm) => sm.pop_next(catcodes,true)
         }
     }
 }
@@ -109,10 +108,10 @@ pub struct StringMouth {
 }
 
 impl StringMouth {
-    pub fn new_from_file(newlinechar:u8, file:VFile) -> StringMouth {
+    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:VFile) -> StringMouth {
         let ltxf = LaTeXFile::new(file.id);
         let string = file.string.expect("This shouldn't happen");
-        StringMouth::new_i(newlinechar,StringMouthSource::File(ltxf),string)
+        StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(newlinechar:u8, source:Expansion, string : &'a str) -> StringMouth {
         StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),string.to_string())
@@ -189,9 +188,9 @@ impl StringMouth {
         }
     }
 
-    fn do_s(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8) {
-        while self.has_next(catcodes,endlinechar,true) {
-            let next = self.next_char(endlinechar).unwrap();
+    fn do_s(&mut self,catcodes:&CategoryCodeScheme) {
+        while self.has_next(catcodes,true) {
+            let next = self.next_char(catcodes.endlinechar).unwrap();
             match catcodes.get_code(next.0) {
                 CategoryCode::Space | CategoryCode::EOL => {}
                 _ => {
@@ -215,18 +214,18 @@ impl StringMouth {
         }
     }
 
-    pub fn has_next(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8, nocomment: bool) -> bool {
+    pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> bool {
         match self.peekbuffer {
             Some(_) => true,
             None => {
                 loop {
-                    match self.next_char(endlinechar) {
+                    match self.next_char(catcodes.endlinechar) {
                         None => return false, // ret = Some(false),
                         Some(next) => match self.mouth_state {
                             MouthState::S => {
                                 self.charbuffer = Some(next);
                                 self.mouth_state = MouthState::M;
-                                self.do_s(catcodes,endlinechar);
+                                self.do_s(catcodes);
                             }
                             _ => match catcodes.get_code(next.0) {
                                 CategoryCode::Ignored if STORE_IN_FILE => {
@@ -241,7 +240,7 @@ impl StringMouth {
                                             let tk = Token {
                                                 char: next.0,
                                                 catcode: CategoryCode::Ignored,
-                                                nameOpt: None,
+                                                name_opt: None,
                                                 reference: Box::new(SourceReference::File(nrf))
                                             };
                                             ltxf.add(LaTeXObject::Token(tk))
@@ -272,9 +271,9 @@ impl StringMouth {
                                         }
                                         _ => {}
                                     }
-                                    self.do_line(endlinechar);
+                                    self.do_line(catcodes.endlinechar);
                                     loop {
-                                        match self.next_char(endlinechar) {
+                                        match self.next_char(catcodes.endlinechar) {
                                             None => break,
                                             Some(n) => {
                                                 let cc = catcodes.get_code(n.0);
@@ -322,10 +321,10 @@ impl StringMouth {
             }
         }
     }
-    pub fn pop_next(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8, nocomment: bool) -> Token {
-        if !self.has_next(catcodes,endlinechar,true) {panic!("Mouth is empty")}
+    pub fn pop_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> Token {
+        if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
         if let Some(tk) = self.peekbuffer.take() { tk } else {
-            let (char,l,p) = self.next_char(endlinechar).unwrap();
+            let (char,l,p) = self.next_char(catcodes.endlinechar).unwrap();
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
                     let mut buf : Vec<u8> = Vec::new();
@@ -364,7 +363,7 @@ impl StringMouth {
                     Token {
                         char,
                         catcode: CategoryCode::Escape,
-                        nameOpt: Some(name.to_owned()),
+                        name_opt: Some(name.to_owned()),
                         reference: Box::new(self.make_reference(l,p))
                     }
                 }
@@ -373,13 +372,13 @@ impl StringMouth {
                     Token {
                         char,
                         catcode:CategoryCode::Space,
-                        nameOpt:None,
+                        name_opt:None,
                         reference: Box::new(self.make_reference(l,p))
                     }
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
-                    while self.has_next(catcodes,endlinechar,nocomment) {
-                        let (n,l2,p2) = self.next_char(endlinechar).unwrap();
+                    while self.has_next(catcodes,nocomment) {
+                        let (n,l2,p2) = self.next_char(catcodes.endlinechar).unwrap();
                         if !matches!(catcodes.get_code(n),CategoryCode::EOL) {
                             self.charbuffer = Some((n,l2,p2));
                             break
@@ -388,7 +387,7 @@ impl StringMouth {
                     Token {
                         char,
                         catcode:CategoryCode::Escape,
-                        nameOpt:Some("par".to_owned()),
+                        name_opt:Some("par".to_owned()),
                         reference:Box::new(self.make_reference(l,p))
                     }
                 }
@@ -397,7 +396,7 @@ impl StringMouth {
                     Token {
                         char,
                         catcode:CategoryCode::Space,
-                        nameOpt:None,
+                        name_opt:None,
                         reference:Box::new(self.make_reference(l,p))
                     }
                 }
@@ -406,7 +405,7 @@ impl StringMouth {
                     Token {
                         char,
                         catcode:o,
-                        nameOpt:None,
+                        name_opt:None,
                         reference:Box::new(self.make_reference(l,p))
                     }
                 }
@@ -420,8 +419,8 @@ impl StringMouth {
             ret
         }
     }
-    fn peek(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8) -> Token {
-        let next = self.pop_next(catcodes,endlinechar,true);
+    fn peek(&mut self,catcodes:&CategoryCodeScheme) -> Token {
+        let next = self.pop_next(catcodes,true);
         self.peekbuffer = Some(next.clone());
         next
     }
@@ -448,14 +447,14 @@ impl Mouths {
             buffer:None
         }
     }
-    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8) -> bool {
+    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme) -> bool {
         match self.buffer {
             Some(_) => true,
             _ => loop {
                 match self.mouths.last_mut() {
                     None => return false,
                     Some(m) => {
-                        if m.has_next(catcodes,endlinechar,true) {return true} else {
+                        if m.has_next(catcodes,true) {return true} else {
                             match self.mouths.pop().unwrap() {
                                 Mouth::File(f) if self.mouths.is_empty() => {
                                     self.mouths.push(Mouth::File(f));
@@ -484,11 +483,11 @@ impl Mouths {
         }
     }
 
-    pub(in crate::interpreter) fn next_token(&mut self,catcodes:&CategoryCodeScheme,endlinechar:u8) -> Token {
+    pub(in crate::interpreter) fn next_token(&mut self,catcodes:&CategoryCodeScheme) -> Token {
         match self.buffer {
             Some(_) => self.buffer.take().unwrap(),
-            _ => if self.has_next(catcodes,endlinechar) {
-                self.mouths.last_mut().unwrap().get_next(catcodes,endlinechar)
+            _ => if self.has_next(catcodes) {
+                self.mouths.last_mut().unwrap().get_next(catcodes)
             } else {
                 panic!("Mouths empty!")
             }
@@ -513,8 +512,8 @@ impl Mouths {
     }
 
      */
-    pub(in crate::interpreter::mouth) fn push_file(&mut self,newlinechar:u8,file:VFile) {
-        self.mouths.push(Mouth::File(StringMouth::new_from_file(newlinechar,file)))
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:VFile) {
+        self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
 
     pub(in crate::interpreter) fn requeue(&mut self, tk : Token) {
@@ -541,7 +540,7 @@ impl Mouths {
 
 impl Interpreter<'_,'_> {
     pub fn push_file(&self,file:VFile) {
-        self.mouths.borrow_mut().push_file(self.state_newlinechar(),file)
+        self.mouths.borrow_mut().push_file(&self.state_catcodes(),file)
     }
     pub fn push_expansion(&self,exp:Expansion) {
         self.mouths.borrow_mut().push_expansion(exp)
@@ -550,13 +549,13 @@ impl Interpreter<'_,'_> {
         self.mouths.borrow_mut().push_tokens(tks)
     }
     pub fn next_token(&self) -> Token {
-        self.mouths.borrow_mut().next_token(&self.state_catcodes(),self.state_endlinechar())
+        self.mouths.borrow_mut().next_token(&self.state_catcodes())
     }
     pub fn requeue(&self,token:Token) {
         self.mouths.borrow_mut().requeue(token)
     }
     pub fn has_next(&self) -> bool {
-        self.mouths.borrow_mut().has_next(&self.state_catcodes(),self.state_endlinechar())
+        self.mouths.borrow_mut().has_next(&self.state_catcodes())
     }
     /*
     pub fn push_file(&mut self,file : VFile) {

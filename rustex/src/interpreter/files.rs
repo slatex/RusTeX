@@ -25,9 +25,6 @@ pub(in crate::interpreter) struct FileStore {
 }
 
 impl VFile {
-    fn get_map<'a>(_int: &'a mut State<'a>) {
-
-    }
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&'a mut FileStore) -> VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename = if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {

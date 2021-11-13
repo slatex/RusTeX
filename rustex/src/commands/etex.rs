@@ -2,7 +2,6 @@ use crate::commands::{PrimitiveExecutable, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Expansion, Token};
 use crate::VERSION_INFO;
-use std::rc::Rc;
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,

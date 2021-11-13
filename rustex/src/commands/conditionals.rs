@@ -1,46 +1,68 @@
+use std::ops::Deref;
 use crate::interpreter::Interpreter;
-use crate::ontology::Token;
-use crate::commands::{TeXCommand,PrimitiveExecutable};
-use crate::ontology::Expansion;
+use crate::ontology::{Expansion, Token};
+use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable};
 use crate::utils::TeXError;
+use crate::catcodes::CategoryCode;
 
-#[derive(Clone)]
-pub(in crate) struct Condition {
-    cond:Option<bool>,
-    pub unless:bool,
-    index:u8
-}
-impl Condition {
-    pub fn new(int:&Interpreter) -> Condition {
-        Condition {
-            cond:None,
-            unless:false,
-            index:int.pushcondition()
-        }
-    }
-}
-fn expand(cs: Token, int: &Interpreter) -> Condition {
-    Condition::new(int)
-}
-fn dotrue(int: &Interpreter,cond:&mut Condition,allow_unless:bool) {
-    if cond.unless && allow_unless {
+fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+    if unless {
         dofalse(int,cond,false)
     } else {
-        cond.cond = Some(true)
+        int.setcondition(cond,true);
+        Ok(())
     }
 }
-fn dofalse(int: &Interpreter,cond:&mut Condition,allow_unless:bool) {
-    if cond.unless && allow_unless {
+fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+    if unless {
         dotrue(int,cond,false)
     } else {
-        todo!()
+        let initifs = int.setcondition(cond,false);
+        let mut inifs = initifs;
+        while int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    match int.state_get_command(&next.cmdname()) {
+                        None => {}
+                        Some(p) => {
+                            match p.deref() {
+                                TeXCommand::Primitive(x) if **x == FI && inifs == 0 => {
+                                    int.popcondition();
+                                    return Ok(())
+                                }
+                                _ => todo!()
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Err(TeXError::new("File ended unexpectedly".to_string()))
     }
 }
 
-pub static IFNUM : PrimitiveExecutable = PrimitiveExecutable {
-    expandable:true,
-    _apply: |cs: Token, int: &Interpreter| {
-        let cond = expand(cs.clone(),int);
+pub static FI : PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |tk,int| {
+        int.popcondition();
+        Ok(Expansion::dummy(vec!()))
+    },
+    expandable: true,
+    name: "fi"
+};
+
+pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |tk,int| {
+        int.popcondition();
+        Ok(Expansion::dummy(vec!()))
+    },
+    expandable: true,
+    name: "else"
+};
+
+pub static IFNUM : Conditional = Conditional {
+    _apply: |int,cond,unless| {
         let i1 = int.read_number()?;
         let rel = int.read_keyword(vec!["<","=",">"]);
         let i2 = int.read_number()?;
@@ -51,15 +73,13 @@ pub static IFNUM : PrimitiveExecutable = PrimitiveExecutable {
             _ => return Err(TeXError::new("Expected '<','=' or '>' in \\ifnum".to_string()))
         };
         println!("\\ifnum: {}{}{}",i1,rel.unwrap(),i2);
-        //if istrue {dotrue(int,cond,true)} else {dofalse(int,cond,true)}
-        Ok(Expansion {
-            cs: cs,
-            exp:vec![]
-        })
+        if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
     },
-    name: "ifnum"
+    name:"ifnum"
 };
 
 pub fn conditional_commands() -> Vec<TeXCommand<'static>> {vec![
-    TeXCommand::Primitive(&IFNUM)
+    TeXCommand::Cond(&IFNUM),
+    TeXCommand::Primitive(&ELSE),
+    TeXCommand::Primitive(&FI)
 ]}

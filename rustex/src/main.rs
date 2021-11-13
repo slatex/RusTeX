@@ -1,6 +1,5 @@
 use rustex::interpreter::mouth::StringMouth;
 use rustex::ontology::{Expansion, Token};
-use rustex::references::SourceReference;
 use rustex::interpreter::state::State;
 
 fn do_latexltx() {
@@ -10,7 +9,6 @@ fn do_latexltx() {
 }
 
 fn do_test() {
-    use std::rc::Rc;
     let state = State::new();
     use rustex::utils::{kpsewhich,PWD};
     use std::fs;
@@ -19,8 +17,8 @@ fn do_test() {
     let dummyexp = Expansion::dummy(vec!());
     let mut mouth = StringMouth::new(state.newlinechar(),dummyexp,content.as_str());
     let mut ret: Vec<Token> = Vec::new();
-    while mouth.has_next(state.catcodes(),state.endlinechar(),true) {
-        ret.push(mouth.pop_next(state.catcodes(),state.endlinechar(),true))
+    while mouth.has_next(state.catcodes(),true) {
+        ret.push(mouth.pop_next(state.catcodes(),true))
     }
     println!("Length: {}",ret.len());
     let string : String = ret.iter().map(|x| x.as_string()).collect::<Vec<_>>().join("");

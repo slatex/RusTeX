@@ -93,7 +93,10 @@ use std::fmt::Formatter;
 
 #[derive(Clone)]
 pub struct CategoryCodeScheme {
-    catcodes : HashMap<u8,CategoryCode>// = HashMap::new();
+    pub (in crate) catcodes : HashMap<u8,CategoryCode>,// = HashMap::new();
+    pub endlinechar: u8,
+    pub newlinechar: u8,
+    pub escapechar: u8
 }
 impl CategoryCodeScheme {
     pub fn get_code(&self,c : u8) -> CategoryCode {
@@ -112,7 +115,10 @@ lazy_static! {
             let mut map : HashMap<u8,CategoryCode> = HashMap::new();
             map.insert(32,Space);
             map
-        }
+        },
+        newlinechar:10,
+        endlinechar:13,
+        escapechar:255
     };
     pub static ref STARTING_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
         catcodes:{
@@ -124,7 +130,10 @@ lazy_static! {
             for i in 97..122 { map.insert(i,Letter); }
             map.insert(37,Comment);
             map
-        }
+        },
+        newlinechar:10,
+        endlinechar:13,
+        escapechar:92
     };
     pub static ref DEFAULT_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
         catcodes:{
@@ -144,6 +153,9 @@ lazy_static! {
             map.insert(126,Active);
             map.insert(37,Comment);
             map
-        }
+        },
+        newlinechar:10,
+        endlinechar:13,
+        escapechar:92
     };
 }

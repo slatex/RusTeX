@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
-use crate::catcodes::{CategoryCodeScheme,STARTING_SCHEME};
-use crate::commands::conditionals::{Condition, conditional_commands};
+use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich,PWD};
@@ -20,6 +18,7 @@ struct StackFrame<'a> {
 
 impl<'sf> StackFrame<'sf> {
     pub(crate) fn initial_pdf_etex<'a>() -> StackFrame<'a> {
+        use crate::commands::conditionals::conditional_commands;
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
@@ -111,11 +110,7 @@ impl<'s> State<'s> {
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
             let name = p.name();
-            st.change(StateChange::Cs(CommandChange{
-                name,
-                cmd: Some(Rc::new(p)),
-                global: false
-            }));
+            st.stacks.last_mut().unwrap().commands.insert(name,Some(Rc::new(p)));
         }
         st
     }
@@ -143,7 +138,7 @@ impl<'s> State<'s> {
     pub fn newlinechar(&self) -> u8 {
         self.stacks.last().expect("Stack frames empty").newlinechar
     }
-    pub fn change(&mut self,change:StateChange<'s>) {
+    pub fn change(&mut self,int:&Interpreter,change:StateChange<'s>) {
         match change {
             StateChange::Register(regch) => {
                 if regch.global {
@@ -171,6 +166,14 @@ impl<'s> State<'s> {
                     self.stacks.first_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
                 } else {
                     self.stacks.last_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
+                }
+            }
+            StateChange::Cat(cc) => {
+                int.catcodes.borrow_mut().catcodes.insert(cc.char,cc.catcode);
+                if cc.global {
+                    for s in self.stacks.iter_mut() {
+                        s.catcodes.catcodes.insert(cc.char,cc.catcode);
+                    }
                 }
             }
             //_ => todo!()
@@ -203,17 +206,11 @@ use std::cell::Ref;
 impl<'s> Interpreter<'s,'_> {
     pub fn change_state(&self,change:StateChange<'s>) {
         let mut state = self.state.borrow_mut();
-        state.change(change)
+        state.change(self,change)
     }
 
-    pub fn state_newlinechar(&self) -> u8 {
-        self.state.borrow().newlinechar()
-    }
-    pub fn state_endlinechar(&self) -> u8 {
-        self.state.borrow().endlinechar()
-    }
-    pub fn state_catcodes(&self) -> CategoryCodeScheme {
-        self.state.borrow().catcodes().clone()
+    pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
+        self.catcodes.borrow()
     }
     pub fn state_register(&self,i:i8) -> i32 {
         self.state.borrow().get_register(i)
@@ -226,6 +223,17 @@ impl<'s> Interpreter<'s,'_> {
         let mut state = self.state.borrow_mut();
         state.conditions.push(None);
         state.conditions.len() as u8
+    }
+    pub fn setcondition(&self,c : u8,val : bool) -> u8 {
+        let mut state = self.state.borrow_mut();
+        state.conditions.get_mut(c as usize).insert(&mut Some(val));
+        (state.conditions.len() as u8) - c
+    }
+    pub fn popcondition(&self) {
+        self.state.borrow_mut().conditions.pop();
+    }
+    pub fn state_get_command(&self,s:&str) -> Option<Rc<TeXCommand>> {
+        self.state.borrow().get_command(s)
     }
 }
 
@@ -241,8 +249,15 @@ pub struct CommandChange<'a> {
     pub global:bool
 }
 
+pub struct CategoryCodeChange {
+    pub char:u8,
+    pub catcode:CategoryCode,
+    pub global:bool
+}
+
 pub enum StateChange<'a> {
     Register(RegisterStateChange),
     Dimen(RegisterStateChange),
-    Cs(CommandChange<'a>)
+    Cs(CommandChange<'a>),
+    Cat(CategoryCodeChange)
 }

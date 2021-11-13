@@ -22,13 +22,13 @@ impl Expansion {
 pub struct Token {
     pub char : u8,
     pub catcode : CategoryCode,
-    pub nameOpt : Option<String>,
+    pub name_opt: Option<String>,
     pub reference: Box<SourceReference>
 }
 impl Token {
     pub fn name(&self) -> String {
-        match &self.nameOpt {
-            Some(name) => self.nameOpt.as_ref().unwrap().to_owned(),
+        match &self.name_opt {
+            Some(name) => name.to_owned(),
             None => from_utf8(&[self.char]).expect("This should not happen").to_owned()
         }
     }
@@ -49,7 +49,7 @@ impl Token {
         Token {
             char: 0,
             catcode: CategoryCode::Escape,
-            nameOpt: None,
+            name_opt: None,
             reference: Box::new(SourceReference::None)
         }
     }
@@ -62,7 +62,7 @@ impl Token {
             Token {
                 char: self.char,
                 catcode: self.catcode,
-                nameOpt: self.nameOpt.clone(),
+                name_opt: self.name_opt.clone(),
                 reference: Box::new(nref)
             }
         } else { todo!() }

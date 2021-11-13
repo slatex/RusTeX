@@ -1,4 +1,4 @@
-use crate::commands::{DimenReference, RegisterReference, TeXCommand};
+use crate::commands::{AssignableValue, DimenReference, RegisterReference, TeXCommand};
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -51,14 +51,14 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
 };
 
 pub fn pdftex_commands() -> Vec<TeXCommand<'static>> {vec![
-    TeXCommand::Register(&PDFOUTPUT),
-    TeXCommand::Dimen(&PDFPAGEHEIGHT),
-    TeXCommand::Dimen(&PDFPAGEWIDTH),
-    TeXCommand::Register(&PDFMINORVERSION),
-    TeXCommand::Register(&PDFOBJCOMPRESSLEVEL),
-    TeXCommand::Register(&PDFCOMPRESSLEVEL),
-    TeXCommand::Register(&PDFDECIMALDIGITS),
-    TeXCommand::Register(&PDFPKRESOLUTION),
-    TeXCommand::Dimen(&PDFHORIGIN),
-    TeXCommand::Dimen(&PDFVORIGIN),
+    TeXCommand::AV(AssignableValue::Register(&PDFOUTPUT)),
+    TeXCommand::AV(AssignableValue::Dimen(&PDFPAGEHEIGHT)),
+    TeXCommand::AV(AssignableValue::Dimen(&PDFPAGEWIDTH)),
+    TeXCommand::AV(AssignableValue::Register(&PDFMINORVERSION)),
+    TeXCommand::AV(AssignableValue::Register(&PDFOBJCOMPRESSLEVEL)),
+    TeXCommand::AV(AssignableValue::Register(&PDFCOMPRESSLEVEL)),
+    TeXCommand::AV(AssignableValue::Register(&PDFDECIMALDIGITS)),
+    TeXCommand::AV(AssignableValue::Register(&PDFPKRESOLUTION)),
+    TeXCommand::AV(AssignableValue::Dimen(&PDFHORIGIN)),
+    TeXCommand::AV(AssignableValue::Dimen(&PDFVORIGIN)),
 ]}
