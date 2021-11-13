@@ -1,4 +1,4 @@
-use crate::commands::{AssignableValue, DimenReference, RegisterReference, TeXCommand};
+use crate::commands::{AssignableValue, Conditional, DimenReference, RegisterReference, TeXCommand};
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -50,6 +50,27 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
     index:-20
 };
 
+pub static IFPDFABSNUM : Conditional = Conditional {
+    name:"ifpdfabsnum",
+    _apply: |int,cond,unless| {
+        todo!()
+    }
+};
+
+pub static IFPDFABSDIM : Conditional = Conditional {
+    name:"ifpdfabsdim",
+    _apply: |int,cond,unless| {
+        todo!()
+    }
+};
+
+pub static IFPDFPRIMITIVE : Conditional = Conditional {
+    name:"ifpdfprimitive",
+    _apply: |int,cond,unless| {
+        todo!()
+    }
+};
+
 pub fn pdftex_commands() -> Vec<TeXCommand<'static>> {vec![
     TeXCommand::AV(AssignableValue::Register(&PDFOUTPUT)),
     TeXCommand::AV(AssignableValue::Dimen(&PDFPAGEHEIGHT)),
@@ -61,4 +82,7 @@ pub fn pdftex_commands() -> Vec<TeXCommand<'static>> {vec![
     TeXCommand::AV(AssignableValue::Register(&PDFPKRESOLUTION)),
     TeXCommand::AV(AssignableValue::Dimen(&PDFHORIGIN)),
     TeXCommand::AV(AssignableValue::Dimen(&PDFVORIGIN)),
+    TeXCommand::Cond(&IFPDFABSNUM),
+    TeXCommand::Cond(&IFPDFABSDIM),
+    TeXCommand::Cond(&IFPDFPRIMITIVE),
 ]}

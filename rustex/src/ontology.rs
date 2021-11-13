@@ -49,7 +49,7 @@ impl Token {
         Token {
             char: 0,
             catcode: CategoryCode::Escape,
-            name_opt: None,
+            name_opt: Some("relax".to_string()),
             reference: Box::new(SourceReference::None)
         }
     }

@@ -222,15 +222,23 @@ impl<'s> Interpreter<'s,'_> {
     pub fn pushcondition<'a>(&self) -> u8 {
         let mut state = self.state.borrow_mut();
         state.conditions.push(None);
-        state.conditions.len() as u8
+        (state.conditions.len() - 1) as u8
     }
     pub fn setcondition(&self,c : u8,val : bool) -> u8 {
-        let mut state = self.state.borrow_mut();
-        state.conditions.get_mut(c as usize).insert(&mut Some(val));
-        (state.conditions.len() as u8) - c
+        let mut conds = &mut self.state.borrow_mut().conditions;
+        conds.remove(c as usize);
+        conds.insert(c as usize,Some(val));
+        (conds.len() as u8) - 1 - c
     }
     pub fn popcondition(&self) {
         self.state.borrow_mut().conditions.pop();
+    }
+    pub fn getcondition(&self) -> Option<(u8,Option<bool>)> {
+        let conds = &self.state.borrow().conditions;
+        match conds.last() {
+            Some(p) => Some((conds.len() as u8,*p)),
+            None => None
+        }
     }
     pub fn state_get_command(&self,s:&str) -> Option<Rc<TeXCommand>> {
         self.state.borrow().get_command(s)

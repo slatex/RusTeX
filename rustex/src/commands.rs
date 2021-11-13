@@ -57,9 +57,15 @@ impl AssignableValue<'_> {
     }
 }
 
+pub struct IntCommand<'a> {
+    pub _getvalue: fn(int: &Interpreter) -> Result<i32,TeXError>,
+    pub name : &'a str
+}
+
 pub enum HasNum<'a> {
-    Dim(&'a AssValue<'a,i32>),
-    Int(&'a AssValue<'a,i32>),
+    AssDim(&'a AssValue<'a,i32>),
+    AssInt(&'a AssValue<'a,i32>),
+    Int(&'a IntCommand<'a>),
     Register(&'a RegisterReference),
     Dimen(&'a DimenReference),
     Ext(Rc<dyn ExternalCommand + 'a>)
@@ -69,11 +75,12 @@ impl HasNum<'_> {
     pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
         use HasNum::*;
         match self {
-            Dim(d) => (d._getvalue)(int),
-            Int(i) => (i._getvalue)(int),
+            AssDim(d) => (d._getvalue)(int),
+            AssInt(i) => (i._getvalue)(int),
             Register(r) => Ok(int.state_register(r.index)),
             Dimen(r) => Ok(int.state_dimension(r.index)),
-            Ext(r) => r.get_num(int)
+            Ext(r) => r.get_num(int),
+            Int(i) => (i._getvalue)(int)
         }
     }
 }
@@ -172,6 +179,7 @@ pub enum TeXCommand<'a> {
      */
     Ext(Rc<dyn ExternalCommand + 'a>),
     Cond(&'a Conditional),
+    Int(&'a IntCommand<'a>),
     Def
 }
 
@@ -200,6 +208,7 @@ impl<'b> TeXCommand<'b> {
             TeXCommand::AV(av) => av.name(),
             TeXCommand::Ext(jr) => jr.name(),
             TeXCommand::Cond(c) => c.name.to_string(),
+            TeXCommand::Int(i) => i.name.to_string(),
             TeXCommand::Def => todo!()
         }
     }
@@ -215,20 +224,19 @@ impl<'b> TeXCommand<'b> {
     pub fn as_hasnum(&self) -> Option<HasNum<'_>> {
         match self {
             TeXCommand::AV(av) => match av {
-                AssignableValue::Dim(d) => Some(HasNum::Dim(d)),
-                AssignableValue::Int(d) => Some(HasNum::Int(d)),
+                AssignableValue::Dim(d) => Some(HasNum::AssDim(d)),
+                AssignableValue::Int(d) => Some(HasNum::AssInt(d)),
                 AssignableValue::Dimen(d) => Some(HasNum::Dimen(d)),
                 AssignableValue::Register(d) => Some(HasNum::Register(d)),
             },
             TeXCommand::Ext(ext) if ext.has_num() => Some(HasNum::Ext(Rc::clone(&ext))),
+            TeXCommand::Int(i) => Some(HasNum::Int(i)),
             _ => None
         }
     }
     pub fn as_assignment(&self) -> Option<Assignment<'_>> {
         match self {
             TeXCommand::AV(av) => Some(Assignment::Value(av)),
-            //TeXCommand::Register(reg) => Some(Assignment::Register(reg)),
-            //TeXCommand::Dimen(dr) => Some(Assignment::Dimen(dr)),
             TeXCommand::Ext(ext) if ext.assignable() => Some(Assignment::Ext(Rc::clone(&ext))),
             _ => None
         }

@@ -5,6 +5,20 @@ pub mod utils;
 pub mod commands;
 pub mod catcodes;
 
+static LOG : bool = true;
+
+#[macro_export]
+macro_rules! log {
+    () => ();
+    ($arg:tt) => (if crate::LOG {println!($arg)});
+    ($head:tt,$($tl:expr),*) => (if crate::LOG {
+        //println!($head,$($tl),*);
+        let retstr = std::format!("{}",std::format_args!($head,$($tl),*));
+        println!("{}",ansi_term::Colour::Yellow.bold().paint(retstr));
+        //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
+    })
+}
+
 #[macro_use]
 extern crate lazy_static;
 

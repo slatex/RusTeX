@@ -130,7 +130,7 @@ impl Interpreter<'_,'_> {
                 }
             },
             CategoryCode::Space | CategoryCode::EOL if matches!(self.mode,TeXMode::Vertical) => Ok(()),
-            _ => todo!("Character: {}, {}",next.char,next.catcode)
+            _ => todo!("Character: {}, {}, {}",next.char,next.catcode,self.current_line())
         }
     }
 
