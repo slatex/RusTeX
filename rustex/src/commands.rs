@@ -11,7 +11,7 @@ use std::fmt::Formatter;
 use crate::utils::TeXError;
 
 pub struct PrimitiveExecutable {
-    pub (in crate::commands) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError>,
+    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }

@@ -4,6 +4,7 @@ use crate::ontology::Token;
 use crate::utils::TeXError;
 use std::str::FromStr;
 use std::ops::Deref;
+use crate::commands::TeXCommand;
 
 impl Interpreter<'_,'_> {
 
@@ -184,5 +185,29 @@ impl Interpreter<'_,'_> {
             }
         }
         Err(TeXError::new("File ended unexpectedly".to_string()))
+    }
+
+    pub fn read_command_token(&self) -> Result<Token,TeXError> {
+        let mut cmd: Option<Token> = None;
+        while self.has_next() {
+            self.skip_ws();
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = self.state_get_command(&next.cmdname());
+                    match p {
+                        None =>{ cmd = Some(next); break }
+                        Some(p) => match p.deref() {
+                            TeXCommand::Cond(c) => { c.expand(next, self); },
+                            TeXCommand::Primitive(p) if p.expandable =>
+                                { self.push_expansion((p._apply)(next, self)?); }
+                            _ => { cmd = Some(next); break }
+                        }
+                    }
+                }
+                _ => return Err(TeXError::new("Command expected; found: ".to_owned() + &next.as_string()))
+            }
+        };
+        cmd.ok_or_else(|| TeXError::new("File ended unexpectedly".to_string()))
     }
 }

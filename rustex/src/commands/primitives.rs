@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, PrimitiveAssignment, PrimitiveExecutable, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -49,45 +49,39 @@ use std::rc::Rc;
 pub static CHARDEF: PrimitiveAssignment<'static> = PrimitiveAssignment {
     name: "chardef",
     _assign: |int,global| {
-        let mut cmd: Option<Token> = None;
-        while int.has_next() {
-            int.skip_ws();
-            let next = int.next_token();
-            match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active => {
-                    let p = int.state_get_command(&next.cmdname());
-                    match p {
-                        None =>{ cmd = Some(next); break }
-                        Some(p) => match p.deref() {
-                            TeXCommand::Cond(c) => { c.expand(next, int); },
-                            TeXCommand::Primitive(p) if p.expandable =>
-                                { int.push_expansion((p._apply)(next, int)?); }
-                            _ => { cmd = Some(next); break }
-                        }
-                    }
-                }
-                _ => return Err(TeXError::new("Command expected; found: ".to_owned() + &next.as_string()))
-            }
-        };
-        match cmd {
-            None => Err(TeXError::new("File ended unexpectedly".to_string())),
-            Some(c) => {
-                int.read_eq();
-                let num = int.read_number()?;
-                int.change_state(StateChange::Cs(CommandChange {
-                    name: c.cmdname(),
-                    cmd: Some(Rc::new(TeXCommand::Char((c.cmdname(),
-                        Token {
-                        char: num as u8,
-                        catcode: CategoryCode::Other,
-                        name_opt: None,
-                        reference: Box::new(SourceReference::None)
-                    })))),
-                    global
-                }));
-                Ok(())
-            }
-        }
+        let c = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+        int.change_state(StateChange::Cs(CommandChange {
+            name: c.cmdname(),
+            cmd: Some(Rc::new(TeXCommand::Char((c.cmdname(),
+                Token {
+                char: num as u8,
+                catcode: CategoryCode::Other,
+                name_opt: None,
+                reference: Box::new(SourceReference::None)
+            })))),
+            global
+        }));
+        Ok(())
+    }
+};
+pub static COUNTDEF: PrimitiveAssignment<'static> = PrimitiveAssignment {
+    name:"countdef",
+    _assign: |int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+
+        int.change_state(StateChange::Cs(CommandChange {
+            name: cmd.cmdname(),
+            cmd: Some(Rc::new(TeXCommand::AV(AssignableValue::Register(&RegisterReference {
+                index: num as i8,
+                name: &cmd.cmdname()
+            })))),
+            global
+        }));
+        Ok(())
     }
 };
 
@@ -96,4 +90,5 @@ pub fn tex_commands() -> Vec<TeXCommand<'static>> {vec![
     TeXCommand::Primitive(&RELAX),
     TeXCommand::AV(AssignableValue::Int(&CATCODE)),
     TeXCommand::Ass(&CHARDEF),
+    TeXCommand::Ass(&COUNTDEF)
 ]}
