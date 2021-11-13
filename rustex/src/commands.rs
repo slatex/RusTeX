@@ -24,6 +24,11 @@ pub struct Conditional {
     pub name: &'static str,
     _apply:fn(int:&Interpreter,cond:u8,unless:bool) -> Result<(),TeXError>
 }
+impl Conditional {
+    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+        (self._apply)(int,int.pushcondition(),false)
+    }
+}
 
 impl PartialEq for PrimitiveExecutable {
     fn eq(&self, other: &Self) -> bool {
@@ -108,7 +113,7 @@ impl Expandable<'_> {
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use Expandable::*;
         match self {
-            Cond(c) => (c._apply)(int,int.pushcondition(),false),
+            Cond(c) => c.expand(tk,int),
             Primitive(p) => Ok(int.push_expansion((p._apply)(tk,int)?)),
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
             Def => todo!()
@@ -116,11 +121,17 @@ impl Expandable<'_> {
     }
 }
 
+pub struct PrimitiveAssignment<'a> {
+    pub name: &'a str,
+    pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
+}
+
 pub enum Assignment<'a> {
     //Register(&'a RegisterReference),
     //Dimen(&'a DimenReference),
     Value(&'a AssignableValue<'a>),
-    Ext(Rc<dyn ExternalCommand + 'a>)
+    Ext(Rc<dyn ExternalCommand + 'a>),
+    Prim(&'a PrimitiveAssignment<'a>)
 }
 
 use crate::interpreter::state::{StateChange,RegisterStateChange};
@@ -128,6 +139,7 @@ use crate::interpreter::state::{StateChange,RegisterStateChange};
 impl Assignment<'_> {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
         match self {
+            Assignment::Prim(p) => (p._assign)(int,global),
             Assignment::Value(av) => match av {
                 AssignableValue::Int(d) => (d._assign)(int,global),
                 AssignableValue::Dim(d) => (d._assign)(int,global),
@@ -180,6 +192,8 @@ pub enum TeXCommand<'a> {
     Ext(Rc<dyn ExternalCommand + 'a>),
     Cond(&'a Conditional),
     Int(&'a IntCommand<'a>),
+    Char((String,Token)),
+    Ass(&'a PrimitiveAssignment<'a>),
     Def
 }
 
@@ -204,6 +218,8 @@ impl<'b> TeXCommand<'b> {
     }
     pub fn name(&self) -> String {
         match self {
+            TeXCommand::Char((a,_)) => a.to_string(),
+            TeXCommand::Ass(a) => a.name.to_string(),
             TeXCommand::Primitive(pr) => pr.name.to_string(),
             TeXCommand::AV(av) => av.name(),
             TeXCommand::Ext(jr) => jr.name(),
@@ -236,6 +252,7 @@ impl<'b> TeXCommand<'b> {
     }
     pub fn as_assignment(&self) -> Option<Assignment<'_>> {
         match self {
+            TeXCommand::Ass(a) => Some(Assignment::Prim(a)),
             TeXCommand::AV(av) => Some(Assignment::Value(av)),
             TeXCommand::Ext(ext) if ext.assignable() => Some(Assignment::Ext(Rc::clone(&ext))),
             _ => None
