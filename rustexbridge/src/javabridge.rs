@@ -11,7 +11,7 @@ pub mod java {
     use robusta_jni::jni::JNIEnv;
     use rustex::commands::ExternalCommand;
     use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
-    use crate::javabridge::JavaCommand;
+    use crate::javabridge::{JavaCommand, JCommand};
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue,FromJavaValue)]
     #[package(com.jazzpirate.rustex.bridge)]
@@ -62,7 +62,7 @@ pub mod java {
             let mut nvec : Vec<TeXCommand> = Vec::new();
             while !vec.is_empty() {
                 let je = JavaCommand {
-                    je:vec.pop().unwrap(),
+                    je:JCommand::Exec(vec.pop().unwrap()),
                     env
                 };
                 nvec.push(TeXCommand::Ext(Rc::new(je)))
@@ -85,19 +85,60 @@ use rustex::commands::ExternalCommand;
 use rustex::interpreter::Interpreter;
 use crate::javabridge::java::{JExecutable, JInterpreter};
 
+enum JCommand<'env,'borrow> {
+    Exec(JExecutable<'env,'borrow>)
+}
+
 struct JavaCommand<'env,'borrow> {
-    pub je : JExecutable<'env,'borrow>,
+    pub je : JCommand<'env,'borrow>,
     pub env: &'borrow JNIEnv<'env>
 }
-impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
-    fn name(&self) -> String {
-        self.je.name.get().unwrap()
-    }
 
-    fn execute(&self, int: &Interpreter) -> bool {
+use robusta_jni::jni::errors::Result as JniResult;
+use rustex::ontology::Expansion;
+use rustex::utils::TeXError;
+
+impl JavaCommand<'_,'_> {
+    fn with_int<'a,A>(&self,int:&Interpreter,f : Box<dyn Fn(&JInterpreter) -> JniResult<A> + 'a>) -> A {
+        use rustex::utils::encode_pointer;
+        let mut ji = JInterpreter::new(self.env).unwrap();
+        ji.pointer.set(encode_pointer(int));
+        f(&ji).unwrap()
+    }
+}
+
+impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
+    fn expandable(&self) -> bool { match &self.je { _ => false } }
+    fn assignable(&self) -> bool { match &self.je { _ => false } }
+    fn has_num(&self) -> bool { match &self.je { _ => false } }
+    fn name(&self) -> String {
+        match &self.je {
+            JCommand::Exec(je) => je.name.get().unwrap()
+        }
+    }
+    fn execute(&self, int: &Interpreter) -> Result<(),TeXError> {
+        match &self.je {
+            JCommand::Exec(e) =>
+                match self.with_int(int,Box::new(|i| e.execute(self.env,i))) {
+                    true => Ok(()),
+                    _ => Err(TeXError::new("Nope".to_string()))
+                }
+        }
+        /*
         use rustex::utils::encode_pointer;
         let mut ji = JInterpreter::new(self.env).unwrap();
         ji.pointer.set(encode_pointer(int));
         self.je.execute(self.env,&ji).unwrap()
+         */
+    }
+
+    fn expand(&self, int: &Interpreter) -> Result<Expansion, TeXError> {
+        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
+    }
+    fn assign(&self, int: &Interpreter, global: bool) -> Result<(), TeXError> {
+        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
+    }
+    fn get_num(&self, int: &Interpreter) -> Result<i32, TeXError> {
+        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
     }
 }
