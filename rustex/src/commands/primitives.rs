@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, DefMacro, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -84,6 +84,71 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 use crate::log;
 
+fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
+    let mut retsig : Vec<ParamToken> = Vec::new();
+    while int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {
+                return Ok(Signature {
+                    elems: retsig,
+                    endswithbrace: false
+                })
+            }
+            _ => todo!()
+        }
+    }
+    Err(TeXError::new("File ended unexpectedly".to_string()))
+}
+
+fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeXError> {
+    let command = int.next_token();
+    match command.catcode {
+        CategoryCode::Escape | CategoryCode::Active => {}
+        _ => return Err(TeXError::new("\\def expected control sequence or active character; got: ".to_owned() + &command.as_string()))
+    }
+    let sig = readSig(int)?;
+    let mut ingroups = 0;
+    let mut ret : Vec<ParamToken> = Vec::new();
+    while int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {
+                ingroups += 1;
+                ret.push(ParamToken::Token(next));
+            }
+            CategoryCode::EndGroup if ingroups == 0 => {
+                log!("\\def {} {} {}{}{}",command.as_string(),sig,"{",ret.iter().map(|x| x.as_string()).collect::<Vec<_>>().join(""),"}");
+                let dm = DefMacro {
+                    name: "".to_string(),
+                    protected,
+                    long,
+                    sig,
+                    ret
+                };
+                int.change_state(StateChange::Cs(CommandChange {
+                    name: command.cmdname(),
+                    cmd: Some(TeXCommand::Def(Rc::new(dm))),
+                    global
+                }));
+                return Ok(())
+            }
+            CategoryCode::EndGroup => {
+                ingroups -=1;
+                ret.push(ParamToken::Token(next));
+            },
+            CategoryCode::Parameter => todo!("{}",int.current_line()),
+            _ => ret.push(ParamToken::Token(next))
+        }
+    }
+    Err(TeXError::new("File ended unexpectedly".to_string()))
+}
+
+pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"def",
+    _assign: |int,global| doDef(int,global,false,false)
+};
+
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     name:"let",
     _assign: |int,global| {
@@ -147,6 +212,7 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
+    TeXCommand::Ass(&DEF),
     TeXCommand::Ass(&LET),
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),

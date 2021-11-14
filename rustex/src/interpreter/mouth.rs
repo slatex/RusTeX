@@ -328,36 +328,58 @@ impl StringMouth {
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
                     let mut buf : Vec<u8> = Vec::new();
-                    if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
-                    let mut nc = self.next_char(catcodes.endlinechar).unwrap();
-                    match catcodes.get_code(nc.0) {
-                        CategoryCode::Letter => {
-                            buf.push(nc.0);
-                            while self.has_next(catcodes,true) && {
-                                nc = self.next_char(catcodes.endlinechar).unwrap();
-                                matches!(catcodes.get_code(nc.0),CategoryCode::Letter)
-                            } {
-                                buf.push(nc.0);
+                    let maybecomment = self.next_char(catcodes.endlinechar);
+                    match maybecomment {
+                        Some((tk,_,_)) if matches!(catcodes.get_code(tk),CategoryCode::Comment) => {
+                            Token {
+                                char,
+                                catcode: CategoryCode::Escape,
+                                name_opt: Some(from_utf8(&[tk]).unwrap().to_owned()),
+                                reference: Box::new(self.make_reference(l,p))
                             }
-                            self.charbuffer = Some(nc);
-                            self.mouth_state = MouthState::S;
                         }
-                        CategoryCode::EOL => self.mouth_state = MouthState::M,
-                        CategoryCode::Space => {
-                            buf.push(nc.0);
-                            self.mouth_state = MouthState::S
+                        None => {
+                            Token {
+                                char,
+                                catcode: CategoryCode::Escape,
+                                name_opt: Some("".to_owned()),
+                                reference: Box::new(self.make_reference(l,p))
+                            }
                         }
                         _ => {
-                            buf.push(nc.0);
-                            self.mouth_state = MouthState::M
+                            self.charbuffer = maybecomment;
+                            if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
+                            let mut nc = self.next_char(catcodes.endlinechar).unwrap();
+                            match catcodes.get_code(nc.0) {
+                                CategoryCode::Letter => {
+                                    buf.push(nc.0);
+                                    while self.has_next(catcodes,true) && {
+                                        nc = self.next_char(catcodes.endlinechar).unwrap();
+                                        matches!(catcodes.get_code(nc.0),CategoryCode::Letter)
+                                    } {
+                                        buf.push(nc.0);
+                                    }
+                                    self.charbuffer = Some(nc);
+                                    self.mouth_state = MouthState::S;
+                                }
+                                CategoryCode::EOL => self.mouth_state = MouthState::M,
+                                CategoryCode::Space => {
+                                    buf.push(nc.0);
+                                    self.mouth_state = MouthState::S
+                                }
+                                _ => {
+                                    buf.push(nc.0);
+                                    self.mouth_state = MouthState::M
+                                }
+                            }
+                            let name = from_utf8(buf.as_slice()).unwrap();
+                            Token {
+                                char,
+                                catcode: CategoryCode::Escape,
+                                name_opt: Some(name.to_owned()),
+                                reference: Box::new(self.make_reference(l,p))
+                            }
                         }
-                    }
-                    let name = from_utf8(buf.as_slice()).unwrap();
-                    Token {
-                        char,
-                        catcode: CategoryCode::Escape,
-                        name_opt: Some(name.to_owned()),
-                        reference: Box::new(self.make_reference(l,p))
                     }
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {

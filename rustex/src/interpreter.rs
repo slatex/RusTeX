@@ -135,7 +135,7 @@ impl Interpreter<'_,'_> {
         }
     }
 
-    fn current_line(&self) -> String {
+    pub fn current_line(&self) -> String {
         self.mouths.borrow().current_line()
     }
 }

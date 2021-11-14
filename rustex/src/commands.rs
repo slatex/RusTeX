@@ -7,7 +7,7 @@ use crate::ontology::{Expansion, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Display, Formatter};
 use crate::utils::TeXError;
 
 pub struct PrimitiveExecutable {
@@ -110,7 +110,7 @@ pub enum Expandable {
     Cond(&'static Conditional),
     Primitive(&'static PrimitiveExecutable),
     Ext(Rc<dyn ExternalCommand>),
-    Def
+    Def(DefMacro)
 }
 
 impl Expandable {
@@ -120,7 +120,7 @@ impl Expandable {
             Cond(c) => c.expand(tk,int),
             Primitive(p) => Ok(int.push_expansion((p._apply)(tk,int)?)),
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
-            Def => todo!()
+            Def(d) => todo!()
         }
     }
 }
@@ -205,6 +205,48 @@ pub trait ExternalCommand {
 }
 
 #[derive(Clone)]
+pub enum ParamToken {
+    Param(u8),
+    Token(Token)
+}
+impl ParamToken {
+    pub fn as_string(&self) -> String { match self {
+        ParamToken::Param(i) => "#".to_owned() + &i.to_string(),
+        ParamToken::Token(tk) => tk.as_string()
+    } }
+}
+impl Display for ParamToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"{}",self.as_string())
+    }
+}
+
+#[derive(Clone)]
+pub struct Signature {
+    elems:Vec<ParamToken>,
+    endswithbrace:bool
+}
+impl Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"{}{}", self.elems.iter().map(|x| x.as_string()).collect::<Vec<_>>().join(""), if self.endswithbrace {"{"} else {""})
+    }
+}
+
+#[derive(Clone)]
+pub struct DefMacro {
+    pub name:String,
+    pub protected:bool,
+    pub long:bool,
+    pub sig:Signature,
+    pub ret:Vec<ParamToken>
+}
+impl DefMacro {
+    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+        todo!()
+    }
+}
+
+#[derive(Clone)]
 pub enum TeXCommand {
     Primitive(&'static PrimitiveExecutable),
     AV(AssignableValue),
@@ -217,7 +259,7 @@ pub enum TeXCommand {
     Int(&'static IntCommand),
     Char((String,Token)),
     Ass(&'static PrimitiveAssignment),
-    Def
+    Def(Rc<DefMacro>)
 }
 
 impl PartialEq for TeXCommand {
@@ -248,7 +290,7 @@ impl TeXCommand {
             TeXCommand::Ext(jr) => jr.name(),
             TeXCommand::Cond(c) => c.name.to_string(),
             TeXCommand::Int(i) => i.name.to_string(),
-            TeXCommand::Def => todo!()
+            TeXCommand::Def(d) => d.name.clone()
         }
     }
     pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {
@@ -256,7 +298,7 @@ impl TeXCommand {
             TeXCommand::Cond(c) => Ok(Expandable::Cond(c)),
             TeXCommand::Ext(e) if e.expandable() => Ok(Expandable::Ext(e)),
             TeXCommand::Primitive(p) if p.expandable => Ok(Expandable::Primitive(p)),
-            TeXCommand::Def => todo!(),
+            TeXCommand::Def(d) if !d.protected => todo!(),
             _ => Err(self)
         }
     }
