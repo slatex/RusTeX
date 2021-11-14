@@ -211,6 +211,7 @@ pub enum ParamToken {
 }
 impl ParamToken {
     pub fn as_string(&self) -> String { match self {
+        ParamToken::Param(0) => "##".to_owned(),
         ParamToken::Param(i) => "#".to_owned() + &i.to_string(),
         ParamToken::Token(tk) => tk.as_string()
     } }
@@ -224,7 +225,8 @@ impl Display for ParamToken {
 #[derive(Clone)]
 pub struct Signature {
     elems:Vec<ParamToken>,
-    endswithbrace:bool
+    endswithbrace:bool,
+    arity:u8
 }
 impl Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

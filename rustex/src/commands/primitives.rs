@@ -86,22 +86,77 @@ use crate::log;
 
 fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
     let mut retsig : Vec<ParamToken> = Vec::new();
+    let mut currarg = 1 as u8;
     while int.has_next() {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::BeginGroup => {
                 return Ok(Signature {
                     elems: retsig,
-                    endswithbrace: false
+                    endswithbrace: false,
+                    arity:currarg-1
                 })
             }
-            _ => todo!()
+            CategoryCode::Parameter => {
+                if !int.has_next() {
+                    return Err(TeXError::new("File ended unexpectedly".to_string()))
+                }
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::BeginGroup => {
+                        return Ok(Signature {
+                            elems: retsig,
+                            endswithbrace: true,
+                            arity:currarg-1
+                        })
+                    }
+                    _ if currarg == 1 && next.char == 49 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(1))
+                    }
+                    _ if currarg == 2 && next.char == 50 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(2))
+                    }
+                    _ if currarg == 3 && next.char == 51 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(3))
+                    }
+                    _ if currarg == 4 && next.char == 52 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(4))
+                    }
+                    _ if currarg == 5 && next.char == 53 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(5))
+                    }
+                    _ if currarg == 6 && next.char == 54 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(6))
+                    }
+                    _ if currarg == 7 && next.char == 55 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(7))
+                    }
+                    _ if currarg == 8 && next.char == 56 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(8))
+                    }
+                    _ if currarg == 9 && next.char == 57 => {
+                        currarg += 1;
+                        retsig.push(ParamToken::Param(9))
+                    }
+                    _ => return Err(TeXError::new("Expected argument ".to_owned() + &currarg.to_string() + "; got: " + &next.as_string()))
+                }
+            }
+            _ => retsig.push(ParamToken::Token(next))
         }
     }
     Err(TeXError::new("File ended unexpectedly".to_string()))
 }
 
 fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeXError> {
+    use std::str::from_utf8;
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
@@ -137,7 +192,28 @@ fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeX
                 ingroups -=1;
                 ret.push(ParamToken::Token(next));
             },
-            CategoryCode::Parameter => todo!("{}",int.current_line()),
+            CategoryCode::Parameter => {
+                if !int.has_next() {
+                    return Err(TeXError::new("File ended unexpectedly".to_string()))
+                }
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::Parameter => ret.push(ParamToken::Param(0)),
+                    _ => {
+                        let num = match from_utf8(&[next.char]) {
+                            Ok(n) => match n.parse::<u8>() {
+                                Ok(u) => u,
+                                Err(_) => return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                            }
+                            Err(_) => return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                        };
+                        if num < 1 || num > sig.arity {
+                            return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                        }
+                        ret.push(ParamToken::Param(num))
+                    }
+                }
+            },
             _ => ret.push(ParamToken::Token(next))
         }
     }
@@ -147,6 +223,11 @@ fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeX
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
     _assign: |int,global| doDef(int,global,false,false)
+};
+
+pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"edef",
+    _assign: |int,global| todo!()
 };
 
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {
@@ -213,6 +294,7 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
     TeXCommand::Ass(&DEF),
+    TeXCommand::Ass(&EDEF),
     TeXCommand::Ass(&LET),
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),
