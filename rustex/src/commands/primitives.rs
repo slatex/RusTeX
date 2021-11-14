@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, DefMacro, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, DefMacro, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -173,7 +173,7 @@ fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeX
                 ret.push(ParamToken::Token(next));
             }
             CategoryCode::EndGroup if ingroups == 0 => {
-                log!("\\def {} {} {}{}{}",command.as_string(),sig,"{",ret.iter().map(|x| x.as_string()).collect::<Vec<_>>().join(""),"}");
+                log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
                 let dm = DefMacro {
                     name: "".to_string(),
                     protected,
@@ -239,7 +239,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
         }
         int.read_eq();
         let def = int.next_token();
-        log!("\\let \\{}={}",cmd.cmdname(),def.as_string());
+        log!("\\let {}={}",cmd,def);
         let ch = match def.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 int.state_get_command(&def.cmdname())

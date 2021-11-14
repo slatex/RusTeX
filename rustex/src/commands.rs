@@ -218,7 +218,11 @@ impl ParamToken {
 }
 impl Display for ParamToken {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}",self.as_string())
+        use ansi_term::Colour::*;
+        match self {
+            ParamToken::Param(_) => write!(f,"{}",Yellow.paint(self.as_string())),
+            ParamToken::Token(t) => write!(f,"{}",t)
+        }
     }
 }
 
@@ -230,7 +234,23 @@ pub struct Signature {
 }
 impl Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}{}", self.elems.iter().map(|x| x.as_string()).collect::<Vec<_>>().join(""), if self.endswithbrace {"{"} else {""})
+        for e in &self.elems {
+            write!(f,"{}",e);
+        }
+        let s = fmt::format(format_args!("hello {}", "world"));
+        if self.endswithbrace {write!(f,"{}","{")} else {
+            write!(f,"")
+        }
+    }
+}
+pub struct ParamList<'a>(&'a Vec<ParamToken>);
+
+impl Display for ParamList<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for e in self.0 {
+            write!(f,"{}",e);
+        }
+        write!(f,"")
     }
 }
 

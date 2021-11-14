@@ -120,7 +120,7 @@ pub static IFX : Conditional = Conditional {
             (a,b) if matches!(a,b) => tka.char == tkb.char,
             _ => false
         };
-        log!("\\ifx {}{}: {}",tka.as_string(),tkb.as_string(),istrue);
+        log!("\\ifx {}{}: {}",tka,tkb,istrue);
         if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
     }
 };

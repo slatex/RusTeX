@@ -1,6 +1,8 @@
+use std::fmt::{Display, Formatter};
 use crate::references::{SourceReference, FileReference, ExpansionReference};
 use std::rc::Rc;
 use std::str::from_utf8;
+use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::COPY_TOKENS_FULL;
 
@@ -24,6 +26,27 @@ pub struct Token {
     pub catcode : CategoryCode,
     pub name_opt: Option<String>,
     pub reference: Box<SourceReference>
+}
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use ansi_term::Colour::*;
+        let char = from_utf8(&[self.char]).unwrap().to_owned();
+        let colour = match self.catcode {
+            CategoryCode::Escape => Red.paint(char + &self.cmdname()),
+            CategoryCode::BeginGroup => Green.paint(char),
+            CategoryCode::EndGroup => Green.bold().paint(char),
+            CategoryCode::Active => Red.bold().paint(char),
+            CategoryCode::Space => ANSIGenericString::from(" "),
+            CategoryCode::Parameter => Yellow.paint(char),
+            CategoryCode::AlignmentTab => Blue.paint(char),
+            CategoryCode::MathShift => Purple.paint(char),
+            CategoryCode::Subscript => Cyan.paint(char),
+            CategoryCode::Subscript => Cyan.bold().paint(char),
+            CategoryCode::Letter => White.paint(char),
+            _ => ANSIGenericString::from(char)
+        };
+        write!(f,"{}",colour)
+    }
 }
 impl Token {
     pub fn name(&self) -> String {
