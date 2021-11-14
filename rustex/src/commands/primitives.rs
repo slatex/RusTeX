@@ -82,6 +82,39 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
+    name:"protected",
+    _assign: |int,global| todo!()
+};
+
+pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
+    name:"long",
+    _assign: |int,global| {
+        let mut protected = false;
+        while int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    match int.get_command(&next.cmdname())? {
+                        TeXCommand::Ass(a) if *a == DEF => {
+                            return do_def(int,global,protected,true)
+                        }
+                        TeXCommand::Ass(a) if *a == EDEF => {
+                            todo!()
+                        }
+                        TeXCommand::Ass(a) if *a == PROTECTED => {
+                            protected = true;
+                        }
+                        _ => return Err(TeXError::new("Expected \\def or \\edef or \\protected after \\long".to_owned()))
+                    }
+                }
+                _ => return Err(TeXError::new("Expected control sequence or active character; got: ".to_owned() + &next.as_string()))
+            }
+        }
+        return Err(TeXError::new("File ended unexpectedly".to_string()))
+    }
+};
+
 use crate::log;
 
 fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
@@ -155,7 +188,7 @@ fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
     Err(TeXError::new("File ended unexpectedly".to_string()))
 }
 
-fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeXError> {
+fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
     use std::str::from_utf8;
     let command = int.next_token();
     match command.catcode {
@@ -222,7 +255,7 @@ fn doDef(int:&Interpreter,global:bool,protected:bool,long:bool) -> Result<(),TeX
 
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
-    _assign: |int,global| doDef(int,global,false,false)
+    _assign: |int,global| do_def(int, global, false, false)
 };
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -272,8 +305,6 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
     }
 };
 
-
-
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
     expandable:false,
@@ -296,6 +327,8 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&DEF),
     TeXCommand::Ass(&EDEF),
     TeXCommand::Ass(&LET),
+    TeXCommand::Ass(&LONG),
+    TeXCommand::Ass(&PROTECTED),
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),
 ]}

@@ -129,6 +129,11 @@ pub struct PrimitiveAssignment {
     pub name: &'static str,
     pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
 }
+impl PartialEq for PrimitiveAssignment {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
 
 pub enum Assignment {
     //Register(&'a RegisterReference),

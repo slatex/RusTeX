@@ -42,7 +42,7 @@ impl Display for Token {
             CategoryCode::MathShift => Purple.paint(char),
             CategoryCode::Subscript => Cyan.paint(char),
             CategoryCode::Subscript => Cyan.bold().paint(char),
-            CategoryCode::Letter => White.paint(char),
+            CategoryCode::Letter => White.bold().paint(char),
             _ => ANSIGenericString::from(char)
         };
         write!(f,"{}",colour)
