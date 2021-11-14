@@ -176,6 +176,14 @@ impl<'s> State<'s> {
                     }
                 }
             }
+            StateChange::Newline(nl) => {
+                int.catcodes.borrow_mut().newlinechar = nl.char;
+                if nl.global {
+                    for s in self.stacks.iter_mut() {
+                        s.catcodes.newlinechar = nl.char;
+                    }
+                }
+            }
             //_ => todo!()
         }
     }
@@ -263,9 +271,15 @@ pub struct CategoryCodeChange {
     pub global:bool
 }
 
+pub struct NewlineChange {
+    pub char:u8,
+    pub global:bool
+}
+
 pub enum StateChange {
     Register(RegisterStateChange),
     Dimen(RegisterStateChange),
     Cs(CommandChange),
-    Cat(CategoryCodeChange)
+    Cat(CategoryCodeChange),
+    Newline(NewlineChange)
 }

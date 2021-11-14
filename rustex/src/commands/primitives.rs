@@ -3,7 +3,7 @@ use crate::commands::{AssignableValue, AssValue, PrimitiveAssignment, PrimitiveE
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{CategoryCodeChange, CommandChange, StateChange};
+use crate::interpreter::state::{CategoryCodeChange, CommandChange, NewlineChange, StateChange};
 use crate::utils::TeXError;
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
@@ -109,11 +109,45 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static NEWLINECHAR : AssValue<i32> = AssValue {
+    name: "newlinechar",
+    _assign: |int,global| {
+        int.read_eq();
+        let num = int.read_number()? as u8;
+        log!("\\newlinechar: {}",num);
+        int.change_state(StateChange::Newline(NewlineChange {
+            char: num,
+            global
+        }));
+        Ok(())
+    },
+    _getvalue: |int| {
+        Ok(int.state_catcodes().newlinechar as i32)
+    }
+};
+
+
+
+pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"input",
+    expandable:false,
+    _apply:|tk,int| {todo!()}
+};
+
+pub static END: PrimitiveExecutable = PrimitiveExecutable {
+    name:"end",
+    expandable:false,
+    _apply:|tk,int| {todo!()}
+};
+
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PAR),
     TeXCommand::Primitive(&RELAX),
     TeXCommand::AV(AssignableValue::Int(&CATCODE)),
+    TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
-    TeXCommand::Ass(&LET)
+    TeXCommand::Ass(&LET),
+    TeXCommand::Primitive(&INPUT),
+    TeXCommand::Primitive(&END),
 ]}
