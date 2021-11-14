@@ -4,7 +4,7 @@ use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{CategoryCodeChange, CommandChange, NewlineChange, StateChange};
-use crate::utils::TeXError;
+use crate::utils::{kpsewhich, TeXError};
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
@@ -308,7 +308,16 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
     expandable:false,
-    _apply:|tk,int| {todo!()}
+    _apply:|tk,int| {
+        let filename = int.read_string()?;
+        if filename.starts_with("|kpsewhich ") {
+            todo!()
+        } else {
+            let file = int.get_file(&filename)?;
+            int.push_file(file);
+            Ok(Expansion::dummy(vec!()))
+        }
+    }
 };
 
 pub static END: PrimitiveExecutable = PrimitiveExecutable {

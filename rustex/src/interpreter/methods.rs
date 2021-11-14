@@ -75,6 +75,22 @@ impl Interpreter<'_,'_> {
         }
     }
 
+    pub fn read_string(&self) -> Result<String,TeXError> {
+        use std::str::from_utf8;
+        let mut ret : Vec<u8> = Vec::new();
+        let mut quoted = false;
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => todo!(),
+                CategoryCode::Space | CategoryCode::EOL if !quoted => return Ok(from_utf8(ret.as_slice()).unwrap().to_owned()),
+                CategoryCode::BeginGroup if ret.is_empty() => todo!(),
+                _ => ret.push(next.char)
+            }
+        }
+        Err(TeXError::new("File ended unexpectedly".to_string()))
+    }
+
     // Numbers -------------------------------------------------------------------------------------
 
     fn num_do_ret(&self,ishex:bool,isnegative:bool,ret:String) -> Result<i32,TeXError> {

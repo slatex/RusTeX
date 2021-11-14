@@ -58,7 +58,7 @@ pub struct Interpreter<'state,'inner> {
     state:RefCell<State<'state>>,
     pub jobinfo:Jobinfo<'inner>,
     mouths:RefCell<Mouths>,
-    filestore:FileStore,
+    filestore:RefCell<FileStore>,
     mode:TeXMode,
     catcodes:RefCell<CategoryCodeScheme>
 }
@@ -67,19 +67,26 @@ impl Interpreter<'_,'_> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
+    pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
+        use crate::utils::kpsewhich;
+        match kpsewhich(filename,self.jobinfo.in_file()) {
+            None => Err(TeXError::new("File ".to_owned() + filename + " not found")),
+            Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
+        }
+    }
     pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>) -> State<'a> {
         let catcodes = s.catcodes().clone();
         let mut int = Interpreter {
             state:RefCell::new(s),
             jobinfo:Jobinfo::new(p),
             mouths:RefCell::new(Mouths::new()),
-            filestore:FileStore {
+            filestore:RefCell::new(FileStore {
                 files:HashMap::new()
-            },
+            }),
             mode:TeXMode::Vertical,
             catcodes:RefCell::new(catcodes)
         };
-        let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),int.filestore.borrow_mut());
+        let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
         int.push_file(vf);
         while int.has_next() {
             match int.do_top() {

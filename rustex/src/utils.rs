@@ -29,7 +29,7 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
             .arg(s).output().expect("kpsewhich not found!")
             .stdout;
         match str::from_utf8(rs.as_slice()) {
-            Ok(v) => Some(PathBuf::from(v.trim_end())),
+            Ok(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap()),
             Err(_) => panic!("utils.rs 34")
         }
     }

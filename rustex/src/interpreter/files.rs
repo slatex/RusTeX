@@ -24,9 +24,12 @@ pub(in crate::interpreter) struct FileStore {
     pub files: HashMap<String,VFile>
 }
 
+use std::cell::RefMut;
+
 impl VFile {
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&'a mut FileStore) -> VFile {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
+        //println!("Here: {} in {}",fp.to_str().unwrap(),in_file.to_str().unwrap());
         let simplename = if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else {
@@ -42,7 +45,7 @@ impl VFile {
                         string:Some(LANGUAGE_DAT.to_string()),
                         id:simplename
                     }
-                } else if simplename == "UNICODEDATA.TXT" {
+                } else if simplename == "<texmf>/UNICODEDATA.TXT" {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Some(UNICODEDATA_TXT.to_string()),
