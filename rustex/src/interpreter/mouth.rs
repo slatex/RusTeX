@@ -328,35 +328,28 @@ impl StringMouth {
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
                     let mut buf : Vec<u8> = Vec::new();
-                    let string = self.string.as_ref().unwrap().as_bytes();
-                    match string.get(self.pos) {
-                        None => {self.mouth_state = MouthState::M}
-                        Some(nc) => {
-                            match catcodes.get_code(*nc) {
-                                CategoryCode::Letter => {
-                                    while match string.get(self.pos) {
-                                        None => false,
-                                        Some(s) => matches!(catcodes.get_code(*s),CategoryCode::Letter)
-                                    } {
-                                        let nc = string.get(self.pos).unwrap();
-                                        self.pos += 1;
-                                        buf.push(*nc);
-                                    }
-                                    self.mouth_state = MouthState::S;
-                                }
-                                CategoryCode::Space => {
-                                    let nc = string.get(self.pos).unwrap();
-                                    self.pos += 1;
-                                    buf.push(*nc);
-                                    self.mouth_state = MouthState::S
-                                }
-                                _ => {
-                                    let nc = string.get(self.pos).unwrap();
-                                    self.pos += 1;
-                                    buf.push(*nc);
-                                    self.mouth_state = MouthState::M
-                                }
+                    if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
+                    let mut nc = self.next_char(catcodes.endlinechar).unwrap();
+                    match catcodes.get_code(nc.0) {
+                        CategoryCode::Letter => {
+                            buf.push(nc.0);
+                            while self.has_next(catcodes,true) && {
+                                nc = self.next_char(catcodes.endlinechar).unwrap();
+                                matches!(catcodes.get_code(nc.0),CategoryCode::Letter)
+                            } {
+                                buf.push(nc.0);
                             }
+                            self.charbuffer = Some(nc);
+                            self.mouth_state = MouthState::S;
+                        }
+                        CategoryCode::EOL => self.mouth_state = MouthState::M,
+                        CategoryCode::Space => {
+                            buf.push(nc.0);
+                            self.mouth_state = MouthState::S
+                        }
+                        _ => {
+                            buf.push(nc.0);
+                            self.mouth_state = MouthState::M
                         }
                     }
                     let name = from_utf8(buf.as_slice()).unwrap();
