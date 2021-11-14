@@ -22,7 +22,7 @@ pub static ETEXVERSION : IntCommand = IntCommand {
     name: "eTeXversion"
 };
 
-pub fn etex_commands() -> Vec<TeXCommand<'static>> {vec![
+pub fn etex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&ETEXREVISION),
     TeXCommand::Int(&ETEXVERSION),
 ]}

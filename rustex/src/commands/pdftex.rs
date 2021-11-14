@@ -71,7 +71,7 @@ pub static IFPDFPRIMITIVE : Conditional = Conditional {
     }
 };
 
-pub fn pdftex_commands() -> Vec<TeXCommand<'static>> {vec![
+pub fn pdftex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEHEIGHT)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEWIDTH)),

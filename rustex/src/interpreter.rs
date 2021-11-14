@@ -95,7 +95,7 @@ impl Interpreter<'_,'_> {
         a.assign(self,global)
     }
 
-    pub fn get_command(&self,s : &str) -> Result<Rc<TeXCommand>,TeXError> {
+    pub fn get_command(&self,s : &str) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
             None => Err(TeXError::new("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str()))
@@ -107,18 +107,18 @@ impl Interpreter<'_,'_> {
         let next = self.next_token();
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
-                let p = self.get_command(&next.cmdname())?;
-                match p.as_assignment() {
-                    Some(a) => return self.do_assignment(a,false),
-                    _ => {}
-                }
-                match p.as_expandable() {
-                    Some(e) => return e.expand(next,self),
-                    _ => {}
-                }
-                match p.deref() {
+                let mut p = self.get_command(&next.cmdname())?;
+                p = match p.as_assignment() {
+                    Ok(a) => return self.do_assignment(a,false),
+                    Err(x) => x
+                };
+                p = match p.as_expandable() {
+                    Ok(e) => return e.expand(next,self),
+                    Err(x) => x
+                };
+                match p {
                     //TeXCommand::Register(_) | TeXCommand::Dimen(_) => return self.do_assignment(p,false),
-                    TeXCommand::Primitive(p) if **p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                    TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     TeXCommand::Primitive(p) => {
                             let ret = p.apply(next,self)?;
                             self.push_expansion(ret);

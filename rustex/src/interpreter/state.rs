@@ -11,7 +11,7 @@ struct StackFrame<'a> {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<String,Option<Rc<TeXCommand<'a>>>>,
+    pub(crate) commands: HashMap<String,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i8,Option<i32>>,
     pub(crate) dimensions: HashMap<i8,Option<i32>>
 }
@@ -22,18 +22,18 @@ impl<'sf> StackFrame<'sf> {
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
-        let mut cmds: HashMap<String,Option<Rc<TeXCommand<'a>>>> = HashMap::new();
+        let mut cmds: HashMap<String,Option<TeXCommand>> = HashMap::new();
         for c in conditional_commands() {
-            cmds.insert(c.name(),Some(Rc::new(c)));
+            cmds.insert(c.name(),Some(c));
         }
         for c in tex_commands() {
-            cmds.insert(c.name(),Some(Rc::new(c)));
+            cmds.insert(c.name(),Some(c));
         }
         for c in etex_commands() {
-            cmds.insert(c.name(),Some(Rc::new(c)));
+            cmds.insert(c.name(),Some(c));
         }
         for c in pdftex_commands() {
-            cmds.insert(c.name(),Some(Rc::new(c)));
+            cmds.insert(c.name(),Some(c));
         }
         let reg: HashMap<i8,Option<i32>> = HashMap::new();
         let dims: HashMap<i8,Option<i32>> = HashMap::new();
@@ -60,9 +60,9 @@ impl<'sf> StackFrame<'sf> {
             dimensions:dims
         }
     }
-    pub(crate) fn get_command(&self, name:&str) -> Option<Rc<TeXCommand<'sf>>> {
+    pub(crate) fn get_command(&self, name:&str) -> Option<TeXCommand> {
         match self.commands.get(name) {
-            Some(Some(r)) => Some(Rc::clone(r)),
+            Some(Some(r)) => Some(r.clone()),
             Some(None) => None,
             None => match self.parent {
                 Some(p) => p.get_command(name),
@@ -105,16 +105,16 @@ impl<'s> State<'s> {
             conditions: vec![]
         }
     }
-    pub fn with_commands<'a>(mut procs:Vec<TeXCommand<'a>>) -> State<'a> {
+    pub fn with_commands<'a>(mut procs:Vec<TeXCommand>) -> State<'a> {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
             let name = p.name();
-            st.stacks.last_mut().unwrap().commands.insert(name,Some(Rc::new(p)));
+            st.stacks.last_mut().unwrap().commands.insert(name,Some(p));
         }
         st
     }
-    pub fn get_command(&self, name: &str) -> Option<Rc<TeXCommand<'s>>> {
+    pub fn get_command(&self, name: &str) -> Option<TeXCommand> {
         self.stacks.last().unwrap().get_command(name)
     }
     pub fn get_register(&self, index:i8) -> i32 {
@@ -138,7 +138,7 @@ impl<'s> State<'s> {
     pub fn newlinechar(&self) -> u8 {
         self.stacks.last().expect("Stack frames empty").newlinechar
     }
-    pub fn change(&mut self,int:&Interpreter,change:StateChange<'s>) {
+    pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
             StateChange::Register(regch) => {
                 if regch.global {
@@ -204,7 +204,7 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
 
 use std::cell::Ref;
 impl<'s> Interpreter<'s,'_> {
-    pub fn change_state(&self,change:StateChange<'s>) {
+    pub fn change_state(&self,change:StateChange) {
         let mut state = self.state.borrow_mut();
         state.change(self,change)
     }
@@ -240,7 +240,7 @@ impl<'s> Interpreter<'s,'_> {
             None => None
         }
     }
-    pub fn state_get_command(&self,s:&str) -> Option<Rc<TeXCommand>> {
+    pub fn state_get_command(&self,s:&str) -> Option<TeXCommand> {
         self.state.borrow().get_command(s)
     }
 }
@@ -251,9 +251,9 @@ pub struct RegisterStateChange {
     pub global:bool
 }
 
-pub struct CommandChange<'a> {
+pub struct CommandChange {
     pub name:String,
-    pub cmd:Option<Rc<TeXCommand<'a>>>,
+    pub cmd:Option<TeXCommand>,
     pub global:bool
 }
 
@@ -263,9 +263,9 @@ pub struct CategoryCodeChange {
     pub global:bool
 }
 
-pub enum StateChange<'a> {
+pub enum StateChange {
     Register(RegisterStateChange),
     Dimen(RegisterStateChange),
-    Cs(CommandChange<'a>),
+    Cs(CommandChange),
     Cat(CategoryCodeChange)
 }

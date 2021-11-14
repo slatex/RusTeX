@@ -115,8 +115,8 @@ impl Interpreter<'_,'_> {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() => {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_hasnum() {
-                        Some(hn) => return hn.get(self),
-                        None => return Err(TeXError::new("Number expected; found ".to_owned() + &next.cmdname()))
+                        Ok(hn) => return hn.get(self),
+                        _ => return Err(TeXError::new("Number expected; found ".to_owned() + &next.cmdname()))
                     };
                 }
                 CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,ret),
@@ -167,7 +167,7 @@ impl Interpreter<'_,'_> {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() =>
                     {
                         let p = self.get_command(&next.cmdname())?;
-                        match p.deref() {
+                        match p {
                             _ => todo!("{}",next.as_string())
                         }
                     }
@@ -197,7 +197,7 @@ impl Interpreter<'_,'_> {
                     let p = self.state_get_command(&next.cmdname());
                     match p {
                         None =>{ cmd = Some(next); break }
-                        Some(p) => match p.deref() {
+                        Some(p) => match p {
                             TeXCommand::Cond(c) => { c.expand(next, self); },
                             TeXCommand::Primitive(p) if p.expandable =>
                                 { self.push_expansion((p._apply)(next, self)?); }

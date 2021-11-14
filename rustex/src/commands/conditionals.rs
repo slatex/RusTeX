@@ -26,15 +26,15 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
                 match int.state_get_command(&next.cmdname()) {
                     None => {}
                     Some(p) => {
-                        match p.deref() {
-                            TeXCommand::Primitive(x) if inifs == 0 && **x == FI => {
+                        match p {
+                            TeXCommand::Primitive(x) if inifs == 0 && *x == FI => {
                                 int.popcondition();
                                 return Ok(())
                             }
-                            TeXCommand::Primitive(x) if allowelse && inifs == 0 && **x == ELSE => {
+                            TeXCommand::Primitive(x) if allowelse && inifs == 0 && *x == ELSE => {
                                 return Ok(())
                             }
-                            TeXCommand::Primitive(x) if **x == FI => inifs -=1,
+                            TeXCommand::Primitive(x) if *x == FI => inifs -=1,
                             TeXCommand::Cond(_) => inifs += 1,
                             _ => {}
                         }
@@ -275,7 +275,7 @@ pub static IFFONTCHAR : Conditional = Conditional {
     }
 };
 
-pub fn conditional_commands() -> Vec<TeXCommand<'static>> {vec![
+pub fn conditional_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&ELSE),
     TeXCommand::Primitive(&FI),
     TeXCommand::Primitive(&UNLESS),

@@ -36,22 +36,22 @@ impl PartialEq for PrimitiveExecutable {
     }
 }
 
-pub struct AssValue<'a, T> {
-    pub name: &'a str,
+pub struct AssValue<T> {
+    pub name: &'static str,
     pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<T,TeXError>
 }
 
 #[derive(Clone)]
-pub enum AssignableValue<'a> {
+pub enum AssignableValue {
     Dim((u8,String)),
     Register((u8, String)),
-    Int(&'a AssValue<'a,i32>),
-    PrimReg(&'a RegisterReference),
-    PrimDim(&'a DimenReference)
+    Int(&'static AssValue<i32>),
+    PrimReg(&'static RegisterReference),
+    PrimDim(&'static DimenReference)
 }
 
-impl AssignableValue<'_> {
+impl AssignableValue {
     pub fn name(&self) -> String {
         use AssignableValue::*;
         match self {
@@ -64,22 +64,22 @@ impl AssignableValue<'_> {
     }
 }
 
-pub struct IntCommand<'a> {
+pub struct IntCommand {
     pub _getvalue: fn(int: &Interpreter) -> Result<i32,TeXError>,
-    pub name : &'a str
+    pub name : &'static str
 }
 
-pub enum HasNum<'a> {
+pub enum HasNum {
     Dim((u8,String)),
     Register((u8,String)),
-    AssInt(&'a AssValue<'a,i32>),
-    Int(&'a IntCommand<'a>),
-    PrimReg(&'a RegisterReference),
-    PrimDim(&'a DimenReference),
-    Ext(Rc<dyn ExternalCommand + 'a>)
+    AssInt(&'static AssValue<i32>),
+    Int(&'static IntCommand),
+    PrimReg(&'static RegisterReference),
+    PrimDim(&'static DimenReference),
+    Ext(Rc<dyn ExternalCommand>)
 }
 
-impl HasNum<'_> {
+impl HasNum {
     pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
         use HasNum::*;
         match self {
@@ -106,14 +106,14 @@ pub struct DimenReference {
     pub name: &'static str
 }
 
-pub enum Expandable<'a> {
-    Cond(&'a Conditional),
-    Primitive(&'a PrimitiveExecutable),
-    Ext(Rc<dyn ExternalCommand + 'a>),
+pub enum Expandable {
+    Cond(&'static Conditional),
+    Primitive(&'static PrimitiveExecutable),
+    Ext(Rc<dyn ExternalCommand>),
     Def
 }
 
-impl Expandable<'_> {
+impl Expandable {
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use Expandable::*;
         match self {
@@ -125,22 +125,22 @@ impl Expandable<'_> {
     }
 }
 
-pub struct PrimitiveAssignment<'a> {
-    pub name: &'a str,
+pub struct PrimitiveAssignment {
+    pub name: &'static str,
     pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
 }
 
-pub enum Assignment<'a> {
+pub enum Assignment {
     //Register(&'a RegisterReference),
     //Dimen(&'a DimenReference),
-    Value(&'a AssignableValue<'a>),
-    Ext(Rc<dyn ExternalCommand + 'a>),
-    Prim(&'a PrimitiveAssignment<'a>)
+    Value(AssignableValue),
+    Ext(Rc<dyn ExternalCommand>),
+    Prim(&'static PrimitiveAssignment)
 }
 
 use crate::interpreter::state::{StateChange,RegisterStateChange};
 
-impl Assignment<'_> {
+impl Assignment {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
         match self {
             Assignment::Prim(p) => (p._assign)(int,global),
@@ -205,28 +205,28 @@ pub trait ExternalCommand {
 }
 
 #[derive(Clone)]
-pub enum TeXCommand<'a> {
-    Primitive(&'a PrimitiveExecutable),
-    AV(AssignableValue<'a>),
+pub enum TeXCommand {
+    Primitive(&'static PrimitiveExecutable),
+    AV(AssignableValue),
     /*
     Register(&'a RegisterReference),
     Dimen(&'a DimenReference),
      */
-    Ext(Rc<dyn ExternalCommand + 'a>),
-    Cond(&'a Conditional),
-    Int(&'a IntCommand<'a>),
+    Ext(Rc<dyn ExternalCommand>),
+    Cond(&'static Conditional),
+    Int(&'static IntCommand),
     Char((String,Token)),
-    Ass(&'a PrimitiveAssignment<'a>),
+    Ass(&'static PrimitiveAssignment),
     Def
 }
 
-impl PartialEq for TeXCommand<'_> {
+impl PartialEq for TeXCommand {
     fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }
 
-impl<'a> fmt::Display for TeXCommand<'a> {
+impl fmt::Display for TeXCommand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TeXCommand::Primitive(p) =>
@@ -235,8 +235,8 @@ impl<'a> fmt::Display for TeXCommand<'a> {
         }
     }
 }
-impl<'b> TeXCommand<'b> {
-    pub fn defmacro<'a>(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand<'a> {
+impl TeXCommand {
+    pub fn defmacro(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand {
         todo!("commands.rs 33")
     }
     pub fn name(&self) -> String {
@@ -251,35 +251,35 @@ impl<'b> TeXCommand<'b> {
             TeXCommand::Def => todo!()
         }
     }
-    pub fn as_expandable(&self) -> Option<Expandable<'_>> {
+    pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {
         match self {
-            TeXCommand::Cond(c) => Some(Expandable::Cond(c)),
-            TeXCommand::Ext(e) if e.expandable() => Some(Expandable::Ext(Rc::clone(e))),
-            TeXCommand::Primitive(p) if p.expandable => Some(Expandable::Primitive(p)),
+            TeXCommand::Cond(c) => Ok(Expandable::Cond(c)),
+            TeXCommand::Ext(e) if e.expandable() => Ok(Expandable::Ext(e)),
+            TeXCommand::Primitive(p) if p.expandable => Ok(Expandable::Primitive(p)),
             TeXCommand::Def => todo!(),
-            _ => None
+            _ => Err(self)
         }
     }
-    pub fn as_hasnum(&self) -> Option<HasNum<'_>> {
+    pub fn as_hasnum(self) -> Result<HasNum,TeXCommand> {
         match self {
             TeXCommand::AV(av) => match av {
-                AssignableValue::Register((d,s)) => Some(HasNum::Register((*d,s.clone()))),//Some(HasNum::AssDim(d)),
-                AssignableValue::Dim((d,s)) => Some(HasNum::Dim((*d,s.clone()))),//Some(HasNum::AssDim(d)),
-                AssignableValue::Int(d) => Some(HasNum::AssInt(d)),
-                AssignableValue::PrimDim(d) => Some(HasNum::PrimDim(d)),
-                AssignableValue::PrimReg(d) => Some(HasNum::PrimReg(d)),
+                AssignableValue::Register((d,s)) => Ok(HasNum::Register((d,s))),//Some(HasNum::AssDim(d)),
+                AssignableValue::Dim((d,s)) => Ok(HasNum::Dim((d,s))),//Some(HasNum::AssDim(d)),
+                AssignableValue::Int(d) => Ok(HasNum::AssInt(d)),
+                AssignableValue::PrimDim(d) => Ok(HasNum::PrimDim(d)),
+                AssignableValue::PrimReg(d) => Ok(HasNum::PrimReg(d)),
             },
-            TeXCommand::Ext(ext) if ext.has_num() => Some(HasNum::Ext(Rc::clone(&ext))),
-            TeXCommand::Int(i) => Some(HasNum::Int(i)),
-            _ => None
+            TeXCommand::Ext(ext) if ext.has_num() => Ok(HasNum::Ext(ext)),
+            TeXCommand::Int(i) => Ok(HasNum::Int(i)),
+            _ => Err(self)
         }
     }
-    pub fn as_assignment(&self) -> Option<Assignment<'_>> {
+    pub fn as_assignment(self) -> Result<Assignment,TeXCommand> {
         match self {
-            TeXCommand::Ass(a) => Some(Assignment::Prim(a)),
-            TeXCommand::AV(av) => Some(Assignment::Value(av)),
-            TeXCommand::Ext(ext) if ext.assignable() => Some(Assignment::Ext(Rc::clone(&ext))),
-            _ => None
+            TeXCommand::Ass(a) => Ok(Assignment::Prim(a)),
+            TeXCommand::AV(av) => Ok(Assignment::Value(av)),
+            TeXCommand::Ext(ext) if ext.assignable() => Ok(Assignment::Ext(ext)),
+            _ => Err(self)
         }
     }
 }
