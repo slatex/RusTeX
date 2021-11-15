@@ -9,14 +9,15 @@ use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::utils::TeXError;
+use crate::log;
 
 pub struct PrimitiveExecutable {
-    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<(),TeXError>,
+    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Option<Expansion>,TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }
 impl PrimitiveExecutable {
-    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<(),TeXError> {
+    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<Option<Expansion>,TeXError> {
         (self._apply)(cs,itp)
     }
 }
@@ -40,6 +41,11 @@ pub struct AssValue<T> {
     pub name: &'static str,
     pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<T,TeXError>
+}
+impl<T> PartialEq for AssValue<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 #[derive(Clone)]
@@ -111,17 +117,49 @@ pub enum Expandable {
     Cond(&'static Conditional),
     Primitive(&'static PrimitiveExecutable),
     Ext(Rc<dyn ExternalCommand>),
-    Def(DefMacro)
+    Def(Rc<DefMacro>)
 }
+
+use crate::TeXErr;
 
 impl Expandable {
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use Expandable::*;
         match self {
             Cond(c) => c.expand(tk,int),
-            Primitive(p) => (p._apply)(tk,int),
+            Primitive(p) => match (p._apply)(tk,int)? {
+                Some(e) =>
+                    Ok(int.push_expansion(e)),
+                _ => Ok(())
+            },
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
-            Def(d) => todo!()
+            Def(d) => {
+                let mut args : Vec<Vec<Token>> = Vec::new();
+                for tk in &d.sig.elems {
+                    match tk {
+                        ParamToken::Token(tk) => {
+                            int.assert_has_next()?;
+                            let next = int.next_token();
+                            if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
+                        }
+                        _ => args.push(int.read_argument()?)
+                    }
+                }
+                if d.sig.endswithbrace {
+                    todo!();
+                }
+                let mut ret : Vec<Token> = Vec::new();
+                for tk in &d.ret {
+                    match tk {
+                        ParamToken::Token(tk) => ret.push(tk.clone()),
+                        ParamToken::Param(i) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
+                    }
+                }
+                Ok(int.push_expansion(Expansion {
+                    cs: tk,
+                    exp: ret
+                }))
+            }
         }
     }
 }
@@ -156,6 +194,7 @@ impl Assignment {
                 AssignableValue::Register((i,_)) => {
                     int.read_eq();
                     let num = int.read_number()?;
+                    log!("Assign register {} to {}",i,num);
                     int.change_state(StateChange::Register(RegisterStateChange {
                         index: u8toi16(*i),
                         value: num,
@@ -274,6 +313,11 @@ impl DefMacro {
         todo!()
     }
 }
+impl Display for DefMacro {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"{}",self.name)
+    }
+}
 
 #[derive(Clone)]
 pub enum TeXCommand {
@@ -301,8 +345,14 @@ impl fmt::Display for TeXCommand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TeXCommand::Primitive(p) =>
-                write!(f,"{}",p.name),
-            _ => todo!("commands.rs 27")
+                write!(f,"\\{}",p.name),
+            TeXCommand::Cond(p) =>
+                write!(f,"\\{}",p.name),
+            TeXCommand::Int(p) =>
+                write!(f,"\\{}",p.name),
+            TeXCommand::Ext(p) =>
+                write!(f,"External \\{}",p.name()),
+            _ => write!(f,"\\{}",self.name())
         }
     }
 }
@@ -327,7 +377,16 @@ impl TeXCommand {
             TeXCommand::Cond(c) => Ok(Expandable::Cond(c)),
             TeXCommand::Ext(e) if e.expandable() => Ok(Expandable::Ext(e)),
             TeXCommand::Primitive(p) if p.expandable => Ok(Expandable::Primitive(p)),
-            TeXCommand::Def(d) if !d.protected => todo!(),
+            TeXCommand::Def(d) if !d.protected => Ok(Expandable::Def(d)),
+            _ => Err(self)
+        }
+    }
+    pub fn as_expandable_with_protected(self) -> Result<Expandable,TeXCommand> {
+        match self {
+            TeXCommand::Cond(c) => Ok(Expandable::Cond(c)),
+            TeXCommand::Ext(e) if e.expandable() => Ok(Expandable::Ext(e)),
+            TeXCommand::Primitive(p) if p.expandable => Ok(Expandable::Primitive(p)),
+            TeXCommand::Def(d) => Ok(Expandable::Def(d)),
             _ => Err(self)
         }
     }

@@ -91,7 +91,7 @@ impl TeXError {
         frames.remove(0);
         Backtrace::from(frames)
     }
-    pub fn new(msg:String) -> TeXError {
+    pub (in crate) fn new(msg:String) -> TeXError {
         TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace()}
     }
     pub fn derive(self,msg:String) -> TeXError {

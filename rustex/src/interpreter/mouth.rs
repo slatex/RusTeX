@@ -1,8 +1,9 @@
 enum MouthState { N,S,M }
 
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
 use std::rc::Rc;
 use std::str::from_utf8;
+use itertools::Itertools;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::{SourceReference,FileReference};
@@ -14,6 +15,13 @@ pub enum Mouth {
 }
 
 impl Mouth {
+    pub(crate) fn preview(&self) -> String {
+        match self {
+            Mouth::Token(tm) => tm.preview(),
+            Mouth::Str(tm) => tm.preview(),
+            Mouth::File(tm) => tm.preview()
+        }
+    }
     pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
@@ -58,7 +66,7 @@ impl TokenMouth {
     fn pop_next(&mut self, _nocomment: bool) -> Token {
         self.tokens.remove(0)
     }
-    fn preview(&mut self) -> String {
+    fn preview(&self) -> String {
         self.tokens.iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
     }
     fn pushback(&mut self) {}
@@ -440,8 +448,17 @@ impl StringMouth {
         self.peekbuffer = Some(next.clone());
         next
     }
-    fn preview(&mut self) -> String {
-        todo!()
+    fn preview(&self) -> String {
+        let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().as_bytes())[self.pos..].to_vec();
+        match self.charbuffer {
+            None => (),
+            Some((c,_,_)) => rest.insert(0,c)
+        }
+        match self.atendofline {
+            None => (),
+            Some(c) => rest.push(c)
+        }
+        from_utf8(rest.as_slice()).unwrap().to_string()
     }
     fn pushback(&mut self) {
         todo!()
@@ -510,12 +527,17 @@ impl Mouths {
         }
     }
     pub(in crate::interpreter) fn push_expansion(&mut self, exp : Expansion) {
+        if self.buffer.is_some() {
+            let buf = self.buffer.take().unwrap();
+            self.push_tokens(vec!(buf))
+        }
         if !exp.exp.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(exp,true));
             self.mouths.push(nm)
         }
     }
     pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Token>) {
+        if self.buffer.is_some() { todo!() }
         if !tks.is_empty() {
             let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks),false));
             self.mouths.push(nm)
@@ -529,6 +551,7 @@ impl Mouths {
 
      */
     pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:VFile) {
+        if self.buffer.is_some() { todo!() }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
 
@@ -552,9 +575,19 @@ impl Mouths {
             _ => "".to_string()
         }
     }
+    pub fn preview(&self) -> String {
+        let rest = self.mouths.iter().rev().map(|x| x.preview()).join("");
+        match self.buffer.borrow() {
+            None => rest,
+            Some(tk) => tk.name() + &rest
+        }
+    }
 }
 
 impl Interpreter<'_> {
+    pub fn preview(&self) -> String {
+        self.mouths.borrow().preview().chars().map(|x| if x == '\r' {"\\r".to_string()} else {x.to_string()}).join("")
+    }
     pub fn push_file(&self,file:VFile) {
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),file)
     }

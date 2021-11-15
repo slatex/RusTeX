@@ -16,6 +16,8 @@ fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     }
 }
 
+use crate::FileEnd;
+
 pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeXError> {
     let mut inifs = initifs;
     //log!("false loop: {}",inifs);
@@ -44,7 +46,7 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
             _ => {}
         }
     }
-    Err(TeXError::new("File ended unexpectedly".to_string()))
+    FileEnd!(int)
 }
 
 fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
@@ -60,7 +62,7 @@ fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |tk,int| {
         int.popcondition();
-        Ok(())
+        Ok(None)
     },
     expandable: true,
     name: "fi"
@@ -82,16 +84,18 @@ pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     expandable: true
 };
 
+use crate::TeXErr;
+
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |tk,int| {
         match int.getcondition() {
-            None => Err(TeXError::new("extra \\else".to_string())),
+            None => TeXErr!(int,"extra \\else"),
             Some((_,None)) => {
-                Ok(())
+                Ok(None)
             }
             Some((i,_)) => {
                 false_loop(int,0,false)?;
-                Ok(())
+                Ok(None)
             }
         }
     },
@@ -131,7 +135,7 @@ pub static IFNUM : Conditional = Conditional {
             Some(ref s) if s == "<" => i1 < i2,
             Some(ref s) if s == "=" => i1 == i2,
             Some(ref s) if s == ">" => i1 > i2,
-            _ => return Err(TeXError::new("Expected '<','=' or '>' in \\ifnum".to_string()))
+            _ =>  TeXErr!(int,"Expected '<','=' or '>' in \\ifnum")
         };
         log!("\\ifnum {}{}{}: {}",i1,rel.as_ref().unwrap(),i2,istrue);
         if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}

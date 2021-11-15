@@ -5,19 +5,20 @@ use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, NewlineChange, RegisterStateChange, StateChange};
 use crate::utils::{kpsewhich, TeXError};
+use crate::{log,TeXErr,FileEnd};
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
     _apply:|cs: Token, _int: &Interpreter| {
-        Ok(())
+        Ok(None)
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
     _apply:|cs: Token, _int: &Interpreter| {
-        Ok(())
+        Ok(None)
     }
 };
 pub static CATCODE : AssValue<i32> = AssValue {
@@ -40,7 +41,8 @@ pub static CATCODE : AssValue<i32> = AssValue {
 };
 use crate::references::SourceReference;
 use std::rc::Rc;
-use chrono::Timelike;
+use chrono::{Datelike, Timelike};
+use crate::commands::etex::UNEXPANDED;
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -62,6 +64,29 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         Ok(())
     }
 };
+
+pub static COUNT : AssValue<i32> = AssValue {
+    name: "count",
+    _assign: |int,global| {
+        let index = u8toi16(int.read_number()? as u8);
+        int.read_eq();
+        let val = int.read_number()?;
+        log!("\\count sets {} to {}",index,val);
+        int.change_state(StateChange::Register(RegisterStateChange {
+            index: index,
+            value: val,
+            global
+        }));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let index = int.read_number()? as u8;
+        let num = int.state_register(u8toi16(index));
+        log!("\\count {} = {}",index,num);
+        Ok(num)
+    }
+};
+
 pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"countdef",
     _assign: |int,global| {
@@ -101,17 +126,16 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         TeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
                         }
-                        _ => return Err(TeXError::new("Expected \\def or \\edef or \\protected after \\long".to_owned()))
+                        _ => TeXErr!(int,"Expected \\def or \\edef or \\protected after \\long")
                     }
                 }
-                _ => return Err(TeXError::new("Expected control sequence or active character; got: ".to_owned() + &next.as_string()))
+                _ => TeXErr!(int,"Expected control sequence or active character; got: {}",next)
             }
         }
-        return Err(TeXError::new("File ended unexpectedly".to_string()))
+        return FileEnd!(int)
     }
 };
 
-use crate::log;
 
 fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
     let mut retsig : Vec<ParamToken> = Vec::new();
@@ -127,9 +151,7 @@ fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
                 })
             }
             CategoryCode::Parameter => {
-                if !int.has_next() {
-                    return Err(TeXError::new("File ended unexpectedly".to_string()))
-                }
+                int.assert_has_next()?;
                 let next = int.next_token();
                 match next.catcode {
                     CategoryCode::BeginGroup => {
@@ -175,13 +197,13 @@ fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
                         currarg += 1;
                         retsig.push(ParamToken::Param(9))
                     }
-                    _ => return Err(TeXError::new("Expected argument ".to_owned() + &currarg.to_string() + "; got: " + &next.as_string()))
+                    _ => TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
                 }
             }
             _ => retsig.push(ParamToken::Token(next))
         }
     }
-    Err(TeXError::new("File ended unexpectedly".to_string()))
+    FileEnd!(int)
 }
 
 fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
@@ -189,7 +211,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
-        _ => return Err(TeXError::new("\\def expected control sequence or active character; got: ".to_owned() + &command.as_string()))
+        _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
     }
     let sig = readSig(int)?;
     let mut ingroups = 0;
@@ -222,9 +244,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
                 ret.push(ParamToken::Token(next));
             },
             CategoryCode::Parameter => {
-                if !int.has_next() {
-                    return Err(TeXError::new("File ended unexpectedly".to_string()))
-                }
+                int.assert_has_next()?;
                 let next = int.next_token();
                 match next.catcode {
                     CategoryCode::Parameter => ret.push(ParamToken::Param(0)),
@@ -232,12 +252,12 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
                         let num = match from_utf8(&[next.char]) {
                             Ok(n) => match n.parse::<u8>() {
                                 Ok(u) => u,
-                                Err(_) => return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                                Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
                             }
-                            Err(_) => return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                            Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
                         };
                         if num < 1 || num > sig.arity {
-                            return Err(TeXError::new("Expected digit between 1 and ".to_string() + &sig.arity.to_string() + "; got: " + &next.as_string()))
+                            TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
                         }
                         ret.push(ParamToken::Param(num))
                     }
@@ -246,7 +266,90 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
             _ => ret.push(ParamToken::Token(next))
         }
     }
-    Err(TeXError::new("File ended unexpectedly".to_string()))
+    FileEnd!(int)
+}
+
+use crate::commands::Expandable;
+
+fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
+    use std::str::from_utf8;
+    let command = int.next_token();
+    match command.catcode {
+        CategoryCode::Escape | CategoryCode::Active => {}
+        _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
+    }
+    let sig = readSig(int)?;
+    let mut ingroups = 0;
+    let mut ret : Vec<ParamToken> = Vec::new();
+    while int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {
+                ingroups += 1;
+                ret.push(ParamToken::Token(next));
+            }
+            CategoryCode::EndGroup if ingroups == 0 => {
+                log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
+                let dm = DefMacro {
+                    name: "".to_string(),
+                    protected,
+                    long,
+                    sig,
+                    ret
+                };
+                int.change_state(StateChange::Cs(CommandChange {
+                    name: command.cmdname(),
+                    cmd: Some(TeXCommand::Def(Rc::new(dm))),
+                    global
+                }));
+                return Ok(())
+            }
+            CategoryCode::EndGroup => {
+                ingroups -=1;
+                ret.push(ParamToken::Token(next));
+            },
+            CategoryCode::Parameter => {
+                int.assert_has_next()?;
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::Parameter => ret.push(ParamToken::Param(0)),
+                    _ => {
+                        let num = match from_utf8(&[next.char]) {
+                            Ok(n) => match n.parse::<u8>() {
+                                Ok(u) => u,
+                                Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                            }
+                            Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                        };
+                        if num < 1 || num > sig.arity {
+                            TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                        }
+                        ret.push(ParamToken::Param(num))
+                    }
+                }
+            },
+            CategoryCode::Active | CategoryCode::Escape => {
+                let cmd = int.get_command(&next.cmdname())?.as_expandable();
+                match cmd {
+                    Ok(Expandable::Primitive(x)) if *x == THE || *x == UNEXPANDED => {
+                        match (x._apply)(next,int)? {
+                            Some(e) => {
+                                let rc = Rc::new(e);
+                                for tk in &rc.exp {
+                                    ret.push(ParamToken::Token(tk.copied(Rc::clone(&rc))))
+                                }
+                            }
+                            None => ()
+                        }
+                    }
+                    Ok(e) => e.expand(next,int)?,
+                    Err(_) => ret.push(ParamToken::Token(next))
+                }
+            }
+            _ => ret.push(ParamToken::Token(next))
+        }
+    }
+    FileEnd!(int)
 }
 
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -256,7 +359,7 @@ pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"edef",
-    _assign: |int,global| todo!()
+    _assign: |int,global| do_edef(int,global,false,false)
 };
 
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {
@@ -264,7 +367,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |int,global| {
         let cmd = int.next_token();
         if !matches!(cmd.catcode,CategoryCode::Escape) && !matches!(cmd.catcode,CategoryCode::Active) {
-            return Err(TeXError::new("Control sequence or active character expected; found".to_owned() + &cmd.name()))
+            TeXErr!(int,"Control sequence or active character expected; found {}",cmd)
         }
         int.read_eq();
         let def = int.next_token();
@@ -311,7 +414,7 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
         } else {
             let file = int.get_file(&filename)?;
             int.push_file(file);
-            Ok(())
+            Ok(None)
         }
     }
 };
@@ -321,7 +424,7 @@ pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         int.new_group(GroupType::Begingroup);
-        Ok(())
+        Ok(None)
     }
 };
 
@@ -332,24 +435,100 @@ pub static TIME : IntCommand = IntCommand {
     },
     name: "time"
 };
+
+pub static YEAR : IntCommand = IntCommand {
+    name:"year",
+    _getvalue: |int| {
+        Ok(int.jobinfo.time.year())
+    }
+};
+
+pub static MONTH : IntCommand = IntCommand {
+    name:"month",
+    _getvalue: |int| {
+        Ok(int.jobinfo.time.month() as i32)
+    }
+};
+
+pub static DAY : IntCommand = IntCommand {
+    name:"day",
+    _getvalue: |int| {
+        Ok(int.jobinfo.time.day() as i32)
+    }
+};
+
+pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |tk,int| {
+        let number = int.read_number()?;
+        Ok(Some(Expansion {
+            cs: tk,
+            exp: Interpreter::string_to_tokens(&number.to_string())
+        }))
+    },
+    expandable: true,
+    name: "number"
+};
+
 use crate::utils::u8toi16;
+fn get_inrv(int:&Interpreter) -> Result<(i16,i32,u8,i32),TeXError> {
+    let cmd = int.read_command_token()?;
+    let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
+        TeXCommand::AV(AssignableValue::Register((i,_))) => (u8toi16(i),int.state_register(u8toi16(i)),0),
+        TeXCommand::AV(AssignableValue::PrimReg(p)) => todo!(),
+        TeXCommand::AV(AssignableValue::Int(c)) if *c == COUNT => {
+            let i = u8toi16(int.read_number()? as u8);
+            (i,int.state_register(i),0)
+        }
+        _ => todo!()
+        //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
+    };
+    int.read_keyword(vec!("by"));
+    let val = int.read_number()?;
+    Ok((index,num,regdimskip,val))
+}
 pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     name: "divide",
     _assign: |int,global| {
-        let cmd = int.read_command_token()?;
-        let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
-            TeXCommand::AV(AssignableValue::Register((i,_))) => (u8toi16(i),int.state_register(u8toi16(i)),0),
-            TeXCommand::AV(AssignableValue::PrimReg(p)) => todo!(),
-            _ => todo!()
-            //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
-        };
-        int.read_keyword(vec!("by"));
-        let div = int.read_number()?;
+        let (index,num,regdimskip,div) = get_inrv(int)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match regdimskip {
             0 => StateChange::Register(RegisterStateChange {
                 index,
                 value: num / div,
+                global
+            }),
+            _ => todo!()
+        };
+        int.change_state(ch);
+        Ok(())
+    }
+};
+pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
+    name: "multiply",
+    _assign: |int,global| {
+        let (index,num,regdimskip,fac) = get_inrv(int)?;
+        log!("\\multiply sets {} to {}",index,num*fac);
+        let ch = match regdimskip {
+            0 => StateChange::Register(RegisterStateChange {
+                index,
+                value: num * fac,
+                global
+            }),
+            _ => todo!()
+        };
+        int.change_state(ch);
+        Ok(())
+    }
+};
+pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
+    name: "advance",
+    _assign: |int,global| {
+        let (index,num,regdimskip,sum) = get_inrv(int)?;
+        log!("\\advance sets {} to {}",index,num+sum);
+        let ch = match regdimskip {
+            0 => StateChange::Register(RegisterStateChange {
+                index,
+                value: num + sum,
                 global
             }),
             _ => todo!()
@@ -365,11 +544,42 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {todo!()}
 };
 
+pub static THE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"the",
+    expandable:true,
+    _apply:|tk,int| {
+        let reg = int.read_command_token()?;
+        log!("\\the {}",reg);
+        match int.get_command(&reg.cmdname())? {
+            TeXCommand::Int(ic) => Ok(Some(Expansion {
+                cs: reg,
+                exp: Interpreter::string_to_tokens(&(ic._getvalue)(int)?.to_string())
+            })),
+            TeXCommand::AV(AssignableValue::Int(i)) => Ok(Some(Expansion {
+                cs: reg,
+                exp: Interpreter::string_to_tokens(&(i._getvalue)(int)?.to_string())
+            })),
+            TeXCommand::AV(AssignableValue::PrimReg(i)) => Ok(Some(Expansion {
+                cs: reg,
+                exp: Interpreter::string_to_tokens(&int.state_register(-u8toi16(i.index)).to_string())
+            })),
+            TeXCommand::AV(AssignableValue::Register((i,_))) => Ok(Some(Expansion {
+                cs: reg,
+                exp: Interpreter::string_to_tokens(&int.state_register(u8toi16(i)).to_string())
+            })),
+            p => todo!("{}",p)
+        }
+    }
+};
+
+
+
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PAR),
     TeXCommand::Primitive(&RELAX),
     TeXCommand::AV(AssignableValue::Int(&CATCODE)),
     TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
+    TeXCommand::AV(AssignableValue::Int(&COUNT)),
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
     TeXCommand::Ass(&DEF),
@@ -378,8 +588,15 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&LONG),
     TeXCommand::Ass(&PROTECTED),
     TeXCommand::Ass(&DIVIDE),
+    TeXCommand::Ass(&MULTIPLY),
+    TeXCommand::Ass(&ADVANCE),
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),
     TeXCommand::Primitive(&BEGINGROUP),
-    TeXCommand::Int(&TIME)
+    TeXCommand::Primitive(&THE),
+    TeXCommand::Primitive(&NUMBER),
+    TeXCommand::Int(&TIME),
+    TeXCommand::Int(&YEAR),
+    TeXCommand::Int(&MONTH),
+    TeXCommand::Int(&DAY),
 ]}

@@ -4,7 +4,8 @@ use crate::ontology::Token;
 use crate::utils::TeXError;
 use std::str::FromStr;
 use std::ops::Deref;
-use crate::commands::TeXCommand;
+use crate::commands::{Expandable, TeXCommand};
+use crate::{TeXErr,FileEnd,log};
 
 impl Interpreter<'_> {
 
@@ -47,7 +48,15 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => break,
-                CategoryCode::Active | CategoryCode::Escape => todo!("{}",next.as_string()),
+                CategoryCode::Active | CategoryCode::Escape => {
+                     match self.state_get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(e) => {e.expand(next,self);}
+                        Err(x) => {
+                            tokens.push(next);
+                            break;
+                        }
+                    }
+                },
                 _ => {
                     let ret2 = ret.clone() + str::from_utf8(&[next.char]).unwrap();
                     if kws.iter().any(|x| x.starts_with(&ret2)) {
@@ -88,7 +97,58 @@ impl Interpreter<'_> {
                 _ => ret.push(next.char)
             }
         }
-        Err(TeXError::new("File ended unexpectedly".to_string()))
+        FileEnd!(self)
+    }
+
+    pub fn read_command_token(&self) -> Result<Token,TeXError> {
+        let mut cmd: Option<Token> = None;
+        while self.has_next() {
+            self.skip_ws();
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = self.state_get_command(&next.cmdname());
+                    match p {
+                        None =>{ cmd = Some(next); break }
+                        Some(p) => match p {
+                            TeXCommand::Cond(c) => { c.expand(next, self); },
+                            TeXCommand::Primitive(p) if p.expandable => Expandable::Primitive(p).expand(next, self)?,
+                            _ => { cmd = Some(next); break }
+                        }
+                    }
+                }
+                _ => TeXErr!(self,"Command expected; found: {}",next)
+            }
+        };
+        match cmd {
+            Some(t) => Ok(t),
+            _ => FileEnd!(self)
+        }
+    }
+
+    pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
+        let next = self.next_token();
+        if next.catcode != CategoryCode::BeginGroup {
+            return Ok(vec!(next))
+        }
+        let mut ingroups : i8 = 0;
+        let mut ret : Vec<Token> = vec!();
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
+                CategoryCode::BeginGroup => {
+                    ingroups += 1;
+                    ret.push(next);
+                }
+                CategoryCode::EndGroup => {
+                    ingroups -= 1;
+                    ret.push(next);
+                }
+                _ => ret.push(next)
+            }
+        }
+        FileEnd!(self)
     }
 
     // Numbers -------------------------------------------------------------------------------------
@@ -101,7 +161,7 @@ impl Interpreter<'_> {
         };
         match num {
             Ok(n) => return Ok(if isnegative { -n } else { n }),
-            Err(_s) => return Err(TeXError::new("Number error (should be impossible)".to_string()))
+            Err(_s) => TeXErr!(self,"Number error (should be impossible)")
         }
     }
 
@@ -117,7 +177,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        Err(TeXError::new("File ended unexpectedly".to_string()))
+        FileEnd!(self)
     }
 
     pub fn read_number(&self) -> Result<i32,TeXError> {
@@ -131,13 +191,27 @@ impl Interpreter<'_> {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() => {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_hasnum() {
-                        Ok(hn) => return hn.get(self),
-                        _ => return Err(TeXError::new("Number expected; found ".to_owned() + &next.cmdname()))
+                        Ok(hn) => return Ok(if isnegative { -hn.get(self)? } else { hn.get(self)? }),
+                        Err(p) => match p.as_expandable_with_protected() {
+                            Ok(e) => e.expand(next,self)?,
+                            _ => TeXErr!(self,"Number expected; found {}",next)
+                        }
                     };
+                }
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = self.get_command(&next.cmdname())?;
+                    match p.as_expandable_with_protected() {
+                        Ok(e) => e.expand(next,self)?,
+                        _ => {
+                            self.requeue(next);
+                            return self.num_do_ret(ishex,isnegative,ret)
+                        }
+                    }
                 }
                 CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,ret),
                 _ if next.char.is_ascii_digit() => ret += &next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += &next.name(),
+                _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
                 _ if next.char == 96 => while self.has_next() {
                     let next = self.next_token();
                     match next.catcode {
@@ -153,10 +227,10 @@ impl Interpreter<'_> {
                     self.requeue(next);
                     return self.num_do_ret(ishex,isnegative,ret)
                 }
-                _ => todo!("{},{}",next.as_string(),self.current_line())
+                _ => todo!("{},{}: {}",next.as_string(),self.current_line(),self.preview())
             }
         }
-        Err(TeXError::new("File ended unexpectedly".to_string()))
+        FileEnd!(self)
     }
 
     // Dimensions ----------------------------------------------------------------------------------
@@ -192,7 +266,7 @@ impl Interpreter<'_> {
                         let num = f32::from_str(ret.as_str());
                         match num {
                             Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
-                            Err(_s) => return Err(TeXError::new("Number error (should be impossible)".to_string()))
+                            Err(_s) => TeXErr!(self,"Number error (should be impossible)")
                         }
                     }
                 _ if next.char.is_ascii_digit() => ret += &next.name(),
@@ -200,29 +274,6 @@ impl Interpreter<'_> {
                 _ => todo!("{}",next.as_string())
             }
         }
-        Err(TeXError::new("File ended unexpectedly".to_string()))
-    }
-
-    pub fn read_command_token(&self) -> Result<Token,TeXError> {
-        let mut cmd: Option<Token> = None;
-        while self.has_next() {
-            self.skip_ws();
-            let next = self.next_token();
-            match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active => {
-                    let p = self.state_get_command(&next.cmdname());
-                    match p {
-                        None =>{ cmd = Some(next); break }
-                        Some(p) => match p {
-                            TeXCommand::Cond(c) => { c.expand(next, self); },
-                            TeXCommand::Primitive(p) if p.expandable => (p._apply)(next, self)?,
-                            _ => { cmd = Some(next); break }
-                        }
-                    }
-                }
-                _ => return Err(TeXError::new("Command expected; found: ".to_owned() + &next.as_string()))
-            }
-        };
-        cmd.ok_or_else(|| TeXError::new("File ended unexpectedly".to_string()))
+        FileEnd!(self)
     }
 }

@@ -27,6 +27,11 @@ pub struct Token {
     pub name_opt: Option<String>,
     pub reference: Box<SourceReference>
 }
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        self.char == other.char && self.catcode == other.catcode && self.name_opt == other.name_opt
+    }
+}
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use ansi_term::Colour::*;

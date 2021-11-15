@@ -66,6 +66,8 @@ pub struct Interpreter<'inner> {
     mode:TeXMode,
     catcodes:RefCell<CategoryCodeScheme>
 }
+use crate::{TeXErr,FileEnd};
+
 impl Interpreter<'_> {
     pub fn string_to_tokens(s : &str) -> Vec<Token> {
         use crate::catcodes::OTHER_SCHEME;
@@ -74,7 +76,7 @@ impl Interpreter<'_> {
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
         use crate::utils::kpsewhich;
         match kpsewhich(filename,self.jobinfo.in_file()) {
-            None => Err(TeXError::new("File ".to_owned() + filename + " not found")),
+            None =>TeXErr!(self,"File {} not found",filename),
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
         }
     }
@@ -109,7 +111,7 @@ impl Interpreter<'_> {
     pub fn get_command(&self,s : &str) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
-            None => Err(TeXError::new("Unknown control sequence: ".to_owned() + s + " at " + self.current_line().as_str()))
+            None => TeXErr!(self,"Unknown control sequence: \\{}",s)
         }
     }
 
@@ -123,14 +125,17 @@ impl Interpreter<'_> {
                     Ok(a) => return self.do_assignment(a,false),
                     Err(x) => x
                 };
-                p = match p.as_expandable() {
+                p = match p.as_expandable_with_protected() {
                     Ok(e) => return e.expand(next,self),
                     Err(x) => x
                 };
                 match p {
                     //TeXCommand::Register(_) | TeXCommand::Dimen(_) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                    TeXCommand::Primitive(p) => p.apply(next,self),
+                    TeXCommand::Primitive(p) => match p.apply(next,self)? {
+                        None => Ok(()),
+                        Some(e) => Ok(self.push_expansion(e))
+                    },
                     TeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + exec.name().as_str() + " errored!")),
                     _ => todo!("{}",next.as_string())
@@ -144,5 +149,11 @@ impl Interpreter<'_> {
 
     pub fn current_line(&self) -> String {
         self.mouths.borrow().current_line()
+    }
+
+    pub fn assert_has_next(&self) -> Result<(),TeXError> {
+        if self.has_next() {Ok(())} else  {
+            FileEnd!(self)
+        }
     }
 }

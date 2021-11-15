@@ -18,6 +18,12 @@ pub enum CategoryCode {
     Invalid
 }
 
+impl PartialEq for CategoryCode {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(self,other)
+    }
+}
+
 impl std::fmt::Display for CategoryCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use CategoryCode::*;

@@ -4,6 +4,7 @@ pub mod interpreter;
 pub mod utils;
 pub mod commands;
 pub mod catcodes;
+pub mod stomach;
 
 static LOG : bool = true;
 
@@ -17,6 +18,21 @@ macro_rules! log {
         println!("{} {}",ansi_term::Colour::Red.bold().paint("Log:"),retstr);
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
     })
+}
+#[macro_export]
+macro_rules! TeXErr {
+    ($int:tt,$head:tt) => (return Err(crate::utils::TeXError::new(std::format!("{} in: {}",$head,crate::interpreter::Interpreter::current_line($int)))));
+    ($int:tt,$head:tt,$($tl:expr),*) => ({
+        //println!($head,$($tl),*);
+        let retstr = std::format!("{} in: {}",std::format_args!($head,$($tl),*),crate::interpreter::Interpreter::current_line($int));
+        return Err(crate::utils::TeXError::new(retstr))
+        //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
+    })
+}
+
+#[macro_export]
+macro_rules! FileEnd {
+    ($int:tt) => (TeXErr!($int,"File ended unexpectedly"))
 }
 
 #[macro_use]
