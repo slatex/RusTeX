@@ -1,9 +1,9 @@
 use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, DefMacro, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{CategoryCodeChange, CommandChange, NewlineChange, StateChange};
+use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, NewlineChange, RegisterStateChange, StateChange};
 use crate::utils::{kpsewhich, TeXError};
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
@@ -40,6 +40,8 @@ pub static CATCODE : AssValue<i32> = AssValue {
 };
 use crate::references::SourceReference;
 use std::rc::Rc;
+use chrono::Timelike;
+
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
     _assign: |int,global| {
@@ -69,7 +71,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
 
         int.change_state(StateChange::Cs(CommandChange {
             name: cmd.cmdname(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Register((num as u8, cmd.cmdname())))),
+            cmd: Some(TeXCommand::AV(AssignableValue::Register(( num as u8, cmd.cmdname())))),
             global
         }));
         Ok(())
@@ -314,6 +316,49 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
+    name:"begingroup",
+    expandable:false,
+    _apply:|tk,int| {
+        int.new_group(GroupType::Begingroup);
+        Ok(())
+    }
+};
+
+pub static TIME : IntCommand = IntCommand {
+    _getvalue: |int| {
+        let time = int.jobinfo.time;
+        Ok(((time.hour() * 60) + time.minute()) as i32)
+    },
+    name: "time"
+};
+use crate::utils::u8toi16;
+pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
+    name: "divide",
+    _assign: |int,global| {
+        let cmd = int.read_command_token()?;
+        let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
+            TeXCommand::AV(AssignableValue::Register((i,_))) => (u8toi16(i),int.state_register(u8toi16(i)),0),
+            TeXCommand::AV(AssignableValue::PrimReg(p)) => todo!(),
+            _ => todo!()
+            //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
+        };
+        int.read_keyword(vec!("by"));
+        let div = int.read_number()?;
+        log!("\\divide sets {} to {}",index,num/div);
+        let ch = match regdimskip {
+            0 => StateChange::Register(RegisterStateChange {
+                index,
+                value: num / div,
+                global
+            }),
+            _ => todo!()
+        };
+        int.change_state(ch);
+        Ok(())
+    }
+};
+
 pub static END: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
     expandable:false,
@@ -332,6 +377,9 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&LET),
     TeXCommand::Ass(&LONG),
     TeXCommand::Ass(&PROTECTED),
+    TeXCommand::Ass(&DIVIDE),
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),
+    TeXCommand::Primitive(&BEGINGROUP),
+    TeXCommand::Int(&TIME)
 ]}

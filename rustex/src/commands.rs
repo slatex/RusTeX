@@ -82,13 +82,14 @@ pub enum HasNum {
 impl HasNum {
     pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
         use HasNum::*;
+        use crate::utils::u8toi16;
         match self {
-            Dim((i,_)) => Ok(int.state_dimension(*i as i8)),
-            Register((i,_)) => Ok(int.state_register(*i as i8)),
+            Dim((i,_)) => Ok(int.state_dimension(u8toi16(*i))),
+            Register((i,_)) => Ok(int.state_register(u8toi16(*i))),
             AssInt(i) => (i._getvalue)(int),
             Int(i) => (i._getvalue)(int),
-            PrimReg(r) => Ok(int.state_register(r.index)),
-            PrimDim(r) => Ok(int.state_dimension(r.index)),
+            PrimReg(r) => Ok(int.state_register(-u8toi16(r.index))),
+            PrimDim(r) => Ok(int.state_dimension(-u8toi16(r.index))),
             Ext(r) => r.get_num(int),
         }
     }
@@ -96,13 +97,13 @@ impl HasNum {
 
 #[derive(PartialEq)]
 pub struct RegisterReference {
-    pub index: i8,
+    pub index: u8,
     pub name: &'static str
 }
 
 #[derive(PartialEq)]
 pub struct DimenReference {
-    pub index: i8,
+    pub index: u8,
     pub name: &'static str
 }
 
@@ -147,6 +148,7 @@ use crate::interpreter::state::{StateChange,RegisterStateChange};
 
 impl Assignment {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
+        use crate::utils::u8toi16;
         match self {
             Assignment::Prim(p) => (p._assign)(int,global),
             Assignment::Value(av) => match av {
@@ -155,7 +157,7 @@ impl Assignment {
                     int.read_eq();
                     let num = int.read_number()?;
                     int.change_state(StateChange::Register(RegisterStateChange {
-                        index: *i as i8,
+                        index: u8toi16(*i),
                         value: num,
                         global
                     }));
@@ -165,7 +167,7 @@ impl Assignment {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     int.change_state(StateChange::Dimen(RegisterStateChange {
-                        index: *i as i8,
+                        index: u8toi16(*i),
                         value: num,
                         global
                     }));
@@ -175,7 +177,7 @@ impl Assignment {
                     int.read_eq();
                     let num = int.read_number()?;
                     int.change_state(StateChange::Register(RegisterStateChange {
-                        index: r.index,
+                        index: -u8toi16(r.index),
                         value: num,
                         global
                     }));
@@ -185,7 +187,7 @@ impl Assignment {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     int.change_state(StateChange::Dimen(RegisterStateChange {
-                        index: r.index,
+                        index: -u8toi16(r.index),
                         value: num,
                         global
                     }));

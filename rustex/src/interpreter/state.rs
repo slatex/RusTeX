@@ -18,8 +18,8 @@ struct StackFrame {
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<String,Option<TeXCommand>>,
-    pub(crate) registers: HashMap<i8,i32>,
-    pub(crate) dimensions: HashMap<i8,i32>,
+    pub(crate) registers: HashMap<i16,i32>,
+    pub(crate) dimensions: HashMap<i16,i32>,
     pub(in crate::interpreter::state) tp : Option<GroupType>
 }
 
@@ -42,8 +42,8 @@ impl StackFrame {
         for c in pdftex_commands() {
             cmds.insert(c.name(),Some(c));
         }
-        let reg: HashMap<i8,i32> = HashMap::new();
-        let dims: HashMap<i8,i32> = HashMap::new();
+        let reg: HashMap<i16,i32> = HashMap::new();
+        let dims: HashMap<i16,i32> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -56,8 +56,8 @@ impl StackFrame {
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
-        let reg: HashMap<i8,i32> = HashMap::new();
-        let dims: HashMap<i8,i32> = HashMap::new();
+        let reg: HashMap<i16,i32> = HashMap::new();
+        let dims: HashMap<i16,i32> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -105,7 +105,7 @@ impl State {
         }
         None
     }
-    pub fn get_register(&self, index:i8) -> i32 {
+    pub fn get_register(&self, index:i16) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.registers.get(&index) {
                 Some(r) => return *r,
@@ -114,7 +114,7 @@ impl State {
         }
         0
     }
-    pub fn get_dimension(&self, index:i8) -> i32 {
+    pub fn get_dimension(&self, index:i16) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.dimensions.get(&index) {
                 Some(r) => return *r,
@@ -226,10 +226,8 @@ impl Interpreter<'_> {
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
         self.catcodes.borrow()
     }
-    pub fn state_register(&self,i:i8) -> i32 {
-        self.state.borrow().get_register(i)
-    }
-    pub fn state_dimension(&self,i:i8) -> i32 {
+    pub fn state_register(&self,i:i16) -> i32 { self.state.borrow().get_register(i) }
+    pub fn state_dimension(&self,i:i16) -> i32 {
         self.state.borrow().get_dimension(i)
     }
 
@@ -260,7 +258,7 @@ impl Interpreter<'_> {
 }
 
 pub struct RegisterStateChange {
-    pub index:i8,
+    pub index:i16,
     pub value:i32,
     pub global:bool
 }

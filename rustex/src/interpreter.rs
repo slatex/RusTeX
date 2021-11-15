@@ -39,14 +39,18 @@ fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
     retvec
 }
 
+use chrono::{DateTime,Local};
+
 pub struct Jobinfo<'a> {
-    pub path : &'a Path
+    pub path : &'a Path,
+    pub time: DateTime<Local>
 }
 
 impl Jobinfo<'_> {
     pub fn new(p : &Path) -> Jobinfo {
         Jobinfo {
-            path:p
+            path:p,
+            time:Local::now()
         }
     }
     pub fn in_file(&self) -> &Path {

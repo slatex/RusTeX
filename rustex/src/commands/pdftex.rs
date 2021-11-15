@@ -2,52 +2,52 @@ use crate::commands::{AssignableValue, Conditional, DimenReference, RegisterRefe
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
-    index:-35
+    index:35
 };
 
 pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
     name: "pdfpageheight",
-    index:-17
+    index:17
 };
 
 pub static PDFPAGEWIDTH : DimenReference = DimenReference {
     name: "pdfpagewidth",
-    index:-17
+    index:17
 };
 
 pub static PDFMINORVERSION : RegisterReference = RegisterReference {
     name: "pdfminorversion",
-    index:-36
+    index:36
 };
 
 pub static PDFOBJCOMPRESSLEVEL : RegisterReference = RegisterReference {
     name: "pdfobjcompresslevel",
-    index:-37
+    index:37
 };
 
 pub static PDFCOMPRESSLEVEL : RegisterReference = RegisterReference {
     name: "pdfcompresslevel",
-    index:-38
+    index:38
 };
 
 pub static PDFDECIMALDIGITS : RegisterReference = RegisterReference {
     name: "pdfdecimaldigits",
-    index:-39
+    index:39
 };
 
 pub static PDFPKRESOLUTION : RegisterReference = RegisterReference {
     name: "pdfpkresolution",
-    index:-40
+    index:40
 };
 
 pub static PDFHORIGIN : DimenReference = DimenReference {
     name: "pdfhorigin",
-    index:-19
+    index:19
 };
 
 pub static PDFVORIGIN : DimenReference = DimenReference {
     name: "pdfvorigin",
-    index:-20
+    index:20
 };
 
 pub static IFPDFABSNUM : Conditional = Conditional {

@@ -2,6 +2,10 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
+pub fn u8toi16(i : u8) -> i16 {
+    i16::from(i)
+}
+
 lazy_static! {
     pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")
         .as_path().to_path_buf();
