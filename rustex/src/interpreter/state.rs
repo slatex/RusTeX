@@ -6,6 +6,12 @@ use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich,PWD};
 
 #[derive(Clone)]
+pub enum GroupType {
+    Token,
+    Begingroup
+}
+
+#[derive(Clone)]
 struct StackFrame<'a> {
     parent: Option<&'a StackFrame<'a>>,
     pub(crate) catcodes: CategoryCodeScheme,
@@ -13,7 +19,8 @@ struct StackFrame<'a> {
     pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<String,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i8,Option<i32>>,
-    pub(crate) dimensions: HashMap<i8,Option<i32>>
+    pub(crate) dimensions: HashMap<i8,Option<i32>>,
+    pub(in crate::interpreter::state) tp : Option<GroupType>
 }
 
 impl<'sf> StackFrame<'sf> {
@@ -44,10 +51,11 @@ impl<'sf> StackFrame<'sf> {
             newlinechar: 10,
             endlinechar:13,
             registers:reg,
-            dimensions:dims
+            dimensions:dims,
+            tp:None
         }
     }
-    pub(crate) fn new<'a>(parent: &'a StackFrame<'a>) -> StackFrame<'a> {
+    pub(crate) fn new<'a>(parent: &'a StackFrame<'a>,tp : GroupType) -> StackFrame<'a> {
         let reg: HashMap<i8,Option<i32>> = HashMap::new();
         let dims: HashMap<i8,Option<i32>> = HashMap::new();
         StackFrame {
@@ -57,7 +65,8 @@ impl<'sf> StackFrame<'sf> {
             newlinechar: parent.newlinechar,
             endlinechar: parent.newlinechar,
             registers:reg,
-            dimensions:dims
+            dimensions:dims,
+            tp:Some(tp)
         }
     }
     pub(crate) fn get_command(&self, name:&str) -> Option<TeXCommand> {
@@ -187,6 +196,13 @@ impl<'s> State<'s> {
             //_ => todo!()
         }
     }
+
+    pub (in crate::interpreter::state) fn push(&'s mut self,tp : GroupType) {
+        let laststack = self.stacks.last().unwrap().deref();
+        let sf = StackFrame::new(laststack,tp);
+        let bx = Box::new(sf);
+        self.stacks.push(Box::new(sf))
+    }
 }
 
 
@@ -211,10 +227,17 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
 }
 
 use std::cell::Ref;
+use std::ops::Deref;
+
 impl<'s> Interpreter<'s,'_> {
     pub fn change_state(&self,change:StateChange) {
         let mut state = self.state.borrow_mut();
         state.change(self,change)
+    }
+    pub fn new_group(&self,tp:GroupType) {
+        let mut state = self.state.borrow_mut();
+        state.stacks.last_mut().unwrap().catcodes = self.catcodes.borrow().clone();
+        todo!()
     }
 
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
