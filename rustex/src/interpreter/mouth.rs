@@ -1,3 +1,4 @@
+#[derive(Clone)]
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
@@ -67,7 +68,7 @@ impl TokenMouth {
         self.tokens.remove(0)
     }
     fn preview(&self) -> String {
-        self.tokens.iter().map(|x| {x.name()}).collect::<Vec<_>>().join("")
+        Interpreter::tokens_to_string_default(self.tokens.clone())
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
@@ -77,6 +78,7 @@ impl TokenMouth {
 
 use crate::interpreter::Interpreter;
 
+#[derive(Clone)]
 enum StringMouthSource {
     File(LaTeXFile),
     Exp(Expansion)
@@ -103,6 +105,7 @@ impl StringMouthSource {
     }
 }
 
+#[derive(Clone)]
 pub struct StringMouth {
     mouth_state:MouthState,
     peekbuffer : Option<Token>,
@@ -579,7 +582,7 @@ impl Mouths {
         let rest = self.mouths.iter().rev().map(|x| x.preview()).join("");
         match self.buffer.borrow() {
             None => rest,
-            Some(tk) => tk.name() + &rest
+            Some(tk) => Interpreter::tokens_to_string_default(vec!(tk.clone())) + &rest
         }
     }
 }

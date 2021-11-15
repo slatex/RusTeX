@@ -11,7 +11,7 @@ use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::Path;
 use std::rc::Rc;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 use crate::commands::{Assignment, TeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
@@ -73,6 +73,37 @@ impl Interpreter<'_> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
+    pub fn tokens_to_string_default(tks:Vec<Token>) -> String {
+        use crate::catcodes::OTHER_SCHEME;
+        let mut ret : Vec<u8> = vec!();
+        for tk in tks {
+            match tk.catcode {
+                CategoryCode::Escape => {
+                    ret.push(92);
+                    for s in tk.name_opt.unwrap().as_bytes() { ret.push(*s) }
+                    ret.push(32)
+                }
+                _ => ret.push(tk.char)
+            }
+        }
+        from_utf8(ret.as_slice()).unwrap().to_string()
+    }
+    pub fn tokens_to_string(&self,tks:Vec<Token>) -> String {
+        let catcodes = self.catcodes.borrow();
+        let mut ret : Vec<u8> = vec!();
+        for tk in tks {
+            match tk.catcode {
+                CategoryCode::Escape if catcodes.escapechar != 255 => {
+                    ret.push(catcodes.escapechar);
+                    for s in tk.name_opt.unwrap().as_bytes() { ret.push(*s) }
+                    ret.push(32)
+                }
+                _ => ret.push(tk.char)
+            }
+        }
+        from_utf8(ret.as_slice()).unwrap().to_string()
+    }
+
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
         use crate::utils::kpsewhich;
         match kpsewhich(filename,self.jobinfo.in_file()) {

@@ -319,20 +319,38 @@ impl Display for DefMacro {
     }
 }
 
+use crate::stomach::whatsits::{Whatsit,ExecutableWhatsit};
+
+pub struct ProvidesExecutableWhatsit {
+    pub name: &'static str,
+    pub _get: fn(tk:Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
+}
+
+#[derive(Clone)]
+pub enum ProvidesWhatsit {
+    Exec(&'static ProvidesExecutableWhatsit),
+    Other
+}
+impl ProvidesWhatsit {
+    pub fn name(&self) -> String {
+        match self {
+            ProvidesWhatsit::Exec(e) => e.name.to_string(),
+            _ => todo!()
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum TeXCommand {
     Primitive(&'static PrimitiveExecutable),
     AV(AssignableValue),
-    /*
-    Register(&'a RegisterReference),
-    Dimen(&'a DimenReference),
-     */
     Ext(Rc<dyn ExternalCommand>),
     Cond(&'static Conditional),
     Int(&'static IntCommand),
     Char((String,Token)),
     Ass(&'static PrimitiveAssignment),
-    Def(Rc<DefMacro>)
+    Def(Rc<DefMacro>),
+    Whatsit(ProvidesWhatsit)
 }
 
 impl PartialEq for TeXCommand {
@@ -369,7 +387,8 @@ impl TeXCommand {
             TeXCommand::Ext(jr) => jr.name(),
             TeXCommand::Cond(c) => c.name.to_string(),
             TeXCommand::Int(i) => i.name.to_string(),
-            TeXCommand::Def(d) => d.name.clone()
+            TeXCommand::Def(d) => d.name.clone(),
+            TeXCommand::Whatsit(wi) => wi.name()
         }
     }
     pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {

@@ -1,9 +1,11 @@
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
-use crate::utils::{kpsewhich,PWD};
+use crate::utils::{kpsewhich, PWD, TeXError};
+use crate::TeXErr;
 
 #[derive(Clone)]
 pub enum GroupType {
@@ -76,14 +78,18 @@ impl StackFrame {
 #[derive(Clone)]
 pub struct State {
     stacks: Vec<StackFrame>,
-    pub(in crate) conditions:Vec<Option<bool>>
+    pub(in crate) conditions:Vec<Option<bool>>,
+    pub(in crate) outfiles:HashMap<u8,VFile>,
+    pub(in crate) infiles:HashMap<u8,StringMouth>
 }
 
 impl State {
     pub fn new() -> State {
         State {
             stacks: vec![StackFrame::initial_pdf_etex()],
-            conditions: vec![]
+            conditions: vec![],
+            outfiles:HashMap::new(),
+            infiles:HashMap::new()
         }
     }
     pub fn with_commands(mut procs:Vec<TeXCommand>) -> State {
@@ -178,6 +184,14 @@ impl State {
                     }
                 }
             }
+            StateChange::Endline(el) => {
+                int.catcodes.borrow_mut().endlinechar = el.char;
+                if el.global {
+                    for s in self.stacks.iter_mut() {
+                        s.catcodes.endlinechar = el.char;
+                    }
+                }
+            }
             //_ => todo!()
         }
     }
@@ -213,8 +227,37 @@ pub fn default_pdf_latex_state() -> State {
 
 use std::cell::Ref;
 use std::ops::Deref;
+use crate::interpreter::files::VFile;
+use crate::interpreter::mouth::StringMouth;
 
 impl Interpreter<'_> {
+    pub fn file_openout(&self,index:u8,file:VFile) -> Result<(),TeXError> {
+        let mut state = self.state.borrow_mut();
+        if state.outfiles.contains_key(&index) {
+            TeXErr!(self,"File already open at {}",index)
+        }
+        state.outfiles.insert(index,file);
+        Ok(())
+    }
+    pub fn file_write(&self,index:u8,s:String) -> Result<(),TeXError> {
+        let mut state = self.state.borrow_mut();
+        match state.outfiles.get_mut(&index) {
+            Some(f) => match f.string.borrow_mut() {
+                x@None => *x = Some(s),
+                Some(st) => *st += &s
+            }
+            None => TeXErr!(self,"No file open at index {}",index)
+        }
+        Ok(())
+    }
+    pub fn file_closeout(&self,index:u8) -> Result<(),TeXError> {
+        let mut state = self.state.borrow_mut();
+        match state.outfiles.remove(&index) {
+            Some(vf) => {self.filestore.borrow_mut().files.insert(vf.id.clone(),vf);}
+            None => TeXErr!(self,"No file open at index {}",index)
+        }
+        Ok(())
+    }
     pub fn change_state(&self,change:StateChange) {
         let mut state = self.state.borrow_mut();
         state.change(self,change)
@@ -275,7 +318,7 @@ pub struct CategoryCodeChange {
     pub global:bool
 }
 
-pub struct NewlineChange {
+pub struct CharChange {
     pub char:u8,
     pub global:bool
 }
@@ -285,5 +328,6 @@ pub enum StateChange {
     Dimen(RegisterStateChange),
     Cs(CommandChange),
     Cat(CategoryCodeChange),
-    Newline(NewlineChange)
+    Newline(CharChange),
+    Endline(CharChange)
 }

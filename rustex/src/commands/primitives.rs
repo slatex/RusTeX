@@ -1,9 +1,9 @@
 use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, RegisterReference, Signature, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, RegisterReference, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, NewlineChange, RegisterStateChange, StateChange};
+use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, CharChange, RegisterStateChange, StateChange};
 use crate::utils::{kpsewhich, TeXError};
 use crate::{log,TeXErr,FileEnd};
 
@@ -270,6 +270,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
 }
 
 use crate::commands::Expandable;
+use crate::stomach::whatsits::ExecutableWhatsit;
 
 fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
     use std::str::from_utf8;
@@ -393,7 +394,24 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\newlinechar: {}",num);
-        int.change_state(StateChange::Newline(NewlineChange {
+        int.change_state(StateChange::Newline(CharChange {
+            char: num,
+            global
+        }));
+        Ok(())
+    },
+    _getvalue: |int| {
+        Ok(int.state_catcodes().newlinechar as i32)
+    }
+};
+
+pub static ENDLINECHAR : AssValue<i32> = AssValue {
+    name: "endlinechar",
+    _assign: |int,global| {
+        int.read_eq();
+        let num = int.read_number()? as u8;
+        log!("\\endlinechar: {}",num);
+        int.change_state(StateChange::Endline(CharChange {
             char: num,
             global
         }));
@@ -538,12 +556,6 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static END: PrimitiveExecutable = PrimitiveExecutable {
-    name:"end",
-    expandable:false,
-    _apply:|tk,int| {todo!()}
-};
-
 pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     name:"the",
     expandable:true,
@@ -572,13 +584,120 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
+    name:"immediate",
+    expandable:false,
+    _apply:|tk,int| {
+        let next = int.read_command_token()?;
+        match int.get_command(&next.cmdname())? {
+            TeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
+                let wi = (e._get)(next,int)?;
+                (wi._apply)(int);
+                Ok(None)
+            }
+            _ => todo!()
+        }
+    }
+};
 
+pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
+    name:"openout",
+    _get: |tk,int| {
+        let num = int.read_number()? as u8;
+        int.read_eq();
+        let filename = int.read_string()?;
+        let file = int.get_file(&filename)?;
+
+        Ok(ExecutableWhatsit {
+            _apply: Box::new(move |nint: &Interpreter| {
+                nint.file_openout(num,file)
+            })
+        })
+    }
+};
+
+pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
+    name:"closeout",
+    _get: |tk,int| {
+        let num = int.read_number()? as u8;
+
+        Ok(ExecutableWhatsit {
+            _apply: Box::new(move |nint: &Interpreter| {
+                nint.file_closeout(num)
+            })
+        })
+    }
+};
+
+pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
+    name: "write",
+    _get: |tk, int| {
+        let num = int.read_number()? as u8;
+        int.assert_has_next()?;
+        let next = int.next_token();
+        if next.catcode != CategoryCode::BeginGroup {
+            TeXErr!(int,"Begin group token expected after \\write")
+        }
+        let mut ingroups = 0;
+        let mut ret : Vec<Token> = Vec::new();
+        while int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::BeginGroup => {
+                    ingroups += 1;
+                    ret.push(next);
+                }
+                CategoryCode::EndGroup if ingroups == 0 => {
+                    let string = int.tokens_to_string(ret);
+                    return Ok(ExecutableWhatsit {
+                        _apply: Box::new(move |int| {
+                            int.file_write(num,string)
+                        })
+                    })
+                }
+                CategoryCode::EndGroup => {
+                    ingroups -=1;
+                    ret.push(next);
+                },
+                CategoryCode::Active | CategoryCode::Escape => {
+                    match int.state_get_command(&next.cmdname()) {
+                        None => ret.push(next),
+                        Some(cmd) => match cmd.as_expandable() {
+                            Ok(Expandable::Primitive(x)) if *x == THE || *x == UNEXPANDED => {
+                                match (x._apply)(next,int)? {
+                                    Some(e) => {
+                                        let rc = Rc::new(e);
+                                        for tk in &rc.exp {
+                                            ret.push(tk.copied(Rc::clone(&rc)))
+                                        }
+                                    }
+                                    None => ()
+                                }
+                            }
+                            Ok(e) => e.expand(next,int)?,
+                            Err(_) => ret.push(next)
+                        }
+                    }
+                }
+                _ => ret.push(next)
+            }
+        }
+        FileEnd!(int)
+    }
+};
+
+pub static END: PrimitiveExecutable = PrimitiveExecutable {
+    name:"end",
+    expandable:false,
+    _apply:|tk,int| {todo!()}
+};
 
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PAR),
     TeXCommand::Primitive(&RELAX),
     TeXCommand::AV(AssignableValue::Int(&CATCODE)),
     TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
+    TeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
     TeXCommand::AV(AssignableValue::Int(&COUNT)),
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
@@ -595,6 +714,10 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&BEGINGROUP),
     TeXCommand::Primitive(&THE),
     TeXCommand::Primitive(&NUMBER),
+    TeXCommand::Primitive(&IMMEDIATE),
+    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&OPENOUT)),
+    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&CLOSEOUT)),
+    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     TeXCommand::Int(&TIME),
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),

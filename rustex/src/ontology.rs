@@ -6,6 +6,7 @@ use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::COPY_TOKENS_FULL;
 
+#[derive(Clone)]
 pub struct Expansion {
     pub cs : Token,
     pub exp : Vec<Token>
@@ -97,6 +98,7 @@ impl Token {
     }
 }
 
+#[derive(Clone)]
 pub struct LaTeXFile {
     pub path: String,
     ch : Vec<LaTeXObject>
@@ -113,11 +115,13 @@ impl LaTeXFile {
     }
 }
 
+#[derive(Clone)]
 pub struct Comment {
     pub text: String,
     pub reference : FileReference
 }
 
+#[derive(Clone)]
 pub enum LaTeXObject {
     Comment(Comment),
     Token(Token),
