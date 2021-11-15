@@ -60,7 +60,7 @@ fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |tk,int| {
         int.popcondition();
-        Ok(Expansion::dummy(vec!()))
+        Ok(())
     },
     expandable: true,
     name: "fi"
@@ -87,14 +87,11 @@ pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
         match int.getcondition() {
             None => Err(TeXError::new("extra \\else".to_string())),
             Some((_,None)) => {
-                Ok(Expansion {
-                    cs: tk.clone(),
-                    exp: vec![Token::dummy(),tk]
-                })
+                Ok(())
             }
             Some((i,_)) => {
                 false_loop(int,0,false)?;
-                Ok(Expansion::dummy(vec!()))
+                Ok(())
             }
         }
     },

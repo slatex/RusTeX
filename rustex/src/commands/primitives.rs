@@ -10,20 +10,14 @@ pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
     _apply:|cs: Token, _int: &Interpreter| {
-        Ok(Expansion {
-            cs,
-            exp: vec![]
-        })
+        Ok(())
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
     _apply:|cs: Token, _int: &Interpreter| {
-        Ok(Expansion {
-            cs,
-            exp: vec![]
-        })
+        Ok(())
     }
 };
 pub static CATCODE : AssValue<i32> = AssValue {
@@ -315,7 +309,7 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
         } else {
             let file = int.get_file(&filename)?;
             int.push_file(file);
-            Ok(Expansion::dummy(vec!()))
+            Ok(())
         }
     }
 };

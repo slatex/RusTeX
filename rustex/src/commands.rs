@@ -11,12 +11,12 @@ use std::fmt::{Display, Formatter};
 use crate::utils::TeXError;
 
 pub struct PrimitiveExecutable {
-    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError>,
+    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<(),TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }
 impl PrimitiveExecutable {
-    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<Expansion,TeXError> {
+    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<(),TeXError> {
         (self._apply)(cs,itp)
     }
 }
@@ -118,7 +118,7 @@ impl Expandable {
         use Expandable::*;
         match self {
             Cond(c) => c.expand(tk,int),
-            Primitive(p) => Ok(int.push_expansion((p._apply)(tk,int)?)),
+            Primitive(p) => (p._apply)(tk,int),
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
             Def(d) => todo!()
         }

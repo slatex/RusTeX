@@ -126,11 +126,7 @@ impl Interpreter<'_> {
                 match p {
                     //TeXCommand::Register(_) | TeXCommand::Dimen(_) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                    TeXCommand::Primitive(p) => {
-                            let ret = p.apply(next,self)?;
-                            self.push_expansion(ret);
-                            Ok(())
-                        }
+                    TeXCommand::Primitive(p) => p.apply(next,self),
                     TeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + exec.name().as_str() + " errored!")),
                     _ => todo!("{}",next.as_string())

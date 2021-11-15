@@ -215,8 +215,7 @@ impl Interpreter<'_> {
                         None =>{ cmd = Some(next); break }
                         Some(p) => match p {
                             TeXCommand::Cond(c) => { c.expand(next, self); },
-                            TeXCommand::Primitive(p) if p.expandable =>
-                                { self.push_expansion((p._apply)(next, self)?); }
+                            TeXCommand::Primitive(p) if p.expandable => (p._apply)(next, self)?,
                             _ => { cmd = Some(next); break }
                         }
                     }

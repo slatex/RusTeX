@@ -5,11 +5,9 @@ use crate::VERSION_INFO;
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
-    _apply: |cs: Token, _int: &Interpreter| {
-        Ok(Expansion {
-            cs: cs,
-            exp:Interpreter::string_to_tokens(VERSION_INFO.etexrevision())
-        })
+    _apply: |cs: Token, int: &Interpreter| {
+        int.push_tokens(Interpreter::string_to_tokens(VERSION_INFO.etexrevision()));
+        Ok(())
     },
     name: "etexrevision"
 };
