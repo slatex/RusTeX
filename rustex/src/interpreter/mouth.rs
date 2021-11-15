@@ -554,7 +554,7 @@ impl Mouths {
     }
 }
 
-impl Interpreter<'_,'_> {
+impl Interpreter<'_> {
     pub fn push_file(&self,file:VFile) {
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),file)
     }

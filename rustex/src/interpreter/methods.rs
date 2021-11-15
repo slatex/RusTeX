@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::ops::Deref;
 use crate::commands::TeXCommand;
 
-impl Interpreter<'_,'_> {
+impl Interpreter<'_> {
 
     // General -------------------------------------------------------------------------------------
 

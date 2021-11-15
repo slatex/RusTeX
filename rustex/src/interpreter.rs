@@ -54,15 +54,15 @@ impl Jobinfo<'_> {
     }
 }
 
-pub struct Interpreter<'state,'inner> {
-    state:RefCell<State<'state>>,
+pub struct Interpreter<'inner> {
+    state:RefCell<State>,
     pub jobinfo:Jobinfo<'inner>,
     mouths:RefCell<Mouths>,
     filestore:RefCell<FileStore>,
     mode:TeXMode,
     catcodes:RefCell<CategoryCodeScheme>
 }
-impl Interpreter<'_,'_> {
+impl Interpreter<'_> {
     pub fn string_to_tokens(s : &str) -> Vec<Token> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
@@ -74,7 +74,7 @@ impl Interpreter<'_,'_> {
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
         }
     }
-    pub fn do_file_with_state<'a,'b>(p : &'b Path, s : State<'a>) -> State<'a> {
+    pub fn do_file_with_state(p : &Path, s : State) -> State {
         let catcodes = s.catcodes().clone();
         let mut int = Interpreter {
             state:RefCell::new(s),

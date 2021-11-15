@@ -12,19 +12,19 @@ pub enum GroupType {
 }
 
 #[derive(Clone)]
-struct StackFrame<'a> {
-    parent: Option<&'a StackFrame<'a>>,
+struct StackFrame {
+    //parent: Option<&'a StackFrame<'a>>,
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<String,Option<TeXCommand>>,
-    pub(crate) registers: HashMap<i8,Option<i32>>,
-    pub(crate) dimensions: HashMap<i8,Option<i32>>,
+    pub(crate) registers: HashMap<i8,i32>,
+    pub(crate) dimensions: HashMap<i8,i32>,
     pub(in crate::interpreter::state) tp : Option<GroupType>
 }
 
-impl<'sf> StackFrame<'sf> {
-    pub(crate) fn initial_pdf_etex<'a>() -> StackFrame<'a> {
+impl StackFrame {
+    pub(crate) fn initial_pdf_etex() -> StackFrame {
         use crate::commands::conditionals::conditional_commands;
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
@@ -42,10 +42,10 @@ impl<'sf> StackFrame<'sf> {
         for c in pdftex_commands() {
             cmds.insert(c.name(),Some(c));
         }
-        let reg: HashMap<i8,Option<i32>> = HashMap::new();
-        let dims: HashMap<i8,Option<i32>> = HashMap::new();
+        let reg: HashMap<i8,i32> = HashMap::new();
+        let dims: HashMap<i8,i32> = HashMap::new();
         StackFrame {
-            parent: None,
+            //parent: None,
             catcodes: STARTING_SCHEME.clone(),
             commands: cmds,
             newlinechar: 10,
@@ -55,11 +55,11 @@ impl<'sf> StackFrame<'sf> {
             tp:None
         }
     }
-    pub(crate) fn new<'a>(parent: &'a StackFrame<'a>,tp : GroupType) -> StackFrame<'a> {
-        let reg: HashMap<i8,Option<i32>> = HashMap::new();
-        let dims: HashMap<i8,Option<i32>> = HashMap::new();
+    pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
+        let reg: HashMap<i8,i32> = HashMap::new();
+        let dims: HashMap<i8,i32> = HashMap::new();
         StackFrame {
-            parent: Some(parent),
+            //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
             commands: HashMap::new(),
             newlinechar: parent.newlinechar,
@@ -69,52 +69,24 @@ impl<'sf> StackFrame<'sf> {
             tp:Some(tp)
         }
     }
-    pub(crate) fn get_command(&self, name:&str) -> Option<TeXCommand> {
-        match self.commands.get(name) {
-            Some(Some(r)) => Some(r.clone()),
-            Some(None) => None,
-            None => match self.parent {
-                Some(p) => p.get_command(name),
-                None => None
-            }
-        }
-    }
-    pub(crate) fn get_register(&self,index:i8) -> Option<i32> {
-        match self.registers.get(&index) {
-            Some(r) => *r,
-            None => match self.parent {
-                Some(p) => p.get_register(index),
-                None => None
-            }
-        }
-    }
-    pub(crate) fn get_dimension(&self,index:i8) -> Option<i32> {
-        match self.dimensions.get(&index) {
-            Some(r) => *r,
-            None => match self.parent {
-                Some(p) => p.get_dimension(index),
-                None => None
-            }
-        }
-    }
 }
 
 // ------------------------------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub struct State<'a> {
-    stacks: Vec<Box<StackFrame<'a>>>,
+pub struct State {
+    stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>
 }
 
-impl<'s> State<'s> {
-    pub fn new<'a>() -> State<'a> {
+impl State {
+    pub fn new() -> State {
         State {
-            stacks: vec![Box::new(StackFrame::initial_pdf_etex())],
+            stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![]
         }
     }
-    pub fn with_commands<'a>(mut procs:Vec<TeXCommand>) -> State<'a> {
+    pub fn with_commands(mut procs:Vec<TeXCommand>) -> State {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
@@ -123,20 +95,33 @@ impl<'s> State<'s> {
         }
         st
     }
+
     pub fn get_command(&self, name: &str) -> Option<TeXCommand> {
-        self.stacks.last().unwrap().get_command(name)
+        for sf in self.stacks.iter().rev() {
+            match sf.commands.get(name) {
+                Some(r) => return r.clone(),
+                _ => {}
+            }
+        }
+        None
     }
     pub fn get_register(&self, index:i8) -> i32 {
-        match self.stacks.last().unwrap().get_register(index) {
-            Some(i) => i,
-            None => 0
+        for sf in self.stacks.iter().rev() {
+            match sf.registers.get(&index) {
+                Some(r) => return *r,
+                _ => {}
+            }
         }
+        0
     }
     pub fn get_dimension(&self, index:i8) -> i32 {
-        match self.stacks.last().unwrap().get_dimension(index) {
-            Some(i) => i,
-            None => 0
+        for sf in self.stacks.iter().rev() {
+            match sf.dimensions.get(&index) {
+                Some(r) => return *r,
+                _ => {}
+            }
         }
+        0
     }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
         &self.stacks.last().expect("Stack frames empty").catcodes
@@ -152,19 +137,19 @@ impl<'s> State<'s> {
             StateChange::Register(regch) => {
                 if regch.global {
                     for s in self.stacks.iter_mut() {
-                        s.registers.insert(regch.index,Some(regch.value));
+                        s.registers.insert(regch.index,regch.value);
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().registers.insert(regch.index,Some(regch.value));
+                    self.stacks.last_mut().unwrap().registers.insert(regch.index,regch.value);
                 }
             }
             StateChange::Dimen(regch) => {
                 if regch.global {
                     for s in self.stacks.iter_mut() {
-                        s.dimensions.insert(regch.index,Some(regch.value));
+                        s.dimensions.insert(regch.index,regch.value);
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().dimensions.insert(regch.index,Some(regch.value));
+                    self.stacks.last_mut().unwrap().dimensions.insert(regch.index,regch.value);
                 }
             }
             StateChange::Cs(cmd) => {
@@ -197,16 +182,16 @@ impl<'s> State<'s> {
         }
     }
 
-    pub (in crate::interpreter::state) fn push(&'s mut self,tp : GroupType) {
-        let laststack = self.stacks.last().unwrap().deref();
-        let sf = StackFrame::new(laststack,tp);
-        let bx = Box::new(sf);
-        self.stacks.push(Box::new(sf))
+    pub (in crate::interpreter::state) fn push(&mut self,cc:CategoryCodeScheme,tp : GroupType) {
+        let mut laststack = self.stacks.last_mut().unwrap();
+        laststack.catcodes = cc;
+        let sf = StackFrame::new(self.stacks.last().unwrap(),tp);
+        self.stacks.push(sf)
     }
 }
 
 
-pub fn default_pdf_latex_state<'a>() -> State<'a> {
+pub fn default_pdf_latex_state() -> State {
     let mut st = State::new();
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
@@ -229,15 +214,13 @@ pub fn default_pdf_latex_state<'a>() -> State<'a> {
 use std::cell::Ref;
 use std::ops::Deref;
 
-impl<'s> Interpreter<'s,'_> {
+impl Interpreter<'_> {
     pub fn change_state(&self,change:StateChange) {
         let mut state = self.state.borrow_mut();
         state.change(self,change)
     }
     pub fn new_group(&self,tp:GroupType) {
-        let mut state = self.state.borrow_mut();
-        state.stacks.last_mut().unwrap().catcodes = self.catcodes.borrow().clone();
-        todo!()
+        self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp)
     }
 
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
@@ -250,7 +233,7 @@ impl<'s> Interpreter<'s,'_> {
         self.state.borrow().get_dimension(i)
     }
 
-    pub fn pushcondition<'a>(&self) -> u8 {
+    pub fn pushcondition(&self) -> u8 {
         let mut state = self.state.borrow_mut();
         state.conditions.push(None);
         (state.conditions.len() - 1) as u8
