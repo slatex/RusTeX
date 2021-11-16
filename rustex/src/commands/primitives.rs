@@ -759,8 +759,676 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     }
 };
 
+// TODO --------------------------------------------------------------------------------------------
+
 pub static END: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"batchmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"bye",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"char",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"cr",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"crcr",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"csname",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endcsname",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"currentgrouplevel",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"detokenize",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DIMEXPR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"dimexpr",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"dump",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endinput",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
+    name:"eqno",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"errmessage",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"errorstopmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"expandafter",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
+    name:"expanded",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontname",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTCHARWD: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontcharwd",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTCHARHT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontcharht",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTCHARDP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontchardp",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontcharic",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUEEXPR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"glueexpr",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
+    name:"end",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static INPUTLINENO: PrimitiveExecutable = PrimitiveExecutable {
+    name:"inputlineno",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"jobname",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lowercase",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"meaning",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"message",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MUEXPR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"muexpr",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noexpand",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NULLFONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"nullfont",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NUMEXPR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"end",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"romannumeral",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scantokens",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"shipout",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"string",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"uppercase",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"textstyle",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptstyle",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptscriptstyle",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"special",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"nonscript",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"holdinginserts",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LEQNO: PrimitiveExecutable = PrimitiveExecutable {
+    name:"leqno",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LOOSENESS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"looseness",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NOBOUNDARY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noboundary",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCROLLMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scrollmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"nonstopmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"omit",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pausing",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PREVGRAF: PrimitiveExecutable = PrimitiveExecutable {
+    name:"prevgraf",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SETLANGUAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"setlanguage",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOW: PrimitiveExecutable = PrimitiveExecutable {
+    name:"show",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showbox",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWLISTS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showlists",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showthe",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"span",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGCOMMANDS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingcommands",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGLOSTCHARS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracinglostchars",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGMACROS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingmacros",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGONLINE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingonline",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGOUTPUT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingoutput",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGPAGES: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingpages",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGPARAGRAPHS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingparagraphs",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGRESTORES: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingrestores",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGSTATS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingstats",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VALIGN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"valign",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"beginL",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BEGINR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"beginR",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"botmarks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CURRENTGROUPTYPE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"currentgrouptype",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CURRENTIFBRANCH: PrimitiveExecutable = PrimitiveExecutable {
+    name:"currentifbranch",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CURRENTIFLEVEL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"currentiflevel",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CURRENTIFTYPE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"currentiftype",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ENDL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endL",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endR",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"firstmarks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUESHRINK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"glueshrink",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUESHRINKORDER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"glueshrinkorder",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUESTRETCH: PrimitiveExecutable = PrimitiveExecutable {
+    name:"gluestretch",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUESTRETCHORDER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"gluestretchorder",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static GLUETOMU: PrimitiveExecutable = PrimitiveExecutable {
+    name:"gluetomu",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static INTERACTIONMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"interactionmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LASTLINEFIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lastlinefit",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"marks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MUTOGLUE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mutoglue",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PAGEDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pagediscards",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PARSHAPEDIMEN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"parshapedimen",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PARSHAPEINDENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"parshapeindent",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PARSHAPELENGTH: PrimitiveExecutable = PrimitiveExecutable {
+    name:"parshapelength",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PREDISPLAYDIRECTION: PrimitiveExecutable = PrimitiveExecutable {
+    name:"predisplaydirection",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWGROUPS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showgroups",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWIFS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showifs",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SHOWTOKENS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"showtokens",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITBOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitbotmarks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitdiscards",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITFIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitfirstmarks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TEXXETSTATE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"TeXXeTstate",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TOPMARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"topmarks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGASSIGNS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingassigns",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGGROUPS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracinggroups",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGIFS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingifs",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGNESTING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingnesting",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TRACINGSCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tracingscantokens",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"efcode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LEFTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"leftmarginkern",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LETTERSPACEFONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"letterspacefont",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static QUITVMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"quitvmode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static RIGHTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"rightmarginkern",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"tagcode",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };
@@ -785,7 +1453,6 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&MULTIPLY),
     TeXCommand::Ass(&ADVANCE),
     TeXCommand::Primitive(&INPUT),
-    TeXCommand::Primitive(&END),
     TeXCommand::Primitive(&BEGINGROUP),
     TeXCommand::Primitive(&ENDGROUP),
     TeXCommand::Primitive(&THE),
@@ -801,4 +1468,117 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),
     TeXCommand::Int(&DAY),
+    // TODO ----------------------------------------------------------------------------------------
+    TeXCommand::Primitive(&END),
+    TeXCommand::Primitive(&BATCHMODE),
+    TeXCommand::Primitive(&BYE),
+    TeXCommand::Primitive(&CHAR),
+    TeXCommand::Primitive(&CR),
+    TeXCommand::Primitive(&CRCR),
+    TeXCommand::Primitive(&CSNAME),
+    TeXCommand::Primitive(&ENDCSNAME),
+    TeXCommand::Primitive(&CURRENTGROUPLEVEL),
+    TeXCommand::Primitive(&DETOKENIZE),
+    TeXCommand::Primitive(&DIMEXPR),
+    TeXCommand::Primitive(&DUMP),
+    TeXCommand::Primitive(&ENDINPUT),
+    TeXCommand::Primitive(&EQNO),
+    TeXCommand::Primitive(&ERRMESSAGE),
+    TeXCommand::Primitive(&ERRORSTOPMODE),
+    TeXCommand::Primitive(&EXPANDAFTER),
+    TeXCommand::Primitive(&EXPANDED),
+    TeXCommand::Primitive(&FONTNAME),
+    TeXCommand::Primitive(&FONTCHARWD),
+    TeXCommand::Primitive(&FONTCHARHT),
+    TeXCommand::Primitive(&FONTCHARDP),
+    TeXCommand::Primitive(&FONTCHARIC),
+    TeXCommand::Primitive(&GLUEEXPR),
+    TeXCommand::Primitive(&IGNORESPACES),
+    TeXCommand::Primitive(&INPUTLINENO),
+    TeXCommand::Primitive(&JOBNAME),
+    TeXCommand::Primitive(&LOWERCASE),
+    TeXCommand::Primitive(&MEANING),
+    TeXCommand::Primitive(&MESSAGE),
+    TeXCommand::Primitive(&MUEXPR),
+    TeXCommand::Primitive(&NOEXPAND),
+    TeXCommand::Primitive(&NULLFONT),
+    TeXCommand::Primitive(&NUMEXPR),
+    TeXCommand::Primitive(&ROMANNUMERAL),
+    TeXCommand::Primitive(&SCANTOKENS),
+    TeXCommand::Primitive(&SHIPOUT),
+    TeXCommand::Primitive(&STRING),
+    TeXCommand::Primitive(&UPPERCASE),
+    TeXCommand::Primitive(&TEXTSTYLE),
+    TeXCommand::Primitive(&SCRIPTSTYLE),
+    TeXCommand::Primitive(&SCRIPTSCRIPTSTYLE),
+    TeXCommand::Primitive(&SPECIAL),
+    TeXCommand::Primitive(&NONSCRIPT),
+    TeXCommand::Primitive(&HOLDINGINSERTS),
+    TeXCommand::Primitive(&LEQNO),
+    TeXCommand::Primitive(&LOOSENESS),
+    TeXCommand::Primitive(&NOBOUNDARY),
+    TeXCommand::Primitive(&SCROLLMODE),
+    TeXCommand::Primitive(&NONSTOPMODE),
+    TeXCommand::Primitive(&OMIT),
+    TeXCommand::Primitive(&PAUSING),
+    TeXCommand::Primitive(&PREVGRAF),
+    TeXCommand::Primitive(&SETLANGUAGE),
+    TeXCommand::Primitive(&SHOW),
+    TeXCommand::Primitive(&SHOWBOX),
+    TeXCommand::Primitive(&SHOWLISTS),
+    TeXCommand::Primitive(&SHOWTHE),
+    TeXCommand::Primitive(&SPAN),
+    TeXCommand::Primitive(&TRACINGCOMMANDS),
+    TeXCommand::Primitive(&TRACINGLOSTCHARS),
+    TeXCommand::Primitive(&TRACINGMACROS),
+    TeXCommand::Primitive(&TRACINGONLINE),
+    TeXCommand::Primitive(&TRACINGOUTPUT),
+    TeXCommand::Primitive(&TRACINGPAGES),
+    TeXCommand::Primitive(&TRACINGPARAGRAPHS),
+    TeXCommand::Primitive(&TRACINGRESTORES),
+    TeXCommand::Primitive(&TRACINGSTATS),
+    TeXCommand::Primitive(&VALIGN),
+    TeXCommand::Primitive(&BEGINL),
+    TeXCommand::Primitive(&BEGINR),
+    TeXCommand::Primitive(&BOTMARKS),
+    TeXCommand::Primitive(&CURRENTGROUPTYPE),
+    TeXCommand::Primitive(&CURRENTIFBRANCH),
+    TeXCommand::Primitive(&CURRENTIFLEVEL),
+    TeXCommand::Primitive(&CURRENTIFTYPE),
+    TeXCommand::Primitive(&ENDL),
+    TeXCommand::Primitive(&ENDR),
+    TeXCommand::Primitive(&FIRSTMARKS),
+    TeXCommand::Primitive(&GLUESHRINK),
+    TeXCommand::Primitive(&GLUESHRINKORDER),
+    TeXCommand::Primitive(&GLUESTRETCH),
+    TeXCommand::Primitive(&GLUESTRETCHORDER),
+    TeXCommand::Primitive(&GLUETOMU),
+    TeXCommand::Primitive(&INTERACTIONMODE),
+    TeXCommand::Primitive(&LASTLINEFIT),
+    TeXCommand::Primitive(&MARKS),
+    TeXCommand::Primitive(&MUTOGLUE),
+    TeXCommand::Primitive(&PAGEDISCARDS),
+    TeXCommand::Primitive(&PARSHAPEDIMEN),
+    TeXCommand::Primitive(&PARSHAPEINDENT),
+    TeXCommand::Primitive(&PARSHAPELENGTH),
+    TeXCommand::Primitive(&PREDISPLAYDIRECTION),
+    TeXCommand::Primitive(&SHOWGROUPS),
+    TeXCommand::Primitive(&SHOWIFS),
+    TeXCommand::Primitive(&SHOWTOKENS),
+    TeXCommand::Primitive(&SPLITBOTMARKS),
+    TeXCommand::Primitive(&SPLITDISCARDS),
+    TeXCommand::Primitive(&SPLITFIRSTMARKS),
+    TeXCommand::Primitive(&TEXXETSTATE),
+    TeXCommand::Primitive(&TOPMARKS),
+    TeXCommand::Primitive(&TRACINGASSIGNS),
+    TeXCommand::Primitive(&TRACINGGROUPS),
+    TeXCommand::Primitive(&TRACINGIFS),
+    TeXCommand::Primitive(&TRACINGNESTING),
+    TeXCommand::Primitive(&TRACINGSCANTOKENS),
+    TeXCommand::Primitive(&EFCODE),
+    TeXCommand::Primitive(&LEFTMARGINKERN),
+    TeXCommand::Primitive(&LETTERSPACEFONT),
+    TeXCommand::Primitive(&QUITVMODE),
+    TeXCommand::Primitive(&RIGHTMARGINKERN),
+    TeXCommand::Primitive(&TAGCODE),
 ]}
