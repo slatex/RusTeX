@@ -173,7 +173,7 @@ impl Interpreter<'_> {
             CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
             CategoryCode::EndGroup => self.pop_group(GroupType::Token),
             CategoryCode::Space | CategoryCode::EOL if matches!(self.mode,TeXMode::Vertical) => Ok(()),
-            _ => todo!("Character: {}, {}, {}",next.char,next.catcode,self.current_line())
+            _ => todo!("{}, {}",next,self.current_line())
         }
     }
 

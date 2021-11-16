@@ -1,4 +1,4 @@
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum CategoryCode {
     Escape,
     BeginGroup,
@@ -16,12 +16,6 @@ pub enum CategoryCode {
     Active,
     Comment,
     Invalid
-}
-
-impl PartialEq for CategoryCode {
-    fn eq(&self, other: &Self) -> bool {
-        self.toint() == other.toint()
-    }
 }
 
 impl std::fmt::Display for CategoryCode {
@@ -132,8 +126,8 @@ lazy_static! {
             map.insert(92,Escape);
             map.insert(32,Space);
             map.insert(13,EOL);
-            for i in 65..90 { map.insert(i,Letter); }
-            for i in 97..122 { map.insert(i,Letter); }
+            for i in 65..91 { map.insert(i,Letter); }
+            for i in 97..123 { map.insert(i,Letter); }
             map.insert(37,Comment);
             map
         },

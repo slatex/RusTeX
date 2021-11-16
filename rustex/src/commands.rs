@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
 use std::str::from_utf8;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
+use crate::interpreter::dimensions::Numeric;
 use crate::utils::TeXError;
 use crate::log;
 
@@ -67,6 +68,18 @@ pub struct DimenReference {
     pub name: &'static str
 }
 
+#[derive(PartialEq)]
+pub struct SkipReference {
+    pub index: u8,
+    pub name: &'static str
+}
+
+#[derive(PartialEq)]
+pub struct TokReference {
+    pub index: u8,
+    pub name: &'static str
+}
+
 pub struct PrimitiveAssignment {
     pub name: &'static str,
     pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
@@ -103,20 +116,25 @@ pub struct ProvidesExecutableWhatsit {
 pub enum AssignableValue {
     Dim(u8),
     Register(u8),
+    Skip(u8),
+    Toks(u8),
     Int(&'static AssValue<i32>),
     PrimReg(&'static RegisterReference),
-    PrimDim(&'static DimenReference)
+    PrimDim(&'static DimenReference),
+    PrimSkip(&'static SkipReference),
+    PrimToks(&'static TokReference)
 }
 
 impl AssignableValue {
     pub fn name(&self) -> Option<String> {
         use AssignableValue::*;
         match self {
-            Dim(_) => None,
-            Register(_) => None,
+            Dim(_) | Register(_) | Skip(_) | Toks(_) => None,
             Int(i) => Some(i.name.to_string()),
             PrimReg(r) => Some(r.name.to_string()),
-            PrimDim(d) => Some(d.name.to_string())
+            PrimDim(d) => Some(d.name.to_string()),
+            PrimSkip(d) => Some(d.name.to_string()),
+            PrimToks(d) => Some(d.name.to_string())
         }
     }
 }
@@ -124,24 +142,28 @@ impl AssignableValue {
 pub enum HasNum {
     Dim(u8),
     Register(u8),
+    Skip(u8),
     AssInt(&'static AssValue<i32>),
     Int(&'static IntCommand),
     PrimReg(&'static RegisterReference),
+    PrimSkip(&'static SkipReference),
     PrimDim(&'static DimenReference),
     Ext(Rc<dyn ExternalCommand>)
 }
 
 impl HasNum {
-    pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
+    pub(crate) fn get(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
         use HasNum::*;
         use crate::utils::u8toi16;
         match self {
-            Dim(i) => Ok(int.state_dimension(u8toi16(*i))),
-            Register(i) => Ok(int.state_register(u8toi16(*i))),
-            AssInt(i) => (i._getvalue)(int),
-            Int(i) => (i._getvalue)(int),
-            PrimReg(r) => Ok(int.state_register(-u8toi16(r.index))),
-            PrimDim(r) => Ok(int.state_dimension(-u8toi16(r.index))),
+            Dim(i) => Ok(Numeric::Dim(int.state_dimension(u8toi16(*i)))),
+            Register(i) => Ok(Numeric::Int(int.state_register(u8toi16(*i)))),
+            Skip(i) => Ok(Numeric::Skip(int.state_skip(u8toi16(*i)))),
+            AssInt(i) => Ok(Numeric::Int((i._getvalue)(int)?)),
+            Int(i) => Ok(Numeric::Int((i._getvalue)(int)?)),
+            PrimReg(r) => Ok(Numeric::Int(int.state_register(-u8toi16(r.index)))),
+            PrimDim(r) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
+            PrimSkip(r) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
             Ext(r) => r.get_num(int),
         }
     }
@@ -280,14 +302,12 @@ impl Expandable {
 
 
 pub enum Assignment {
-    //Register(&'a RegisterReference),
-    //Dimen(&'a DimenReference),
     Value(AssignableValue),
     Ext(Rc<dyn ExternalCommand>),
     Prim(&'static PrimitiveAssignment)
 }
 
-use crate::interpreter::state::{StateChange,RegisterStateChange};
+use crate::interpreter::state::{StateChange,RegisterStateChange,SkipStateChange};
 
 impl Assignment {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
@@ -317,6 +337,28 @@ impl Assignment {
                     }));
                     Ok(())
                 }
+                AssignableValue::Skip(i) => {
+                    int.read_eq();
+                    let num = int.read_skip()?;
+                    int.change_state(StateChange::Skip(SkipStateChange {
+                        index: u8toi16(*i),
+                        value: num,
+                        global
+                    }));
+                    Ok(())
+                },
+                AssignableValue::PrimSkip(r) => {
+                    int.read_eq();
+                    let num = int.read_skip()?;
+                    int.change_state(StateChange::Skip(SkipStateChange {
+                        index: -u8toi16(r.index),
+                        value: num,
+                        global
+                    }));
+                    Ok(())
+                },
+                AssignableValue::Toks(_) => todo!(),
+                AssignableValue::PrimToks(_) => todo!(),
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
@@ -352,7 +394,7 @@ pub trait ExternalCommand {
     fn execute(&self,int : &Interpreter) -> Result<(),TeXError>;
     fn expand(&self,int:&Interpreter) -> Result<Expansion,TeXError>;
     fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError>;
-    fn get_num(&self,int:&Interpreter) -> Result<i32,TeXError>;
+    fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError>;
 }
 
 #[derive(Clone)]
@@ -462,7 +504,8 @@ pub enum TeXCommand {
     Char(Token),
     Ass(&'static PrimitiveAssignment),
     Def(Rc<DefMacro>),
-    Whatsit(ProvidesWhatsit)
+    Whatsit(ProvidesWhatsit),
+    MathChar(u32)
 }
 
 impl PartialEq for TeXCommand {
@@ -475,6 +518,7 @@ impl PartialEq for TeXCommand {
             (Cond(a),Cond(b)) => a.name == b.name,
             (Ass(a),Ass(b)) => a.name == b.name,
             (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
+            (MathChar(a),MathChar(b)) => a==b,
             (Def(a),Def(b)) => {
                 a.long == b.long &&
                     a.protected == b.protected &&
@@ -508,7 +552,8 @@ impl fmt::Display for TeXCommand {
             TeXCommand::Whatsit(wi) => wi.fmt(f),
             TeXCommand::Ass(a) =>
                 write!(f,"\\{}",a.name),
-            TeXCommand::Char(tk) => tk.fmt(f)
+            TeXCommand::Char(tk) => write!(f,"CHAR({})",tk),
+            TeXCommand::MathChar(i) => write!(f,"MATHCHAR({})",i)
         }
     }
 }
@@ -590,7 +635,8 @@ impl TeXCommand {
             TeXCommand::Cond(c) => Some(c.name.to_string()),
             TeXCommand::Int(i) => Some(i.name.to_string()),
             TeXCommand::Def(_) => None,
-            TeXCommand::Whatsit(wi) => wi.name()
+            TeXCommand::Whatsit(wi) => wi.name(),
+            TeXCommand::MathChar(_) => None
         }
     }
     pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {
@@ -613,12 +659,16 @@ impl TeXCommand {
     }
     pub fn as_hasnum(self) -> Result<HasNum,TeXCommand> {
         match self {
-            TeXCommand::AV(av) => match av {
-                AssignableValue::Register(s) => Ok(HasNum::Register(s)),//Some(HasNum::AssDim(d)),
-                AssignableValue::Dim(s) => Ok(HasNum::Dim(s)),//Some(HasNum::AssDim(d)),
-                AssignableValue::Int(d) => Ok(HasNum::AssInt(d)),
-                AssignableValue::PrimDim(d) => Ok(HasNum::PrimDim(d)),
-                AssignableValue::PrimReg(d) => Ok(HasNum::PrimReg(d)),
+            TeXCommand::AV(ref av) => match av {
+                AssignableValue::Register(s) => Ok(HasNum::Register(*s)),
+                AssignableValue::Dim(s) => Ok(HasNum::Dim(*s)),
+                AssignableValue::Skip(s) => Ok(HasNum::Skip(*s)),
+                AssignableValue::Int(d) => Ok(HasNum::AssInt(*d)),
+                AssignableValue::PrimDim(d) => Ok(HasNum::PrimDim(*d)),
+                AssignableValue::PrimReg(d) => Ok(HasNum::PrimReg(*d)),
+                AssignableValue::PrimSkip(d) => Ok(HasNum::PrimSkip(*d)),
+                AssignableValue::Toks(s) => Err(self),
+                AssignableValue::PrimToks(_) => Err(self),
             },
             TeXCommand::Ext(ext) if ext.has_num() => Ok(HasNum::Ext(ext)),
             TeXCommand::Int(i) => Ok(HasNum::Int(i)),

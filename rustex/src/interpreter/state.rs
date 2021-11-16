@@ -4,7 +4,7 @@ use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 use crate::utils::{kpsewhich, PWD, TeXError};
-use crate::TeXErr;
+use crate::{TeXErr,log};
 
 #[derive(Copy,Clone)]
 pub enum GroupType {
@@ -29,6 +29,8 @@ struct StackFrame {
     pub(crate) commands: HashMap<String,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i16,i32>,
     pub(crate) dimensions: HashMap<i16,i32>,
+    pub(crate) skips : HashMap<i16,Skip>,
+    pub(crate) toks : HashMap<i16,Vec<Token>>,
     pub(in crate::interpreter::state) tp : Option<GroupType>
 }
 
@@ -51,8 +53,12 @@ impl StackFrame {
         for c in pdftex_commands() {
             cmds.insert(c.name().unwrap().to_string(),Some(c));
         }
-        let reg: HashMap<i16,i32> = HashMap::new();
+        let mut reg: HashMap<i16,i32> = HashMap::new();
+        reg.insert(-crate::utils::u8toi16(crate::commands::primitives::MAG.index),1000);
+
         let dims: HashMap<i16,i32> = HashMap::new();
+        let skips: HashMap<i16,Skip> = HashMap::new();
+        let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -61,12 +67,15 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
+            skips,toks,
             tp:None
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
         let reg: HashMap<i16,i32> = HashMap::new();
         let dims: HashMap<i16,i32> = HashMap::new();
+        let skips: HashMap<i16,Skip> = HashMap::new();
+        let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -75,6 +84,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
+            skips,toks,
             tp:Some(tp)
         }
     }
@@ -136,6 +146,19 @@ impl State {
         }
         0
     }
+    pub fn get_skip(&self, index:i16) -> Skip {
+        for sf in self.stacks.iter().rev() {
+            match sf.skips.get(&index) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        Skip{
+            base: 0,
+            stretch: None,
+            shrink: None
+        }
+    }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
         &self.stacks.last().expect("Stack frames empty").catcodes
     }
@@ -165,6 +188,15 @@ impl State {
                     self.stacks.last_mut().unwrap().dimensions.insert(regch.index,regch.value);
                 }
             }
+            StateChange::Skip(regch) => {
+                if regch.global {
+                    for s in self.stacks.iter_mut() {
+                        s.skips.insert(regch.index,regch.value);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().skips.insert(regch.index,regch.value);
+                }
+            }
             StateChange::Cs(cmd) => {
                 if cmd.global {
                     for s in self.stacks.iter_mut() {
@@ -184,10 +216,23 @@ impl State {
                 }
             }
             StateChange::Cat(cc) => {
-                int.catcodes.borrow_mut().catcodes.insert(cc.char,cc.catcode);
-                if cc.global {
-                    for s in self.stacks.iter_mut() {
-                        s.catcodes.catcodes.insert(cc.char,cc.catcode);
+                match cc.catcode {
+                    CategoryCode::Other => {
+                        int.catcodes.borrow_mut().catcodes.remove(&cc.char);
+                        if cc.global {
+                            for s in self.stacks.iter_mut() {
+                                s.catcodes.catcodes.remove(&cc.char);
+                            }
+                        }
+
+                    }
+                    _ => {
+                        int.catcodes.borrow_mut().catcodes.insert(cc.char, cc.catcode);
+                        if cc.global {
+                            for s in self.stacks.iter_mut() {
+                                s.catcodes.catcodes.insert(cc.char, cc.catcode);
+                            }
+                        }
                     }
                 }
             }
@@ -254,6 +299,7 @@ pub fn default_pdf_latex_state() -> State {
 
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
+use crate::interpreter::dimensions::Skip;
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
@@ -317,7 +363,11 @@ impl Interpreter<'_> {
                 Ok(())
             }
             16 | 18 => todo!("{}",index),
-            i if !self.state.borrow().outfiles.contains_key(&i) => todo!(),
+            255 => {
+                print!("{}",Black.on(Blue).paint(s));
+                Ok(())
+            }
+            i if !self.state.borrow().outfiles.contains_key(&i) => todo!("{}",i),
              _ => {
                  let mut state = self.state.borrow_mut();
                  match state.outfiles.get_mut(&index) {
@@ -344,9 +394,11 @@ impl Interpreter<'_> {
         state.change(self,change)
     }
     pub fn new_group(&self,tp:GroupType) {
+        log!("Push: {}",tp);
         self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp)
     }
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
+        log!("Pop: {}",tp);
         let mut state = self.state.borrow_mut();
         let cc = state.pop(self,tp)?;
         let mut scc = self.catcodes.borrow_mut();
@@ -363,6 +415,9 @@ impl Interpreter<'_> {
     pub fn state_register(&self,i:i16) -> i32 { self.state.borrow().get_register(i) }
     pub fn state_dimension(&self,i:i16) -> i32 {
         self.state.borrow().get_dimension(i)
+    }
+    pub fn state_skip(&self,i:i16) -> Skip {
+        self.state.borrow().get_skip(i)
     }
 
     pub fn pushcondition(&self) -> u8 {
@@ -414,9 +469,16 @@ pub struct CharChange {
     pub global:bool
 }
 
+pub struct SkipStateChange {
+    pub index:i16,
+    pub value:Skip,
+    pub global:bool
+}
+
 pub enum StateChange {
     Register(RegisterStateChange),
     Dimen(RegisterStateChange),
+    Skip(SkipStateChange),
     Cs(CommandChange),
     Cat(CategoryCodeChange),
     Newline(CharChange),

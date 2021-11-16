@@ -153,6 +153,51 @@ pub static IFEOF : Conditional = Conditional {
     }
 };
 
+use crate::ontology::Token;
+
+fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
+    while int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                let currcond = match int.getcondition() {
+                    Some((i, _)) => i == cond,
+                    _ => unreachable!()
+                };
+                match int.get_command(&next.cmdname())? {
+                    TeXCommand::Char(tk) => return Ok(Some(tk)),
+                    TeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
+                        return Ok(None)
+                    }
+                    p => match p.as_expandable_with_protected() {
+                        Ok(e) => e.expand(next, int)?,
+                        Err(_) => return Ok(Some(next))
+                    }
+                }
+            }
+            _ => return Ok(Some(next))
+        }
+    }
+    FileEnd!(int)
+}
+
+pub static IF : Conditional = Conditional {
+    name:"if",
+    _apply: |int,cond,unless| {
+        let first = get_if_token(cond,int)?;
+        let second = get_if_token(cond,int)?;
+        let istrue = match (first,second) {
+            (None,_) | (_,None) => false,
+            (Some(a),Some(b)) => {
+                if a.catcode == CategoryCode::Escape && b.catcode == CategoryCode::Escape { true } else {
+                    a.char == b.char
+                }
+            }
+        };
+        if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
+    }
+};
+
 pub static IFTRUE : Conditional = Conditional {
     name:"iftrue",
     _apply: |_int,_cond,_unless| {
@@ -166,14 +211,6 @@ pub static IFFALSE : Conditional = Conditional {
         todo!()
     }
 };
-
-pub static IF : Conditional = Conditional {
-    name:"if",
-    _apply: |_int,_cond,_unless| {
-        todo!()
-    }
-};
-
 
 pub static IFDEFINED : Conditional = Conditional {
     name:"ifdefined",

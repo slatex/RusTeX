@@ -5,7 +5,7 @@ use crate::utils::TeXError;
 use std::str::FromStr;
 use crate::commands::{Expandable, TeXCommand};
 use crate::{TeXErr,FileEnd};
-
+use crate::interpreter::dimensions::{Skip, Numeric, SkipDim};
 
 impl Interpreter<'_> {
 
@@ -76,7 +76,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        if kws.len() == 1 && kws.contains(&ret.as_str()) {
+        if kws.len() >= 1 && kws.contains(&ret.as_str()) {
             Ok(Some(ret))
         } else {
             self.push_tokens(tokens);
@@ -193,19 +193,18 @@ impl Interpreter<'_> {
 
     // Numbers -------------------------------------------------------------------------------------
 
-    fn num_do_ret(&self,ishex:bool,isnegative:bool,ret:String) -> Result<i32,TeXError> {
+    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:String) -> Result<Numeric,TeXError> {
         let num = if ishex {
-            i32::from_str_radix(ret.as_str(), 16)
+            Numeric::Int(i32::from_str_radix(ret.as_str(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+        } else if allowfloat {
+            Numeric::Float(f32::from_str(ret.as_str()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
         } else {
-            i32::from_str(ret.as_str())
+            Numeric::Int(i32::from_str(ret.as_str()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
         };
-        match num {
-            Ok(n) => return Ok(if isnegative { -n } else { n }),
-            Err(_s) => TeXErr!(self,"Number error (should be impossible)")
-        }
+        Ok(if isnegative {num.negate()} else {num})
     }
 
-    fn expand_until_space(&self,i:i32) -> Result<i32,TeXError> {
+    fn expand_until_space(&self,i:Numeric) -> Result<Numeric,TeXError> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -220,9 +219,10 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn read_number(&self) -> Result<i32,TeXError> {
+    fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
+        let mut isfloat = false;
         let mut ret = "".to_string();
         self.skip_ws();
         while self.has_next() {
@@ -231,11 +231,11 @@ impl Interpreter<'_> {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex => {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_hasnum() {
-                        Ok(hn) => return Ok(if isnegative { -hn.get(self)? } else { hn.get(self)? }),
+                        Ok(hn) => return Ok(if isnegative { hn.get(self)?.negate() } else { hn.get(self)? }),
                         Err(p) => match p.as_expandable_with_protected() {
                             Ok(e) => e.expand(next,self)?,
                             Err(e) => match e {
-                                TeXCommand::Char(tk) => return Ok(if isnegative {-(tk.char as i32)} else {tk.char as i32}),
+                                TeXCommand::Char(tk) => return Ok(Numeric::Int(if isnegative {-(tk.char as i32)} else {tk.char as i32})),
                                 _ => TeXErr!(self,"Number expected; found {}",next)
                             }
                         }
@@ -247,28 +247,29 @@ impl Interpreter<'_> {
                         Ok(e) => e.expand(next,self)?,
                         _ => {
                             self.requeue(next);
-                            return self.num_do_ret(ishex,isnegative,ret)
+                            return self.num_do_ret(ishex,isnegative,allowfloat,ret)
                         }
                     }
                 }
-                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,ret),
+                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,allowfloat,ret),
                 _ if next.char.is_ascii_digit() => ret += &next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += &next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
+                _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += "." }
                 _ if next.char == 96 => while self.has_next() {
                     let next = self.next_token();
                     match next.catcode {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
                             let num = *next.cmdname().as_bytes().first().unwrap() as i32;
-                            return self.expand_until_space(if isnegative { -num } else { num })
+                            return self.expand_until_space(Numeric::Int(if isnegative { -num } else { num }))
                         }
                         CategoryCode::Active | CategoryCode::Escape => todo!(),
-                        _ => return self.expand_until_space(if isnegative {-(next.char as i32)} else {next.char as i32})
+                        _ => return self.expand_until_space( Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
                     }
                 }
                 _ if !ret.is_empty() => {
                     self.requeue(next);
-                    return self.num_do_ret(ishex,isnegative,ret)
+                    return self.num_do_ret(ishex,isnegative,allowfloat,ret)
                 }
                 _ => todo!("{},{}: {}",next.as_string(),self.current_line(),self.preview())
             }
@@ -276,47 +277,122 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    // Dimensions ----------------------------------------------------------------------------------
-
-    fn point_to_int(&self,f:f32) -> Result<i32,TeXError> {
-        use crate::interpreter::dimensions::*;
-        let _istrue = self.read_keyword(vec!("true"))?.is_some();
-        match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu"))? {
-            Some(s) if s == "mm" => Ok(mm(f).round() as i32),
-            Some(s) if s == "in" => Ok(inch(f).round() as i32),
-            Some(o) => todo!("{}",o),
-            None => todo!("{}",self.current_line())
+    pub fn read_number(&self) -> Result<i32,TeXError> {
+        match self.read_number_i(false)? {
+            Numeric::Int(i) => Ok(i),
+            Numeric::Dim(i) => Ok(i),
+            Numeric::Float(_) => unreachable!(),
+            Numeric::Skip(sk) => Ok(sk.base)
         }
     }
 
-    pub fn read_dimension(&self) -> Result<i32,TeXError> {
-        let mut isnegative = false;
-        let mut ret = "".to_string();
-        let mut isfloat = false;
-        self.skip_ws();
-        while self.has_next() {
-            let next = self.next_token();
-            match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active if ret.is_empty() =>
-                    {
-                        let p = self.get_command(&next.cmdname())?;
-                        match p {
-                            _ => todo!("{}",next.as_string())
-                        }
-                    }
-                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() =>
-                    {
-                        let num = f32::from_str(ret.as_str());
-                        match num {
-                            Ok(n) => return self.point_to_int(if isnegative {-n} else {n}),
-                            Err(_s) => TeXErr!(self,"Number error (should be impossible)")
-                        }
-                    }
-                _ if next.char.is_ascii_digit() => ret += &next.name(),
-                _ if next.char == 46 && !isfloat => { isfloat = true; ret += "." }
-                _ => todo!("{}",next.as_string())
-            }
+    // Dimensions ----------------------------------------------------------------------------------
+
+    fn point_to_int(&self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
+        use crate::interpreter::dimensions::*;
+        let mut kws = vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu");
+        if allowfills {
+            kws.push("fil");
+            kws.push("fill");
+            kws.push("filll");
         }
-        FileEnd!(self)
+        let istrue = self.read_keyword(vec!("true"))?.is_some();
+        match self.read_keyword(kws)? {
+            Some(s) if s == "mm" => Ok(SkipDim::Pt(self.make_true(mm(f),istrue))),
+            Some(s) if s == "in" => Ok(SkipDim::Pt(self.make_true(inch(f),istrue))),
+            Some(s) if s == "sp" => Ok(SkipDim::Pt(self.make_true(f,istrue))),
+            Some(s) if s == "pt" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
+            Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
+            Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
+            Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
+            Some(o) => todo!("{}",o),
+            None => TeXErr!(self,"expected unit for dimension")
+        }
+    }
+
+    fn make_true(&self,f : f32,istrue:bool) -> i32 {
+        use crate::utils::u8toi16;
+        use crate::commands::primitives::MAG;
+        if istrue {
+            let mag = (self.state_register(-u8toi16(MAG.index)) as f32) / 1000.0;
+            (f * mag).round() as i32
+        } else {f.round() as i32}
+    }
+
+    pub fn read_dimension(&self) -> Result<i32,TeXError> {
+        match match self.read_number_i(true)? {
+            Numeric::Dim(i) => return Ok(i),
+            Numeric::Int(i) => self.point_to_int(i as f32,false)?,
+            Numeric::Float(f) => self.point_to_int(f,false)?,
+            Numeric::Skip(sk) => return Ok(sk.base)
+        } {
+            SkipDim::Pt(i) => Ok(i),
+            _ => unreachable!()
+        }
+    }
+
+    pub fn read_skip(&self) -> Result<Skip,TeXError> {
+        match self.read_number_i(true)? {
+            Numeric::Dim(i) => self.rest_skip(i),
+            Numeric::Float(f) => self.rest_skip(match self.point_to_int(f,false)? {
+                SkipDim::Pt(i) => i,
+                _ => unreachable!()
+            }),
+            Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f32,false)? {
+                SkipDim::Pt(i) => i,
+                _ => unreachable!()
+            }),
+            Numeric::Skip(s) => Ok(s)
+        }
+    }
+
+    fn rest_skip(&self,dim:i32) -> Result<Skip,TeXError> {
+        match self.read_keyword(vec!("plus","minus"))? {
+            None => Ok(Skip {
+                base: dim,
+                stretch:None,
+                shrink:None
+            }),
+            Some(p) if p == "plus" => {
+                let stretch = Some(self.read_skipdim()?);
+                match self.read_keyword(vec!("minus"))? {
+                    None => Ok(Skip {
+                        base:dim,
+                        stretch,
+                        shrink:None
+                    }),
+                    Some(_) => Ok(Skip {
+                        base:dim,
+                        stretch,
+                        shrink:Some(self.read_skipdim()?)
+                    })
+                }
+            }
+            Some(p) if p == "minus" => {
+                let shrink = Some(self.read_skipdim()?);
+                match self.read_keyword(vec!("plus"))? {
+                    None => Ok(Skip {
+                        base:dim,
+                        stretch:None,
+                        shrink
+                    }),
+                    Some(_) => Ok(Skip {
+                        base:dim,
+                        shrink,
+                        stretch:Some(self.read_skipdim()?)
+                    })
+                }
+            }
+            _ => unreachable!()
+        }
+    }
+
+    fn read_skipdim(&self) -> Result<SkipDim,TeXError> {
+        match self.read_number_i(true)? {
+            Numeric::Dim(i) => Ok(SkipDim::Pt(i)),
+            Numeric::Int(i) => self.point_to_int(i as f32,true),
+            Numeric::Float(f) => self.point_to_int(f,true),
+            Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base))
+        }
     }
 }

@@ -103,6 +103,54 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"dimendef",
+    _assign: |int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+
+        int.change_state(StateChange::Cs(CommandChange {
+            name: cmd.cmdname().to_owned(),
+            cmd: Some(TeXCommand::AV(AssignableValue::Dim(num as u8))),
+            global
+        }));
+        Ok(())
+    }
+};
+
+pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"skipdef",
+    _assign: |int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+
+        int.change_state(StateChange::Cs(CommandChange {
+            name: cmd.cmdname().to_owned(),
+            cmd: Some(TeXCommand::AV(AssignableValue::Skip(num as u8))),
+            global
+        }));
+        Ok(())
+    }
+};
+
+pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"toksdef",
+    _assign: |int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+
+        int.change_state(StateChange::Cs(CommandChange {
+            name: cmd.cmdname().to_owned(),
+            cmd: Some(TeXCommand::AV(AssignableValue::Toks(num as u8))),
+            global
+        }));
+        Ok(())
+    }
+};
+
 pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     name:"protected",
     _assign: |_int,_global| todo!()
@@ -257,6 +305,18 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
 
 use crate::commands::Expandable;
 use crate::stomach::whatsits::ExecutableWhatsit;
+
+pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
+    name:"global",
+    _assign: |int,global| {
+        let next = int.read_command_token()?;
+        match int.get_command(&next.cmdname())?.as_assignment() {
+            Ok(a) => a.assign(int,true)?,
+            Err(_) => TeXErr!(int,"Assignment expected after \\global; found: {}",next)
+        }
+        Ok(())
+    }
+};
 
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
@@ -624,53 +684,22 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
                 int.file_write(num,string)
             })
         });
-        /*
-        let mut ingroups = 0;
-        let mut ret : Vec<Token> = Vec::new();
-        while int.has_next() {
-            let next = int.next_token();
-            match next.catcode {
-                CategoryCode::BeginGroup => {
-                    ingroups += 1;
-                    ret.push(next);
-                }
-                CategoryCode::EndGroup if ingroups == 0 => {
-                    let string = int.tokens_to_string(ret);
-                    return Ok(ExecutableWhatsit {
-                        _apply: Box::new(move |int| {
-                            int.file_write(num,string)
-                        })
-                    })
-                }
-                CategoryCode::EndGroup => {
-                    ingroups -=1;
-                    ret.push(next);
-                },
-                CategoryCode::Active | CategoryCode::Escape => {
-                    match int.state_get_command(&next.cmdname()) {
-                        None => ret.push(next),
-                        Some(cmd) => match cmd.as_expandable() {
-                            Ok(Expandable::Primitive(x)) if *x == THE || *x == UNEXPANDED => {
-                                match (x._apply)(next,int)? {
-                                    Some(e) => {
-                                        let rc = Rc::new(e);
-                                        for tk in &rc.exp {
-                                            ret.push(tk.copied(Rc::clone(&rc)))
-                                        }
-                                    }
-                                    None => ()
-                                }
-                            }
-                            Ok(e) => e.expand(next,int)?,
-                            Err(_) => ret.push(next)
-                        }
-                    }
-                }
-                _ => ret.push(next)
-            }
+    }
+};
+
+pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"message",
+    expandable:false,
+    _apply:|_tk,int| {
+        use ansi_term::Colour::*;
+        let next = int.next_token();
+        if next.catcode != CategoryCode::BeginGroup {
+            TeXErr!(int,"Begin group token expected after \\message")
         }
-        FileEnd!(int)
-         */
+        let ret = int.read_token_list(true,false)?;
+        let string = int.tokens_to_string(ret);
+        print!("{}",Yellow.paint(string));
+        Ok(None)
     }
 };
 
@@ -755,6 +784,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|cs,int| {
         int.assert_has_next()?;
         let next = int.next_token();
+        log!("\\string: {}",next);
         let exp = match next.catcode {
             CategoryCode::Escape => {
                 let mut s = if int.state_catcodes().escapechar == 255 {"".to_string()} else {from_utf8(&[int.state_catcodes().escapechar]).unwrap().to_string()};
@@ -773,6 +803,21 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
             cs,
             exp
         }))
+    }
+};
+
+pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"mathchardef",
+    _assign: |int,global| {
+        let chartok = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+        int.change_state(StateChange::Cs(CommandChange {
+            name: chartok.cmdname(),
+            cmd: Some(TeXCommand::MathChar(num as u32)),
+            global
+        }));
+        Ok(())
     }
 };
 
@@ -1216,12 +1261,6 @@ pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lowercase",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"message",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };
@@ -1683,6 +1722,8 @@ pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
+// -------------------------------------------------------------------------------------------------
+
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PAR),
     TeXCommand::Primitive(&RELAX),
@@ -1692,6 +1733,10 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::Int(&COUNT)),
     TeXCommand::Ass(&CHARDEF),
     TeXCommand::Ass(&COUNTDEF),
+    TeXCommand::Ass(&DIMENDEF),
+    TeXCommand::Ass(&SKIPDEF),
+    TeXCommand::Ass(&TOKSDEF),
+    TeXCommand::Ass(&GLOBAL),
     TeXCommand::Ass(&DEF),
     TeXCommand::Ass(&EDEF),
     TeXCommand::Ass(&GDEF),
@@ -1714,6 +1759,7 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&CLOSEIN),
     TeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     TeXCommand::Ass(&READ),
+    TeXCommand::Ass(&MATHCHARDEF),
     TeXCommand::Int(&TIME),
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),
