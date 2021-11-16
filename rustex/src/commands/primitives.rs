@@ -1,4 +1,4 @@
-use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand};
+use crate::commands::{RegisterReference,AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -759,6 +759,286 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     }
 };
 
+// REGISTERS ---------------------------------------------------------------------------------------
+
+pub static PRETOLERANCE : RegisterReference = RegisterReference {
+    name: "pretolerance",
+    index:5
+};
+
+pub static TOLERANCE : RegisterReference = RegisterReference {
+    name: "tolerance",
+    index:6
+};
+
+pub static HBADNESS : RegisterReference = RegisterReference {
+    name: "hbadness",
+    index:7
+};
+
+pub static VBADNESS : RegisterReference = RegisterReference {
+    name: "vbadness",
+    index:8
+};
+
+pub static LINEPENALTY : RegisterReference = RegisterReference {
+    name: "linepenalty",
+    index:9
+};
+
+pub static HYPHENPENALTY : RegisterReference = RegisterReference {
+    name: "hyphenpenalty",
+    index:10
+};
+
+pub static EXHYPHENPENALTY : RegisterReference = RegisterReference {
+    name: "exhyphenpenalty",
+    index:11
+};
+
+pub static BINOPPENALTY : RegisterReference = RegisterReference {
+    name: "binoppenalty",
+    index:12
+};
+
+pub static RELPENALTY : RegisterReference = RegisterReference {
+    name: "relpenalty",
+    index:13
+};
+
+pub static CLUBPENALTY : RegisterReference = RegisterReference {
+    name: "clubpenalty",
+    index:14
+};
+
+pub static WIDOWPENALTY : RegisterReference = RegisterReference {
+    name: "widowpenalty",
+    index:15
+};
+
+pub static DISPLAYWIDOWPENALTY : RegisterReference = RegisterReference {
+    name: "displaywidowpenalty",
+    index:16
+};
+
+pub static BROKENPENALTY : RegisterReference = RegisterReference {
+    name: "brokenpenalty",
+    index:17
+};
+
+pub static PREDISPLAYPENALTY : RegisterReference = RegisterReference {
+    name: "predisplaypenalty",
+    index:18
+};
+
+pub static DOUBLEHYPHENDEMERITS : RegisterReference = RegisterReference {
+    name: "doublehyphendemerits",
+    index:19
+};
+
+pub static FINALHYPHENDEMERITS : RegisterReference = RegisterReference {
+    name: "pdfoutput",
+    index:20
+};
+
+pub static ADJDEMERITS : RegisterReference = RegisterReference {
+    name: "adjdemerits",
+    index:21
+};
+
+pub static TRACINGLOSTCHARS : RegisterReference = RegisterReference {
+    name: "tracinglostchars",
+    index:22
+};
+
+pub static UCHYPH : RegisterReference = RegisterReference {
+    name: "uchyph",
+    index:23
+};
+
+pub static DEFAULTHYPHENCHAR : RegisterReference = RegisterReference {
+    name: "defaulthyphenchar",
+    index:24
+};
+
+pub static DEFAULTSKEWCHAR : RegisterReference = RegisterReference {
+    name: "defaultskewchar",
+    index:25
+};
+
+pub static DELIMITERFACTOR : RegisterReference = RegisterReference {
+    name: "delimiterfactor",
+    index:26
+};
+
+pub static SHOWBOXBREADTH : RegisterReference = RegisterReference {
+    name: "showboxbreadth",
+    index:27
+};
+
+pub static SHOWBOXDEPTH : RegisterReference = RegisterReference {
+    name: "showboxdepth",
+    index:28
+};
+
+pub static ERRORCONTEXTLINES : RegisterReference = RegisterReference {
+    name: "errorcontextlines",
+    index:29
+};
+
+pub static MAXDEADCYCLES : RegisterReference = RegisterReference {
+    name: "maxdeadcycles",
+    index:30
+};
+
+pub static TRACINGSTATS : RegisterReference = RegisterReference {
+    name: "tracingstats",
+    index:31
+};
+
+pub static LEFTHYPHENMIN : RegisterReference = RegisterReference {
+    name: "lefthyphenmin",
+    index:32
+};
+
+pub static RIGHTHYPHENMIN : RegisterReference = RegisterReference {
+    name: "righhyphenmin",
+    index:33
+};
+
+pub static SAVINGHYPHCODES : RegisterReference = RegisterReference {
+    name: "savinghyphcodes",
+    index:34
+};
+
+// -----------
+
+pub static FAM : RegisterReference = RegisterReference {
+    name: "fam",
+    index:41
+};
+
+pub static SPACEFACTOR : RegisterReference = RegisterReference {
+    name: "spacefactor",
+    index:42
+};
+
+// -----------
+
+pub static GLOBALDEFS : RegisterReference = RegisterReference {
+    name: "globaldefs",
+    index:45
+};
+
+// -----------
+
+pub static TRACINGNESTING : RegisterReference = RegisterReference {
+    name: "tracingnesting",
+    index:47
+};
+
+// -----------
+
+pub static MAG : RegisterReference = RegisterReference {
+    name: "mag",
+    index:53
+};
+
+pub static LANGUAGE : RegisterReference = RegisterReference {
+    name: "language",
+    index:54
+};
+
+pub static HANGAFTER : RegisterReference = RegisterReference {
+    name: "hangafter",
+    index:55
+};
+
+pub static INTERLINEPENALTY : RegisterReference = RegisterReference {
+    name: "interlinepenalty",
+    index:56
+};
+
+pub static FLOATINGPENALTY : RegisterReference = RegisterReference {
+    name: "floatingpenalty",
+    index:57
+};
+
+pub static LASTNODETYPE : RegisterReference = RegisterReference {
+    name: "lastnodetype",
+    index:58
+};
+
+pub static INSERTPENALTIES : RegisterReference = RegisterReference {
+    name: "insertpenalties",
+    index:59
+};
+
+// -----
+
+pub static BADNESS : RegisterReference = RegisterReference {
+    name: "badness",
+    index:61
+};
+
+pub static DEADCYCLES : RegisterReference = RegisterReference {
+    name: "deadcycles",
+    index:62
+};
+
+pub static INTERLINEPENALTIES : RegisterReference = RegisterReference {
+    name: "interlinepenalties",
+    index:63
+};
+
+pub static CLUBPENALTIES : RegisterReference = RegisterReference {
+    name: "clubpenalties",
+    index:64
+};
+
+pub static WIDOWPENALTIES : RegisterReference = RegisterReference {
+    name: "widowpenalties",
+    index:65
+};
+
+pub static DISPLAYWIDOWPENALTIES : RegisterReference = RegisterReference {
+    name: "displaywidowpenalties",
+    index:66
+};
+
+pub static OUTPUTPENALTY : RegisterReference = RegisterReference {
+    name: "outputpenalty",
+    index:67
+};
+
+pub static SAVINGVDISCARDS : RegisterReference = RegisterReference {
+    name: "savingvdiscards",
+    index:68
+};
+
+pub static DISPLAYINDENT : RegisterReference = RegisterReference {
+    name: "displayindent",
+    index:69
+};
+
+pub static SYNCTEX : RegisterReference = RegisterReference {
+    name: "synctex",
+    index:70
+};
+
+pub static POSTDISPLAYPENALTY : RegisterReference = RegisterReference {
+    name: "postdisplaypenalty",
+    index:71
+};
+
+pub static TRACINGSCANTOKENS : RegisterReference = RegisterReference {
+    name: "tracingscantokens",
+    index:72
+};
+
+
+
+
 // TODO --------------------------------------------------------------------------------------------
 
 pub static END: PrimitiveExecutable = PrimitiveExecutable {
@@ -1121,12 +1401,6 @@ pub static TRACINGCOMMANDS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TRACINGLOSTCHARS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracinglostchars",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static TRACINGMACROS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingmacros",
     expandable:false,
@@ -1159,12 +1433,6 @@ pub static TRACINGPARAGRAPHS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static TRACINGRESTORES: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingrestores",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGSTATS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingstats",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };
@@ -1385,17 +1653,6 @@ pub static TRACINGIFS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TRACINGNESTING: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingnesting",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGSCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingscantokens",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
 
 pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"efcode",
@@ -1468,6 +1725,61 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),
     TeXCommand::Int(&DAY),
+
+    TeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
+    TeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
+    TeXCommand::AV(AssignableValue::PrimReg(&HBADNESS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&VBADNESS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&LINEPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&HYPHENPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&EXHYPHENPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&BINOPPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&RELPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&BROKENPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&PREDISPLAYPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DOUBLEHYPHENDEMERITS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&FINALHYPHENDEMERITS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&ADJDEMERITS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGLOSTCHARS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&UCHYPH)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DEFAULTHYPHENCHAR)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DEFAULTSKEWCHAR)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DELIMITERFACTOR)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXBREADTH)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimReg(&ERRORCONTEXTLINES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&MAXDEADCYCLES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGSTATS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&LEFTHYPHENMIN)),
+    TeXCommand::AV(AssignableValue::PrimReg(&RIGHTHYPHENMIN)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SAVINGHYPHCODES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&FAM)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SPACEFACTOR)),
+    TeXCommand::AV(AssignableValue::PrimReg(&GLOBALDEFS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGNESTING)),
+    TeXCommand::AV(AssignableValue::PrimReg(&MAG)),
+    TeXCommand::AV(AssignableValue::PrimReg(&LANGUAGE)),
+    TeXCommand::AV(AssignableValue::PrimReg(&HANGAFTER)),
+    TeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&FLOATINGPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&LASTNODETYPE)),
+    TeXCommand::AV(AssignableValue::PrimReg(&INSERTPENALTIES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&BADNESS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DEADCYCLES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTIES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTIES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTIES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTIES)),
+    TeXCommand::AV(AssignableValue::PrimReg(&OUTPUTPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SAVINGVDISCARDS)),
+    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYINDENT)),
+    TeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
+    TeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
+    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
+
     // TODO ----------------------------------------------------------------------------------------
     TeXCommand::Primitive(&END),
     TeXCommand::Primitive(&BATCHMODE),
@@ -1529,14 +1841,12 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&SHOWTHE),
     TeXCommand::Primitive(&SPAN),
     TeXCommand::Primitive(&TRACINGCOMMANDS),
-    TeXCommand::Primitive(&TRACINGLOSTCHARS),
     TeXCommand::Primitive(&TRACINGMACROS),
     TeXCommand::Primitive(&TRACINGONLINE),
     TeXCommand::Primitive(&TRACINGOUTPUT),
     TeXCommand::Primitive(&TRACINGPAGES),
     TeXCommand::Primitive(&TRACINGPARAGRAPHS),
     TeXCommand::Primitive(&TRACINGRESTORES),
-    TeXCommand::Primitive(&TRACINGSTATS),
     TeXCommand::Primitive(&VALIGN),
     TeXCommand::Primitive(&BEGINL),
     TeXCommand::Primitive(&BEGINR),
@@ -1573,8 +1883,6 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&TRACINGASSIGNS),
     TeXCommand::Primitive(&TRACINGGROUPS),
     TeXCommand::Primitive(&TRACINGIFS),
-    TeXCommand::Primitive(&TRACINGNESTING),
-    TeXCommand::Primitive(&TRACINGSCANTOKENS),
     TeXCommand::Primitive(&EFCODE),
     TeXCommand::Primitive(&LEFTMARGINKERN),
     TeXCommand::Primitive(&LETTERSPACEFONT),
