@@ -3,9 +3,8 @@ use crate::interpreter::Interpreter;
 use crate::ontology::Token;
 use crate::utils::TeXError;
 use std::str::FromStr;
-use std::ops::Deref;
 use crate::commands::{Expandable, TeXCommand};
-use crate::{TeXErr,FileEnd,log};
+use crate::{TeXErr,FileEnd};
 
 impl Interpreter<'_> {
 
@@ -39,7 +38,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_keyword(&self,mut kws:Vec<&str>) -> Option<String> {
+    pub fn read_keyword(&self,mut kws:Vec<&str>) -> Result<Option<String>,TeXError> {
         use std::str;
         let mut tokens:Vec<Token> = Vec::new();
         let mut ret : String = "".to_string();
@@ -49,9 +48,9 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => break,
                 CategoryCode::Active | CategoryCode::Escape => {
-                     match self.state_get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(e) => {e.expand(next,self);}
-                        Err(x) => {
+                     match self.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(e) => {e.expand(next,self)?;}
+                        Err(_) => {
                             tokens.push(next);
                             break;
                         }
@@ -77,10 +76,10 @@ impl Interpreter<'_> {
             }
         }
         if kws.len() == 1 && kws.contains(&ret.as_str()) {
-            Some(ret)
+            Ok(Some(ret))
         } else {
             self.push_tokens(tokens);
-            None
+            Ok(None)
         }
     }
 
@@ -88,12 +87,18 @@ impl Interpreter<'_> {
         use std::str::from_utf8;
         let mut ret : Vec<u8> = Vec::new();
         let mut quoted = false;
+        self.skip_ws();
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => todo!(),
                 CategoryCode::Space | CategoryCode::EOL if !quoted => return Ok(from_utf8(ret.as_slice()).unwrap().to_owned()),
                 CategoryCode::BeginGroup if ret.is_empty() => todo!(),
+                _ if next.char == 34 && !quoted => quoted = true,
+                _ if next.char == 34 => {
+                    self.skip_ws();
+                    return Ok(from_utf8(ret.as_slice()).unwrap().to_owned())
+                }
                 _ => ret.push(next.char)
             }
         }
@@ -111,7 +116,7 @@ impl Interpreter<'_> {
                     match p {
                         None =>{ cmd = Some(next); break }
                         Some(p) => match p {
-                            TeXCommand::Cond(c) => { c.expand(next, self); },
+                            TeXCommand::Cond(c) => { c.expand(next, self)?; },
                             TeXCommand::Primitive(p) if p.expandable => Expandable::Primitive(p).expand(next, self)?,
                             _ => { cmd = Some(next); break }
                         }
@@ -188,13 +193,16 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active if ret.is_empty() => {
+                CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex => {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_hasnum() {
                         Ok(hn) => return Ok(if isnegative { -hn.get(self)? } else { hn.get(self)? }),
                         Err(p) => match p.as_expandable_with_protected() {
                             Ok(e) => e.expand(next,self)?,
-                            _ => TeXErr!(self,"Number expected; found {}",next)
+                            Err(e) => match e {
+                                TeXCommand::Char((_,tk)) => return Ok(if isnegative {-(tk.char as i32)} else {tk.char as i32}),
+                                _ => TeXErr!(self,"Number expected; found {}",next)
+                            }
                         }
                     };
                 }
@@ -235,12 +243,12 @@ impl Interpreter<'_> {
 
     // Dimensions ----------------------------------------------------------------------------------
 
-    fn point_to_int(&self,f:f32) -> i32 {
+    fn point_to_int(&self,f:f32) -> Result<i32,TeXError> {
         use crate::interpreter::dimensions::*;
-        let _istrue = self.read_keyword(vec!("true")).is_some();
-        match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu")) {
-            Some(s) if s == "mm" => mm(f).round() as i32,
-            Some(s) if s == "in" => inch(f).round() as i32,
+        let _istrue = self.read_keyword(vec!("true"))?.is_some();
+        match self.read_keyword(vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px","mu"))? {
+            Some(s) if s == "mm" => Ok(mm(f).round() as i32),
+            Some(s) if s == "in" => Ok(inch(f).round() as i32),
             Some(o) => todo!("{}",o),
             None => todo!("{}",self.current_line())
         }
@@ -265,7 +273,7 @@ impl Interpreter<'_> {
                     {
                         let num = f32::from_str(ret.as_str());
                         match num {
-                            Ok(n) => return Ok(self.point_to_int(if isnegative {-n} else {n})),
+                            Ok(n) => return self.point_to_int(if isnegative {-n} else {n}),
                             Err(_s) => TeXErr!(self,"Number error (should be impossible)")
                         }
                     }

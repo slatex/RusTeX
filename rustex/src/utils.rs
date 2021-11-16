@@ -33,7 +33,7 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
             .arg(s).output().expect("kpsewhich not found!")
             .stdout;
         match str::from_utf8(rs.as_slice()) {
-            Ok(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|x| indir.to_path_buf().join(s))),
+            Ok(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s))),
             Err(_) => panic!("utils.rs 34")
         }
     }
@@ -82,7 +82,7 @@ pub struct TeXError {
 
 impl TeXError {
     fn backtrace() -> Backtrace {
-        let mut bt = Backtrace::new_unresolved();
+        let bt = Backtrace::new_unresolved();
         let mut frames = Vec::new();
         for b in bt.frames() {
             frames.push(b.clone())
@@ -109,14 +109,14 @@ impl TeXError {
 
 impl Debug for TeXError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"Debug: {}",self.msg);
+        write!(f,"Debug: {}",self.msg)?;
         self.backtrace.fmt(f)
     }
 }
 
 impl Display for TeXError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{}\n",self.msg);
+        write!(f,"{}\n",self.msg)?;
         self.backtrace.fmt(f)
     }
 }

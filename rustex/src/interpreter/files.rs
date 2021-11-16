@@ -18,7 +18,6 @@ pub struct VFile {
 extern crate pathdiff;
 
 use std::collections::HashMap;
-use crate::interpreter::state::State;
 
 pub(in crate::interpreter) struct FileStore {
     pub files: HashMap<String,VFile>

@@ -1,6 +1,4 @@
-use std::ops::Deref;
 use crate::interpreter::Interpreter;
-use crate::ontology::{Expansion, Token};
 use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
@@ -54,13 +52,13 @@ fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
         dotrue(int,cond,false)
     } else {
         let initifs = int.setcondition(cond,false);
-        let mut inifs = initifs;
+        let inifs = initifs;
         false_loop(int,inifs,true)
     }
 }
 
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |tk,int| {
+    _apply: |_tk,int| {
         int.popcondition();
         Ok(None)
     },
@@ -70,7 +68,7 @@ pub static FI : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"unless",
-    _apply: |tk,int| {
+    _apply: |_tk,_int| {
         todo!()
     },
     expandable: true
@@ -78,7 +76,7 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
-    _apply: |tk,int| {
+    _apply: |_tk,_int| {
         todo!()
     },
     expandable: true
@@ -87,13 +85,13 @@ pub static OR: PrimitiveExecutable = PrimitiveExecutable {
 use crate::TeXErr;
 
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |tk,int| {
+    _apply: |_tk,int| {
         match int.getcondition() {
             None => TeXErr!(int,"extra \\else"),
             Some((_,None)) => {
                 Ok(None)
             }
-            Some((i,_)) => {
+            Some((_,_)) => {
                 false_loop(int,0,false)?;
                 Ok(None)
             }
@@ -115,10 +113,10 @@ pub static IFX : Conditional = Conditional {
                    (None,None) => true,
                    (None,_) => false,
                    (_,None) => false,
-                   _ => todo!()
+                   (Some(cmd1),Some(cmd2)) => cmd1 == cmd2
                }
             }
-            (a,b) if matches!(a,b) => tka.char == tkb.char,
+            (_a,_b) if matches!(_a,_b) => tka.char == tkb.char,
             _ => false
         };
         log!("\\ifx {}{}: {}",tka,tkb,istrue);
@@ -129,7 +127,7 @@ pub static IFX : Conditional = Conditional {
 pub static IFNUM : Conditional = Conditional {
     _apply: |int,cond,unless| {
         let i1 = int.read_number()?;
-        let rel = int.read_keyword(vec!["<","=",">"]);
+        let rel = int.read_keyword(vec!["<","=",">"])?;
         let i2 = int.read_number()?;
         let istrue = match rel {
             Some(ref s) if s == "<" => i1 < i2,
@@ -143,135 +141,141 @@ pub static IFNUM : Conditional = Conditional {
     name:"ifnum"
 };
 
+pub static IFEOF : Conditional = Conditional {
+    name:"ifeof",
+    _apply: |int,cond,unless| {
+        match int.read_number()? as u8 {
+            18 => dofalse(int,cond,unless),
+            i => {
+                if int.file_eof(i)? {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
+            }
+        }
+    }
+};
+
 pub static IFTRUE : Conditional = Conditional {
     name:"iftrue",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFFALSE : Conditional = Conditional {
     name:"iffalse",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IF : Conditional = Conditional {
     name:"if",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
-pub static IFEOF : Conditional = Conditional {
-    name:"ifeof",
-    _apply: |int,cond,unless| {
-        todo!()
-    }
-};
 
 pub static IFDEFINED : Conditional = Conditional {
     name:"ifdefined",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFODD : Conditional = Conditional {
     name:"ifodd",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFDIM : Conditional = Conditional {
     name:"ifdim",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFCSNAME : Conditional = Conditional {
     name:"ifcsname",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFCAT : Conditional = Conditional {
     name:"ifcat",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFCASE : Conditional = Conditional {
     name:"ifcase",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFMMODE : Conditional = Conditional {
     name:"ifmmode",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFVMODE : Conditional = Conditional {
     name:"ifvmode",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFHMODE : Conditional = Conditional {
     name:"ifhmode",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFVOID : Conditional = Conditional {
     name:"ifvoid",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFVBOX : Conditional = Conditional {
     name:"ifvbox",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFHBOX : Conditional = Conditional {
     name:"ifhbox",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFINNER : Conditional = Conditional {
     name:"ifinner",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFINCSNAME : Conditional = Conditional {
     name:"ifincsname",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFFONTCHAR : Conditional = Conditional {
     name:"iffontchar",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };

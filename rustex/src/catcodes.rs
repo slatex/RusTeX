@@ -19,8 +19,8 @@ pub enum CategoryCode {
 }
 
 impl PartialEq for CategoryCode {
-    fn eq(&self, other: &Self) -> bool {
-        matches!(self,other)
+    fn eq(&self, _other: &Self) -> bool {
+        matches!(self,_other)
     }
 }
 

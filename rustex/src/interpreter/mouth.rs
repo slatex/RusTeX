@@ -79,7 +79,7 @@ impl TokenMouth {
 use crate::interpreter::Interpreter;
 
 #[derive(Clone)]
-enum StringMouthSource {
+pub (in crate) enum StringMouthSource {
     File(LaTeXFile),
     Exp(Expansion)
 }
@@ -115,13 +115,51 @@ pub struct StringMouth {
     pos: usize,
     atendofline:Option<u8>,
     charbuffer:Option<(u8,usize,usize)>,
-    pub(in crate::interpreter::mouth) source : StringMouthSource,
+    pub(in crate::interpreter) source : StringMouthSource,
+    iseof : bool
 }
 
 impl StringMouth {
-    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:VFile) -> StringMouth {
-        let ltxf = LaTeXFile::new(file.id);
-        let string = file.string.expect("This shouldn't happen");
+    pub(in crate::interpreter) fn read_line(&mut self,catcodes:&CategoryCodeScheme,nocomment:bool) -> Vec<Token> {
+        let currentline = self.line;
+        let mut ret:Vec<Token> = vec!();
+        let mut braces = 0;
+        while self.has_next(catcodes,nocomment) && (self.line == currentline || braces > 0) {
+            match self.pop_next(catcodes,nocomment) {
+                tk if tk.catcode == CategoryCode::BeginGroup => {
+                    ret.push(tk);
+                    braces +=1;
+                }
+                tk if tk.catcode == CategoryCode::EndGroup => {
+                    ret.push(tk);
+                    braces -=1;
+                }
+                tk if tk.catcode == CategoryCode::Parameter => {
+                    ret.push(tk.clone());
+                    ret.push(tk);
+                }
+                tk => {ret.push(tk);}
+            }
+        }
+        if !self.has_next(catcodes,false) && !self.iseof {
+            self.iseof = true;
+            self.peekbuffer = Some(Token {
+                char: 0,
+                catcode: CategoryCode::EOL,
+                name_opt: Some("EOF".to_owned()),
+                reference: Box::new(SourceReference::None)
+            })
+        }
+        match ret.last() {
+            Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
+            Some(tk) if tk.char == 0 && match &tk.name_opt {Some(s) if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();}
+            _ => ()
+        }
+        ret
+    }
+    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&VFile) -> StringMouth {
+        let ltxf = LaTeXFile::new(file.id.clone());
+        let string = file.string.as_ref().expect("This shouldn't happen").clone();
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(newlinechar:u8, source:Expansion, string : &'a str) -> StringMouth {
@@ -149,7 +187,8 @@ impl StringMouth {
             line:0,
             pos:0,
             charbuffer: None,
-            source
+            source,
+            iseof: false
         }
     }
     fn do_line(&mut self,endlinechar:u8) -> bool {
@@ -384,11 +423,16 @@ impl StringMouth {
                                     self.mouth_state = MouthState::M
                                 }
                             }
-                            let name = from_utf8(buf.as_slice()).unwrap();
+                            let name = match from_utf8(buf.as_slice()) {
+                                Ok(s) => s.to_owned(),
+                                Err(_) => {
+                                    todo!()
+                                }
+                            };
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
-                                name_opt: Some(name.to_owned()),
+                                name_opt: Some(name),
                                 reference: Box::new(self.make_reference(l,p))
                             }
                         }
@@ -553,7 +597,7 @@ impl Mouths {
     }
 
      */
-    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:VFile) {
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
         if self.buffer.is_some() { todo!() }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
@@ -592,7 +636,8 @@ impl Interpreter<'_> {
         self.mouths.borrow().preview().chars().map(|x| if x == '\r' {"\\r".to_string()} else {x.to_string()}).join("")
     }
     pub fn push_file(&self,file:VFile) {
-        self.mouths.borrow_mut().push_file(&self.state_catcodes(),file)
+        self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
+        self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
     pub fn push_expansion(&self,exp:Expansion) {
         self.mouths.borrow_mut().push_expansion(exp)

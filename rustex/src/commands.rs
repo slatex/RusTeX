@@ -8,6 +8,7 @@ use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::catcodes::CategoryCode;
 use crate::utils::TeXError;
 use crate::log;
 
@@ -26,7 +27,7 @@ pub struct Conditional {
     _apply:fn(int:&Interpreter,cond:u8,unless:bool) -> Result<(),TeXError>
 }
 impl Conditional {
-    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+    pub fn expand(&self,_tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         (self._apply)(int,int.pushcondition(),false)
     }
 }
@@ -125,6 +126,7 @@ use crate::TeXErr;
 impl Expandable {
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use Expandable::*;
+        log!("Expanding {}",tk);
         match self {
             Cond(c) => c.expand(tk,int),
             Primitive(p) => match (p._apply)(tk,int)? {
@@ -134,19 +136,68 @@ impl Expandable {
             },
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
             Def(d) => {
+                log!("{}",d);
                 let mut args : Vec<Vec<Token>> = Vec::new();
-                for tk in &d.sig.elems {
-                    match tk {
+                let mut i = 0;
+                while i < d.sig.elems.len() {
+                    match d.sig.elems.get(i).unwrap() {
                         ParamToken::Token(tk) => {
                             int.assert_has_next()?;
                             let next = int.next_token();
                             if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
+                            i += 1;
                         }
-                        _ => args.push(int.read_argument()?)
+                        ParamToken::Param(_) => match d.sig.elems.get(i+1) {
+                            None if d.sig.endswithbrace => {
+                                i +=1;
+                                todo!()
+                            },
+                            None | Some(ParamToken::Param(_)) => {
+                                i+=1;
+                                args.push(int.read_argument()?);
+                            },
+                            Some(ParamToken::Token(tk)) => {
+                                let mut delim : Vec<Token> = vec!(tk.clone());
+                                i +=1;
+                                while i < d.sig.elems.len() {
+                                    match d.sig.elems.get(i) {
+                                        Some(ParamToken::Token(t)) => {
+                                            delim.push(t.clone());
+                                            i += 1;
+                                        },
+                                        _ => break
+                                    }
+                                }
+                                let mut retarg : Vec<Token> = vec!();
+                                let mut groups = 0;
+                                let mut totalgroups = 0;
+                                while int.has_next() {
+                                    let next = int.next_token();
+                                    match next.catcode {
+                                        CategoryCode::BeginGroup if groups == 0 => {
+                                            groups += 1;
+                                            totalgroups += 1;
+                                        }
+                                        CategoryCode::BeginGroup => groups += 1,
+                                        CategoryCode::EndGroup => groups -=1,
+                                        _ => ()
+                                    }
+                                    retarg.push(next);
+                                    if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
+                                    if groups == 0 && retarg.ends_with(&delim) {break}
+                                }
+                                int.assert_has_next()?;
+                                for _ in 0..delim.len() { retarg.pop(); }
+                                if totalgroups == 1 &&
+                                    match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
+                                    match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
+                                    retarg.remove(0);
+                                    retarg.pop();
+                                }
+                                args.push(retarg)
+                            }
+                        }
                     }
-                }
-                if d.sig.endswithbrace {
-                    todo!();
                 }
                 let mut ret : Vec<Token> = Vec::new();
                 for tk in &d.ret {
@@ -255,6 +306,15 @@ pub enum ParamToken {
     Param(u8),
     Token(Token)
 }
+impl PartialEq for ParamToken {
+    fn eq(&self, other: &Self) -> bool {
+        match (self,other) {
+            (ParamToken::Param(a),ParamToken::Param(b)) => a == b,
+            (ParamToken::Token(a),ParamToken::Token(b)) => a == b,
+            _ => false
+        }
+    }
+}
 impl ParamToken {
     pub fn as_string(&self) -> String { match self {
         ParamToken::Param(0) => "##".to_owned(),
@@ -278,12 +338,23 @@ pub struct Signature {
     endswithbrace:bool,
     arity:u8
 }
+impl PartialEq for Signature {
+    fn eq(&self, other: &Self) -> bool {
+        self.arity == other.arity &&
+            self.endswithbrace == other.endswithbrace &&
+            self.elems.len() == other.elems.len() && {
+                for i in 0..self.elems.len() {
+                    if self.elems.get(i) != other.elems.get(i) {return false}
+                }
+                return true
+            }
+    }
+}
 impl Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for e in &self.elems {
-            write!(f,"{}",e);
+            write!(f,"{}",e)?;
         }
-        let s = fmt::format(format_args!("hello {}", "world"));
         if self.endswithbrace {write!(f,"{}","{")} else {
             write!(f,"")
         }
@@ -294,7 +365,7 @@ pub struct ParamList<'a>(&'a Vec<ParamToken>);
 impl Display for ParamList<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for e in self.0 {
-            write!(f,"{}",e);
+            write!(f,"{}",e)?;
         }
         write!(f,"")
     }
@@ -308,18 +379,13 @@ pub struct DefMacro {
     pub sig:Signature,
     pub ret:Vec<ParamToken>
 }
-impl DefMacro {
-    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
-        todo!()
-    }
-}
 impl Display for DefMacro {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}",self.name)
+        write!(f,"\\{}:{}{}{}{}",self.name,self.sig,"{",ParamList(&self.ret),"}")
     }
 }
 
-use crate::stomach::whatsits::{Whatsit,ExecutableWhatsit};
+use crate::stomach::whatsits::ExecutableWhatsit;
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -354,8 +420,29 @@ pub enum TeXCommand {
 }
 
 impl PartialEq for TeXCommand {
-    fn eq(&self, _other: &Self) -> bool {
-        todo!()
+    fn eq(&self, other: &Self) -> bool {
+        use TeXCommand::*;
+        match (self,other) {
+            (Primitive(a),Primitive(b)) => a.name == b.name,
+            (AV(a),AV(b)) => a.name() == b.name(),
+            (Ext(a),Ext(b)) => a.name() == b.name(),
+            (Cond(a),Cond(b)) => a.name == b.name,
+            (Ass(a),Ass(b)) => a.name == b.name,
+            (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
+            (Def(a),Def(b)) => {
+                a.long == b.long &&
+                    a.protected == b.protected &&
+                    a.sig == b.sig &&
+                    a.ret.len() == b.ret.len() &&
+                    {
+                        for i in 0..a.ret.len() {
+                            if a.ret.get(i) != b.ret.get(i) {return false}
+                        }
+                        true
+                    }
+            }
+            _ => false
+        }
     }
 }
 

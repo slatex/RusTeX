@@ -2,16 +2,13 @@ pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
 }
 
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use crate::ontology::Token;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::Path;
-use std::rc::Rc;
-use std::str::{from_utf8, FromStr};
+use std::str::from_utf8;
 use crate::commands::{Assignment, TeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
@@ -25,7 +22,7 @@ pub mod dimensions;
 pub mod methods;
 
 
-fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
+pub fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
     let ns = s.as_bytes();
     let mut retvec: Vec<Token> = Vec::new();
     for next in ns {
@@ -74,7 +71,6 @@ impl Interpreter<'_> {
         tokenize(s,&OTHER_SCHEME)
     }
     pub fn tokens_to_string_default(tks:Vec<Token>) -> String {
-        use crate::catcodes::OTHER_SCHEME;
         let mut ret : Vec<u8> = vec!();
         for tk in tks {
             match tk.catcode {
@@ -113,7 +109,7 @@ impl Interpreter<'_> {
     }
     pub fn do_file_with_state(p : &Path, s : State) -> State {
         let catcodes = s.catcodes().clone();
-        let mut int = Interpreter {
+        let int = Interpreter {
             state:RefCell::new(s),
             jobinfo:Jobinfo::new(p),
             mouths:RefCell::new(Mouths::new()),

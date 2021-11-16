@@ -5,7 +5,7 @@ use crate::VERSION_INFO;
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
-    _apply: |cs: Token, int: &Interpreter| {
+    _apply: |cs: Token, _int: &Interpreter| {
         Ok(Some(Expansion {
             cs,
             exp: Interpreter::string_to_tokens(VERSION_INFO.etexrevision())
@@ -15,7 +15,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
 };
 
 pub static ETEXVERSION : IntCommand = IntCommand {
-    _getvalue: |int| {
+    _getvalue: |_int| {
         Ok(VERSION_INFO.etexversion().parse().unwrap())
     },
     name: "eTeXversion"
@@ -24,7 +24,7 @@ pub static ETEXVERSION : IntCommand = IntCommand {
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
-    _apply:|tk,int| {todo!()}
+    _apply:|_tk,_int| {todo!()}
 };
 
 pub fn etex_commands() -> Vec<TeXCommand> {vec![

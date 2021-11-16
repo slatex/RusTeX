@@ -47,7 +47,7 @@ impl Display for Token {
             CategoryCode::AlignmentTab => Blue.paint(char),
             CategoryCode::MathShift => Purple.paint(char),
             CategoryCode::Subscript => Cyan.paint(char),
-            CategoryCode::Subscript => Cyan.bold().paint(char),
+            CategoryCode::Superscript => Cyan.bold().paint(char),
             CategoryCode::Letter => White.bold().paint(char),
             _ => ANSIGenericString::from(char)
         };

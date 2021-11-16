@@ -1,23 +1,22 @@
-use std::ops::Deref;
-use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, RegisterReference, Signature, TeXCommand};
+use crate::commands::{AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, CharChange, RegisterStateChange, StateChange};
-use crate::utils::{kpsewhich, TeXError};
+use crate::utils::TeXError;
 use crate::{log,TeXErr,FileEnd};
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    _apply:|cs: Token, _int: &Interpreter| {
+    _apply:|_cs: Token, _int: &Interpreter| {
         Ok(None)
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    _apply:|cs: Token, _int: &Interpreter| {
+    _apply:|_cs: Token, _int: &Interpreter| {
         Ok(None)
     }
 };
@@ -105,7 +104,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     name:"protected",
-    _assign: |int,global| todo!()
+    _assign: |_int,_global| todo!()
 };
 
 pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
@@ -132,12 +131,12 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                 _ => TeXErr!(int,"Expected control sequence or active character; got: {}",next)
             }
         }
-        return FileEnd!(int)
+        FileEnd!(int)
     }
 };
 
 
-fn readSig(int:&Interpreter) -> Result<Signature,TeXError> {
+fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
     let mut retsig : Vec<ParamToken> = Vec::new();
     let mut currarg = 1 as u8;
     while int.has_next() {
@@ -213,7 +212,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
     }
-    let sig = readSig(int)?;
+    let sig = read_sig(int)?;
     let mut ingroups = 0;
     let mut ret : Vec<ParamToken> = Vec::new();
     while int.has_next() {
@@ -226,7 +225,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
             CategoryCode::EndGroup if ingroups == 0 => {
                 log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
                 let dm = DefMacro {
-                    name: "".to_string(),
+                    name: command.cmdname(),
                     protected,
                     long,
                     sig,
@@ -279,7 +278,7 @@ fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
     }
-    let sig = readSig(int)?;
+    let sig = read_sig(int)?;
     let mut ingroups = 0;
     let mut ret : Vec<ParamToken> = Vec::new();
     while int.has_next() {
@@ -292,7 +291,7 @@ fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(
             CategoryCode::EndGroup if ingroups == 0 => {
                 log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
                 let dm = DefMacro {
-                    name: "".to_string(),
+                    name: command.cmdname(),
                     protected,
                     long,
                     sig,
@@ -356,6 +355,16 @@ fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
     _assign: |int,global| do_def(int, global, false, false)
+};
+
+pub static GDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"gdef",
+    _assign: |int,_global| do_def(int, true, false, false)
+};
+
+pub static XDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"xdef",
+    _assign: |int,_global| do_edef(int, true, false, false)
 };
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -425,7 +434,7 @@ pub static ENDLINECHAR : AssValue<i32> = AssValue {
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_tk,int| {
         let filename = int.read_string()?;
         if filename.starts_with("|kpsewhich ") {
             todo!()
@@ -440,8 +449,17 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
 pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"begingroup",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_tk,int| {
         int.new_group(GroupType::Begingroup);
+        Ok(None)
+    }
+};
+
+pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
+    name:"endgroup",
+    expandable:false,
+    _apply:|_tk,int| {
+        int.pop_group(GroupType::Begingroup)?;
         Ok(None)
     }
 };
@@ -492,7 +510,7 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,i32,u8,i32),TeXError> {
     let cmd = int.read_command_token()?;
     let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
         TeXCommand::AV(AssignableValue::Register((i,_))) => (u8toi16(i),int.state_register(u8toi16(i)),0),
-        TeXCommand::AV(AssignableValue::PrimReg(p)) => todo!(),
+        TeXCommand::AV(AssignableValue::PrimReg(_)) => todo!(),
         TeXCommand::AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = u8toi16(int.read_number()? as u8);
             (i,int.state_register(i),0)
@@ -500,7 +518,7 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,i32,u8,i32),TeXError> {
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
     };
-    int.read_keyword(vec!("by"));
+    int.read_keyword(vec!("by"))?;
     let val = int.read_number()?;
     Ok((index,num,regdimskip,val))
 }
@@ -559,7 +577,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
 pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     name:"the",
     expandable:true,
-    _apply:|tk,int| {
+    _apply:|_tk,int| {
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
         match int.get_command(&reg.cmdname())? {
@@ -587,12 +605,12 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
 pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     name:"immediate",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_tk,int| {
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())? {
             TeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(next,int)?;
-                (wi._apply)(int);
+                (wi._apply)(int)?;
                 Ok(None)
             }
             _ => todo!()
@@ -602,7 +620,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name:"openout",
-    _get: |tk,int| {
+    _get: |_tk,int| {
         let num = int.read_number()? as u8;
         int.read_eq();
         let filename = int.read_string()?;
@@ -616,9 +634,22 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     }
 };
 
+pub static OPENIN: PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |_tk,int| {
+        let num = int.read_number()? as u8;
+        int.read_eq();
+        let filename = int.read_string()?;
+        let file = int.get_file(&filename)?;
+        int.file_openin(num,file)?;
+        Ok(None)
+    },
+    name:"openin",
+    expandable:false,
+};
+
 pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name:"closeout",
-    _get: |tk,int| {
+    _get: |_tk,int| {
         let num = int.read_number()? as u8;
 
         Ok(ExecutableWhatsit {
@@ -629,9 +660,51 @@ pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     }
 };
 
+pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |_tk,int| {
+        let num = int.read_number()? as u8;
+        int.file_closein(num)?;
+        Ok(None)
+    },
+    name:"closein",
+    expandable:false,
+};
+
+pub static READ: PrimitiveAssignment = PrimitiveAssignment {
+    name:"read",
+    _assign: |int,global| {
+        let index = int.read_number()? as u8;
+        match int.read_keyword(vec!("to"))? {
+            Some(_) => (),
+            None => TeXErr!(int,"\"to\" expected in \\read")
+        }
+        let newcmd = int.read_command_token()?;
+        let mut toks : Vec<ParamToken> = vec!();
+        for tk in int.file_read(index,true)? {
+            toks.push(ParamToken::Token(tk))
+        }
+        int.change_state(StateChange::Cs(CommandChange {
+            name: newcmd.cmdname(),
+            cmd: Some(TeXCommand::Def(Rc::new(DefMacro {
+                name: "".to_string(),
+                protected: false,
+                long: false,
+                sig: Signature {
+                    elems: vec![],
+                    endswithbrace: false,
+                    arity: 0
+                },
+                ret: toks
+            }))),
+            global
+        }));
+        Ok(())
+    }
+};
+
 pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name: "write",
-    _get: |tk, int| {
+    _get: |_tk, int| {
         let num = int.read_number()? as u8;
         int.assert_has_next()?;
         let next = int.next_token();
@@ -689,7 +762,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
 pub static END: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
     expandable:false,
-    _apply:|tk,int| {todo!()}
+    _apply:|_tk,_int| {todo!()}
 };
 
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
@@ -703,6 +776,8 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Ass(&COUNTDEF),
     TeXCommand::Ass(&DEF),
     TeXCommand::Ass(&EDEF),
+    TeXCommand::Ass(&GDEF),
+    TeXCommand::Ass(&XDEF),
     TeXCommand::Ass(&LET),
     TeXCommand::Ass(&LONG),
     TeXCommand::Ass(&PROTECTED),
@@ -712,12 +787,16 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&INPUT),
     TeXCommand::Primitive(&END),
     TeXCommand::Primitive(&BEGINGROUP),
+    TeXCommand::Primitive(&ENDGROUP),
     TeXCommand::Primitive(&THE),
     TeXCommand::Primitive(&NUMBER),
     TeXCommand::Primitive(&IMMEDIATE),
     TeXCommand::Whatsit(ProvidesWhatsit::Exec(&OPENOUT)),
+    TeXCommand::Primitive(&OPENIN),
     TeXCommand::Whatsit(ProvidesWhatsit::Exec(&CLOSEOUT)),
+    TeXCommand::Primitive(&CLOSEIN),
     TeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
+    TeXCommand::Ass(&READ),
     TeXCommand::Int(&TIME),
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),

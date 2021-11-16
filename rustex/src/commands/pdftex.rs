@@ -52,21 +52,21 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
 
 pub static IFPDFABSNUM : Conditional = Conditional {
     name:"ifpdfabsnum",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFPDFABSDIM : Conditional = Conditional {
     name:"ifpdfabsdim",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
 
 pub static IFPDFPRIMITIVE : Conditional = Conditional {
     name:"ifpdfprimitive",
-    _apply: |int,cond,unless| {
+    _apply: |_int,_cond,_unless| {
         todo!()
     }
 };
