@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use crate::catcodes::CategoryCode;
 use crate::interpreter::Interpreter;
 use crate::ontology::Token;
@@ -5,6 +6,8 @@ use crate::utils::TeXError;
 use std::str::FromStr;
 use crate::commands::{Expandable, TeXCommand};
 use crate::{TeXErr,FileEnd};
+use crate::commands::primitives::NOEXPAND;
+
 
 impl Interpreter<'_> {
 
@@ -131,26 +134,64 @@ impl Interpreter<'_> {
         }
     }
 
+    // Token lists ---------------------------------------------------------------------------------
+
+    #[inline(always)]
     pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
         let next = self.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             return Ok(vec!(next))
         }
+        self.read_token_list(false,false)
+    }
+
+    #[inline(always)]
+    pub fn read_token_list(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
+        self.read_token_list_map(expand,the,Box::new(|x,_| Ok(Some(x))))
+    }
+
+    #[inline(always)]
+    pub fn read_token_list_map<'a,T>(&self,expand:bool,the:bool,f:Box<dyn Fn(Token,&Interpreter) -> Result<Option<T>,TeXError> + 'a>) -> Result<Vec<T>,TeXError> {
+        use crate::commands::primitives::THE;
+        use crate::commands::etex::UNEXPANDED;
+        use std::rc::Rc;
         let mut ingroups : i8 = 0;
-        let mut ret : Vec<Token> = vec!();
+        let mut ret : Vec<T> = vec!();
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
+                CategoryCode::Active | CategoryCode::Escape if expand => {
+                    let cmd = self.get_command(&next.cmdname())?.as_expandable();
+                    match cmd {
+                        Ok(Expandable::Primitive(x)) if *x == NOEXPAND => {
+                            self.assert_has_next()?;
+                            for t in (f)(self.next_token(),self)? {ret.push(t)}
+                        }
+                        Ok(Expandable::Primitive(x)) if the && (*x == THE || *x == UNEXPANDED) => {
+                            match (x._apply)(next,self)? {
+                                Some(e) => {
+                                    let rc = Rc::new(e);
+                                    for tk in &rc.exp {
+                                        for t in (f)(tk.copied(Rc::clone(&rc)),self)? {ret.push(t)}
+                                    }
+                                }
+                                None => ()
+                            }
+                        }
+                        Ok(e) => e.expand(next,self)?,
+                        Err(_) => for t in (f)(next,self)? {ret.push(t)}
+                    }
+                }
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
                 CategoryCode::BeginGroup => {
                     ingroups += 1;
-                    ret.push(next);
+                    for t in (f)(next,self)? {ret.push(t)};
                 }
                 CategoryCode::EndGroup => {
                     ingroups -= 1;
-                    ret.push(next);
+                    for t in (f)(next,self)? {ret.push(t)};
                 }
-                _ => ret.push(next)
+                _ => for t in (f)(next,self)? {ret.push(t)}
             }
         }
         FileEnd!(self)

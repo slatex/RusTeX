@@ -310,8 +310,13 @@ impl Interpreter<'_> {
         Ok(())
     }
     pub fn file_write(&self,index:u8,s:String) -> Result<(),TeXError> {
+        use ansi_term::Colour::*;
         match index {
-            16 | 17 | 18 => todo!(),
+            17 => {
+                println!("{}",s);
+                Ok(())
+            }
+            16 | 18 => todo!("{}",index),
             i if !self.state.borrow().outfiles.contains_key(&i) => todo!(),
              _ => {
                  let mut state = self.state.borrow_mut();
@@ -330,7 +335,7 @@ impl Interpreter<'_> {
         let mut state = self.state.borrow_mut();
         match state.outfiles.remove(&index) {
             Some(vf) => {self.filestore.borrow_mut().files.insert(vf.id.clone(),vf);}
-            None => TeXErr!(self,"No file open at index {}",index)
+            None => ()//TeXErr!(self,"No file open at index {}",index)
         }
         Ok(())
     }

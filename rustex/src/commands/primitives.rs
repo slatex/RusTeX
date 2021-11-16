@@ -117,7 +117,7 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                 CategoryCode::Escape | CategoryCode::Active => {
                     match int.get_command(&next.cmdname())? {
                         TeXCommand::Ass(a) if *a == DEF => {
-                            return do_def(int,global,protected,true)
+                            return do_def(int,global,protected,true,false)
                         }
                         TeXCommand::Ass(a) if *a == EDEF => {
                             todo!()
@@ -205,7 +205,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
     FileEnd!(int)
 }
 
-fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
+fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     use std::str::from_utf8;
     let command = int.next_token();
     match command.catcode {
@@ -213,163 +213,69 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<()
         _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
     }
     let sig = read_sig(int)?;
-    let mut ingroups = 0;
-    let mut ret : Vec<ParamToken> = Vec::new();
-    while int.has_next() {
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => {
-                ingroups += 1;
-                ret.push(ParamToken::Token(next));
-            }
-            CategoryCode::EndGroup if ingroups == 0 => {
-                log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
-                let dm = DefMacro {
-                    name: command.cmdname(),
-                    protected,
-                    long,
-                    sig,
-                    ret
-                };
-                int.change_state(StateChange::Cs(CommandChange {
-                    name: command.cmdname(),
-                    cmd: Some(TeXCommand::Def(Rc::new(dm))),
-                    global
-                }));
-                return Ok(())
-            }
-            CategoryCode::EndGroup => {
-                ingroups -=1;
-                ret.push(ParamToken::Token(next));
-            },
+    let arity = sig.arity;
+    let ret = int.read_token_list_map(edef,edef,Box::new(|x,i| {
+        match x.catcode {
             CategoryCode::Parameter => {
-                int.assert_has_next()?;
-                let next = int.next_token();
+                i.assert_has_next()?;
+                let next = i.next_token();
                 match next.catcode {
-                    CategoryCode::Parameter => ret.push(ParamToken::Param(0)),
+                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0))),
                     _ => {
                         let num = match from_utf8(&[next.char]) {
                             Ok(n) => match n.parse::<u8>() {
                                 Ok(u) => u,
-                                Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                                Err(_) => TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                             }
-                            Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                            Err(_) => TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                         };
-                        if num < 1 || num > sig.arity {
-                            TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
+                        if num < 1 || num > arity {
+                            TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                         }
-                        ret.push(ParamToken::Param(num))
+                        Ok(Some(ParamToken::Param(num)))
                     }
                 }
-            },
-            _ => ret.push(ParamToken::Token(next))
+            }
+            _ => Ok(Some(ParamToken::Token(x)))
         }
-    }
-    FileEnd!(int)
+    }))?;
+    log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
+    let dm = DefMacro {
+        name: command.cmdname(),
+        protected,
+        long,
+        sig,
+        ret
+    };
+    int.change_state(StateChange::Cs(CommandChange {
+        name: command.cmdname(),
+        cmd: Some(TeXCommand::Def(Rc::new(dm))),
+        global
+    }));
+    Ok(())
 }
 
 use crate::commands::Expandable;
 use crate::stomach::whatsits::ExecutableWhatsit;
 
-fn do_edef(int:&Interpreter, global:bool, protected:bool, long:bool) -> Result<(),TeXError> {
-    use std::str::from_utf8;
-    let command = int.next_token();
-    match command.catcode {
-        CategoryCode::Escape | CategoryCode::Active => {}
-        _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
-    }
-    let sig = read_sig(int)?;
-    let mut ingroups = 0;
-    let mut ret : Vec<ParamToken> = Vec::new();
-    while int.has_next() {
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => {
-                ingroups += 1;
-                ret.push(ParamToken::Token(next));
-            }
-            CategoryCode::EndGroup if ingroups == 0 => {
-                log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
-                let dm = DefMacro {
-                    name: command.cmdname(),
-                    protected,
-                    long,
-                    sig,
-                    ret
-                };
-                int.change_state(StateChange::Cs(CommandChange {
-                    name: command.cmdname(),
-                    cmd: Some(TeXCommand::Def(Rc::new(dm))),
-                    global
-                }));
-                return Ok(())
-            }
-            CategoryCode::EndGroup => {
-                ingroups -=1;
-                ret.push(ParamToken::Token(next));
-            },
-            CategoryCode::Parameter => {
-                int.assert_has_next()?;
-                let next = int.next_token();
-                match next.catcode {
-                    CategoryCode::Parameter => ret.push(ParamToken::Param(0)),
-                    _ => {
-                        let num = match from_utf8(&[next.char]) {
-                            Ok(n) => match n.parse::<u8>() {
-                                Ok(u) => u,
-                                Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
-                            }
-                            Err(_) => TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
-                        };
-                        if num < 1 || num > sig.arity {
-                            TeXErr!(int,"Expected digit between 1 and {}; got: {}",sig.arity,next)
-                        }
-                        ret.push(ParamToken::Param(num))
-                    }
-                }
-            },
-            CategoryCode::Active | CategoryCode::Escape => {
-                let cmd = int.get_command(&next.cmdname())?.as_expandable();
-                match cmd {
-                    Ok(Expandable::Primitive(x)) if *x == THE || *x == UNEXPANDED => {
-                        match (x._apply)(next,int)? {
-                            Some(e) => {
-                                let rc = Rc::new(e);
-                                for tk in &rc.exp {
-                                    ret.push(ParamToken::Token(tk.copied(Rc::clone(&rc))))
-                                }
-                            }
-                            None => ()
-                        }
-                    }
-                    Ok(e) => e.expand(next,int)?,
-                    Err(_) => ret.push(ParamToken::Token(next))
-                }
-            }
-            _ => ret.push(ParamToken::Token(next))
-        }
-    }
-    FileEnd!(int)
-}
-
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
-    _assign: |int,global| do_def(int, global, false, false)
+    _assign: |int,global| do_def(int, global, false, false,false)
 };
 
 pub static GDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"gdef",
-    _assign: |int,_global| do_def(int, true, false, false)
+    _assign: |int,_global| do_def(int, true, false, false,false)
 };
 
 pub static XDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"xdef",
-    _assign: |int,_global| do_edef(int, true, false, false)
+    _assign: |int,_global| do_def(int, true, false, false,true)
 };
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"edef",
-    _assign: |int,global| do_edef(int,global,false,false)
+    _assign: |int,global| do_def(int,global,false,false,true)
 };
 
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {

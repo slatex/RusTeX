@@ -6,7 +6,7 @@ pub mod commands;
 pub mod catcodes;
 pub mod stomach;
 
-static LOG : bool = true;
+static LOG : bool = false;
 
 #[macro_export]
 macro_rules! log {
