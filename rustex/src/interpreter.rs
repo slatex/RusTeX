@@ -12,7 +12,7 @@ use std::str::from_utf8;
 use crate::commands::{Assignment, TeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
-use crate::interpreter::state::State;
+use crate::interpreter::state::{GroupType, State};
 use crate::utils::TeXError;
 
 pub mod mouth;
@@ -170,6 +170,8 @@ impl Interpreter<'_> {
 
                 }
             },
+            CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
+            CategoryCode::EndGroup => self.pop_group(GroupType::Token),
             CategoryCode::Space | CategoryCode::EOL if matches!(self.mode,TeXMode::Vertical) => Ok(()),
             _ => todo!("Character: {}, {}, {}",next.char,next.catcode,self.current_line())
         }

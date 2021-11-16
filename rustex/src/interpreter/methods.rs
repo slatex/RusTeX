@@ -134,13 +134,13 @@ impl Interpreter<'_> {
 
     // Token lists ---------------------------------------------------------------------------------
 
-    #[inline(always)]
     pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
         let next = self.next_token();
-        if next.catcode != CategoryCode::BeginGroup {
-            return Ok(vec!(next))
+        if next.catcode == CategoryCode::BeginGroup {
+            self.read_token_list(false,false)
+        } else {
+            Ok(vec!(next))
         }
-        self.read_token_list(false,false)
     }
 
     #[inline(always)]

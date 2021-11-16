@@ -1,4 +1,4 @@
-use crate::commands::{RegisterReference,AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand};
+use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -40,6 +40,7 @@ pub static CATCODE : AssValue<i32> = AssValue {
 };
 use crate::references::SourceReference;
 use std::rc::Rc;
+use std::str::from_utf8;
 use chrono::{Datelike, Timelike};
 use crate::commands::etex::UNEXPANDED;
 
@@ -709,10 +710,13 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
                             exp: ret
                         }))
                     },
-                    Err(_) => Ok(Some(Expansion {
-                        cs,
-                        exp: vec![tmp,next]
-                    }))
+                    Err(_) => {
+                        todo!("Maybe? {}",next);
+                        Ok(Some(Expansion {
+                            cs,
+                            exp: vec![tmp,next]
+                        }))
+                    }
                 }
             },
             _ => Ok(Some(Expansion {
@@ -741,6 +745,33 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
         Ok(Some(Expansion {
             cs,
             exp: Interpreter::string_to_tokens(&string)
+        }))
+    }
+};
+
+pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"string",
+    expandable:true,
+    _apply:|cs,int| {
+        int.assert_has_next()?;
+        let next = int.next_token();
+        let exp = match next.catcode {
+            CategoryCode::Escape => {
+                let mut s = if int.state_catcodes().escapechar == 255 {"".to_string()} else {from_utf8(&[int.state_catcodes().escapechar]).unwrap().to_string()};
+                Interpreter::string_to_tokens(&(s + &next.cmdname()))
+            }
+            CategoryCode::Space => vec!(next),
+            _ => vec!(Token {
+                char: next.char,
+                catcode: CategoryCode::Other,
+                name_opt: next.name_opt,
+                reference: next.reference,
+                expand: true
+            })
+        };
+        Ok(Some(Expansion {
+            cs,
+            exp
         }))
     }
 };
@@ -1227,12 +1258,6 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
-    name:"string",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };

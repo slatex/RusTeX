@@ -313,7 +313,7 @@ impl Interpreter<'_> {
         use ansi_term::Colour::*;
         match index {
             17 => {
-                println!("{}",s);
+                print!("{}",s);
                 Ok(())
             }
             16 | 18 => todo!("{}",index),

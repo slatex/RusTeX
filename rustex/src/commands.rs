@@ -86,7 +86,7 @@ pub struct DefMacro {
 }
 impl Display for DefMacro {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"\\{}:{}{}{}",self.sig,"{",ParamList(&self.ret),"}")
+        write!(f,"{}->{}{}{}",self.sig,"{",ParamList(&self.ret),"}")
     }
 }
 
@@ -168,90 +168,94 @@ impl Expandable {
                 _ => Ok(vec!())
             },
             Ext(p) => Ok(p.expand(int)?.exp),
-            Def(d) => {
-                log!("{}",d);
-                let mut args : Vec<Vec<Token>> = Vec::new();
-                let mut i = 0;
-                while i < d.sig.elems.len() {
-                    match d.sig.elems.get(i).unwrap() {
-                        ParamToken::Token(tk) => {
-                            int.assert_has_next()?;
-                            let next = int.next_token();
-                            if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
-                            i += 1;
-                        }
-                        ParamToken::Param(_,_) => match d.sig.elems.get(i+1) {
-                            None if d.sig.endswithbrace => {
-                                i +=1;
-                                todo!()
-                            },
-                            None | Some(ParamToken::Param(_,_)) => {
-                                i+=1;
-                                args.push(int.read_argument()?);
-                            },
-                            Some(ParamToken::Token(tk)) => {
-                                let mut delim : Vec<Token> = vec!(tk.clone());
-                                i +=1;
-                                while i < d.sig.elems.len() {
-                                    match d.sig.elems.get(i) {
-                                        Some(ParamToken::Token(t)) => {
-                                            delim.push(t.clone());
-                                            i += 1;
-                                        },
-                                        _ => break
-                                    }
+            Def(d) => Expandable::doDef(int,d)
+        }
+    }
+
+    fn doDef(int:&Interpreter,d:&Rc<DefMacro>) -> Result<Vec<Token>,TeXError> {
+        log!("{}",d);
+        let mut args : Vec<Vec<Token>> = Vec::new();
+        let mut i = 0;
+        while i < d.sig.elems.len() {
+            match d.sig.elems.get(i).unwrap() {
+                ParamToken::Token(tk) => {
+                    int.assert_has_next()?;
+                    let next = int.next_token();
+                    if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
+                    i += 1;
+                }
+                ParamToken::Param(_,_) => {
+                    i +=1;
+                    match d.sig.elems.get(i) {
+                        None if d.sig.endswithbrace => {
+                            todo!()
+                        },
+                        None | Some(ParamToken::Param(_,_)) => {
+                            let next = int.read_argument()?;
+                            args.push(next);
+                        },
+                        Some(ParamToken::Token(tk)) => {
+                            let mut delim : Vec<Token> = vec!(tk.clone());
+                            i +=1;
+                            while i < d.sig.elems.len() {
+                                match d.sig.elems.get(i) {
+                                    Some(ParamToken::Token(t)) => {
+                                        delim.push(t.clone());
+                                        i += 1;
+                                    },
+                                    _ => break
                                 }
-                                let mut retarg : Vec<Token> = vec!();
-                                let mut groups = 0;
-                                let mut totalgroups = 0;
-                                while int.has_next() {
-                                    let next = int.next_token();
-                                    match next.catcode {
-                                        CategoryCode::BeginGroup if groups == 0 => {
-                                            groups += 1;
-                                            totalgroups += 1;
-                                        }
-                                        CategoryCode::BeginGroup => groups += 1,
-                                        CategoryCode::EndGroup => groups -=1,
-                                        _ => ()
-                                    }
-                                    retarg.push(next);
-                                    if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
-                                    if groups == 0 && retarg.ends_with(&delim) {break}
-                                }
-                                int.assert_has_next()?;
-                                for _ in 0..delim.len() { retarg.pop(); }
-                                if totalgroups == 1 &&
-                                    match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
-                                    match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
-                                    retarg.remove(0);
-                                    retarg.pop();
-                                }
-                                args.push(retarg)
                             }
+                            let mut retarg : Vec<Token> = vec!();
+                            let mut groups = 0;
+                            let mut totalgroups = 0;
+                            while int.has_next() {
+                                let next = int.next_token();
+                                match next.catcode {
+                                    CategoryCode::BeginGroup if groups == 0 => {
+                                        groups += 1;
+                                        totalgroups += 1;
+                                    }
+                                    CategoryCode::BeginGroup => groups += 1,
+                                    CategoryCode::EndGroup => groups -=1,
+                                    _ => ()
+                                }
+                                retarg.push(next);
+                                if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
+                                if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
+                            }
+                            int.assert_has_next()?;
+                            for _ in 0..delim.len() { retarg.pop(); }
+                            if totalgroups == 1 &&
+                                match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
+                                match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
+                                retarg.remove(0);
+                                retarg.pop();
+                            }
+                            args.push(retarg)
                         }
                     }
                 }
-                let mut ret : Vec<Token> = Vec::new();
-                for tk in &d.ret {
-                    match tk {
-                        ParamToken::Token(tk) => ret.push(tk.clone()),
-                        ParamToken::Param(0,c) => {
-                            let ntk = Token {
-                                char: *c,
-                                catcode: CategoryCode::Parameter,
-                                name_opt: None,
-                                reference: Box::new(SourceReference::None),
-                                expand: true
-                            };
-                            ret.push(ntk)
-                        }
-                        ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
-                    }
-                }
-                Ok(ret)
             }
         }
+        let mut ret : Vec<Token> = Vec::new();
+        for tk in &d.ret {
+            match tk {
+                ParamToken::Token(tk) => ret.push(tk.clone()),
+                ParamToken::Param(0,c) => {
+                    let ntk = Token {
+                        char: *c,
+                        catcode: CategoryCode::Parameter,
+                        name_opt: None,
+                        reference: Box::new(SourceReference::None),
+                        expand: true
+                    };
+                    ret.push(ntk)
+                }
+                ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
+            }
+        }
+        Ok(ret)
     }
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use Expandable::*;
@@ -265,90 +269,9 @@ impl Expandable {
             },
             Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
             Def(d) => {
-                log!("{}",d);
-                let mut args : Vec<Vec<Token>> = Vec::new();
-                let mut i = 0;
-                while i < d.sig.elems.len() {
-                    match d.sig.elems.get(i).unwrap() {
-                        ParamToken::Token(tk) => {
-                            int.assert_has_next()?;
-                            let next = int.next_token();
-                            if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
-                            i += 1;
-                        }
-                        ParamToken::Param(_,_) => {
-                            i +=1;
-                            match d.sig.elems.get(i) {
-                                None if d.sig.endswithbrace => {
-                                    todo!()
-                                },
-                                None | Some(ParamToken::Param(_,_)) => {
-                                    args.push(int.read_argument()?);
-                                },
-                                Some(ParamToken::Token(tk)) => {
-                                    let mut delim : Vec<Token> = vec!(tk.clone());
-                                    i +=1;
-                                    while i < d.sig.elems.len() {
-                                        match d.sig.elems.get(i) {
-                                            Some(ParamToken::Token(t)) => {
-                                                delim.push(t.clone());
-                                                i += 1;
-                                            },
-                                            _ => break
-                                        }
-                                    }
-                                    let mut retarg : Vec<Token> = vec!();
-                                    let mut groups = 0;
-                                    let mut totalgroups = 0;
-                                    while int.has_next() {
-                                        let next = int.next_token();
-                                        match next.catcode {
-                                            CategoryCode::BeginGroup if groups == 0 => {
-                                                groups += 1;
-                                                totalgroups += 1;
-                                            }
-                                            CategoryCode::BeginGroup => groups += 1,
-                                            CategoryCode::EndGroup => groups -=1,
-                                            _ => ()
-                                        }
-                                        retarg.push(next);
-                                        if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
-                                        if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
-                                    }
-                                    int.assert_has_next()?;
-                                    for _ in 0..delim.len() { retarg.pop(); }
-                                    if totalgroups == 1 &&
-                                        match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
-                                        match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
-                                        retarg.remove(0);
-                                        retarg.pop();
-                                    }
-                                    args.push(retarg)
-                                }
-                            }
-                        }
-                    }
-                }
-                let mut ret : Vec<Token> = Vec::new();
-                for tk in &d.ret {
-                    match tk {
-                        ParamToken::Token(tk) => ret.push(tk.clone()),
-                        ParamToken::Param(0,c) => {
-                            let ntk = Token {
-                                char: *c,
-                                catcode: CategoryCode::Parameter,
-                                name_opt: None,
-                                reference: Box::new(SourceReference::None),
-                                expand: true
-                            };
-                            ret.push(ntk)
-                        }
-                        ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
-                    }
-                }
                 Ok(int.push_expansion(Expansion {
                     cs: tk,
-                    exp: ret
+                    exp: Expandable::doDef(int,d)?
                 }))
             }
         }

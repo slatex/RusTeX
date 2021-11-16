@@ -663,11 +663,4 @@ impl Interpreter<'_> {
     pub fn has_next(&self) -> bool {
         self.mouths.borrow_mut().has_next(&self.state_catcodes())
     }
-    /*
-    pub fn push_file(&mut self,file : VFile) {
-        let mut fm = StringMouth::new_from_file(&self.state,file);
-        self.mouths.mouths.push(Mouth::File(fm))
-    }
-
-     */
 }
