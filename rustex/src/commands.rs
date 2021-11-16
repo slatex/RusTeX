@@ -7,8 +7,9 @@ use crate::ontology::{Expansion, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
-use std::fmt::{Display, Formatter};
-use crate::catcodes::CategoryCode;
+use std::fmt::{Display, Formatter, Pointer};
+use std::str::from_utf8;
+use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::utils::TeXError;
 use crate::log;
 
@@ -49,57 +50,9 @@ impl<T> PartialEq for AssValue<T> {
     }
 }
 
-#[derive(Clone)]
-pub enum AssignableValue {
-    Dim((u8,String)),
-    Register((u8, String)),
-    Int(&'static AssValue<i32>),
-    PrimReg(&'static RegisterReference),
-    PrimDim(&'static DimenReference)
-}
-
-impl AssignableValue {
-    pub fn name(&self) -> String {
-        use AssignableValue::*;
-        match self {
-            Dim((_,s)) => s.to_string(),
-            Register((_,s)) => s.to_string(),
-            Int(i) => i.name.to_string(),
-            PrimReg(r) => r.name.to_string(),
-            PrimDim(d) => d.name.to_string()
-        }
-    }
-}
-
 pub struct IntCommand {
     pub _getvalue: fn(int: &Interpreter) -> Result<i32,TeXError>,
     pub name : &'static str
-}
-
-pub enum HasNum {
-    Dim((u8,String)),
-    Register((u8,String)),
-    AssInt(&'static AssValue<i32>),
-    Int(&'static IntCommand),
-    PrimReg(&'static RegisterReference),
-    PrimDim(&'static DimenReference),
-    Ext(Rc<dyn ExternalCommand>)
-}
-
-impl HasNum {
-    pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
-        use HasNum::*;
-        use crate::utils::u8toi16;
-        match self {
-            Dim((i,_)) => Ok(int.state_dimension(u8toi16(*i))),
-            Register((i,_)) => Ok(int.state_register(u8toi16(*i))),
-            AssInt(i) => (i._getvalue)(int),
-            Int(i) => (i._getvalue)(int),
-            PrimReg(r) => Ok(int.state_register(-u8toi16(r.index))),
-            PrimDim(r) => Ok(int.state_dimension(-u8toi16(r.index))),
-            Ext(r) => r.get_num(int),
-        }
-    }
 }
 
 #[derive(PartialEq)]
@@ -114,6 +67,86 @@ pub struct DimenReference {
     pub name: &'static str
 }
 
+pub struct PrimitiveAssignment {
+    pub name: &'static str,
+    pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
+}
+impl PartialEq for PrimitiveAssignment {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+#[derive(Clone)]
+pub struct DefMacro {
+    pub protected:bool,
+    pub long:bool,
+    pub sig:Signature,
+    pub ret:Vec<ParamToken>
+}
+impl Display for DefMacro {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"\\{}:{}{}{}",self.sig,"{",ParamList(&self.ret),"}")
+    }
+}
+
+use crate::stomach::whatsits::ExecutableWhatsit;
+
+pub struct ProvidesExecutableWhatsit {
+    pub name: &'static str,
+    pub _get: fn(tk:Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub enum AssignableValue {
+    Dim(u8),
+    Register(u8),
+    Int(&'static AssValue<i32>),
+    PrimReg(&'static RegisterReference),
+    PrimDim(&'static DimenReference)
+}
+
+impl AssignableValue {
+    pub fn name(&self) -> Option<String> {
+        use AssignableValue::*;
+        match self {
+            Dim(_) => None,
+            Register(_) => None,
+            Int(i) => Some(i.name.to_string()),
+            PrimReg(r) => Some(r.name.to_string()),
+            PrimDim(d) => Some(d.name.to_string())
+        }
+    }
+}
+
+pub enum HasNum {
+    Dim(u8),
+    Register(u8),
+    AssInt(&'static AssValue<i32>),
+    Int(&'static IntCommand),
+    PrimReg(&'static RegisterReference),
+    PrimDim(&'static DimenReference),
+    Ext(Rc<dyn ExternalCommand>)
+}
+
+impl HasNum {
+    pub fn get(&self,int:&Interpreter) -> Result<i32,TeXError> {
+        use HasNum::*;
+        use crate::utils::u8toi16;
+        match self {
+            Dim(i) => Ok(int.state_dimension(u8toi16(*i))),
+            Register(i) => Ok(int.state_register(u8toi16(*i))),
+            AssInt(i) => (i._getvalue)(int),
+            Int(i) => (i._getvalue)(int),
+            PrimReg(r) => Ok(int.state_register(-u8toi16(r.index))),
+            PrimDim(r) => Ok(int.state_dimension(-u8toi16(r.index))),
+            Ext(r) => r.get_num(int),
+        }
+    }
+}
+
 pub enum Expandable {
     Cond(&'static Conditional),
     Primitive(&'static PrimitiveExecutable),
@@ -122,19 +155,19 @@ pub enum Expandable {
 }
 
 use crate::TeXErr;
+use crate::references::SourceReference;
 
 impl Expandable {
-    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+    pub fn get_expansion(&self,tk:Token,int:&Interpreter) -> Result<Vec<Token>,TeXError> {
         use Expandable::*;
         log!("Expanding {}",tk);
         match self {
-            Cond(c) => c.expand(tk,int),
+            Cond(c) => {c.expand(tk,int)?; Ok(vec!())},
             Primitive(p) => match (p._apply)(tk,int)? {
-                Some(e) =>
-                    Ok(int.push_expansion(e)),
-                _ => Ok(())
+                Some(e) => Ok(e.exp),
+                _ => Ok(vec!())
             },
-            Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
+            Ext(p) => Ok(p.expand(int)?.exp),
             Def(d) => {
                 log!("{}",d);
                 let mut args : Vec<Vec<Token>> = Vec::new();
@@ -147,12 +180,12 @@ impl Expandable {
                             if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
                             i += 1;
                         }
-                        ParamToken::Param(_) => match d.sig.elems.get(i+1) {
+                        ParamToken::Param(_,_) => match d.sig.elems.get(i+1) {
                             None if d.sig.endswithbrace => {
                                 i +=1;
                                 todo!()
                             },
-                            None | Some(ParamToken::Param(_)) => {
+                            None | Some(ParamToken::Param(_,_)) => {
                                 i+=1;
                                 args.push(int.read_argument()?);
                             },
@@ -203,7 +236,114 @@ impl Expandable {
                 for tk in &d.ret {
                     match tk {
                         ParamToken::Token(tk) => ret.push(tk.clone()),
-                        ParamToken::Param(i) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
+                        ParamToken::Param(0,c) => {
+                            let ntk = Token {
+                                char: *c,
+                                catcode: CategoryCode::Parameter,
+                                name_opt: None,
+                                reference: Box::new(SourceReference::None),
+                                expand: true
+                            };
+                            ret.push(ntk)
+                        }
+                        ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
+                    }
+                }
+                Ok(ret)
+            }
+        }
+    }
+    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+        use Expandable::*;
+        log!("Expanding {}",tk);
+        match self {
+            Cond(c) => c.expand(tk,int),
+            Primitive(p) => match (p._apply)(tk,int)? {
+                Some(e) =>
+                    Ok(int.push_expansion(e)),
+                _ => Ok(())
+            },
+            Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
+            Def(d) => {
+                log!("{}",d);
+                let mut args : Vec<Vec<Token>> = Vec::new();
+                let mut i = 0;
+                while i < d.sig.elems.len() {
+                    match d.sig.elems.get(i).unwrap() {
+                        ParamToken::Token(tk) => {
+                            int.assert_has_next()?;
+                            let next = int.next_token();
+                            if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
+                            i += 1;
+                        }
+                        ParamToken::Param(_,_) => {
+                            i +=1;
+                            match d.sig.elems.get(i) {
+                                None if d.sig.endswithbrace => {
+                                    todo!()
+                                },
+                                None | Some(ParamToken::Param(_,_)) => {
+                                    args.push(int.read_argument()?);
+                                },
+                                Some(ParamToken::Token(tk)) => {
+                                    let mut delim : Vec<Token> = vec!(tk.clone());
+                                    i +=1;
+                                    while i < d.sig.elems.len() {
+                                        match d.sig.elems.get(i) {
+                                            Some(ParamToken::Token(t)) => {
+                                                delim.push(t.clone());
+                                                i += 1;
+                                            },
+                                            _ => break
+                                        }
+                                    }
+                                    let mut retarg : Vec<Token> = vec!();
+                                    let mut groups = 0;
+                                    let mut totalgroups = 0;
+                                    while int.has_next() {
+                                        let next = int.next_token();
+                                        match next.catcode {
+                                            CategoryCode::BeginGroup if groups == 0 => {
+                                                groups += 1;
+                                                totalgroups += 1;
+                                            }
+                                            CategoryCode::BeginGroup => groups += 1,
+                                            CategoryCode::EndGroup => groups -=1,
+                                            _ => ()
+                                        }
+                                        retarg.push(next);
+                                        if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
+                                        if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
+                                    }
+                                    int.assert_has_next()?;
+                                    for _ in 0..delim.len() { retarg.pop(); }
+                                    if totalgroups == 1 &&
+                                        match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
+                                        match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
+                                        retarg.remove(0);
+                                        retarg.pop();
+                                    }
+                                    args.push(retarg)
+                                }
+                            }
+                        }
+                    }
+                }
+                let mut ret : Vec<Token> = Vec::new();
+                for tk in &d.ret {
+                    match tk {
+                        ParamToken::Token(tk) => ret.push(tk.clone()),
+                        ParamToken::Param(0,c) => {
+                            let ntk = Token {
+                                char: *c,
+                                catcode: CategoryCode::Parameter,
+                                name_opt: None,
+                                reference: Box::new(SourceReference::None),
+                                expand: true
+                            };
+                            ret.push(ntk)
+                        }
+                        ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { ret.push(tk.clone()) }
                     }
                 }
                 Ok(int.push_expansion(Expansion {
@@ -215,15 +355,6 @@ impl Expandable {
     }
 }
 
-pub struct PrimitiveAssignment {
-    pub name: &'static str,
-    pub _assign: fn(int: &Interpreter,global: bool) -> Result<(),TeXError>
-}
-impl PartialEq for PrimitiveAssignment {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
-}
 
 pub enum Assignment {
     //Register(&'a RegisterReference),
@@ -242,7 +373,7 @@ impl Assignment {
             Assignment::Prim(p) => (p._assign)(int,global),
             Assignment::Value(av) => match av {
                 AssignableValue::Int(d) => (d._assign)(int,global),
-                AssignableValue::Register((i,_)) => {
+                AssignableValue::Register(i) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
@@ -253,7 +384,7 @@ impl Assignment {
                     }));
                     Ok(())
                 }
-                AssignableValue::Dim((i,_)) => {
+                AssignableValue::Dim(i) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     int.change_state(StateChange::Dimen(RegisterStateChange {
@@ -303,13 +434,13 @@ pub trait ExternalCommand {
 
 #[derive(Clone)]
 pub enum ParamToken {
-    Param(u8),
+    Param(u8,u8),
     Token(Token)
 }
 impl PartialEq for ParamToken {
     fn eq(&self, other: &Self) -> bool {
         match (self,other) {
-            (ParamToken::Param(a),ParamToken::Param(b)) => a == b,
+            (ParamToken::Param(a1,a2),ParamToken::Param(b1,b2)) => a1 == b1 && a2 == b2,
             (ParamToken::Token(a),ParamToken::Token(b)) => a == b,
             _ => false
         }
@@ -317,8 +448,8 @@ impl PartialEq for ParamToken {
 }
 impl ParamToken {
     pub fn as_string(&self) -> String { match self {
-        ParamToken::Param(0) => "##".to_owned(),
-        ParamToken::Param(i) => "#".to_owned() + &i.to_string(),
+        ParamToken::Param(0,_) => "##".to_owned(),
+        ParamToken::Param(i,_) => "#".to_owned() + &i.to_string(),
         ParamToken::Token(tk) => tk.as_string()
     } }
 }
@@ -326,7 +457,7 @@ impl Display for ParamToken {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use ansi_term::Colour::*;
         match self {
-            ParamToken::Param(_) => write!(f,"{}",Yellow.paint(self.as_string())),
+            ParamToken::Param(_,_) => write!(f,"{}",Yellow.paint(self.as_string())),
             ParamToken::Token(t) => write!(f,"{}",t)
         }
     }
@@ -371,25 +502,17 @@ impl Display for ParamList<'_> {
     }
 }
 
-#[derive(Clone)]
-pub struct DefMacro {
-    pub name:String,
-    pub protected:bool,
-    pub long:bool,
-    pub sig:Signature,
-    pub ret:Vec<ParamToken>
-}
-impl Display for DefMacro {
+pub struct TokenList<'a>(&'a Vec<Token>);
+impl Display for TokenList<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"\\{}:{}{}{}{}",self.name,self.sig,"{",ParamList(&self.ret),"}")
+        for e in self.0 {
+            match e.catcode {
+                CategoryCode::Escape => write!(f,"\\{}",e.name())?,
+                _ => write!(f,"{}",from_utf8(&[e.char]).unwrap())?
+            }
+        }
+        write!(f,"")
     }
-}
-
-use crate::stomach::whatsits::ExecutableWhatsit;
-
-pub struct ProvidesExecutableWhatsit {
-    pub name: &'static str,
-    pub _get: fn(tk:Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
 }
 
 #[derive(Clone)]
@@ -398,9 +521,9 @@ pub enum ProvidesWhatsit {
     Other
 }
 impl ProvidesWhatsit {
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> Option<String> {
         match self {
-            ProvidesWhatsit::Exec(e) => e.name.to_string(),
+            ProvidesWhatsit::Exec(e) => Some(e.name.to_string()),
             _ => todo!()
         }
     }
@@ -413,7 +536,7 @@ pub enum TeXCommand {
     Ext(Rc<dyn ExternalCommand>),
     Cond(&'static Conditional),
     Int(&'static IntCommand),
-    Char((String,Token)),
+    Char(Token),
     Ass(&'static PrimitiveAssignment),
     Def(Rc<DefMacro>),
     Whatsit(ProvidesWhatsit)
@@ -457,24 +580,93 @@ impl fmt::Display for TeXCommand {
                 write!(f,"\\{}",p.name),
             TeXCommand::Ext(p) =>
                 write!(f,"External \\{}",p.name()),
-            _ => write!(f,"\\{}",self.name())
+            TeXCommand::AV(av) => av.fmt(f),
+            TeXCommand::Def(d) => std::fmt::Display::fmt(&d, f),
+            TeXCommand::Whatsit(wi) => wi.fmt(f),
+            TeXCommand::Ass(a) =>
+                write!(f,"\\{}",a.name),
+            TeXCommand::Char(tk) => tk.fmt(f)
         }
     }
 }
+
 impl TeXCommand {
-    pub fn defmacro(_tks : Vec<Token>,_source:Rc<Token>,_protected:bool) -> TeXCommand {
-        todo!("commands.rs 33")
-    }
-    pub fn name(&self) -> String {
+    pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> String {
+        use TeXCommand::*;
+        use std::str::FromStr;
         match self {
-            TeXCommand::Char((a,_)) => a.to_string(),
-            TeXCommand::Ass(a) => a.name.to_string(),
-            TeXCommand::Primitive(pr) => pr.name.to_string(),
+            Char(c) => match c.catcode {
+                CategoryCode::Space => "blank space ".to_string(),
+                CategoryCode::Letter => "the letter ".to_string() + from_utf8(&[c.char]).unwrap(),
+                CategoryCode::Other => "the character ".to_string() + from_utf8(&[c.char]).unwrap(),
+                _ => todo!("{}",self)
+            }
+            TeXCommand::Def(d) => {
+                let escape = if catcodes.escapechar != 255 {from_utf8(&[catcodes.escapechar]).unwrap().to_string()} else {"".to_string()};
+                let mut meaning = "".to_string();
+                if d.protected {
+                    meaning += &escape;
+                    meaning += "protected "
+                }
+                if d.long {
+                    meaning += &escape;
+                    meaning += "long "
+                }
+                meaning += "macro:";
+                for s in &d.sig.elems {
+                    match s {
+                        ParamToken::Token(tk) => {
+                            match tk.catcode {
+                                CategoryCode::Escape => {
+                                    meaning += &escape;
+                                    meaning += &tk.name();
+                                    meaning += " "
+                                }
+                                _ => meaning += from_utf8(&[tk.char]).unwrap()
+                            }
+                        },
+                        ParamToken::Param(0,u) => meaning += from_utf8(&[*u,*u]).unwrap(),
+                        ParamToken::Param(i,u) => {
+                            meaning += from_utf8(&[*u]).unwrap();
+                            meaning += &i.to_string();
+                        }
+                    }
+                }
+                meaning += "->";
+                for s in &d.ret {
+                    match s {
+                        ParamToken::Token(tk) => {
+                            match tk.catcode {
+                                CategoryCode::Escape => {
+                                    meaning += &escape;
+                                    meaning += &tk.name();
+                                    meaning += " "
+                                }
+                                _ => meaning += from_utf8(&[tk.char]).unwrap()
+                            }
+                        },
+                        ParamToken::Param(0,u) => meaning += from_utf8(&[*u,*u]).unwrap(),
+                        ParamToken::Param(i,u) => {
+                            meaning += from_utf8(&[*u]).unwrap();
+                            meaning += &i.to_string();
+                        }
+                    }
+                }
+                meaning
+            }
+            _ => todo!("{}",self)
+        }
+    }
+    pub fn name(&self) -> Option<String> {
+        match self {
+            TeXCommand::Char(_) => None,
+            TeXCommand::Ass(a) => Some(a.name.to_string()),
+            TeXCommand::Primitive(pr) => Some(pr.name.to_string()),
             TeXCommand::AV(av) => av.name(),
-            TeXCommand::Ext(jr) => jr.name(),
-            TeXCommand::Cond(c) => c.name.to_string(),
-            TeXCommand::Int(i) => i.name.to_string(),
-            TeXCommand::Def(d) => d.name.clone(),
+            TeXCommand::Ext(jr) => Some(jr.name()),
+            TeXCommand::Cond(c) => Some(c.name.to_string()),
+            TeXCommand::Int(i) => Some(i.name.to_string()),
+            TeXCommand::Def(_) => None,
             TeXCommand::Whatsit(wi) => wi.name()
         }
     }
@@ -499,8 +691,8 @@ impl TeXCommand {
     pub fn as_hasnum(self) -> Result<HasNum,TeXCommand> {
         match self {
             TeXCommand::AV(av) => match av {
-                AssignableValue::Register((d,s)) => Ok(HasNum::Register((d,s))),//Some(HasNum::AssDim(d)),
-                AssignableValue::Dim((d,s)) => Ok(HasNum::Dim((d,s))),//Some(HasNum::AssDim(d)),
+                AssignableValue::Register(s) => Ok(HasNum::Register(s)),//Some(HasNum::AssDim(d)),
+                AssignableValue::Dim(s) => Ok(HasNum::Dim(s)),//Some(HasNum::AssDim(d)),
                 AssignableValue::Int(d) => Ok(HasNum::AssInt(d)),
                 AssignableValue::PrimDim(d) => Ok(HasNum::PrimDim(d)),
                 AssignableValue::PrimReg(d) => Ok(HasNum::PrimReg(d)),

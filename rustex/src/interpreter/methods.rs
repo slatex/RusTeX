@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use crate::catcodes::CategoryCode;
 use crate::interpreter::Interpreter;
 use crate::ontology::Token;
@@ -6,7 +5,6 @@ use crate::utils::TeXError;
 use std::str::FromStr;
 use crate::commands::{Expandable, TeXCommand};
 use crate::{TeXErr,FileEnd};
-use crate::commands::primitives::NOEXPAND;
 
 
 impl Interpreter<'_> {
@@ -160,13 +158,9 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Active | CategoryCode::Escape if expand => {
+                CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
                     let cmd = self.get_command(&next.cmdname())?.as_expandable();
                     match cmd {
-                        Ok(Expandable::Primitive(x)) if *x == NOEXPAND => {
-                            self.assert_has_next()?;
-                            for t in (f)(self.next_token(),self)? {ret.push(t)}
-                        }
                         Ok(Expandable::Primitive(x)) if the && (*x == THE || *x == UNEXPANDED) => {
                             match (x._apply)(next,self)? {
                                 Some(e) => {
@@ -241,7 +235,7 @@ impl Interpreter<'_> {
                         Err(p) => match p.as_expandable_with_protected() {
                             Ok(e) => e.expand(next,self)?,
                             Err(e) => match e {
-                                TeXCommand::Char((_,tk)) => return Ok(if isnegative {-(tk.char as i32)} else {tk.char as i32}),
+                                TeXCommand::Char(tk) => return Ok(if isnegative {-(tk.char as i32)} else {tk.char as i32}),
                                 _ => TeXErr!(self,"Number expected; found {}",next)
                             }
                         }

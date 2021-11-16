@@ -26,11 +26,16 @@ pub struct Token {
     pub char : u8,
     pub catcode : CategoryCode,
     pub name_opt: Option<String>,
-    pub reference: Box<SourceReference>
+    pub reference: Box<SourceReference>,
+    pub(in crate) expand:bool
 }
 impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
-        self.char == other.char && self.catcode == other.catcode && self.name_opt == other.name_opt
+        self.char == other.char && self.catcode == other.catcode && match (self.name_opt.as_ref(),other.name_opt.as_ref()) {
+            (None,None) => true,
+            (Some(a),Some(b)) => a == b,
+            _ => false
+        }
     }
 }
 impl Display for Token {
@@ -57,8 +62,8 @@ impl Display for Token {
 impl Token {
     pub fn name(&self) -> String {
         match &self.name_opt {
-            Some(name) => name.to_owned(),
-            None => from_utf8(&[self.char]).expect("This should not happen").to_owned()
+            Some(name) => name.to_string(),
+            None => from_utf8(&[self.char]).expect("This should not happen").to_string()
         }
     }
     pub fn cmdname(&self) -> String {
@@ -79,7 +84,8 @@ impl Token {
             char: 0,
             catcode: CategoryCode::Escape,
             name_opt: Some("relax".to_string()),
-            reference: Box::new(SourceReference::None)
+            reference: Box::new(SourceReference::None),
+            expand:false
         }
     }
     pub fn copied(&self,exp:Rc<Expansion>) -> Token {
@@ -92,7 +98,8 @@ impl Token {
                 char: self.char,
                 catcode: self.catcode,
                 name_opt: self.name_opt.clone(),
-                reference: Box::new(nref)
+                reference: Box::new(nref),
+                expand:true
             }
         } else { todo!() }
     }

@@ -147,7 +147,8 @@ impl StringMouth {
                 char: 0,
                 catcode: CategoryCode::EOL,
                 name_opt: Some("EOF".to_owned()),
-                reference: Box::new(SourceReference::None)
+                reference: Box::new(SourceReference::None),
+                expand:true
             })
         }
         match ret.last() {
@@ -291,7 +292,8 @@ impl StringMouth {
                                                 char: next.0,
                                                 catcode: CategoryCode::Ignored,
                                                 name_opt: None,
-                                                reference: Box::new(SourceReference::File(nrf))
+                                                reference: Box::new(SourceReference::File(nrf)),
+                                                expand:true
                                             };
                                             ltxf.add(LaTeXObject::Token(tk))
                                             // TODO
@@ -385,7 +387,8 @@ impl StringMouth {
                                 char,
                                 catcode: CategoryCode::Escape,
                                 name_opt: Some(from_utf8(&[tk]).unwrap().to_owned()),
-                                reference: Box::new(self.make_reference(l,p))
+                                reference: Box::new(self.make_reference(l,p)),
+                                expand:true
                             }
                         }
                         None => {
@@ -393,7 +396,8 @@ impl StringMouth {
                                 char,
                                 catcode: CategoryCode::Escape,
                                 name_opt: Some("".to_owned()),
-                                reference: Box::new(self.make_reference(l,p))
+                                reference: Box::new(self.make_reference(l,p)),
+                                expand:true
                             }
                         }
                         _ => {
@@ -433,7 +437,8 @@ impl StringMouth {
                                 char,
                                 catcode: CategoryCode::Escape,
                                 name_opt: Some(name),
-                                reference: Box::new(self.make_reference(l,p))
+                                reference: Box::new(self.make_reference(l,p)),
+                                expand:true
                             }
                         }
                     }
@@ -444,7 +449,8 @@ impl StringMouth {
                         char,
                         catcode:CategoryCode::Space,
                         name_opt:None,
-                        reference: Box::new(self.make_reference(l,p))
+                        reference: Box::new(self.make_reference(l,p)),
+                        expand:true
                     }
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
@@ -459,7 +465,8 @@ impl StringMouth {
                         char,
                         catcode:CategoryCode::Escape,
                         name_opt:Some("par".to_owned()),
-                        reference:Box::new(self.make_reference(l,p))
+                        reference:Box::new(self.make_reference(l,p)),
+                        expand:true
                     }
                 }
                 CategoryCode::Space if matches!(self.mouth_state,MouthState::M) => {
@@ -468,7 +475,8 @@ impl StringMouth {
                         char,
                         catcode:CategoryCode::Space,
                         name_opt:None,
-                        reference:Box::new(self.make_reference(l,p))
+                        reference:Box::new(self.make_reference(l,p)),
+                        expand:true
                     }
                 }
                 o => {
@@ -477,7 +485,8 @@ impl StringMouth {
                         char,
                         catcode:o,
                         name_opt:None,
-                        reference:Box::new(self.make_reference(l,p))
+                        reference:Box::new(self.make_reference(l,p)),
+                        expand:true
                     }
                 }
             };

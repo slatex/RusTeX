@@ -30,7 +30,8 @@ pub fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
             catcode: cats.get_code(*next),
             name_opt: None,
             char: *next,
-            reference: Box::new(SourceReference::None)
+            reference: Box::new(SourceReference::None),
+            expand:true
         })
     }
     retvec
@@ -164,7 +165,7 @@ impl Interpreter<'_> {
                         Some(e) => Ok(self.push_expansion(e))
                     },
                     TeXCommand::Ext(exec) =>
-                        exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + exec.name().as_str() + " errored!")),
+                        exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),
                     _ => todo!("{}",next.as_string())
 
                 }

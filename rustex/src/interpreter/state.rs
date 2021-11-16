@@ -40,16 +40,16 @@ impl StackFrame {
         use crate::commands::pdftex::pdftex_commands;
         let mut cmds: HashMap<String,Option<TeXCommand>> = HashMap::new();
         for c in conditional_commands() {
-            cmds.insert(c.name(),Some(c));
+            cmds.insert(c.name().unwrap().to_string(),Some(c));
         }
         for c in tex_commands() {
-            cmds.insert(c.name(),Some(c));
+            cmds.insert(c.name().unwrap().to_string(),Some(c));
         }
         for c in etex_commands() {
-            cmds.insert(c.name(),Some(c));
+            cmds.insert(c.name().unwrap().to_string(),Some(c));
         }
         for c in pdftex_commands() {
-            cmds.insert(c.name(),Some(c));
+            cmds.insert(c.name().unwrap().to_string(),Some(c));
         }
         let reg: HashMap<i16,i32> = HashMap::new();
         let dims: HashMap<i16,i32> = HashMap::new();
@@ -103,7 +103,7 @@ impl State {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
-            let name = p.name();
+            let name = p.name().unwrap().to_string();
             st.stacks.last_mut().unwrap().commands.insert(name,Some(p));
         }
         st
@@ -237,8 +237,8 @@ pub fn default_pdf_latex_state() -> State {
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
 
-    println!("{}",pdftex_cfg.to_str().expect("wut"));
-    println!("{}",latex_ltx.to_str().expect("wut"));
+    //println!("{}",pdftex_cfg.to_str().expect("wut"));
+    //println!("{}",latex_ltx.to_str().expect("wut"));
     st = Interpreter::do_file_with_state(&pdftex_cfg,st);
     st = Interpreter::do_file_with_state(&latex_ltx,st);
     st

@@ -50,14 +50,14 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         int.change_state(StateChange::Cs(CommandChange {
-            name: c.cmdname(),
-            cmd: Some(TeXCommand::Char((c.cmdname(),
-                Token {
-                char: num as u8,
-                catcode: CategoryCode::Other,
-                name_opt: None,
-                reference: Box::new(SourceReference::None)
-            }))),
+            name: c.cmdname().to_owned(),
+            cmd: Some(TeXCommand::Char(Token {
+                    char: num as u8,
+                    catcode: CategoryCode::Other,
+                    name_opt: None,
+                    reference: Box::new(SourceReference::None),
+                    expand:true
+            })),
             global
         }));
         Ok(())
@@ -94,8 +94,8 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()?;
 
         int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Register(( num as u8, cmd.cmdname())))),
+            name: cmd.cmdname().to_owned(),
+            cmd: Some(TeXCommand::AV(AssignableValue::Register(num as u8))),
             global
         }));
         Ok(())
@@ -162,39 +162,39 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                     }
                     _ if currarg == 1 && next.char == 49 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(1))
+                        retsig.push(ParamToken::Param(1,next.char))
                     }
                     _ if currarg == 2 && next.char == 50 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(2))
+                        retsig.push(ParamToken::Param(2,next.char))
                     }
                     _ if currarg == 3 && next.char == 51 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(3))
+                        retsig.push(ParamToken::Param(3,next.char))
                     }
                     _ if currarg == 4 && next.char == 52 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(4))
+                        retsig.push(ParamToken::Param(4,next.char))
                     }
                     _ if currarg == 5 && next.char == 53 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(5))
+                        retsig.push(ParamToken::Param(5,next.char))
                     }
                     _ if currarg == 6 && next.char == 54 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(6))
+                        retsig.push(ParamToken::Param(6,next.char))
                     }
                     _ if currarg == 7 && next.char == 55 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(7))
+                        retsig.push(ParamToken::Param(7,next.char))
                     }
                     _ if currarg == 8 && next.char == 56 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(8))
+                        retsig.push(ParamToken::Param(8,next.char))
                     }
                     _ if currarg == 9 && next.char == 57 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(9))
+                        retsig.push(ParamToken::Param(9,next.char))
                     }
                     _ => TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
                 }
@@ -220,7 +220,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                 i.assert_has_next()?;
                 let next = i.next_token();
                 match next.catcode {
-                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0))),
+                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,next.char))),
                     _ => {
                         let num = match from_utf8(&[next.char]) {
                             Ok(n) => match n.parse::<u8>() {
@@ -232,7 +232,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                         if num < 1 || num > arity {
                             TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                         }
-                        Ok(Some(ParamToken::Param(num)))
+                        Ok(Some(ParamToken::Param(num,next.char)))
                     }
                 }
             }
@@ -241,14 +241,13 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
     }))?;
     log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
     let dm = DefMacro {
-        name: command.cmdname(),
         protected,
         long,
         sig,
         ret
     };
     int.change_state(StateChange::Cs(CommandChange {
-        name: command.cmdname(),
+        name: command.cmdname().to_string(),
         cmd: Some(TeXCommand::Def(Rc::new(dm))),
         global
     }));
@@ -292,10 +291,10 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             CategoryCode::Escape | CategoryCode::Active => {
                 int.state_get_command(&def.cmdname())
             }
-            _ => Some(TeXCommand::Char((def.name(),def)))
+            _ => Some(TeXCommand::Char(def))
         };
         int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname(),
+            name: cmd.cmdname().to_owned(),
             cmd: ch,
             global
         }));
@@ -415,7 +414,7 @@ use crate::utils::u8toi16;
 fn get_inrv(int:&Interpreter) -> Result<(i16,i32,u8,i32),TeXError> {
     let cmd = int.read_command_token()?;
     let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
-        TeXCommand::AV(AssignableValue::Register((i,_))) => (u8toi16(i),int.state_register(u8toi16(i)),0),
+        TeXCommand::AV(AssignableValue::Register(i)) => (u8toi16(i),int.state_register(u8toi16(i)),0),
         TeXCommand::AV(AssignableValue::PrimReg(_)) => todo!(),
         TeXCommand::AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = u8toi16(int.read_number()? as u8);
@@ -499,7 +498,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 cs: reg,
                 exp: Interpreter::string_to_tokens(&int.state_register(-u8toi16(i.index)).to_string())
             })),
-            TeXCommand::AV(AssignableValue::Register((i,_))) => Ok(Some(Expansion {
+            TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(Expansion {
                 cs: reg,
                 exp: Interpreter::string_to_tokens(&int.state_register(u8toi16(i)).to_string())
             })),
@@ -590,9 +589,8 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             toks.push(ParamToken::Token(tk))
         }
         int.change_state(StateChange::Cs(CommandChange {
-            name: newcmd.cmdname(),
+            name: newcmd.cmdname().to_owned(),
             cmd: Some(TeXCommand::Def(Rc::new(DefMacro {
-                name: "".to_string(),
                 protected: false,
                 long: false,
                 sig: Signature {
@@ -617,6 +615,15 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!(int,"Begin group token expected after \\write")
         }
+
+        let ret = int.read_token_list(true,false)?;
+        let string = int.tokens_to_string(ret);
+        return Ok(ExecutableWhatsit {
+            _apply: Box::new(move |int| {
+                int.file_write(num,string)
+            })
+        });
+        /*
         let mut ingroups = 0;
         let mut ret : Vec<Token> = Vec::new();
         while int.has_next() {
@@ -662,6 +669,79 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
             }
         }
         FileEnd!(int)
+         */
+    }
+};
+
+pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noexpand",
+    expandable:true,
+    _apply:|cs,int| {
+        int.assert_has_next()?;
+        let next = int.next_token();
+        int.requeue(Token {
+            char: next.char,
+            catcode: next.catcode,
+            name_opt: next.name_opt,
+            reference: next.reference,
+            expand: false
+        });
+        Ok(None)
+    }
+};
+
+pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"expandafter",
+    expandable:true,
+    _apply:|cs,int| {
+        int.assert_has_next()?;
+        let tmp = int.next_token();
+        int.assert_has_next()?;
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                    Ok(exp) => {
+                        let mut ret = exp.get_expansion(next,int)?;
+                        ret.insert(0,tmp);
+                        Ok(Some(Expansion {
+                            cs,
+                            exp: ret
+                        }))
+                    },
+                    Err(_) => Ok(Some(Expansion {
+                        cs,
+                        exp: vec![tmp,next]
+                    }))
+                }
+            },
+            _ => Ok(Some(Expansion {
+                cs,
+                exp: vec![tmp,next]
+            }))
+        }
+    }
+};
+
+pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"meaning",
+    expandable:true,
+    _apply:|cs,int| {
+        int.assert_has_next()?;
+        let next = int.next_token();
+        let string = match next.catcode {
+            CategoryCode::Active | CategoryCode::Escape => {
+                match int.state_get_command(&next.cmdname()) {
+                    None => "undefined".to_owned(),
+                    Some(p) => p.meaning(&int.state_catcodes())
+                }
+            }
+            _ => TeXCommand::Char(next).meaning(&int.state_catcodes())
+        };
+        Ok(Some(Expansion {
+            cs,
+            exp: Interpreter::string_to_tokens(&string)
+        }))
     }
 };
 
@@ -1043,12 +1123,6 @@ pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"expandafter",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
     expandable:false,
@@ -1115,12 +1189,6 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
-    name:"meaning",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"message",
     expandable:false,
@@ -1129,12 +1197,6 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static MUEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"muexpr",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
-    name:"noexpand",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };
@@ -1631,6 +1693,9 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Int(&YEAR),
     TeXCommand::Int(&MONTH),
     TeXCommand::Int(&DAY),
+    TeXCommand::Primitive(&NOEXPAND),
+    TeXCommand::Primitive(&EXPANDAFTER),
+    TeXCommand::Primitive(&MEANING),
 
     TeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     TeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -1703,7 +1768,6 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&EQNO),
     TeXCommand::Primitive(&ERRMESSAGE),
     TeXCommand::Primitive(&ERRORSTOPMODE),
-    TeXCommand::Primitive(&EXPANDAFTER),
     TeXCommand::Primitive(&EXPANDED),
     TeXCommand::Primitive(&FONTNAME),
     TeXCommand::Primitive(&FONTCHARWD),
@@ -1715,10 +1779,8 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&INPUTLINENO),
     TeXCommand::Primitive(&JOBNAME),
     TeXCommand::Primitive(&LOWERCASE),
-    TeXCommand::Primitive(&MEANING),
     TeXCommand::Primitive(&MESSAGE),
     TeXCommand::Primitive(&MUEXPR),
-    TeXCommand::Primitive(&NOEXPAND),
     TeXCommand::Primitive(&NULLFONT),
     TeXCommand::Primitive(&NUMEXPR),
     TeXCommand::Primitive(&ROMANNUMERAL),

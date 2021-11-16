@@ -28,7 +28,7 @@ fn do_test() {
 }
 
 //use ansi_term::Colour;
-use chrono::{DateTime,Local};
+//use chrono::{DateTime,Local};
 
 fn main() {
     //eprintln!("{}, {}, {}, {}, {}, {}, {}, {}","black".black(),"red".red(),"green".green(),"blue".blue(),"magenta".magenta(),"purple".purple(),"cyan".cyan(),"white".white());
@@ -41,7 +41,7 @@ fn main() {
     //"bla bla\n bla bla".as_bytes().iter_mut().multipeek()
     // https://doc.rust-lang.org/book/ch15-04-rc.html
 
-    let now = Local::now();
+    //let now = Local::now();
     do_latexltx()
 
 
