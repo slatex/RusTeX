@@ -3,14 +3,14 @@ use crate::utils::{TEXMF1,TEXMF2};
 use std::fs;
 
 #[derive(Clone)]
-enum VFileBase {
+pub enum VFileBase {
     Real(PathBuf),
     Virtual
 }
 
 #[derive(Clone)]
 pub struct VFile {
-    source:VFileBase,
+    pub source:VFileBase,
     pub(in crate::interpreter) string: Option<String>,
     pub(in crate::interpreter) id : String
 }
@@ -41,7 +41,7 @@ impl VFile {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Some(LANGUAGE_DAT.to_string()),
-                        id:simplename
+                        id:simplename,
                     }
                 } else if simplename == "<texmf>/UNICODEDATA.TXT" {
                     VFile {

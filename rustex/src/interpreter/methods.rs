@@ -4,7 +4,7 @@ use crate::ontology::Token;
 use crate::utils::TeXError;
 use std::str::FromStr;
 use crate::commands::{Expandable, TeXCommand};
-use crate::{TeXErr,FileEnd};
+use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim};
 
 impl Interpreter<'_> {
@@ -219,12 +219,13 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
+    pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
         let mut isfloat = false;
         let mut ret = "".to_string();
         self.skip_ws();
+        log!("Reading number {}",self.preview());
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -271,7 +272,7 @@ impl Interpreter<'_> {
                     self.requeue(next);
                     return self.num_do_ret(ishex,isnegative,allowfloat,ret)
                 }
-                _ => todo!("{},{}: {}",next.as_string(),self.current_line(),self.preview())
+                _ => todo!("{},{}: {}",next,self.current_line(),self.preview())
             }
         }
         FileEnd!(self)

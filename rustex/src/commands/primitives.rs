@@ -304,6 +304,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
 }
 
 use crate::commands::Expandable;
+use crate::interpreter::dimensions::Numeric;
 use crate::stomach::whatsits::ExecutableWhatsit;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
@@ -472,31 +473,32 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
 };
 
 use crate::utils::u8toi16;
-fn get_inrv(int:&Interpreter) -> Result<(i16,i32,u8,i32),TeXError> {
+fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
     let cmd = int.read_command_token()?;
-    let (index,num,regdimskip) : (i16,i32,u8) = match int.get_command(&cmd.cmdname())? {
-        TeXCommand::AV(AssignableValue::Register(i)) => (u8toi16(i),int.state_register(u8toi16(i)),0),
-        TeXCommand::AV(AssignableValue::PrimReg(_)) => todo!(),
+    int.read_keyword(vec!("by"))?;
+    let (index,num,val) : (i16,Numeric,Numeric) = match int.get_command(&cmd.cmdname())? {
+        TeXCommand::AV(AssignableValue::Register(i)) =>
+            (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?),
+        TeXCommand::AV(AssignableValue::PrimReg(r)) =>
+            (-u8toi16(r.index),Numeric::Int(int.state_register(-u8toi16(r.index))),int.read_number_i(false)?),
         TeXCommand::AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = u8toi16(int.read_number()? as u8);
-            (i,int.state_register(i),0)
+            (i,Numeric::Int(int.state_register(i)),int.read_number_i(false)?)
         }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
     };
-    int.read_keyword(vec!("by"))?;
-    let val = int.read_number()?;
-    Ok((index,num,regdimskip,val))
+    Ok((index,num,val))
 }
 pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     name: "divide",
     _assign: |int,global| {
-        let (index,num,regdimskip,div) = get_inrv(int)?;
+        let (index,num,div) = get_inrv(int)?;
         log!("\\divide sets {} to {}",index,num/div);
-        let ch = match regdimskip {
-            0 => StateChange::Register(RegisterStateChange {
+        let ch = match (num,div) {
+            (Numeric::Int(num),Numeric::Int(div)) => StateChange::Register(RegisterStateChange {
                 index,
-                value: num / div,
+                value: num/ div,
                 global
             }),
             _ => todo!()
@@ -508,10 +510,10 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
 pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     name: "multiply",
     _assign: |int,global| {
-        let (index,num,regdimskip,fac) = get_inrv(int)?;
+        let (index,num,fac) = get_inrv(int)?;
         log!("\\multiply sets {} to {}",index,num*fac);
-        let ch = match regdimskip {
-            0 => StateChange::Register(RegisterStateChange {
+        let ch = match (num,fac) {
+            (Numeric::Int(num),Numeric::Int(fac)) => StateChange::Register(RegisterStateChange {
                 index,
                 value: num * fac,
                 global
@@ -525,10 +527,10 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
 pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     name: "advance",
     _assign: |int,global| {
-        let (index,num,regdimskip,sum) = get_inrv(int)?;
+        let (index,num,sum) = get_inrv(int)?;
         log!("\\advance sets {} to {}",index,num+sum);
-        let ch = match regdimskip {
-            0 => StateChange::Register(RegisterStateChange {
+        let ch = match (num,sum) {
+            (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(RegisterStateChange {
                 index,
                 value: num + sum,
                 global
@@ -899,7 +901,7 @@ pub static DOUBLEHYPHENDEMERITS : RegisterReference = RegisterReference {
 };
 
 pub static FINALHYPHENDEMERITS : RegisterReference = RegisterReference {
-    name: "pdfoutput",
+    name: "finalhyphendemerits",
     index:20
 };
 

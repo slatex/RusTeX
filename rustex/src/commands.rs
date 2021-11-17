@@ -143,6 +143,7 @@ pub enum HasNum {
     Dim(u8),
     Register(u8),
     Skip(u8),
+    Char(u32),
     AssInt(&'static AssValue<i32>),
     Int(&'static IntCommand),
     PrimReg(&'static RegisterReference),
@@ -165,6 +166,7 @@ impl HasNum {
             PrimDim(r) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
             PrimSkip(r) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
             Ext(r) => r.get_num(int),
+            Char(u) => Ok(Numeric::Int(*u as i32))
         }
     }
 }
@@ -213,6 +215,7 @@ impl Expandable {
                             todo!()
                         },
                         None | Some(ParamToken::Param(_,_)) => {
+                            int.skip_ws();
                             let next = int.read_argument()?;
                             args.push(next);
                         },
@@ -312,6 +315,7 @@ use crate::interpreter::state::{StateChange,RegisterStateChange,SkipStateChange}
 impl Assignment {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
         use crate::utils::u8toi16;
+        use crate::interpreter::dimensions::dimtostr;
         match self {
             Assignment::Prim(p) => (p._assign)(int,global),
             Assignment::Value(av) => match av {
@@ -330,6 +334,7 @@ impl Assignment {
                 AssignableValue::Dim(i) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
+                    log!("Assign dimen register {} to {}",i,dimtostr(num));
                     int.change_state(StateChange::Dimen(RegisterStateChange {
                         index: u8toi16(*i),
                         value: num,
@@ -340,6 +345,7 @@ impl Assignment {
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
+                    log!("Assign skip register {} to {}",i,num);
                     int.change_state(StateChange::Skip(SkipStateChange {
                         index: u8toi16(*i),
                         value: num,
@@ -350,6 +356,7 @@ impl Assignment {
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
+                    log!("Assign {} to {}",r.name,num);
                     int.change_state(StateChange::Skip(SkipStateChange {
                         index: -u8toi16(r.index),
                         value: num,
@@ -362,6 +369,7 @@ impl Assignment {
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
+                    log!("Assign {} to {}",r.name,num);
                     int.change_state(StateChange::Register(RegisterStateChange {
                         index: -u8toi16(r.index),
                         value: num,
@@ -372,6 +380,7 @@ impl Assignment {
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
+                    log!("Assign {} to {}",r.name,dimtostr(num));
                     int.change_state(StateChange::Dimen(RegisterStateChange {
                         index: -u8toi16(r.index),
                         value: num,
@@ -672,6 +681,8 @@ impl TeXCommand {
             },
             TeXCommand::Ext(ext) if ext.has_num() => Ok(HasNum::Ext(ext)),
             TeXCommand::Int(i) => Ok(HasNum::Int(i)),
+            TeXCommand::MathChar(u) => Ok(HasNum::Char(u)),
+            TeXCommand::Char(u) => Ok(HasNum::Char(u.char as u32)),
             _ => Err(self)
         }
     }

@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 pub fn pt(f:f32) -> f32 { f * 65536.0 }
 pub fn inch(f:f32) -> f32 { pt(f) * 72.27 }
 pub fn cm(f:f32) -> f32 { inch(f) / 2.54 }
@@ -20,12 +22,30 @@ impl SkipDim {
             Filll(i) => Filll(-i)
         }
     }
+    pub fn to_string(&self) -> String {
+        use SkipDim::*;
+        match self {
+            Pt(i) =>
+                ((*i as f32) / 65536.0).to_string() + "pt",
+            Fil(i) =>
+                ((*i as f32) / 65536.0).to_string() + "fil",
+            Fill(i) =>
+                ((*i as f32) / 65536.0).to_string() + "fill",
+            Filll(i) =>
+                ((*i as f32) / 65536.0).to_string() + "filll",
+        }
+    }
 }
 #[derive(Copy,Clone)]
 pub struct Skip {
     pub base : i32,
     pub stretch : Option<SkipDim>,
     pub shrink: Option<SkipDim>
+}
+impl Display for Skip {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}",self.to_string())
+    }
 }
 impl Skip {
     pub fn negate(self) -> Skip {
@@ -35,8 +55,18 @@ impl Skip {
             shrink:self.shrink.map(|x| x.negate())
         }
     }
+    pub fn to_string(&self) -> String {
+        dimtostr(self.base) + &match self.stretch {
+            None => "".to_string(),
+            Some(s) => " plus ".to_string() + &s.to_string()
+        } + &match self.shrink {
+            None => "".to_string(),
+            Some(s) => " minus ".to_string() + &s.to_string()
+        }
+    }
 }
 
+#[derive(Copy,Clone)]
 pub enum Numeric {
     Int(i32),
     Dim(i32),
@@ -52,5 +82,54 @@ impl Numeric {
             Float(f) => Float(-f),
             Skip(sk) => Skip(sk.negate())
         }
+    }
+}
+pub fn dimtostr(dim:i32) -> String {
+    ((dim as f32) / 65536.0).to_string() + "pt"
+}
+impl Numeric {
+    fn as_string(&self) -> String {
+        use Numeric::*;
+        match self {
+            Int(i) => i.to_string(),
+            Dim(i) => dimtostr(*i),
+            Float(f) => f.to_string(),
+            Skip(sk) => sk.to_string()
+        }
+    }
+}
+impl std::ops::Div for Numeric {
+    type Output = Self;
+    fn div(self, rhs: Self) -> Self::Output {
+        use Numeric::*;
+        match (self,rhs) {
+            (Int(i),Int(j)) => Int(i/j),
+            _ => todo!("{}/{}",self,rhs)
+        }
+    }
+}
+impl std::ops::Mul for Numeric {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        use Numeric::*;
+        match (self,rhs) {
+            (Int(i),Int(j)) => Int(i*j),
+            _ => todo!("{}*{}",self,rhs)
+        }
+    }
+}
+impl std::ops::Add for Numeric {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        use Numeric::*;
+        match (self,rhs) {
+            (Int(i),Int(j)) => Int(i+j),
+            _ => todo!("{}+{}",self,rhs)
+        }
+    }
+}
+impl std::fmt::Display for Numeric {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}",self.as_string())
     }
 }

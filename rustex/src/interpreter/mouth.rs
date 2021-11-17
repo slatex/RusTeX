@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
@@ -340,7 +340,7 @@ impl StringMouth {
                                         }
                                     }
                                 }
-                                CategoryCode::Space if matches!(self.mouth_state,MouthState::N) => { }
+                                CategoryCode::Space if self.mouth_state == MouthState::N => { }
                                 CategoryCode::Superscript => {
                                     let string = self.string.as_ref().unwrap();
                                     let len = string.as_bytes()[self.pos..].len();
@@ -546,22 +546,28 @@ impl Mouths {
                         if m.has_next(catcodes,true) {return true} else {
                             match self.mouths.pop().unwrap() {
                                 Mouth::File(f) if self.mouths.is_empty() => {
+                                    print!(")\n");
                                     self.mouths.push(Mouth::File(f));
                                     return false
                                 }
                                 Mouth::File(fm) if STORE_IN_FILE => {
+                                    print!(")\n");
                                     let lastfile = self.mouths.iter_mut().rev().find(|x| match x {
                                         Mouth::File(_) => true,
                                         _ => false
                                     });
                                     match lastfile {
-                                        Some(Mouth::File(nfm)) =>
+                                        Some(Mouth::File(nfm)) => {
                                             match nfm.source.borrow_mut() {
                                                 StringMouthSource::File(f) => f.add(LaTeXObject::File(fm.source.pop_file().unwrap())),
                                                 _ => panic!("This can't happen!")
                                             }
+                                        }
                                         _ => panic!("This shouldn't happen!")
                                     }
+                                }
+                                Mouth::File(_) => {
+                                    print!(")\n");
                                 }
                                 _ => {}
                             }
@@ -645,6 +651,11 @@ impl Interpreter<'_> {
         self.mouths.borrow().preview().chars().map(|x| if x == '\r' {"\\r".to_string()} else {x.to_string()}).join("")
     }
     pub fn push_file(&self,file:VFile) {
+        use crate::interpreter::files::VFileBase;
+        print!("\n{}",match file.source {
+            VFileBase::Real(ref pb) => "(".to_string() + pb.to_str().unwrap(),
+            _ => "(".to_string() +  &file.id
+        });
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
         self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
