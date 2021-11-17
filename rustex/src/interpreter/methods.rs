@@ -208,7 +208,17 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Active | CategoryCode::Escape => todo!(),
+                CategoryCode::Active | CategoryCode::Escape => {
+                    let p = self.get_command(&next.cmdname())?;
+                    match p.as_expandable_with_protected() {
+                        Ok(p) => p.expand(next,self)?,
+                        Err(TeXCommand::Char(tk)) if tk.catcode == CategoryCode::Space => return Ok(i),
+                        Err(_) => {
+                            self.requeue(next);
+                            return Ok(i)
+                        }
+                    }
+                },
                 CategoryCode::Space => return Ok(i),
                 _ => {
                     self.requeue(next);
@@ -264,7 +274,7 @@ impl Interpreter<'_> {
                             let num = *next.cmdname().as_bytes().first().unwrap() as i32;
                             return self.expand_until_space(Numeric::Int(if isnegative { -num } else { num }))
                         }
-                        CategoryCode::Active | CategoryCode::Escape => todo!(),
+                        CategoryCode::Active | CategoryCode::Escape => todo!("{} ({}) >>{}{}",self.current_line(),next.cmdname().len(),next,self.preview()),
                         _ => return self.expand_until_space( Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
                     }
                 }

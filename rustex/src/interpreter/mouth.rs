@@ -379,10 +379,26 @@ impl StringMouth {
             let (char,l,p) = self.next_char(catcodes.endlinechar).unwrap();
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
+                    match &self.string {
+                        Some(s) => {
+                            if self.pos == s.len() {
+                                let tk = Token {
+                                    char,
+                                    catcode: CategoryCode::Escape,
+                                    name_opt: Some("".to_string()),
+                                    reference: Box::new(self.make_reference(l,p)),
+                                    expand:true
+                                };
+                                self.do_line(catcodes.endlinechar);
+                                return tk
+                            }
+                        }
+                        None => unreachable!()
+                    }
                     let mut buf : Vec<u8> = Vec::new();
                     let maybecomment = self.next_char(catcodes.endlinechar);
                     match maybecomment {
-                        Some((tk,_,_)) if matches!(catcodes.get_code(tk),CategoryCode::Comment) => {
+                        Some((tk,_,_)) if catcodes.get_code(tk) == CategoryCode::Comment => {
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
@@ -417,7 +433,7 @@ impl StringMouth {
                                     self.charbuffer = Some(nc);
                                     self.mouth_state = MouthState::S;
                                 }
-                                CategoryCode::EOL => self.mouth_state = MouthState::M,
+                                //CategoryCode::EOL => self.mouth_state = MouthState::M,
                                 CategoryCode::Space => {
                                     buf.push(nc.0);
                                     self.mouth_state = MouthState::S
