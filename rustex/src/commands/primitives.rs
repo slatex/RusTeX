@@ -149,7 +149,30 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     name:"protected",
-    _assign: |_int,_global| todo!()
+    _assign: |int,global| {
+        let mut long = false;
+        while int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    match int.get_command(&next.cmdname())? {
+                        TeXCommand::Ass(a) if *a == DEF => {
+                            return do_def(int,global,true,long,false)
+                        }
+                        TeXCommand::Ass(a) if *a == EDEF => {
+                            todo!()
+                        }
+                        TeXCommand::Ass(a) if *a == LONG => {
+                            long = true;
+                        }
+                        _ => TeXErr!(int,"Expected \\def or \\edef or \\long after \\protected: {}",next)
+                    }
+                }
+                _ => TeXErr!(int,"Expected control sequence or active character; got: {}",next)
+            }
+        }
+        FileEnd!(int)
+    }
 };
 
 pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
