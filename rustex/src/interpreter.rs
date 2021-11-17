@@ -122,6 +122,7 @@ impl Interpreter<'_> {
         };
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
         int.push_file(vf);
+        int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
             match int.do_top() {
                 Ok(_) => {},

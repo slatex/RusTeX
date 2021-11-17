@@ -446,6 +446,9 @@ impl StringMouth {
                             let name = match from_utf8(buf.as_slice()) {
                                 Ok(s) => s.to_owned(),
                                 Err(_) => {
+                                    for b in buf {
+                                        println!("{}",b)
+                                    }
                                     todo!()
                                 }
                             };
@@ -552,19 +555,18 @@ impl Mouths {
             buffer:None
         }
     }
-    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme) -> bool {
+    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme) -> Result<bool,EOF> {
         match self.buffer {
-            Some(_) => true,
+            Some(_) => Ok(true),
             _ => loop {
                 match self.mouths.last_mut() {
-                    None => return false,
+                    None => return Ok(false),
                     Some(m) => {
-                        if m.has_next(catcodes,true) {return true} else {
+                        if m.has_next(catcodes,true) {return Ok(true)} else {
                             match self.mouths.pop().unwrap() {
                                 Mouth::File(f) if self.mouths.is_empty() => {
-                                    print!(")\n");
                                     self.mouths.push(Mouth::File(f));
-                                    return false
+                                    return Ok(false)
                                 }
                                 Mouth::File(fm) if STORE_IN_FILE => {
                                     print!(")\n");
@@ -581,9 +583,11 @@ impl Mouths {
                                         }
                                         _ => panic!("This shouldn't happen!")
                                     }
+                                    return Err(EOF {})
                                 }
                                 Mouth::File(_) => {
                                     print!(")\n");
+                                    return Err(EOF {})
                                 }
                                 _ => {}
                             }
@@ -594,11 +598,11 @@ impl Mouths {
         }
     }
 
-    pub(in crate::interpreter) fn next_token(&mut self,catcodes:&CategoryCodeScheme) -> Token {
+    pub(in crate::interpreter::mouth) fn next_token(&mut self,catcodes:&CategoryCodeScheme) -> Result<Token,EOF> {
         match self.buffer {
-            Some(_) => self.buffer.take().unwrap(),
-            _ => if self.has_next(catcodes) {
-                self.mouths.last_mut().unwrap().get_next(catcodes)
+            Some(_) => Ok(self.buffer.take().unwrap()),
+            _ => if self.has_next(catcodes)? {
+                Ok(self.mouths.last_mut().unwrap().get_next(catcodes))
             } else {
                 panic!("Mouths empty!")
             }
@@ -621,13 +625,6 @@ impl Mouths {
             self.mouths.push(nm)
         }
     }
-    /*
-    pub(in crate::interpreter) fn push_file<'a>(&'a mut self,state : &'a State<'a>, file : VFile) {
-        let fm = StringMouth::new_from_file(state,file);
-        self.mouths.push(Mouth::File(fm))
-    }
-
-     */
     pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
         if self.buffer.is_some() { todo!() }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
@@ -668,10 +665,12 @@ impl Interpreter<'_> {
     }
     pub fn push_file(&self,file:VFile) {
         use crate::interpreter::files::VFileBase;
-        print!("\n{}",match file.source {
-            VFileBase::Real(ref pb) => "(".to_string() + pb.to_str().unwrap(),
-            _ => "(".to_string() +  &file.id
-        });
+        if !self.mouths.borrow().mouths.is_empty() {
+            print!("\n{}", match file.source {
+                VFileBase::Real(ref pb) => "(".to_string() + pb.to_str().unwrap(),
+                _ => "(".to_string() + &file.id
+            });
+        }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
         self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
@@ -682,12 +681,31 @@ impl Interpreter<'_> {
         self.mouths.borrow_mut().push_tokens(tks)
     }
     pub fn next_token(&self) -> Token {
-        self.mouths.borrow_mut().next_token(&self.state_catcodes())
+        let ret = self.mouths.borrow_mut().next_token(&self.state_catcodes());
+        match ret {
+            Ok(t) => t,
+            Err(_) => {
+                self.doeof();
+                self.next_token()
+            }
+        }
     }
     pub fn requeue(&self,token:Token) {
         self.mouths.borrow_mut().requeue(token)
     }
     pub fn has_next(&self) -> bool {
-        self.mouths.borrow_mut().has_next(&self.state_catcodes())
+        let ret = self.mouths.borrow_mut().has_next(&self.state_catcodes());
+        match ret {
+            Ok(t) => t,
+            Err(_) => {
+                self.doeof();
+                self.has_next()
+            }
+        }
+    }
+    pub(in crate::interpreter::mouth) fn doeof(&self) {
+        self.insert_every(&crate::commands::primitives::EVERYEOF)
     }
 }
+
+struct EOF {}

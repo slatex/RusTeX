@@ -1,8 +1,8 @@
-use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference};
+use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference, TokReference};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{CategoryCodeChange, CommandChange, GroupType, CharChange, RegisterStateChange, StateChange};
+use crate::interpreter::state::{GroupType, StateChange};
 use crate::utils::TeXError;
 use crate::{log,TeXErr,FileEnd};
 
@@ -26,11 +26,7 @@ pub static CATCODE : AssValue<i32> = AssValue {
         let num = int.read_number()? as u8;
         int.read_eq();
         let cat = CategoryCode::fromint(int.read_number()?);
-        int.change_state(StateChange::Cat(CategoryCodeChange {
-            char: num,
-            catcode: cat,
-            global
-        }));
+        int.change_state(StateChange::Cat(num,cat,global));
         Ok(())
     },
     _getvalue: |int| {
@@ -38,6 +34,22 @@ pub static CATCODE : AssValue<i32> = AssValue {
         Ok(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32)
     }
 };
+
+pub static SFCODE : AssValue<i32> = AssValue {
+    name:"sfcode",
+    _assign: |int,global| {
+        let char = int.read_number()? as u8;
+        int.read_eq();
+        let val = int.read_number()?;
+        int.change_state(StateChange::Sfcode(char,val,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let char = int.read_number()? as u8;
+        Ok(int.state_sfcode(char))
+    }
+};
+
 use crate::references::SourceReference;
 use std::rc::Rc;
 use std::str::from_utf8;
@@ -50,17 +62,13 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        int.change_state(StateChange::Cs(CommandChange {
-            name: c.cmdname().to_owned(),
-            cmd: Some(TeXCommand::Char(Token {
+        int.change_state(StateChange::Cs(c.cmdname().to_owned(),Some(TeXCommand::Char(Token {
                     char: num as u8,
                     catcode: CategoryCode::Other,
                     name_opt: None,
                     reference: Box::new(SourceReference::None),
                     expand:true
-            })),
-            global
-        }));
+            })),global));
         Ok(())
     }
 };
@@ -72,11 +80,7 @@ pub static COUNT : AssValue<i32> = AssValue {
         int.read_eq();
         let val = int.read_number()?;
         log!("\\count sets {} to {}",index,val);
-        int.change_state(StateChange::Register(RegisterStateChange {
-            index: index,
-            value: val,
-            global
-        }));
+        int.change_state(StateChange::Register(index,val,global));
         Ok(())
     },
     _getvalue: |int| {
@@ -94,11 +98,9 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname().to_owned(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Register(num as u8))),
-            global
-        }));
+        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+                                         Some(TeXCommand::AV(AssignableValue::Register(num as u8))),
+                                         global));
         Ok(())
     }
 };
@@ -110,11 +112,9 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname().to_owned(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Dim(num as u8))),
-            global
-        }));
+        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+                                         Some(TeXCommand::AV(AssignableValue::Dim(num as u8))),
+            global));
         Ok(())
     }
 };
@@ -126,11 +126,9 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname().to_owned(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Skip(num as u8))),
-            global
-        }));
+        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+                                         Some(TeXCommand::AV(AssignableValue::Skip(num as u8))),
+            global));
         Ok(())
     }
 };
@@ -142,11 +140,9 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname().to_owned(),
-            cmd: Some(TeXCommand::AV(AssignableValue::Toks(num as u8))),
-            global
-        }));
+        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+                                         Some(TeXCommand::AV(AssignableValue::Toks(num as u8))),
+            global));
         Ok(())
     }
 };
@@ -295,11 +291,9 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
         sig,
         ret
     };
-    int.change_state(StateChange::Cs(CommandChange {
-        name: command.cmdname().to_string(),
-        cmd: Some(TeXCommand::Def(Rc::new(dm))),
-        global
-    }));
+    int.change_state(StateChange::Cs(command.cmdname().to_string(),
+                                     Some(TeXCommand::Def(Rc::new(dm))),
+        global));
     Ok(())
 }
 
@@ -355,11 +349,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             }
             _ => Some(TeXCommand::Char(def))
         };
-        int.change_state(StateChange::Cs(CommandChange {
-            name: cmd.cmdname().to_owned(),
-            cmd: ch,
-            global
-        }));
+        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),ch,global));
         Ok(())
     }
 };
@@ -370,10 +360,7 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\newlinechar: {}",num);
-        int.change_state(StateChange::Newline(CharChange {
-            char: num,
-            global
-        }));
+        int.change_state(StateChange::Newline(num,global));
         Ok(())
     },
     _getvalue: |int| {
@@ -387,10 +374,7 @@ pub static ENDLINECHAR : AssValue<i32> = AssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\endlinechar: {}",num);
-        int.change_state(StateChange::Endline(CharChange {
-            char: num,
-            global
-        }));
+        int.change_state(StateChange::Endline(num,global));
         Ok(())
     },
     _getvalue: |int| {
@@ -496,11 +480,7 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,div) = get_inrv(int)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match (num,div) {
-            (Numeric::Int(num),Numeric::Int(div)) => StateChange::Register(RegisterStateChange {
-                index,
-                value: num/ div,
-                global
-            }),
+            (Numeric::Int(num),Numeric::Int(div)) => StateChange::Register(index,num/ div,global),
             _ => todo!()
         };
         int.change_state(ch);
@@ -513,11 +493,7 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,fac) = get_inrv(int)?;
         log!("\\multiply sets {} to {}",index,num*fac);
         let ch = match (num,fac) {
-            (Numeric::Int(num),Numeric::Int(fac)) => StateChange::Register(RegisterStateChange {
-                index,
-                value: num * fac,
-                global
-            }),
+            (Numeric::Int(num),Numeric::Int(fac)) => StateChange::Register(index,num * fac, global),
             _ => todo!()
         };
         int.change_state(ch);
@@ -530,11 +506,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,sum) = get_inrv(int)?;
         log!("\\advance sets {} to {}",index,num+sum);
         let ch = match (num,sum) {
-            (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(RegisterStateChange {
-                index,
-                value: num + sum,
-                global
-            }),
+            (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
             _ => todo!()
         };
         int.change_state(ch);
@@ -564,6 +536,14 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(Expansion {
                 cs: reg,
                 exp: Interpreter::string_to_tokens(&int.state_register(u8toi16(i)).to_string())
+            })),
+            TeXCommand::AV(AssignableValue::Toks(i)) => Ok(Some(Expansion {
+                cs: reg,
+                exp: int.state_tokens(u8toi16(i))
+            })),
+            TeXCommand::AV(AssignableValue::PrimToks(r)) => Ok(Some(Expansion {
+                cs: reg,
+                exp: int.state_tokens(-u8toi16(r.index))
             })),
             p => todo!("{}",p)
         }
@@ -651,9 +631,8 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         for tk in int.file_read(index,true)? {
             toks.push(ParamToken::Token(tk))
         }
-        int.change_state(StateChange::Cs(CommandChange {
-            name: newcmd.cmdname().to_owned(),
-            cmd: Some(TeXCommand::Def(Rc::new(DefMacro {
+        int.change_state(StateChange::Cs(newcmd.cmdname().to_owned(),
+            Some(TeXCommand::Def(Rc::new(DefMacro {
                 protected: false,
                 long: false,
                 sig: Signature {
@@ -663,8 +642,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
                 },
                 ret: toks
             }))),
-            global
-        }));
+            global));
         Ok(())
     }
 };
@@ -814,11 +792,8 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let chartok = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        int.change_state(StateChange::Cs(CommandChange {
-            name: chartok.cmdname(),
-            cmd: Some(TeXCommand::MathChar(num as u32)),
-            global
-        }));
+        int.change_state(StateChange::Cs(chartok.cmdname(),Some(TeXCommand::MathChar(num as u32)),
+            global));
         Ok(())
     }
 };
@@ -1334,6 +1309,58 @@ pub static XSPACESKIP : SkipReference = SkipReference {
 pub static BIGSKIPAMOUNT : SkipReference = SkipReference {
     name: "bigskipamount",
     index:23
+};
+
+// Tokens ------------------------------------------------------------------------------------------
+
+pub static EVERYJOB : TokReference = TokReference {
+    name:"everyjob",
+    index:5
+};
+
+pub static EVERYPAR : TokReference = TokReference {
+    name:"everypar",
+    index:6
+};
+
+pub static EVERYMATH : TokReference = TokReference {
+    name:"everymath",
+    index:7
+};
+
+pub static EVERYDISPLAY : TokReference = TokReference {
+    name:"everydisplay",
+    index:8
+};
+
+pub static EVERYHBOX : TokReference = TokReference {
+    name:"everyhbox",
+    index:9
+};
+
+pub static EVERYVBOX : TokReference = TokReference {
+    name:"everyvbox",
+    index:10
+};
+
+pub static EVERYCR : TokReference = TokReference {
+    name:"everycr",
+    index:11
+};
+
+pub static ERRHELP : TokReference = TokReference {
+    name:"errhelp",
+    index:12
+};
+
+pub static OUTPUT : TokReference = TokReference {
+    name:"output",
+    index:13
+};
+
+pub static EVERYEOF : TokReference = TokReference {
+    name:"everyeof",
+    index:14
 };
 
 
@@ -1964,6 +1991,7 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PAR),
     TeXCommand::Primitive(&RELAX),
     TeXCommand::AV(AssignableValue::Int(&CATCODE)),
+    TeXCommand::AV(AssignableValue::Int(&SFCODE)),
     TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
     TeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
     TeXCommand::AV(AssignableValue::Int(&COUNT)),
@@ -2103,6 +2131,17 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::PrimSkip(&SPACESKIP)),
     TeXCommand::AV(AssignableValue::PrimSkip(&XSPACESKIP)),
     TeXCommand::AV(AssignableValue::PrimSkip(&BIGSKIPAMOUNT)),
+
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYJOB)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYPAR)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYMATH)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYDISPLAY)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYHBOX)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYVBOX)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYCR)),
+    TeXCommand::AV(AssignableValue::PrimToks(&EVERYEOF)),
+    TeXCommand::AV(AssignableValue::PrimToks(&ERRHELP)),
+    TeXCommand::AV(AssignableValue::PrimToks(&OUTPUT)),
 
     // TODO ----------------------------------------------------------------------------------------
     TeXCommand::Primitive(&END),

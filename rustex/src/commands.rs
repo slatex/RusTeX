@@ -310,7 +310,7 @@ pub enum Assignment {
     Prim(&'static PrimitiveAssignment)
 }
 
-use crate::interpreter::state::{StateChange,RegisterStateChange,SkipStateChange};
+use crate::interpreter::state::StateChange;
 
 impl Assignment {
     pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
@@ -324,68 +324,54 @@ impl Assignment {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
-                    int.change_state(StateChange::Register(RegisterStateChange {
-                        index: u8toi16(*i),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Register(u8toi16(*i),num,global));
                     Ok(())
                 }
                 AssignableValue::Dim(i) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.change_state(StateChange::Dimen(RegisterStateChange {
-                        index: u8toi16(*i),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Dimen(u8toi16(*i),num,global));
                     Ok(())
                 }
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign skip register {} to {}",i,num);
-                    int.change_state(StateChange::Skip(SkipStateChange {
-                        index: u8toi16(*i),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Skip(u8toi16(*i),num,global));
                     Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Skip(SkipStateChange {
-                        index: -u8toi16(r.index),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Skip(-u8toi16(r.index),num,global));
                     Ok(())
                 },
-                AssignableValue::Toks(_) => todo!(),
-                AssignableValue::PrimToks(_) => todo!(),
+                AssignableValue::Toks(i) => {
+                    int.expand_until(false)?;
+                    let toks = int.read_token_list(false,false)?;
+                    int.change_state(StateChange::Tokens(u8toi16(*i),toks,global));
+                    Ok(())
+                },
+                AssignableValue::PrimToks(r) => {
+                    int.expand_until(false)?;
+                    let toks = int.read_token_list(false,false)?;
+                    int.change_state(StateChange::Tokens(-u8toi16(r.index),toks,global));
+                    Ok(())
+                },
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Register(RegisterStateChange {
-                        index: -u8toi16(r.index),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Register(-u8toi16(r.index),num,global));
                     Ok(())
                 },
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.change_state(StateChange::Dimen(RegisterStateChange {
-                        index: -u8toi16(r.index),
-                        value: num,
-                        global
-                    }));
+                    int.change_state(StateChange::Dimen(-u8toi16(r.index),num,global));
                     Ok(())
                 }
             } ,

@@ -31,7 +31,8 @@ struct StackFrame {
     pub(crate) dimensions: HashMap<i16,i32>,
     pub(crate) skips : HashMap<i16,Skip>,
     pub(crate) toks : HashMap<i16,Vec<Token>>,
-    pub(in crate::interpreter::state) tp : Option<GroupType>
+    pub(in crate::interpreter::state) tp : Option<GroupType>,
+    pub(crate) sfcodes : HashMap<u8,i32>
 }
 
 impl StackFrame {
@@ -59,6 +60,7 @@ impl StackFrame {
         let dims: HashMap<i16,i32> = HashMap::new();
         let skips: HashMap<i16,Skip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
+        let sfcodes: HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -67,7 +69,7 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
-            skips,toks,
+            skips,toks,sfcodes,
             tp:None
         }
     }
@@ -76,6 +78,7 @@ impl StackFrame {
         let dims: HashMap<i16,i32> = HashMap::new();
         let skips: HashMap<i16,Skip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
+        let sfcodes: HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -84,7 +87,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
-            skips,toks,
+            skips,toks,sfcodes,
             tp:Some(tp)
         }
     }
@@ -137,6 +140,15 @@ impl State {
         }
         0
     }
+    pub fn get_sfcode(&self, index:u8) -> i32 {
+        for sf in self.stacks.iter().rev() {
+            match sf.sfcodes.get(&index) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        0
+    }
     pub fn get_dimension(&self, index:i16) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.dimensions.get(&index) {
@@ -168,88 +180,116 @@ impl State {
     pub fn newlinechar(&self) -> u8 {
         self.stacks.last().expect("Stack frames empty").newlinechar
     }
+    pub fn tokens(&self,index:i16) -> Vec<Token> {
+        for sf in self.stacks.iter().rev() {
+            match sf.toks.get(&index) {
+                Some(r) => return r.clone(),
+                _ => {}
+            }
+        }
+        vec!()
+    }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
-            StateChange::Register(regch) => {
-                if regch.global {
+            StateChange::Register(index,value,global) => {
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.registers.insert(regch.index,regch.value);
+                        s.registers.insert(index,value);
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().registers.insert(regch.index,regch.value);
+                    self.stacks.last_mut().unwrap().registers.insert(index,value);
                 }
             }
-            StateChange::Dimen(regch) => {
-                if regch.global {
+            StateChange::Dimen(index,value,global) => {
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.dimensions.insert(regch.index,regch.value);
+                        s.dimensions.insert(index,value);
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().dimensions.insert(regch.index,regch.value);
+                    self.stacks.last_mut().unwrap().dimensions.insert(index,value);
                 }
             }
-            StateChange::Skip(regch) => {
-                if regch.global {
+            StateChange::Skip(index,value,global) => {
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.skips.insert(regch.index,regch.value);
+                        s.skips.insert(index,value);
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().skips.insert(regch.index,regch.value);
+                    self.stacks.last_mut().unwrap().skips.insert(index,value);
                 }
             }
-            StateChange::Cs(cmd) => {
-                if cmd.global {
+            StateChange::Cs(name,cmd,global) => {
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.commands.remove(&*cmd.name);
+                        s.commands.remove(&*name);
                     }
-                    match cmd.cmd {
-                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(cmd.name.to_string(),Some(c)),
-                        None => self.stacks.first_mut().unwrap().commands.remove(&cmd.name)
+                    match cmd {
+                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name.to_string(),Some(c)),
+                        None => self.stacks.first_mut().unwrap().commands.remove(&name)
                     };
                 } else if self.stacks.len() == 1 {
-                    match cmd.cmd {
-                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(cmd.name.to_string(),Some(c)),
-                        None => self.stacks.first_mut().unwrap().commands.remove(&cmd.name)
+                    match cmd {
+                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name.to_string(),Some(c)),
+                        None => self.stacks.first_mut().unwrap().commands.remove(&name)
                     };
                 } else {
-                    self.stacks.last_mut().unwrap().commands.insert(cmd.name.to_string(),cmd.cmd);
+                    self.stacks.last_mut().unwrap().commands.insert(name.to_string(),cmd);
                 }
             }
-            StateChange::Cat(cc) => {
-                match cc.catcode {
+            StateChange::Cat(char,catcode,global) => {
+                match catcode {
                     CategoryCode::Other => {
-                        int.catcodes.borrow_mut().catcodes.remove(&cc.char);
-                        if cc.global {
+                        int.catcodes.borrow_mut().catcodes.remove(&char);
+                        if global {
                             for s in self.stacks.iter_mut() {
-                                s.catcodes.catcodes.remove(&cc.char);
+                                s.catcodes.catcodes.remove(&char);
                             }
                         }
 
                     }
                     _ => {
-                        int.catcodes.borrow_mut().catcodes.insert(cc.char, cc.catcode);
-                        if cc.global {
+                        int.catcodes.borrow_mut().catcodes.insert(char, catcode);
+                        if global {
                             for s in self.stacks.iter_mut() {
-                                s.catcodes.catcodes.insert(cc.char, cc.catcode);
+                                s.catcodes.catcodes.insert(char, catcode);
                             }
                         }
                     }
                 }
             }
-            StateChange::Newline(nl) => {
-                int.catcodes.borrow_mut().newlinechar = nl.char;
-                if nl.global {
+            StateChange::Newline(char,global) => {
+                int.catcodes.borrow_mut().newlinechar = char;
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.catcodes.newlinechar = nl.char;
+                        s.catcodes.newlinechar = char;
                     }
                 }
             }
-            StateChange::Endline(el) => {
-                int.catcodes.borrow_mut().endlinechar = el.char;
-                if el.global {
+            StateChange::Endline(char,global) => {
+                int.catcodes.borrow_mut().endlinechar = char;
+                if global {
                     for s in self.stacks.iter_mut() {
-                        s.catcodes.endlinechar = el.char;
+                        s.catcodes.endlinechar = char;
                     }
+                }
+            }
+            StateChange::Sfcode(char,value,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.sfcodes.insert(char,value);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().sfcodes.insert(char,value);
+                }
+            }
+            StateChange::Tokens(i,tks,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.toks.remove(&i);
+                    }
+                    self.stacks.first_mut().unwrap().toks.insert(i,tks);
+                } else {
+                    self.stacks.last_mut().unwrap().toks.insert(i,tks);
                 }
             }
             //_ => todo!()
@@ -419,6 +459,8 @@ impl Interpreter<'_> {
     pub fn state_skip(&self,i:i16) -> Skip {
         self.state.borrow().get_skip(i)
     }
+    pub fn state_sfcode(&self,i:u8) -> i32 { self.state.borrow().get_sfcode(i) }
+    pub fn state_tokens(&self,i:i16) -> Vec<Token> { self.state.borrow().tokens(i)}
 
     pub fn pushcondition(&self) -> u8 {
         let mut state = self.state.borrow_mut();
@@ -446,41 +488,14 @@ impl Interpreter<'_> {
     }
 }
 
-pub struct RegisterStateChange {
-    pub index:i16,
-    pub value:i32,
-    pub global:bool
-}
-
-pub struct CommandChange {
-    pub name:String,
-    pub cmd:Option<TeXCommand>,
-    pub global:bool
-}
-
-pub struct CategoryCodeChange {
-    pub char:u8,
-    pub catcode:CategoryCode,
-    pub global:bool
-}
-
-pub struct CharChange {
-    pub char:u8,
-    pub global:bool
-}
-
-pub struct SkipStateChange {
-    pub index:i16,
-    pub value:Skip,
-    pub global:bool
-}
-
 pub enum StateChange {
-    Register(RegisterStateChange),
-    Dimen(RegisterStateChange),
-    Skip(SkipStateChange),
-    Cs(CommandChange),
-    Cat(CategoryCodeChange),
-    Newline(CharChange),
-    Endline(CharChange)
+    Register(i16,i32,bool),
+    Dimen(i16,i32,bool),
+    Skip(i16,Skip,bool),
+    Cs(String,Option<TeXCommand>,bool),
+    Cat(u8,CategoryCode,bool),
+    Newline(u8,bool),
+    Endline(u8,bool),
+    Sfcode(u8,i32,bool),
+    Tokens(i16,Vec<Token>,bool)
 }

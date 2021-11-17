@@ -3,13 +3,19 @@ use crate::interpreter::Interpreter;
 use crate::ontology::Token;
 use crate::utils::TeXError;
 use std::str::FromStr;
-use crate::commands::{Expandable, TeXCommand};
+use crate::commands::{Expandable, TeXCommand, TokReference};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim};
+use crate::utils::u8toi16;
 
 impl Interpreter<'_> {
 
     // General -------------------------------------------------------------------------------------
+
+    pub fn insert_every(&self,tr:&TokReference) {
+        let i = -u8toi16(tr.index);
+        self.push_tokens(self.state_tokens(i))
+    }
 
     pub fn skip_ws(&self) {
         while self.has_next() {
@@ -204,7 +210,33 @@ impl Interpreter<'_> {
         Ok(if isnegative {num.negate()} else {num})
     }
 
-    fn expand_until_space(&self,i:Numeric) -> Result<Numeric,TeXError> {
+    pub fn expand_until(&self,eat_space:bool) -> Result<(),TeXError> {
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Active | CategoryCode::Escape => {
+                    let p = self.get_command(&next.cmdname())?;
+                    match p.as_expandable_with_protected() {
+                        Ok(p) => p.expand(next,self)?,
+                        Err(TeXCommand::Char(tk)) if eat_space && tk.catcode == CategoryCode::Space => return Ok(()),
+                        Err(_) => {
+                            self.requeue(next);
+                            return Ok(())
+                        }
+                    }
+                },
+                CategoryCode::Space if eat_space => return Ok(()),
+                _ => {
+                    self.requeue(next);
+                    return Ok(())
+                }
+            }
+        }
+        FileEnd!(self)
+
+    }
+/*
+    pub fn expand_until_space(&self,i:Numeric) -> Result<Numeric,TeXError> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -228,6 +260,8 @@ impl Interpreter<'_> {
         }
         FileEnd!(self)
     }
+
+ */
 
     pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
         let mut isnegative = false;
@@ -272,10 +306,14 @@ impl Interpreter<'_> {
                     match next.catcode {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
                             let num = *next.cmdname().as_bytes().first().unwrap() as i32;
-                            return self.expand_until_space(Numeric::Int(if isnegative { -num } else { num }))
+                            self.expand_until(true)?;
+                            return Ok(Numeric::Int(if isnegative { -num } else { num }))
                         }
                         CategoryCode::Active | CategoryCode::Escape => todo!("{} ({}) >>{}{}",self.current_line(),next.cmdname().len(),next,self.preview()),
-                        _ => return self.expand_until_space( Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
+                        _ => {
+                            self.expand_until(true)?;
+                            return Ok(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
+                        }
                     }
                 }
                 _ if !ret.is_empty() => {

@@ -200,15 +200,15 @@ pub static IF : Conditional = Conditional {
 
 pub static IFTRUE : Conditional = Conditional {
     name:"iftrue",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        dotrue(int,cond,unless)
     }
 };
 
 pub static IFFALSE : Conditional = Conditional {
     name:"iffalse",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        dofalse(int,cond,unless)
     }
 };
 
