@@ -8,7 +8,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |cs: Token, _int: &Interpreter| {
         Ok(Some(Expansion {
             cs,
-            exp: Interpreter::string_to_tokens(VERSION_INFO.etexrevision())
+            exp: Interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone())
         }))
     },
     name: "etexrevision"
@@ -16,7 +16,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ETEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
-        Ok(VERSION_INFO.etexversion().parse().unwrap())
+        Ok(VERSION_INFO.etexversion.to_string().parse().unwrap())
     },
     name: "eTeXversion"
 };

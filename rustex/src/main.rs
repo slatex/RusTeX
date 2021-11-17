@@ -1,11 +1,12 @@
 use rustex::interpreter::mouth::StringMouth;
 use rustex::ontology::{Expansion, Token};
 use rustex::interpreter::state::State;
+use rustex::utils::TeXString;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
-    println!("{}",state.get_command("etexversion").expect(""))
+    println!("{}",state.get_command(&"etexversion".into()).expect(""))
 }
 
 fn do_test() {
@@ -15,16 +16,16 @@ fn do_test() {
     let latexltx = kpsewhich("pdftexconfig.tex",&PWD).expect("latex.ltx not found!");
     let content = fs::read_to_string(latexltx).unwrap();
     let dummyexp = Expansion::dummy(vec!());
-    let mut mouth = StringMouth::new(state.newlinechar(),dummyexp,content.as_str());
+    let mut mouth = StringMouth::new(state.newlinechar(),dummyexp,content.into());
     let mut ret: Vec<Token> = Vec::new();
     while mouth.has_next(state.catcodes(),true) {
         ret.push(mouth.pop_next(state.catcodes(),true))
     }
     println!("Length: {}",ret.len());
-    let string : String = ret.iter().map(|x| x.as_string()).collect::<Vec<_>>().join("");
-    //println!("chars: {}", string.as_bytes().iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "));
-    println!("Result: {}", string);
-
+    print!("\nResult: ");
+    for r in ret {
+        print!("{}",r)
+    }
 }
 
 //use ansi_term::Colour;

@@ -13,7 +13,7 @@ use crate::commands::{Assignment, TeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
-use crate::utils::TeXError;
+use crate::utils::{TeXError, TeXString};
 
 pub mod mouth;
 pub mod state;
@@ -22,14 +22,13 @@ pub mod dimensions;
 pub mod methods;
 
 
-pub fn tokenize(s : &str,cats: &CategoryCodeScheme) -> Vec<Token> {
-    let ns = s.as_bytes();
+pub fn tokenize(s : TeXString,cats: &CategoryCodeScheme) -> Vec<Token> {
     let mut retvec: Vec<Token> = Vec::new();
-    for next in ns {
+    for next in s.0 {
         retvec.push(Token {
-            catcode: cats.get_code(*next),
+            catcode: cats.get_code(next),
             name_opt: None,
-            char: *next,
+            char: next,
             reference: Box::new(SourceReference::None),
             expand:true
         })
@@ -67,38 +66,38 @@ pub struct Interpreter<'inner> {
 use crate::{TeXErr,FileEnd};
 
 impl Interpreter<'_> {
-    pub fn string_to_tokens(s : &str) -> Vec<Token> {
+    pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
         use crate::catcodes::OTHER_SCHEME;
         tokenize(s,&OTHER_SCHEME)
     }
-    pub fn tokens_to_string_default(tks:Vec<Token>) -> String {
+    pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
         let mut ret : Vec<u8> = vec!();
         for tk in tks {
             match tk.catcode {
                 CategoryCode::Escape => {
                     ret.push(92);
-                    for s in tk.name_opt.unwrap().as_bytes() { ret.push(*s) }
+                    for s in tk.name_opt.unwrap().0 { ret.push(s) }
                     ret.push(32)
                 }
                 _ => ret.push(tk.char)
             }
         }
-        from_utf8(ret.as_slice()).unwrap().to_string()
+        ret.into()
     }
-    pub fn tokens_to_string(&self,tks:Vec<Token>) -> String {
+    pub fn tokens_to_string(&self,tks:Vec<Token>) -> TeXString {
         let catcodes = self.catcodes.borrow();
         let mut ret : Vec<u8> = vec!();
         for tk in tks {
             match tk.catcode {
                 CategoryCode::Escape if catcodes.escapechar != 255 => {
                     ret.push(catcodes.escapechar);
-                    for s in tk.name_opt.unwrap().as_bytes() { ret.push(*s) }
+                    for s in tk.name_opt.unwrap().0 { ret.push(s) }
                     ret.push(32)
                 }
                 _ => ret.push(tk.char)
             }
         }
-        from_utf8(ret.as_slice()).unwrap().to_string()
+        ret.into()
     }
 
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
@@ -137,7 +136,7 @@ impl Interpreter<'_> {
         a.assign(self,global)
     }
 
-    pub fn get_command(&self,s : &str) -> Result<TeXCommand,TeXError> {
+    pub fn get_command(&self,s : &TeXString) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
             None => TeXErr!(self,"Unknown control sequence: \\{}",s)
@@ -167,7 +166,7 @@ impl Interpreter<'_> {
                     },
                     TeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),
-                    _ => todo!("{}",next.as_string())
+                    _ => todo!("{}",next)
 
                 }
             },

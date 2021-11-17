@@ -1,10 +1,98 @@
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::Deref;
+use std::ops::{AddAssign, Deref};
 use std::path::{Path, PathBuf};
+use std::str::{from_utf8, from_utf8_unchecked};
 
 pub fn u8toi16(i : u8) -> i16 {
     i16::from(i)
 }
+
+#[derive(Clone,PartialEq,Eq,Hash)]
+pub struct TeXString(pub Vec<u8>);
+impl TeXString {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn to_string(&self) -> String {
+        let mut ret : Vec<u8> = vec!();
+        for u in &self.0 { match u {
+            _ if u.is_ascii() => {
+                ret.push(*u)
+            }
+            _ => {
+                for x in ("\\u00".to_string() + &format!("{:X}", u)).as_bytes() {
+                    ret.push(*x)
+                }
+            }
+        }}
+        unsafe { from_utf8_unchecked(&ret).to_string() }
+    }
+    pub fn to_utf8(&self) -> String {
+        from_utf8(&self.0).unwrap().to_string()
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn split(&self,u:u8) -> Vec<TeXString> {
+        self.0.split(|x| *x == u).map(|x| x.into()).collect()
+    }
+}
+
+impl Display for TeXString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}",self.to_string())
+    }
+}
+impl From<Vec<u8>> for TeXString {
+    fn from(v: Vec<u8>) -> Self {
+        TeXString(v)
+    }
+}
+impl From<&str> for TeXString {
+    fn from(s: &str) -> Self {
+        TeXString(s.as_bytes().to_vec())
+    }
+}
+impl From<String> for TeXString {
+    fn from(s: String) -> Self {
+        TeXString(s.as_bytes().to_vec())
+    }
+}
+impl From<u8> for TeXString {
+    fn from(u: u8) -> Self {
+        TeXString(vec!(u))
+    }
+}
+impl From<&[u8]> for TeXString {
+    fn from(s: &[u8]) -> Self {
+        TeXString(s.to_vec())
+    }
+}
+impl std::ops::Add for TeXString {
+    type Output = TeXString;
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut new : Vec<u8> = self.0.clone();
+        for u in rhs.0 {
+            new.push(u)
+        }
+        TeXString(new)
+    }
+}
+
+impl PartialEq<str> for TeXString {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other.as_bytes()
+    }
+}
+impl AddAssign for TeXString {
+    fn add_assign(&mut self, rhs: Self) {
+        for u in rhs.0 {
+            self.0.push(u)
+        }
+    }
+}
+
 
 lazy_static! {
     pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
-use crate::utils::{kpsewhich, PWD, TeXError};
+use crate::utils::{kpsewhich, PWD, TeXError, TeXString};
 use crate::{TeXErr,log};
 
 #[derive(Copy,Clone)]
@@ -26,7 +26,7 @@ struct StackFrame {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<String,Option<TeXCommand>>,
+    pub(crate) commands: HashMap<TeXString,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i16,i32>,
     pub(crate) dimensions: HashMap<i16,i32>,
     pub(crate) skips : HashMap<i16,Skip>,
@@ -41,18 +41,18 @@ impl StackFrame {
         use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
-        let mut cmds: HashMap<String,Option<TeXCommand>> = HashMap::new();
+        let mut cmds: HashMap<TeXString,Option<TeXCommand>> = HashMap::new();
         for c in conditional_commands() {
-            cmds.insert(c.name().unwrap().to_string(),Some(c));
+            cmds.insert(c.name().unwrap(),Some(c));
         }
         for c in tex_commands() {
-            cmds.insert(c.name().unwrap().to_string(),Some(c));
+            cmds.insert(c.name().unwrap(),Some(c));
         }
         for c in etex_commands() {
-            cmds.insert(c.name().unwrap().to_string(),Some(c));
+            cmds.insert(c.name().unwrap(),Some(c));
         }
         for c in pdftex_commands() {
-            cmds.insert(c.name().unwrap().to_string(),Some(c));
+            cmds.insert(c.name().unwrap(),Some(c));
         }
         let mut reg: HashMap<i16,i32> = HashMap::new();
         reg.insert(-crate::utils::u8toi16(crate::commands::primitives::MAG.index),1000);
@@ -116,13 +116,13 @@ impl State {
         let mut st = State::new();
         while !procs.is_empty() {
             let p = procs.pop().unwrap();
-            let name = p.name().unwrap().to_string();
+            let name = p.name().unwrap();
             st.stacks.last_mut().unwrap().commands.insert(name,Some(p));
         }
         st
     }
 
-    pub fn get_command(&self, name: &str) -> Option<TeXCommand> {
+    pub fn get_command(&self, name: &TeXString) -> Option<TeXCommand> {
         for sf in self.stacks.iter().rev() {
             match sf.commands.get(name) {
                 Some(r) => return r.clone(),
@@ -221,19 +221,19 @@ impl State {
             StateChange::Cs(name,cmd,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.commands.remove(&*name);
+                        s.commands.remove(&name);
                     }
                     match cmd {
-                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name.to_string(),Some(c)),
+                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name,Some(c)),
                         None => self.stacks.first_mut().unwrap().commands.remove(&name)
                     };
                 } else if self.stacks.len() == 1 {
                     match cmd {
-                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name.to_string(),Some(c)),
+                        Some(c) => self.stacks.first_mut().unwrap().commands.insert(name,Some(c)),
                         None => self.stacks.first_mut().unwrap().commands.remove(&name)
                     };
                 } else {
-                    self.stacks.last_mut().unwrap().commands.insert(name.to_string(),cmd);
+                    self.stacks.last_mut().unwrap().commands.insert(name,cmd);
                 }
             }
             StateChange::Cat(char,catcode,global) => {
@@ -351,7 +351,7 @@ impl Interpreter<'_> {
             255 => {
                 let stdin = std::io::stdin();
                 let string = stdin.lock().lines().next().unwrap().unwrap();
-                Ok(crate::interpreter::tokenize(&string,&self.catcodes.borrow()))
+                Ok(crate::interpreter::tokenize(string.into(),&self.catcodes.borrow()))
             }
             i => {
                 match self.state.borrow_mut().infiles.get_mut(&i) {
@@ -395,16 +395,20 @@ impl Interpreter<'_> {
         state.outfiles.insert(index,file);
         Ok(())
     }
-    pub fn file_write(&self,index:u8,s:String) -> Result<(),TeXError> {
+    pub fn file_write(&self,index:u8,s:TeXString) -> Result<(),TeXError> {
         use ansi_term::Colour::*;
         match index {
             17 => {
                 print!("{}",s);
                 Ok(())
             }
+            16 => {
+                print!("{}",White.bold().paint(s.to_utf8()));
+                Ok(())
+            }
             16 | 18 => todo!("{}",index),
             255 => {
-                print!("{}",Black.on(Blue).paint(s));
+                print!("{}",Black.on(Blue).paint(s.to_utf8()));
                 Ok(())
             }
             i if !self.state.borrow().outfiles.contains_key(&i) => todo!("{}",i),
@@ -413,7 +417,7 @@ impl Interpreter<'_> {
                  match state.outfiles.get_mut(&index) {
                      Some(f) => match f.string.borrow_mut() {
                          x@None => *x = Some(s),
-                         Some(st) => *st += &s
+                         Some(st) => *st += s
                      }
                      None => TeXErr!(self,"No file open at index {}",index)
                  }
@@ -483,7 +487,7 @@ impl Interpreter<'_> {
             None => None
         }
     }
-    pub fn state_get_command(&self,s:&str) -> Option<TeXCommand> {
+    pub fn state_get_command(&self,s:&TeXString) -> Option<TeXCommand> {
         self.state.borrow().get_command(s)
     }
 }
@@ -492,7 +496,7 @@ pub enum StateChange {
     Register(i16,i32,bool),
     Dimen(i16,i32,bool),
     Skip(i16,Skip,bool),
-    Cs(String,Option<TeXCommand>,bool),
+    Cs(TeXString,Option<TeXCommand>,bool),
     Cat(u8,CategoryCode,bool),
     Newline(u8,bool),
     Endline(u8,bool),

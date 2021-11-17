@@ -3,7 +3,7 @@ use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{GroupType, StateChange};
-use crate::utils::TeXError;
+use crate::utils::{TeXError, TeXString};
 use crate::{log,TeXErr,FileEnd};
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
@@ -62,7 +62,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        int.change_state(StateChange::Cs(c.cmdname().to_owned(),Some(TeXCommand::Char(Token {
+        int.change_state(StateChange::Cs(c.cmdname(),Some(TeXCommand::Char(Token {
                     char: num as u8,
                     catcode: CategoryCode::Other,
                     name_opt: None,
@@ -98,7 +98,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+        int.change_state(StateChange::Cs(cmd.cmdname(),
                                          Some(TeXCommand::AV(AssignableValue::Register(num as u8))),
                                          global));
         Ok(())
@@ -112,7 +112,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+        int.change_state(StateChange::Cs(cmd.cmdname(),
                                          Some(TeXCommand::AV(AssignableValue::Dim(num as u8))),
             global));
         Ok(())
@@ -126,7 +126,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+        int.change_state(StateChange::Cs(cmd.cmdname(),
                                          Some(TeXCommand::AV(AssignableValue::Skip(num as u8))),
             global));
         Ok(())
@@ -140,7 +140,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
 
-        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),
+        int.change_state(StateChange::Cs(cmd.cmdname(),
                                          Some(TeXCommand::AV(AssignableValue::Toks(num as u8))),
             global));
         Ok(())
@@ -196,8 +196,8 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
             }
             CategoryCode::Parameter => {
                 int.assert_has_next()?;
-                let next = int.next_token();
-                match next.catcode {
+                let inext = int.next_token();
+                match inext.catcode {
                     CategoryCode::BeginGroup => {
                         return Ok(Signature {
                             elems: retsig,
@@ -205,39 +205,39 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                             arity:currarg-1
                         })
                     }
-                    _ if currarg == 1 && next.char == 49 => {
+                    _ if currarg == 1 && inext.char == 49 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(1,next.char))
                     }
-                    _ if currarg == 2 && next.char == 50 => {
+                    _ if currarg == 2 && inext.char == 50 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(2,next.char))
                     }
-                    _ if currarg == 3 && next.char == 51 => {
+                    _ if currarg == 3 && inext.char == 51 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(3,next.char))
                     }
-                    _ if currarg == 4 && next.char == 52 => {
+                    _ if currarg == 4 && inext.char == 52 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(4,next.char))
                     }
-                    _ if currarg == 5 && next.char == 53 => {
+                    _ if currarg == 5 && inext.char == 53 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(5,next.char))
                     }
-                    _ if currarg == 6 && next.char == 54 => {
+                    _ if currarg == 6 && inext.char == 54 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(6,next.char))
                     }
-                    _ if currarg == 7 && next.char == 55 => {
+                    _ if currarg == 7 && inext.char == 55 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(7,next.char))
                     }
-                    _ if currarg == 8 && next.char == 56 => {
+                    _ if currarg == 8 && inext.char == 56 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(8,next.char))
                     }
-                    _ if currarg == 9 && next.char == 57 => {
+                    _ if currarg == 9 && inext.char == 57 => {
                         currarg += 1;
                         retsig.push(ParamToken::Param(9,next.char))
                     }
@@ -265,7 +265,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                 i.assert_has_next()?;
                 let next = i.next_token();
                 match next.catcode {
-                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,next.char))),
+                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,x.char))),
                     _ => {
                         let num = match from_utf8(&[next.char]) {
                             Ok(n) => match n.parse::<u8>() {
@@ -277,7 +277,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                         if num < 1 || num > arity {
                             TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                         }
-                        Ok(Some(ParamToken::Param(num,next.char)))
+                        Ok(Some(ParamToken::Param(num,x.char)))
                     }
                 }
             }
@@ -291,7 +291,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
         sig,
         ret
     };
-    int.change_state(StateChange::Cs(command.cmdname().to_string(),
+    int.change_state(StateChange::Cs(command.cmdname(),
                                      Some(TeXCommand::Def(Rc::new(dm))),
         global));
     Ok(())
@@ -349,7 +349,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             }
             _ => Some(TeXCommand::Char(def))
         };
-        int.change_state(StateChange::Cs(cmd.cmdname().to_owned(),ch,global));
+        int.change_state(StateChange::Cs(cmd.cmdname(),ch,global));
         Ok(())
     }
 };
@@ -449,7 +449,7 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
         let number = int.read_number()?;
         Ok(Some(Expansion {
             cs: tk,
-            exp: Interpreter::string_to_tokens(&number.to_string())
+            exp: Interpreter::string_to_tokens(number.to_string().into())
         }))
     },
     expandable: true,
@@ -523,19 +523,19 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
         match int.get_command(&reg.cmdname())? {
             TeXCommand::Int(ic) => Ok(Some(Expansion {
                 cs: reg,
-                exp: Interpreter::string_to_tokens(&(ic._getvalue)(int)?.to_string())
+                exp: Interpreter::string_to_tokens((ic._getvalue)(int)?.to_string().into())
             })),
             TeXCommand::AV(AssignableValue::Int(i)) => Ok(Some(Expansion {
                 cs: reg,
-                exp: Interpreter::string_to_tokens(&(i._getvalue)(int)?.to_string())
+                exp: Interpreter::string_to_tokens((i._getvalue)(int)?.to_string().into())
             })),
             TeXCommand::AV(AssignableValue::PrimReg(i)) => Ok(Some(Expansion {
                 cs: reg,
-                exp: Interpreter::string_to_tokens(&int.state_register(-u8toi16(i.index)).to_string())
+                exp: Interpreter::string_to_tokens(int.state_register(-u8toi16(i.index)).to_string().into())
             })),
             TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(Expansion {
                 cs: reg,
-                exp: Interpreter::string_to_tokens(&int.state_register(u8toi16(i)).to_string())
+                exp: Interpreter::string_to_tokens(int.state_register(u8toi16(i)).to_string().into())
             })),
             TeXCommand::AV(AssignableValue::Toks(i)) => Ok(Some(Expansion {
                 cs: reg,
@@ -631,7 +631,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         for tk in int.file_read(index,true)? {
             toks.push(ParamToken::Token(tk))
         }
-        int.change_state(StateChange::Cs(newcmd.cmdname().to_owned(),
+        int.change_state(StateChange::Cs(newcmd.cmdname(),
             Some(TeXCommand::Def(Rc::new(DefMacro {
                 protected: false,
                 long: false,
@@ -678,7 +678,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         }
         let ret = int.read_token_list(true,false)?;
         let string = int.tokens_to_string(ret);
-        print!("{}",Yellow.paint(string));
+        print!("{}",Yellow.paint(string.to_string()));
         Ok(None)
     }
 };
@@ -745,7 +745,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
         let string = match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 match int.state_get_command(&next.cmdname()) {
-                    None => "undefined".to_owned(),
+                    None => "undefined".into(),
                     Some(p) => p.meaning(&int.state_catcodes())
                 }
             }
@@ -753,7 +753,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
         };
         Ok(Some(Expansion {
             cs,
-            exp: Interpreter::string_to_tokens(&string)
+            exp: Interpreter::string_to_tokens(string)
         }))
     }
 };
@@ -767,8 +767,8 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
         log!("\\string: {}",next);
         let exp = match next.catcode {
             CategoryCode::Escape => {
-                let mut s = if int.state_catcodes().escapechar == 255 {"".to_string()} else {from_utf8(&[int.state_catcodes().escapechar]).unwrap().to_string()};
-                Interpreter::string_to_tokens(&(s + &next.cmdname()))
+                let mut s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
+                Interpreter::string_to_tokens(s + next.cmdname())
             }
             CategoryCode::Space => vec!(next),
             _ => vec!(Token {

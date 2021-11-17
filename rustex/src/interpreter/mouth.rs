@@ -8,6 +8,7 @@ use itertools::Itertools;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::{SourceReference,FileReference};
+use crate::utils::TeXString;
 
 pub enum Mouth {
     Token(TokenMouth),
@@ -16,7 +17,7 @@ pub enum Mouth {
 }
 
 impl Mouth {
-    pub(crate) fn preview(&self) -> String {
+    pub(crate) fn preview(&self) -> TeXString {
         match self {
             Mouth::Token(tm) => tm.preview(),
             Mouth::Str(tm) => tm.preview(),
@@ -67,7 +68,7 @@ impl TokenMouth {
     fn pop_next(&mut self, _nocomment: bool) -> Token {
         self.tokens.remove(0)
     }
-    fn preview(&self) -> String {
+    fn preview(&self) -> TeXString {
         Interpreter::tokens_to_string_default(self.tokens.clone())
     }
     fn pushback(&mut self) {}
@@ -109,8 +110,8 @@ impl StringMouthSource {
 pub struct StringMouth {
     mouth_state:MouthState,
     peekbuffer : Option<Token>,
-    string : Option<String>,
-    allstrings : Vec<String>,
+    string : Option<TeXString>,
+    allstrings : Vec<TeXString>,
     line: usize,
     pos: usize,
     atendofline:Option<u8>,
@@ -146,7 +147,7 @@ impl StringMouth {
             self.peekbuffer = Some(Token {
                 char: 0,
                 catcode: CategoryCode::EOL,
-                name_opt: Some("EOF".to_owned()),
+                name_opt: Some("EOF".into()),
                 reference: Box::new(SourceReference::None),
                 expand:true
             })
@@ -163,19 +164,16 @@ impl StringMouth {
         let string = file.string.as_ref().expect("This shouldn't happen").clone();
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
-    pub fn new<'a>(newlinechar:u8, source:Expansion, string : &'a str) -> StringMouth {
-        StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),string.to_string())
+    pub fn new<'a>(newlinechar:u8, source:Expansion, string : TeXString) -> StringMouth {
+        StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),string)
     }
-    fn new_i(newlinechar:u8, source:StringMouthSource, string : String) -> StringMouth {
+    fn new_i(newlinechar:u8, source:StringMouthSource, string : TeXString) -> StringMouth {
         let it = if string.is_empty() {
             vec![]
         } else if newlinechar==u8::MAX {
             vec![string]
         } else {
-            let mut ret:Vec<String> = Vec::new();
-            for s in string.split(from_utf8(&[newlinechar]).unwrap()) {
-                ret.push(s.to_string())
-            }
+            let mut ret = string.split(newlinechar);
             ret.reverse();
             ret
         };
@@ -229,7 +227,7 @@ impl StringMouth {
                                 }
                             }
                         } else {
-                            let ret = str.as_bytes().get(self.pos).unwrap();
+                            let ret = str.0.get(self.pos).unwrap();
                             self.pos += 1;
                             return Some((*ret, self.line + 1, self.pos))
                         }
@@ -303,7 +301,7 @@ impl StringMouth {
                                 }
                                 CategoryCode::Ignored => {}
                                 CategoryCode::Comment => if nocomment {
-                                    let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().as_bytes())[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
+                                    let mut rest : Vec<u8> = (*self.string.as_ref().unwrap()).0[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
                                     rest.insert(0,next.0);
                                     match (STORE_IN_FILE, self.source.get_file()) {
                                         (true,Some(ltxf)) => {
@@ -343,14 +341,14 @@ impl StringMouth {
                                 CategoryCode::Space if self.mouth_state == MouthState::N => { }
                                 CategoryCode::Superscript => {
                                     let string = self.string.as_ref().unwrap();
-                                    let len = string.as_bytes()[self.pos..].len();
-                                    let peek = string.as_bytes().get(self.pos);
+                                    let len = string.0[self.pos..].len();
+                                    let peek = string.0.get(self.pos);
                                     if len > 1 && peek.is_some() && *peek.unwrap() == next.0 {
                                         let (startl,startpos) = (next.1,next.2);
                                         self.pos += 1;
-                                        let next = *string.as_bytes().get(self.pos).unwrap();
+                                        let next = *string.0.get(self.pos).unwrap();
                                         self.pos += 1;
-                                        let maybenext = string.as_bytes().get(self.pos as usize);
+                                        let maybenext = string.0.get(self.pos as usize);
                                         fn cond(i:u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
                                         if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
                                             self.pos += 1;
@@ -385,7 +383,7 @@ impl StringMouth {
                                 let tk = Token {
                                     char,
                                     catcode: CategoryCode::Escape,
-                                    name_opt: Some("".to_string()),
+                                    name_opt: Some("".into()),
                                     reference: Box::new(self.make_reference(l,p)),
                                     expand:true
                                 };
@@ -402,7 +400,7 @@ impl StringMouth {
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
-                                name_opt: Some(from_utf8(&[tk]).unwrap().to_owned()),
+                                name_opt: Some(tk.into()),
                                 reference: Box::new(self.make_reference(l,p)),
                                 expand:true
                             }
@@ -411,7 +409,7 @@ impl StringMouth {
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
-                                name_opt: Some("".to_owned()),
+                                name_opt: Some("".into()),
                                 reference: Box::new(self.make_reference(l,p)),
                                 expand:true
                             }
@@ -443,19 +441,10 @@ impl StringMouth {
                                     self.mouth_state = MouthState::M
                                 }
                             }
-                            let name = match from_utf8(buf.as_slice()) {
-                                Ok(s) => s.to_owned(),
-                                Err(_) => {
-                                    for b in buf {
-                                        println!("{}",b)
-                                    }
-                                    todo!()
-                                }
-                            };
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
-                                name_opt: Some(name),
+                                name_opt: Some(buf.into()),
                                 reference: Box::new(self.make_reference(l,p)),
                                 expand:true
                             }
@@ -483,7 +472,7 @@ impl StringMouth {
                     Token {
                         char,
                         catcode:CategoryCode::Escape,
-                        name_opt:Some("par".to_owned()),
+                        name_opt:Some("par".into()),
                         reference:Box::new(self.make_reference(l,p)),
                         expand:true
                     }
@@ -523,8 +512,8 @@ impl StringMouth {
         self.peekbuffer = Some(next.clone());
         next
     }
-    fn preview(&self) -> String {
-        let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().as_bytes())[self.pos..].to_vec();
+    fn preview(&self) -> TeXString {
+        let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().0)[self.pos..].to_vec();
         match self.charbuffer {
             None => (),
             Some((c,_,_)) => rest.insert(0,c)
@@ -533,7 +522,7 @@ impl StringMouth {
             None => (),
             Some(c) => rest.push(c)
         }
-        from_utf8(rest.as_slice()).unwrap().to_string()
+        rest.into()
     }
     fn pushback(&mut self) {
         todo!()
@@ -650,18 +639,21 @@ impl Mouths {
             _ => "".to_string()
         }
     }
-    pub fn preview(&self) -> String {
-        let rest = self.mouths.iter().rev().map(|x| x.preview()).join("");
+    pub fn preview(&self) -> TeXString {
+        let mut ret : TeXString = "".into();
+        for s in &self.mouths {
+            ret += s.preview()
+        }
         match self.buffer.borrow() {
-            None => rest,
-            Some(tk) => Interpreter::tokens_to_string_default(vec!(tk.clone())) + &rest
+            None => ret,
+            Some(tk) => Interpreter::tokens_to_string_default(vec!(tk.clone())) + ret
         }
     }
 }
 
 impl Interpreter<'_> {
-    pub fn preview(&self) -> String {
-        self.mouths.borrow().preview().chars().map(|x| if x == '\r' {"\\r".to_string()} else {x.to_string()}).join("")
+    pub fn preview(&self) -> TeXString {
+        self.mouths.borrow().preview()
     }
     pub fn push_file(&self,file:VFile) {
         use crate::interpreter::files::VFileBase;

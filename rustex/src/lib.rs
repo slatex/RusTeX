@@ -40,11 +40,13 @@ macro_rules! FileEnd {
 #[macro_use]
 extern crate lazy_static;
 
+use crate::utils::TeXString;
+
 static STORE_IN_FILE : bool = true;
 static COPY_TOKENS_FULL : bool = true;
 
-static LANGUAGE_DAT : &'static str = include_str!("resources/language.dat");
-static UNICODEDATA_TXT : &'static str = include_str!("resources/UnicodeData.txt");
+static LANGUAGE_DAT : &[u8] = include_bytes!("resources/language.dat");
+static UNICODEDATA_TXT : &[u8] = include_bytes!("resources/UnicodeData.txt");
 
 #[cfg(test)]
 mod tests {
@@ -56,39 +58,13 @@ mod tests {
 }
 
 pub struct VersionInfo {
-    _texversion: String,
-    _etexversion: String,
-    _etexrevision: String,
-    _pdftexversion: String,
-    _pdftexrevision: String
+    pub texversion: TeXString,
+    pub etexversion: TeXString,
+    pub etexrevision: TeXString,
+    pub pdftexversion: TeXString,
+    pub pdftexrevision: TeXString
 }
 
-impl VersionInfo {
-    pub fn new(texversion : &str, etexversion : &str, etexrevision : &str, pdftexversion: &str, pdftexrevision: &str) -> VersionInfo {
-        VersionInfo {
-            _texversion:texversion.to_owned(),
-            _etexversion:etexversion.to_owned(),
-            _etexrevision:etexrevision.to_owned(),
-            _pdftexversion:pdftexversion.to_owned(),
-            _pdftexrevision:pdftexrevision.to_owned()
-        }
-    }
-    pub fn texversion(&self) -> &str {
-        &self._texversion
-    }
-    pub fn etexversion(&self) -> &str {
-        &self._etexversion
-    }
-    pub fn etexrevision(&self) -> &str {
-        &self._etexrevision
-    }
-    pub fn pdftexversion(&self) -> &str {
-        &self._pdftexversion
-    }
-    pub fn pdftexrevision(&self) -> &str {
-        &self._pdftexrevision
-    }
-}
 
 lazy_static! {
     pub static ref VERSION_INFO : VersionInfo = {
@@ -104,7 +80,10 @@ lazy_static! {
         };
         if retstr.starts_with("MiKTeX") {
             // TODO better
-            VersionInfo::new("0","2",".6","140","22")
+            VersionInfo{texversion:"0".into(),etexversion:"2".into(),
+                etexrevision:".6".into(),pdftexversion:"140".into(),
+                pdftexrevision:"22".into()
+            }
         } else {
             retstr = retstr.strip_prefix("pdfTeX ").expect("Unknown TeX engine");
             let mut pos = retstr.find("-").expect("TeX version string malformed");
@@ -122,11 +101,16 @@ lazy_static! {
             pos = retstr.find(".").expect("TeX version string malformed");
             let pdftexversion2 = &retstr[0..pos];
             retstr = &retstr[pos+1..];
-            let pdftexversion = &(pdftexversion1.to_owned() + pdftexversion2);
+            let pdftexversion = pdftexversion1.to_owned() + pdftexversion2;
             pos = retstr.find(|x:char| !x.is_ascii_digit()).expect("TeX version string malformed");
             let pdftexrevision = &retstr[0..pos];
 
-            VersionInfo::new(texversion,etexversion,etexrevision,pdftexversion,pdftexrevision)
+            VersionInfo{
+                texversion:texversion.into(),
+                etexversion:etexversion.into(),
+                etexrevision:etexrevision.into(),
+                pdftexversion:pdftexversion.into(),
+                pdftexrevision:pdftexrevision.into()}
         }
     };
 }

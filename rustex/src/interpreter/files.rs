@@ -1,6 +1,7 @@
 use std::path::{PathBuf,Path};
 use crate::utils::{TEXMF1,TEXMF2};
 use std::fs;
+use crate::utils::TeXString;
 
 #[derive(Clone)]
 pub enum VFileBase {
@@ -11,7 +12,7 @@ pub enum VFileBase {
 #[derive(Clone)]
 pub struct VFile {
     pub source:VFileBase,
-    pub(in crate::interpreter) string: Option<String>,
+    pub(in crate::interpreter) string: Option<TeXString>,
     pub(in crate::interpreter) id : String
 }
 
@@ -40,19 +41,19 @@ impl VFile {
                 if simplename == "<texmf>/LANGUAGE.DAT" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:Some(LANGUAGE_DAT.to_string()),
+                        string:Some(LANGUAGE_DAT.into()),
                         id:simplename,
                     }
                 } else if simplename == "<texmf>/UNICODEDATA.TXT" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:Some(UNICODEDATA_TXT.to_string()),
+                        string:Some(UNICODEDATA_TXT.into()),
                         id:simplename
                     }
                 } else {
                     VFile {
                         source:VFileBase::Real(fp.to_path_buf()),
-                        string:if fp.exists() {fs::read_to_string(fp).ok()} else {Some("".to_string())},
+                        string:if fp.exists() {fs::read(fp).ok().map(|x| x.into())} else {Some("".into())},
                         id:simplename
                     }
                 }

@@ -1,7 +1,7 @@
 use crate::catcodes::CategoryCode;
 use crate::interpreter::Interpreter;
 use crate::ontology::Token;
-use crate::utils::TeXError;
+use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
 use crate::commands::{Expandable, TeXCommand, TokReference};
 use crate::{TeXErr,FileEnd,log};
@@ -199,13 +199,13 @@ impl Interpreter<'_> {
 
     // Numbers -------------------------------------------------------------------------------------
 
-    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:String) -> Result<Numeric,TeXError> {
+    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
         let num = if ishex {
-            Numeric::Int(i32::from_str_radix(ret.as_str(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
         } else if allowfloat {
-            Numeric::Float(f32::from_str(ret.as_str()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
         } else {
-            Numeric::Int(i32::from_str(ret.as_str()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
@@ -267,7 +267,7 @@ impl Interpreter<'_> {
         let mut isnegative = false;
         let mut ishex = false;
         let mut isfloat = false;
-        let mut ret = "".to_string();
+        let mut ret : TeXString = "".into();
         self.skip_ws();
         log!("Reading number {}",self.preview());
         while self.has_next() {
@@ -297,15 +297,15 @@ impl Interpreter<'_> {
                     }
                 }
                 CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,allowfloat,ret),
-                _ if next.char.is_ascii_digit() => ret += &next.name(),
-                _ if next.char.is_ascii_hexdigit() && ishex => ret += &next.name(),
+                _ if next.char.is_ascii_digit() => ret += next.name(),
+                _ if next.char.is_ascii_hexdigit() && ishex => ret += next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
-                _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += "." }
+                _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += ".".into() }
                 _ if next.char == 96 => while self.has_next() {
                     let next = self.next_token();
                     match next.catcode {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
-                            let num = *next.cmdname().as_bytes().first().unwrap() as i32;
+                            let num = *next.cmdname().0.first().unwrap() as i32;
                             self.expand_until(true)?;
                             return Ok(Numeric::Int(if isnegative { -num } else { num }))
                         }

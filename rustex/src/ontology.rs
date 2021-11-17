@@ -5,6 +5,7 @@ use std::str::from_utf8;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::COPY_TOKENS_FULL;
+use crate::utils::TeXString;
 
 #[derive(Clone)]
 pub struct Expansion {
@@ -25,7 +26,7 @@ impl Expansion {
 pub struct Token {
     pub char : u8,
     pub catcode : CategoryCode,
-    pub name_opt: Option<String>,
+    pub name_opt: Option<TeXString>,
     pub reference: Box<SourceReference>,
     pub(in crate) expand:bool
 }
@@ -41,49 +42,44 @@ impl PartialEq for Token {
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use ansi_term::Colour::*;
-        let char = from_utf8(&[self.char]).unwrap().to_owned();
+        let char : TeXString = self.char.into();
         let colour = match self.catcode {
-            CategoryCode::Escape => Red.paint(char + &self.cmdname()),
-            CategoryCode::BeginGroup => Green.paint(char),
-            CategoryCode::EndGroup => Green.bold().paint(char),
-            CategoryCode::Active => Red.bold().paint(char),
+            CategoryCode::Escape => Red.paint((char + self.cmdname()).to_string()),
+            CategoryCode::BeginGroup => Green.paint(char.to_string()),
+            CategoryCode::EndGroup => Green.bold().paint(char.to_string()),
+            CategoryCode::Active => Red.bold().paint(char.to_string()),
             CategoryCode::Space => ANSIGenericString::from(" "),
-            CategoryCode::Parameter => Yellow.paint(char),
-            CategoryCode::AlignmentTab => Blue.paint(char),
-            CategoryCode::MathShift => Purple.paint(char),
-            CategoryCode::Subscript => Cyan.paint(char),
-            CategoryCode::Superscript => Cyan.bold().paint(char),
-            CategoryCode::Letter => White.bold().paint(char),
-            _ => ANSIGenericString::from(char)
+            CategoryCode::Parameter => Yellow.paint(char.to_string()),
+            CategoryCode::AlignmentTab => Blue.paint(char.to_string()),
+            CategoryCode::MathShift => Purple.paint(char.to_string()),
+            CategoryCode::Subscript => Cyan.paint(char.to_string()),
+            CategoryCode::Superscript => Cyan.bold().paint(char.to_string()),
+            CategoryCode::Letter => White.bold().paint(char.to_string()),
+            _ => ANSIGenericString::from(char.to_string())
         };
         write!(f,"{}",colour)
     }
 }
 impl Token {
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> TeXString {
         match &self.name_opt {
-            Some(name) => name.to_string(),
-            None => from_utf8(&[self.char]).expect("This should not happen").to_string()
+            Some(name) => name.clone(),
+            None => vec!(self.char).into()
         }
     }
-    pub fn cmdname(&self) -> String {
+    pub fn cmdname(&self) -> TeXString {
         match self.catcode {
-            CategoryCode::Active => "\\\\RusTeX\\Active\\Character\\".to_string() + &self.name(),
+            CategoryCode::Active => vec!(0,1,2,3,4,255,254,253,252,251,self.char).into(),
             CategoryCode::Escape => self.name(),
             _ => panic!("This should not happen!")
         }
     }
-    pub fn as_string(&self) -> String {
-        match self.catcode {
-            CategoryCode::Escape => from_utf8(&[self.char]).expect("This should not happen").to_owned() + &self.name(),
-            _ => "\'".to_owned() + from_utf8(&[self.char]).expect("This should not happen") + "\'" + CategoryCode::toint(&self.catcode).to_string().as_str()
-        }
-    }
+
     pub fn dummy() -> Token {
         Token {
             char: 0,
             catcode: CategoryCode::Escape,
-            name_opt: Some("relax".to_string()),
+            name_opt: Some("relax".into()),
             reference: Box::new(SourceReference::None),
             expand:false
         }

@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter, Pointer};
 use std::str::from_utf8;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::Numeric;
-use crate::utils::TeXError;
+use crate::utils::{TeXError, TeXString};
 use crate::log;
 
 pub struct PrimitiveExecutable {
@@ -126,15 +126,15 @@ pub enum AssignableValue {
 }
 
 impl AssignableValue {
-    pub fn name(&self) -> Option<String> {
+    pub fn name(&self) -> Option<TeXString> {
         use AssignableValue::*;
         match self {
             Dim(_) | Register(_) | Skip(_) | Toks(_) => None,
-            Int(i) => Some(i.name.to_string()),
-            PrimReg(r) => Some(r.name.to_string()),
-            PrimDim(d) => Some(d.name.to_string()),
-            PrimSkip(d) => Some(d.name.to_string()),
-            PrimToks(d) => Some(d.name.to_string())
+            Int(i) => Some(i.name.into()),
+            PrimReg(r) => Some(r.name.into()),
+            PrimDim(d) => Some(d.name.into()),
+            PrimSkip(d) => Some(d.name.into()),
+            PrimToks(d) => Some(d.name.into())
         }
     }
 }
@@ -350,12 +350,20 @@ impl Assignment {
                 },
                 AssignableValue::Toks(i) => {
                     int.expand_until(false)?;
+                    match int.next_token().catcode {
+                        CategoryCode::BeginGroup => {}
+                        _ => TeXErr!(int,"Expected Begin Group Token")
+                    }
                     let toks = int.read_token_list(false,false)?;
                     int.change_state(StateChange::Tokens(u8toi16(*i),toks,global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
                     int.expand_until(false)?;
+                    match int.next_token().catcode {
+                        CategoryCode::BeginGroup => {}
+                        _ => TeXErr!(int,"Expected Begin Group Token")
+                    }
                     let toks = int.read_token_list(false,false)?;
                     int.change_state(StateChange::Tokens(-u8toi16(r.index),toks,global));
                     Ok(())
@@ -406,18 +414,12 @@ impl PartialEq for ParamToken {
         }
     }
 }
-impl ParamToken {
-    pub fn as_string(&self) -> String { match self {
-        ParamToken::Param(0,_) => "##".to_owned(),
-        ParamToken::Param(i,_) => "#".to_owned() + &i.to_string(),
-        ParamToken::Token(tk) => tk.as_string()
-    } }
-}
 impl Display for ParamToken {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use ansi_term::Colour::*;
         match self {
-            ParamToken::Param(_,_) => write!(f,"{}",Yellow.paint(self.as_string())),
+            ParamToken::Param(0,u) => write!(f,"{}",Yellow.paint(TeXString(vec!(*u,*u)).to_string())),
+            ParamToken::Param(i,u) => write!(f,"{}{}",Yellow.paint(TeXString(vec!(*u)).to_string()),Yellow.paint(i.to_string())),
             ParamToken::Token(t) => write!(f,"{}",t)
         }
     }
@@ -481,9 +483,9 @@ pub enum ProvidesWhatsit {
     Other
 }
 impl ProvidesWhatsit {
-    pub fn name(&self) -> Option<String> {
+    pub fn name(&self) -> Option<TeXString> {
         match self {
-            ProvidesWhatsit::Exec(e) => Some(e.name.to_string()),
+            ProvidesWhatsit::Exec(e) => Some(e.name.into()),
             _ => todo!()
         }
     }
@@ -554,64 +556,70 @@ impl fmt::Display for TeXCommand {
 }
 
 impl TeXCommand {
-    pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> String {
+    pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
         use TeXCommand::*;
         use std::str::FromStr;
         match self {
             Char(c) => match c.catcode {
-                CategoryCode::Space => "blank space ".to_string(),
-                CategoryCode::Letter => "the letter ".to_string() + from_utf8(&[c.char]).unwrap(),
-                CategoryCode::Other => "the character ".to_string() + from_utf8(&[c.char]).unwrap(),
+                CategoryCode::Space => "blank space ".into(),
+                CategoryCode::Letter => {
+                    let s : TeXString = "the letter ".into();
+                    s + c.char.into()
+                },
+                CategoryCode::Other => {
+                    let s : TeXString = "the character ".into();
+                    s + c.char.into()
+                },
                 _ => todo!("{}",self)
             }
             TeXCommand::Def(d) => {
-                let escape = if catcodes.escapechar != 255 {from_utf8(&[catcodes.escapechar]).unwrap().to_string()} else {"".to_string()};
-                let mut meaning = "".to_string();
+                let escape : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let mut meaning : TeXString = "".into();
                 if d.protected {
-                    meaning += &escape;
-                    meaning += "protected "
+                    meaning += escape.clone();
+                    meaning += "protected ".into()
                 }
                 if d.long {
-                    meaning += &escape;
-                    meaning += "long "
+                    meaning += escape.clone();
+                    meaning += "long ".into()
                 }
-                meaning += "macro:";
+                meaning += "macro:".into();
                 for s in &d.sig.elems {
                     match s {
                         ParamToken::Token(tk) => {
                             match tk.catcode {
                                 CategoryCode::Escape => {
-                                    meaning += &escape;
-                                    meaning += &tk.name();
-                                    meaning += " "
+                                    meaning += escape.clone();
+                                    meaning += tk.name();
+                                    meaning += " ".into()
                                 }
-                                _ => meaning += from_utf8(&[tk.char]).unwrap()
+                                _ => meaning += tk.char.into()
                             }
                         },
-                        ParamToken::Param(0,u) => meaning += from_utf8(&[*u,*u]).unwrap(),
+                        ParamToken::Param(0,u) => meaning += vec!(*u,*u).into(),
                         ParamToken::Param(i,u) => {
-                            meaning += from_utf8(&[*u]).unwrap();
-                            meaning += &i.to_string();
+                            meaning += (*u).into();
+                            meaning += i.to_string().into();
                         }
                     }
                 }
-                meaning += "->";
+                meaning += "->".into();
                 for s in &d.ret {
                     match s {
                         ParamToken::Token(tk) => {
                             match tk.catcode {
                                 CategoryCode::Escape => {
-                                    meaning += &escape;
-                                    meaning += &tk.name();
-                                    meaning += " "
+                                    meaning += escape.clone();
+                                    meaning += tk.name();
+                                    meaning += " ".into()
                                 }
-                                _ => meaning += from_utf8(&[tk.char]).unwrap()
+                                _ => meaning += tk.char.into()
                             }
                         },
-                        ParamToken::Param(0,u) => meaning += from_utf8(&[*u,*u]).unwrap(),
+                        ParamToken::Param(0,u) => meaning += vec!(*u,*u).into(),
                         ParamToken::Param(i,u) => {
-                            meaning += from_utf8(&[*u]).unwrap();
-                            meaning += &i.to_string();
+                            meaning += (*u).into();
+                            meaning += i.to_string().into();
                         }
                     }
                 }
@@ -620,15 +628,15 @@ impl TeXCommand {
             _ => todo!("{}",self)
         }
     }
-    pub fn name(&self) -> Option<String> {
+    pub fn name(&self) -> Option<TeXString> {
         match self {
             TeXCommand::Char(_) => None,
-            TeXCommand::Ass(a) => Some(a.name.to_string()),
-            TeXCommand::Primitive(pr) => Some(pr.name.to_string()),
+            TeXCommand::Ass(a) => Some(a.name.into()),
+            TeXCommand::Primitive(pr) => Some(pr.name.into()),
             TeXCommand::AV(av) => av.name(),
-            TeXCommand::Ext(jr) => Some(jr.name()),
-            TeXCommand::Cond(c) => Some(c.name.to_string()),
-            TeXCommand::Int(i) => Some(i.name.to_string()),
+            TeXCommand::Ext(jr) => Some(jr.name().into()),
+            TeXCommand::Cond(c) => Some(c.name.into()),
+            TeXCommand::Int(i) => Some(i.name.into()),
             TeXCommand::Def(_) => None,
             TeXCommand::Whatsit(wi) => wi.name(),
             TeXCommand::MathChar(_) => None
