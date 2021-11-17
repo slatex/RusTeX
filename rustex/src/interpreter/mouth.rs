@@ -13,7 +13,8 @@ use crate::utils::TeXString;
 pub enum Mouth {
     Token(TokenMouth),
     Str(StringMouth),
-    File(StringMouth)
+    File(StringMouth),
+    FileLike(StringMouth)
 }
 
 impl Mouth {
@@ -21,21 +22,24 @@ impl Mouth {
         match self {
             Mouth::Token(tm) => tm.preview(),
             Mouth::Str(tm) => tm.preview(),
-            Mouth::File(tm) => tm.preview()
+            Mouth::File(tm) => tm.preview(),
+            Mouth::FileLike(tm) => tm.preview()
         }
     }
     pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
             Mouth::Str(sm) => sm.has_next(catcodes,nocomment),
-            Mouth::File(sm) => sm.has_next(catcodes,nocomment)
+            Mouth::File(sm) => sm.has_next(catcodes,nocomment),
+            Mouth::FileLike(sm) => sm.has_next(catcodes,nocomment)
         }
     }
     pub(crate) fn get_next(&mut self,catcodes:&CategoryCodeScheme) -> Token {
         match self {
             Mouth::Token(tm) => tm.pop_next(true),
             Mouth::Str(sm) => sm.pop_next(catcodes,true),
-            Mouth::File(sm) => sm.pop_next(catcodes,true)
+            Mouth::File(sm) => sm.pop_next(catcodes,true),
+            Mouth::FileLike(sm) => sm.pop_next(catcodes,true)
         }
     }
 }
@@ -141,16 +145,6 @@ impl StringMouth {
                 }
                 tk => {ret.push(tk);}
             }
-        }
-        if !self.has_next(catcodes,false) && !self.iseof {
-            self.iseof = true;
-            self.peekbuffer = Some(Token {
-                char: 0,
-                catcode: CategoryCode::EOL,
-                name_opt: Some("EOF".into()),
-                reference: Box::new(SourceReference::None),
-                expand:true
-            })
         }
         match ret.last() {
             Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
@@ -396,7 +390,7 @@ impl StringMouth {
                     let mut buf : Vec<u8> = Vec::new();
                     let maybecomment = self.next_char(catcodes.endlinechar);
                     match maybecomment {
-                        Some((tk,_,_)) if catcodes.get_code(tk) == CategoryCode::Comment => {
+                        Some((tk,_,_)) if catcodes.get_code(tk) == CategoryCode::Comment || catcodes.get_code(tk) == CategoryCode::Ignored => {
                             Token {
                                 char,
                                 catcode: CategoryCode::Escape,
@@ -574,7 +568,7 @@ impl Mouths {
                                     }
                                     return Err(EOF {})
                                 }
-                                Mouth::File(_) => {
+                                Mouth::File(_) | Mouth::FileLike(_) => {
                                     print!(")\n");
                                     return Err(EOF {})
                                 }
@@ -675,7 +669,10 @@ impl Interpreter<'_> {
     pub fn next_token(&self) -> Token {
         let ret = self.mouths.borrow_mut().next_token(&self.state_catcodes());
         match ret {
-            Ok(t) => t,
+            Ok(t) => {
+                //println!(">>{}<<",t);
+                t
+            },
             Err(_) => {
                 self.doeof();
                 self.next_token()
@@ -696,7 +693,18 @@ impl Interpreter<'_> {
         }
     }
     pub(in crate::interpreter::mouth) fn doeof(&self) {
+        self.push_tokens(vec!(self.eof_token()));
         self.insert_every(&crate::commands::primitives::EVERYEOF)
+    }
+
+    fn eof_token(&self) -> Token {
+        Token {
+            char: 0,
+            catcode: CategoryCode::EOL,
+            name_opt: Some("EOF".into()),
+            reference: Box::new(SourceReference::None),
+            expand:true
+        }
     }
 }
 

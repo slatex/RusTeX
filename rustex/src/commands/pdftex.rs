@@ -1,4 +1,13 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, TeXCommand};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, TeXCommand,IntCommand};
+use crate::VERSION_INFO;
+
+pub static PDFTEXVERSION : IntCommand = IntCommand {
+    _getvalue: |_int| {
+        Ok(VERSION_INFO.pdftexversion.to_string().parse().unwrap())
+    },
+    name: "pdftexversion"
+};
+
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -301,12 +310,6 @@ pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFTEXVERSION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdftexversion",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmajorversion",
     expandable:false,
@@ -316,6 +319,12 @@ pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
 // -------------------------------------------------------------------------------------------------
 
 pub fn pdftex_commands() -> Vec<TeXCommand> {vec![
+    TeXCommand::Int(&PDFTEXVERSION),
+
+    TeXCommand::Cond(&IFPDFABSNUM),
+    TeXCommand::Cond(&IFPDFABSDIM),
+    TeXCommand::Cond(&IFPDFPRIMITIVE),
+
     TeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEHEIGHT)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEWIDTH)),
@@ -326,9 +335,6 @@ pub fn pdftex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::PrimReg(&PDFPKRESOLUTION)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFHORIGIN)),
     TeXCommand::AV(AssignableValue::PrimDim(&PDFVORIGIN)),
-    TeXCommand::Cond(&IFPDFABSNUM),
-    TeXCommand::Cond(&IFPDFABSDIM),
-    TeXCommand::Cond(&IFPDFPRIMITIVE),
 
     // TODO ----------------------------------------------------------------------------------------
 
@@ -370,6 +376,5 @@ pub fn pdftex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&PDFMDFIVESUM),
     TeXCommand::Primitive(&PDFSTRCMP),
     TeXCommand::Primitive(&PDFTEXREVISION),
-    TeXCommand::Primitive(&PDFTEXVERSION),
     TeXCommand::Primitive(&PDFMAJORVERSION),
 ]}

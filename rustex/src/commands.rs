@@ -624,6 +624,10 @@ impl TeXCommand {
                 }
                 meaning
             }
+            TeXCommand::Int(ic) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + ic.name.into()
+            }
             _ => todo!("{}",self)
         }
     }
