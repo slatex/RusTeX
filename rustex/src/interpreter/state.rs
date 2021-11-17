@@ -38,7 +38,6 @@ struct StackFrame {
 impl StackFrame {
     pub(crate) fn initial_pdf_etex() -> StackFrame {
         use crate::commands::conditionals::conditional_commands;
-        use crate::commands::etex::etex_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
         let mut cmds: HashMap<TeXString,Option<TeXCommand>> = HashMap::new();
@@ -46,9 +45,6 @@ impl StackFrame {
             cmds.insert(c.name().unwrap(),Some(c));
         }
         for c in tex_commands() {
-            cmds.insert(c.name().unwrap(),Some(c));
-        }
-        for c in etex_commands() {
             cmds.insert(c.name().unwrap(),Some(c));
         }
         for c in pdftex_commands() {

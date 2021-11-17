@@ -5,6 +5,7 @@ use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::utils::{TeXError, TeXString};
 use crate::{log,TeXErr,FileEnd};
+use crate::VERSION_INFO;
 
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
@@ -54,7 +55,6 @@ use crate::references::SourceReference;
 use std::rc::Rc;
 use std::str::from_utf8;
 use chrono::{Datelike, Timelike};
-use crate::commands::etex::UNEXPANDED;
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -887,6 +887,30 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         } else {"".into()};
         TeXErr!(int,"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
     }
+};
+
+pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
+    expandable:true,
+    _apply: |cs: Token, _int: &Interpreter| {
+        Ok(Some(Expansion {
+            cs,
+            exp: Interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone())
+        }))
+    },
+    name: "etexrevision"
+};
+
+pub static ETEXVERSION : IntCommand = IntCommand {
+    _getvalue: |_int| {
+        Ok(VERSION_INFO.etexversion.to_string().parse().unwrap())
+    },
+    name: "eTeXversion"
+};
+
+pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unexpanded",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
 };
 
 // REGISTERS ---------------------------------------------------------------------------------------
@@ -2058,6 +2082,181 @@ pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
+pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"afterassignment",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"aftergroup",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DELCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"delcode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"dimen",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ESCAPECHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"escapechar",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"font",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FONTDIMEN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"fontdimen",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FUTURELET: PrimitiveExecutable = PrimitiveExecutable {
+    name:"futurelet",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hyphenation",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HYPHENCHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hyphenchar",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LCCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lccode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lpcode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static RPCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"rpcode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SETBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"setbox",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathcode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"muskip",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MUSKIPDEF: PrimitiveExecutable = PrimitiveExecutable {
+    name:"muskipdef",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"outer",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pagegoal",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"parshape",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PATTERNS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"patterns",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static READLINE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"readline",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptfont",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SCRIPTSCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptscriptfont",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SKEWCHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"skewchar",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"skip",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TEXTFONT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"textfont",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TOKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"toks",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UCCODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"uccode",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+
 // -------------------------------------------------------------------------------------------------
 
 pub fn tex_commands() -> Vec<TeXCommand> {vec![
@@ -2104,6 +2303,9 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&NOEXPAND),
     TeXCommand::Primitive(&EXPANDAFTER),
     TeXCommand::Primitive(&MEANING),
+    TeXCommand::Primitive(&ETEXREVISION),
+    TeXCommand::Primitive(&UNEXPANDED),
+    TeXCommand::Int(&ETEXVERSION),
 
     TeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     TeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -2322,4 +2524,33 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::Primitive(&QUITVMODE),
     TeXCommand::Primitive(&RIGHTMARGINKERN),
     TeXCommand::Primitive(&TAGCODE),
+    TeXCommand::Primitive(&AFTERASSIGNMENT),
+    TeXCommand::Primitive(&AFTERGROUP),
+    TeXCommand::Primitive(&DELCODE),
+    TeXCommand::Primitive(&DIMEN),
+    TeXCommand::Primitive(&ESCAPECHAR),
+    TeXCommand::Primitive(&FONT),
+    TeXCommand::Primitive(&FONTDIMEN),
+    TeXCommand::Primitive(&FUTURELET),
+    TeXCommand::Primitive(&HYPHENATION),
+    TeXCommand::Primitive(&HYPHENCHAR),
+    TeXCommand::Primitive(&LCCODE),
+    TeXCommand::Primitive(&LPCODE),
+    TeXCommand::Primitive(&RPCODE),
+    TeXCommand::Primitive(&SETBOX),
+    TeXCommand::Primitive(&MATHCODE),
+    TeXCommand::Primitive(&MUSKIP),
+    TeXCommand::Primitive(&MUSKIPDEF),
+    TeXCommand::Primitive(&OUTER),
+    TeXCommand::Primitive(&PAGEGOAL),
+    TeXCommand::Primitive(&PARSHAPE),
+    TeXCommand::Primitive(&PATTERNS),
+    TeXCommand::Primitive(&READLINE),
+    TeXCommand::Primitive(&SCRIPTFONT),
+    TeXCommand::Primitive(&SCRIPTSCRIPTFONT),
+    TeXCommand::Primitive(&SKEWCHAR),
+    TeXCommand::Primitive(&SKIP),
+    TeXCommand::Primitive(&TEXTFONT),
+    TeXCommand::Primitive(&TOKS),
+    TeXCommand::Primitive(&UCCODE),
 ]}

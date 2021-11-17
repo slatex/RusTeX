@@ -156,8 +156,7 @@ impl Interpreter<'_> {
 
     #[inline(always)]
     pub fn read_token_list_map<'a,T>(&self,expand:bool,the:bool,f:Box<dyn Fn(Token,&Interpreter) -> Result<Option<T>,TeXError> + 'a>) -> Result<Vec<T>,TeXError> {
-        use crate::commands::primitives::THE;
-        use crate::commands::etex::UNEXPANDED;
+        use crate::commands::primitives::{THE,UNEXPANDED};
         use std::rc::Rc;
         let mut ingroups : i8 = 0;
         let mut ret : Vec<T> = vec!();

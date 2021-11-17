@@ -1,5 +1,4 @@
 pub mod primitives;
-pub mod etex;
 pub mod pdftex;
 pub mod conditionals;
 
