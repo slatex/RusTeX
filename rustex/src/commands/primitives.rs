@@ -160,7 +160,7 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                             return do_def(int,global,true,long,false)
                         }
                         TeXCommand::Ass(a) if *a == EDEF => {
-                            todo!()
+                            return do_def(int,global,true,long,true)
                         }
                         TeXCommand::Ass(a) if *a == LONG => {
                             long = true;
@@ -188,7 +188,7 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                             return do_def(int,global,protected,true,false)
                         }
                         TeXCommand::Ass(a) if *a == EDEF => {
-                            todo!()
+                            return do_def(int,global,protected,true,true)
                         }
                         TeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
