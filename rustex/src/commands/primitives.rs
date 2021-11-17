@@ -1,4 +1,4 @@
-use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList};
+use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion};
 use crate::catcodes::CategoryCode;
@@ -1100,7 +1100,241 @@ pub static TRACINGSCANTOKENS : RegisterReference = RegisterReference {
     index:72
 };
 
+// Dimensions --------------------------------------------------------------------------------------
 
+pub static HFUZZ : DimenReference = DimenReference {
+    name: "hfuzz",
+    index:5
+};
+
+pub static VFUZZ : DimenReference = DimenReference {
+    name: "vfuzz",
+    index:6
+};
+
+pub static OVERFULLRULE : DimenReference = DimenReference {
+    name: "overfullrule",
+    index:7
+};
+
+pub static MAXDEPTH : DimenReference = DimenReference {
+    name: "maxdepth",
+    index:8
+};
+
+pub static SPLITMAXDEPTH : DimenReference = DimenReference {
+    name: "splitmaxdepth",
+    index:9
+};
+
+pub static BOXMAXDEPTH : DimenReference = DimenReference {
+    name: "boxmaxdepth",
+    index:10
+};
+
+pub static DELIMITERSHORTFALL : DimenReference = DimenReference {
+    name: "delimitershortfall",
+    index:11
+};
+
+pub static NULLDELIMITERSPACE : DimenReference = DimenReference {
+    name: "nulldelimiterspace",
+    index:12
+};
+
+pub static SCRIPTSPACE : DimenReference = DimenReference {
+    name: "scriptspace",
+    index:13
+};
+
+pub static PARINDENT : DimenReference = DimenReference {
+    name: "parindent",
+    index:14
+};
+
+pub static VSIZE : DimenReference = DimenReference {
+    name: "vsize",
+    index:15
+};
+
+pub static HSIZE : DimenReference = DimenReference {
+    name: "hsize",
+    index:16
+};
+
+// -----------------
+
+pub static LINESKIPLIMIT : DimenReference = DimenReference {
+    name: "lineskiplimit",
+    index:21
+};
+
+pub static MATHSURROUND : DimenReference = DimenReference {
+    name: "mathsurround",
+    index:22
+};
+
+// -----------------
+
+pub static HANGINDENT : DimenReference = DimenReference {
+    name: "hangindent",
+    index:25
+};
+
+// ----------------
+
+pub static PAGETOTAL : DimenReference = DimenReference {
+    name: "pagetotal",
+    index:27
+};
+
+pub static PAGESTRETCH : DimenReference = DimenReference {
+    name: "pagestretch",
+    index:28
+};
+
+pub static PAGEFILSTRETCH : DimenReference = DimenReference {
+    name: "pagefilstretch",
+    index:29
+};
+
+pub static PAGEFILLSTRETCH : DimenReference = DimenReference {
+    name: "pagefillstretch",
+    index:30
+};
+
+pub static PAGEFILLLSTRETCH : DimenReference = DimenReference {
+    name: "pagefilllstretch",
+    index:31
+};
+
+pub static PAGESHRINK : DimenReference = DimenReference {
+    name: "pageshrink",
+    index:32
+};
+
+pub static PAGEDEPTH : DimenReference = DimenReference {
+    name: "pagedepth",
+    index:33
+};
+
+// -------------
+
+pub static EMERGENCYSTRETCH : DimenReference = DimenReference {
+    name: "emergencystretch",
+    index:63
+};
+
+pub static VOFFSET : DimenReference = DimenReference {
+    name: "voffset",
+    index:64
+};
+
+pub static HOFFSET : DimenReference = DimenReference {
+    name: "hoffset",
+    index:65
+};
+
+pub static DISPLAYWIDTH : DimenReference = DimenReference {
+    name: "displaywidth",
+    index:66
+};
+
+pub static PREDISPLAYSIZE : DimenReference = DimenReference {
+    name: "predisplaysize",
+    index:67
+};
+
+// Skips -------------------------------------------------------------------------------------------
+
+pub static PARSKIP : SkipReference = SkipReference {
+    name: "parskip",
+    index:5
+};
+
+pub static ABOVEDISPLAYSKIP : SkipReference = SkipReference {
+    name: "abovedisplayskip",
+    index:6
+};
+
+pub static ABOVEDISPLAYSHORTSKIP : SkipReference = SkipReference {
+    name: "abovedisplayshortskip",
+    index:7
+};
+
+pub static BELOWDISPLAYSKIP : SkipReference = SkipReference {
+    name: "belowdisplayskip",
+    index:8
+};
+
+pub static BELOWDISPLAYSHORTSKIP : SkipReference = SkipReference {
+    name: "belowdisplayshortskip",
+    index:9
+};
+
+pub static TOPSKIP : SkipReference = SkipReference {
+    name: "topskip",
+    index:10
+};
+
+pub static SPLITTOPSKIP : SkipReference = SkipReference {
+    name: "splittopskip",
+    index:11
+};
+
+pub static PARFILLSKIP : SkipReference = SkipReference {
+    name: "parfillskip",
+    index:12
+};
+
+pub static BASELINESKIP : SkipReference = SkipReference {
+    name: "baselineskip",
+    index:13
+};
+
+pub static LINESKIP : SkipReference = SkipReference {
+    name: "lineskip",
+    index:14
+};
+
+pub static PREVDEPTH : SkipReference = SkipReference {
+    name: "prevdepth",
+    index:15
+};
+
+// -----------
+
+pub static LEFTSKIP : SkipReference = SkipReference {
+    name: "leftskip",
+    index:17
+};
+
+pub static RIGHTSKIP : SkipReference = SkipReference {
+    name: "rightskip",
+    index:18
+};
+
+// ----------
+
+pub static TABSKIP : SkipReference = SkipReference {
+    name: "tabskip",
+    index:20
+};
+
+pub static SPACESKIP : SkipReference = SkipReference {
+    name: "spaceskip",
+    index:21
+};
+
+pub static XSPACESKIP : SkipReference = SkipReference {
+    name: "xspaceskip",
+    index:22
+};
+
+pub static BIGSKIPAMOUNT : SkipReference = SkipReference {
+    name: "bigskipamount",
+    index:23
+};
 
 
 // TODO --------------------------------------------------------------------------------------------
@@ -1823,6 +2057,52 @@ pub fn tex_commands() -> Vec<TeXCommand> {vec![
     TeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
     TeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
     TeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
+
+    TeXCommand::AV(AssignableValue::PrimDim(&HFUZZ)),
+    TeXCommand::AV(AssignableValue::PrimDim(&VFUZZ)),
+    TeXCommand::AV(AssignableValue::PrimDim(&OVERFULLRULE)),
+    TeXCommand::AV(AssignableValue::PrimDim(&MAXDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&SPLITMAXDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&BOXMAXDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&DELIMITERSHORTFALL)),
+    TeXCommand::AV(AssignableValue::PrimDim(&NULLDELIMITERSPACE)),
+    TeXCommand::AV(AssignableValue::PrimDim(&SCRIPTSPACE)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PARINDENT)),
+    TeXCommand::AV(AssignableValue::PrimDim(&VSIZE)),
+    TeXCommand::AV(AssignableValue::PrimDim(&HSIZE)),
+    TeXCommand::AV(AssignableValue::PrimDim(&LINESKIPLIMIT)),
+    TeXCommand::AV(AssignableValue::PrimDim(&MATHSURROUND)),
+    TeXCommand::AV(AssignableValue::PrimDim(&HANGINDENT)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGETOTAL)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGESTRETCH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILSTRETCH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLSTRETCH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLLSTRETCH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGESHRINK)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PAGEDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&EMERGENCYSTRETCH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&VOFFSET)),
+    TeXCommand::AV(AssignableValue::PrimDim(&HOFFSET)),
+    TeXCommand::AV(AssignableValue::PrimDim(&DISPLAYWIDTH)),
+    TeXCommand::AV(AssignableValue::PrimDim(&PREDISPLAYSIZE)),
+
+    TeXCommand::AV(AssignableValue::PrimSkip(&PARSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSHORTSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSHORTSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&TOPSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&SPLITTOPSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&PARFILLSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&BASELINESKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&LINESKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&PREVDEPTH)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&LEFTSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&RIGHTSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&TABSKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&SPACESKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&XSPACESKIP)),
+    TeXCommand::AV(AssignableValue::PrimSkip(&BIGSKIPAMOUNT)),
 
     // TODO ----------------------------------------------------------------------------------------
     TeXCommand::Primitive(&END),
