@@ -100,7 +100,8 @@ pub struct State {
     stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>,
     pub(in crate) outfiles:HashMap<u8,VFile>,
-    pub(in crate) infiles:HashMap<u8,StringMouth>
+    pub(in crate) infiles:HashMap<u8,StringMouth>,
+    pub(in crate) incs : u8
 }
 
 impl State {
@@ -109,7 +110,8 @@ impl State {
             stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![],
             outfiles:HashMap::new(),
-            infiles:HashMap::new()
+            infiles:HashMap::new(),
+            incs:0
         }
     }
     pub fn with_commands(mut procs:Vec<TeXCommand>) -> State {
@@ -406,7 +408,7 @@ impl Interpreter<'_> {
                 print!("{}",White.bold().paint(s.to_utf8()));
                 Ok(())
             }
-            16 | 18 => todo!("{}",index),
+            18 => todo!("{}",index),
             255 => {
                 print!("{}",Black.on(Blue).paint(s.to_utf8()));
                 Ok(())
@@ -485,6 +487,23 @@ impl Interpreter<'_> {
         match conds.last() {
             Some(p) => Some((conds.len() as u8,*p)),
             None => None
+        }
+    }
+    pub fn newincs(&self) -> u8 {
+        let mut state = self.state.borrow_mut();
+        state.incs += 1;
+        state.incs
+    }
+    pub fn currcs(&self) -> u8 {
+        self.state.borrow().incs
+    }
+    pub fn popcs(&self) -> Result<(),TeXError> {
+        let mut state = self.state.borrow_mut();
+        if state.incs > 0 {
+            state.incs -= 1;
+            Ok(())
+        } else {
+            TeXErr!(self,"spurious \\endcsname")
         }
     }
     pub fn state_get_command(&self,s:&TeXString) -> Option<TeXCommand> {

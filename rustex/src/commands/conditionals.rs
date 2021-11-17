@@ -214,8 +214,14 @@ pub static IFFALSE : Conditional = Conditional {
 
 pub static IFDEFINED : Conditional = Conditional {
     name:"ifdefined",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let next = int.next_token();
+        let istrue = match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active =>
+                int.state_get_command(&next.cmdname()).is_some(),
+            _ => TeXErr!(int,"Expected command after \\ifdefined; got: {}",next)
+        };
+        if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 

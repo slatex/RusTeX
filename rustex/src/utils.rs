@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
+use std::io::Write;
 use std::ops::{AddAssign, Deref};
 use std::path::{Path, PathBuf};
 use std::str::{from_utf8, from_utf8_unchecked};
@@ -17,6 +18,7 @@ impl TeXString {
     pub fn to_string(&self) -> String {
         let mut ret : Vec<u8> = vec!();
         for u in &self.0 { match u {
+            13 => ret.push(10),
             _ if u.is_ascii() => {
                 ret.push(*u)
             }
@@ -186,10 +188,12 @@ impl TeXError {
         TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
     }
     pub fn throw<A>(mut self) -> A {
+        std::io::stdout().flush();
         self.backtrace.resolve();
         panic!("{}",self)
     }
     pub fn print(&mut self) {
+        std::io::stdout().flush();
         self.backtrace.resolve();
         println!("{}",self)
     }

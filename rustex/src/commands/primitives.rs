@@ -798,6 +798,97 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"csname",
+    expandable:true,
+    _apply:|cs,int| {
+        let incs = int.newincs();
+        let mut cmdname : TeXString = "".into();
+        while incs == int.currcs() && int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Escape => {
+                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(exp) => exp.expand(next,int)?,
+                        Err(_) => {
+                            if int.state_catcodes().escapechar != 255 {
+                                cmdname += int.state_catcodes().escapechar.into()
+                            }
+                            cmdname += next.name()
+                        }
+                    }
+                }
+                CategoryCode::Active =>  {
+                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(exp) => exp.expand(next,int)?,
+                        Err(_) => cmdname += next.name()
+                    }
+                }
+                _ => cmdname += next.char.into()
+            }
+        }
+        let ret = Token {
+            char: int.state_catcodes().escapechar,
+            catcode: CategoryCode::Escape,
+            name_opt: Some(cmdname.clone()),
+            reference: Box::new(SourceReference::None),
+            expand: true
+        };
+        match int.state_get_command(&cmdname) {
+            Some(_) => (),
+            None => int.change_state(StateChange::Cs(cmdname,Some(TeXCommand::Primitive(&RELAX)),false))
+        }
+        Ok(Some(Expansion {
+            cs,
+            exp: vec![ret]
+        }))
+    }
+};
+
+pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endcsname",
+    expandable:true,
+    _apply:|_,int| {
+        int.popcs()?;
+        Ok(None)
+    }
+};
+
+pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"errmessage",
+    expandable:false,
+    _apply:|_tk,int| {
+        use ansi_term::Colour::*;
+        let next = int.next_token();
+        if next.catcode != CategoryCode::BeginGroup {
+            TeXErr!(int,"Begin group token expected after \\message")
+        }
+        let ret = int.read_token_list(true,false)?;
+        let string = int.tokens_to_string(ret);
+        let mut eh = int.state_tokens(-u8toi16(ERRHELP.index));
+        let rethelp = if !eh.is_empty() {
+            eh.push(Token{
+                char: 0,
+                catcode: CategoryCode::EndGroup,
+                name_opt: None,
+                reference: Box::new(SourceReference::None),
+                expand: false
+            });
+            eh.insert(0,Token {
+                char: 0,
+                catcode: CategoryCode::BeginGroup,
+                name_opt: None,
+                reference: Box::new(SourceReference::None),
+                expand: false
+            });
+            int.push_tokens(eh);
+            let rethelp = int.read_token_list(true,false)?;
+            int.tokens_to_string(rethelp)
+        } else {"".into()};
+        TeXErr!(int,"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -1402,18 +1493,6 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
-    name:"csname",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
-    name:"endcsname",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentgrouplevel",
     expandable:false,
@@ -1446,12 +1525,6 @@ pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
     name:"eqno",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"errmessage",
     expandable:false,
     _apply:|_tk,_int| {todo!()}
 };
