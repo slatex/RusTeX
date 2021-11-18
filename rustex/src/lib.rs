@@ -7,6 +7,8 @@ pub mod catcodes;
 pub mod stomach;
 
 static LOG : bool = false;
+static STORE_IN_FILE : bool = true;
+static COPY_TOKENS_FULL : bool = true;
 
 #[macro_export]
 macro_rules! log {
@@ -42,8 +44,6 @@ extern crate lazy_static;
 
 use crate::utils::TeXString;
 
-static STORE_IN_FILE : bool = true;
-static COPY_TOKENS_FULL : bool = true;
 
 static LANGUAGE_DAT : &[u8] = include_bytes!("resources/language.dat");
 static UNICODEDATA_TXT : &[u8] = include_bytes!("resources/UnicodeData.txt");

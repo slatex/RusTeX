@@ -1668,8 +1668,76 @@ pub static NUMEXPR: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"romannumeral",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    expandable:true,
+    _apply:|cs,int| {
+        let mut num = int.read_number()?;
+        if num <= 0 {
+            return Ok(None)
+        }
+        let mut ret : Vec<u8> = vec!();
+        while num >= 1000 {
+            num -= 1000;
+            ret.push(109); // m
+        }
+        if num >= 900 {
+            num -= 900;
+            ret.push(99); // c
+            ret.push(109); // m
+        }
+        if num >= 500 {
+            num -= 500;
+            ret.push(100); // d
+        }
+        if num >= 400 {
+            num -= 400;
+            ret.push(99); // c
+            ret.push(100); // d
+        }
+        while num >= 100 {
+            num -= 100;
+            ret.push(99); // c
+        }
+        if num >= 90 {
+            num -= 90;
+            ret.push(120); // x
+            ret.push(99); // c
+        }
+        if num >= 50 {
+            num -= 50;
+            ret.push(108); // l
+        }
+        if num >= 40 {
+            num -= 40;
+            ret.push(120); // x
+            ret.push(108); // l
+        }
+        while num >= 10 {
+            num -= 10;
+            ret.push(120); // x
+        }
+        if num >= 9 {
+            num -= 9;
+            ret.push(105); // i
+            ret.push(120); // x
+        }
+        if num >= 5 {
+            num -= 5;
+            ret.push(118); // v
+        }
+        if num >= 4 {
+            num -= 4;
+            ret.push(105); // i
+            ret.push(118); // v
+        }
+        while num >= 1 {
+            num -= 1;
+            ret.push(105); // i
+        }
+        Ok(Some(Expansion {
+            cs,
+            exp:Interpreter::string_to_tokens(ret.into())
+        }))
+    }
 };
 
 pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {

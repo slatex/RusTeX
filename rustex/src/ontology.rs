@@ -97,7 +97,7 @@ impl Token {
                 reference: Box::new(nref),
                 expand:true
             }
-        } else { todo!() }
+        } else { self.clone() }
     }
 }
 
