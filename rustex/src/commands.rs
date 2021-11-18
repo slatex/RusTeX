@@ -189,7 +189,6 @@ impl Expandable {
     }
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         use PrimitiveTeXCommand::*;
-        log!("Expanding {}",tk);
         match self.get_expansion(tk,int)? {
             Some(exp) => Ok(int.push_expansion(exp)),
             None => Ok(())

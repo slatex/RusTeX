@@ -167,6 +167,12 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
                             return do_def(rf,int,global,true,long,true)
                         }
+                        PrimitiveTeXCommand::Ass(a) if *a == GDEF => {
+                            return do_def(rf,int,true,true,long,false)
+                        }
+                        PrimitiveTeXCommand::Ass(a) if *a == XDEF => {
+                            return do_def(rf,int,true,true,long,true)
+                        }
                         PrimitiveTeXCommand::Ass(a) if *a == LONG => {
                             long = true;
                         }
@@ -194,6 +200,12 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
                             return do_def(rf,int,global,protected,true,true)
+                        }
+                        PrimitiveTeXCommand::Ass(a) if *a == GDEF => {
+                            return do_def(rf,int,true,protected,true,false)
+                        }
+                        PrimitiveTeXCommand::Ass(a) if *a == XDEF => {
+                            return do_def(rf,int,true,protected,true,true)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
@@ -304,6 +316,7 @@ use crate::stomach::whatsits::ExecutableWhatsit;
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
     _assign: |rf,int,global| {
+        int.expand_until(true)?;
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())?.as_assignment() {
             Ok(a) => a.assign(next,int,true)?,
@@ -702,7 +715,6 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
                         Ok(())
                     },
                     Err(_) => {
-                        todo!("Maybe? {}",next);
                         rf.2.push(tmp);
                         rf.2.push(next);
                         Ok(())
@@ -896,6 +908,117 @@ pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
             }
             _ => TeXErr!(int,"Balanced argument expected after \\unexpanded")
         }
+    }
+};
+
+pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"romannumeral",
+    expandable:true,
+    _apply:|rf,int| {
+        let mut num = int.read_number()?;
+        if num <= 0 {
+            return Ok(())
+        }
+        let mut ret : Vec<u8> = vec!();
+        while num >= 1000 {
+            num -= 1000;
+            ret.push(109); // m
+        }
+        if num >= 900 {
+            num -= 900;
+            ret.push(99); // c
+            ret.push(109); // m
+        }
+        if num >= 500 {
+            num -= 500;
+            ret.push(100); // d
+        }
+        if num >= 400 {
+            num -= 400;
+            ret.push(99); // c
+            ret.push(100); // d
+        }
+        while num >= 100 {
+            num -= 100;
+            ret.push(99); // c
+        }
+        if num >= 90 {
+            num -= 90;
+            ret.push(120); // x
+            ret.push(99); // c
+        }
+        if num >= 50 {
+            num -= 50;
+            ret.push(108); // l
+        }
+        if num >= 40 {
+            num -= 40;
+            ret.push(120); // x
+            ret.push(108); // l
+        }
+        while num >= 10 {
+            num -= 10;
+            ret.push(120); // x
+        }
+        if num >= 9 {
+            num -= 9;
+            ret.push(105); // i
+            ret.push(120); // x
+        }
+        if num >= 5 {
+            num -= 5;
+            ret.push(118); // v
+        }
+        if num >= 4 {
+            num -= 4;
+            ret.push(105); // i
+            ret.push(118); // v
+        }
+        while num >= 1 {
+            num -= 1;
+            ret.push(105); // i
+        }
+        rf.2 = crate::interpreter::string_to_tokens(ret.into());
+        Ok(())
+    }
+};
+
+pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"detokenize",
+    expandable:true,
+    _apply:|exp,int| {
+        int.expand_until(true)?;
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => (),
+            _ => TeXErr!(int,"Expected balanced argument after \\detokenize")
+        }
+        let tkl = int.read_token_list(false,false)?;
+        for t in tkl {
+            exp.2.push(Token {
+                char: t.char,
+                catcode: CategoryCode::Other,
+                name_opt: None,
+                reference: Box::new(SourceReference::None),
+                expand: false
+            });
+            match t.catcode {
+                CategoryCode::Escape => {
+                    for t in t.name().0 {
+                        exp.2.push(Token {
+                            char: t,
+                            catcode: CategoryCode::Other,
+                            name_opt: None,
+                            reference: Box::new(SourceReference::None),
+                            expand: false
+                        });
+                    }
+                }
+                _ => ()
+            }
+        }
+        log!("\\detokenize: {}",TokenList(&exp.2));
+        Ok(())
     }
 };
 
@@ -1469,842 +1592,764 @@ pub static EVERYEOF : TokReference = TokReference {
 
 pub static END: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"batchmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     name:"bye",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"char",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CR: PrimitiveExecutable = PrimitiveExecutable {
     name:"cr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
     name:"crcr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentgrouplevel",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"detokenize",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static DIMEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"dimexpr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"dump",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"endinput",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
     name:"eqno",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errorstopmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontname",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTCHARWD: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontcharwd",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTCHARHT: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontcharht",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTCHARDP: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontchardp",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontcharic",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUEEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueexpr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static INPUTLINENO: PrimitiveExecutable = PrimitiveExecutable {
     name:"inputlineno",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"jobname",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lowercase",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MUEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"muexpr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static NULLFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"nullfont",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static NUMEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"romannumeral",
     expandable:true,
-    _apply:|rf,int| {
-        let mut num = int.read_number()?;
-        if num <= 0 {
-            return Ok(())
-        }
-        let mut ret : Vec<u8> = vec!();
-        while num >= 1000 {
-            num -= 1000;
-            ret.push(109); // m
-        }
-        if num >= 900 {
-            num -= 900;
-            ret.push(99); // c
-            ret.push(109); // m
-        }
-        if num >= 500 {
-            num -= 500;
-            ret.push(100); // d
-        }
-        if num >= 400 {
-            num -= 400;
-            ret.push(99); // c
-            ret.push(100); // d
-        }
-        while num >= 100 {
-            num -= 100;
-            ret.push(99); // c
-        }
-        if num >= 90 {
-            num -= 90;
-            ret.push(120); // x
-            ret.push(99); // c
-        }
-        if num >= 50 {
-            num -= 50;
-            ret.push(108); // l
-        }
-        if num >= 40 {
-            num -= 40;
-            ret.push(120); // x
-            ret.push(108); // l
-        }
-        while num >= 10 {
-            num -= 10;
-            ret.push(120); // x
-        }
-        if num >= 9 {
-            num -= 9;
-            ret.push(105); // i
-            ret.push(120); // x
-        }
-        if num >= 5 {
-            num -= 5;
-            ret.push(118); // v
-        }
-        if num >= 4 {
-            num -= 4;
-            ret.push(105); // i
-            ret.push(118); // v
-        }
-        while num >= 1 {
-            num -= 1;
-            ret.push(105); // i
-        }
-        rf.2 = crate::interpreter::string_to_tokens(ret.into());
-        Ok(())
-    }
+    _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"scantokens",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"uppercase",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"textstyle",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptstyle",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptstyle",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"special",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
     name:"nonscript",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"holdinginserts",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LEQNO: PrimitiveExecutable = PrimitiveExecutable {
     name:"leqno",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LOOSENESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"looseness",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static NOBOUNDARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"noboundary",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCROLLMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scrollmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"nonstopmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"omit",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pausing",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PREVGRAF: PrimitiveExecutable = PrimitiveExecutable {
     name:"prevgraf",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SETLANGUAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"setlanguage",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOW: PrimitiveExecutable = PrimitiveExecutable {
     name:"show",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"showbox",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWLISTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showlists",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
     name:"showthe",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
     name:"span",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGCOMMANDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingcommands",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGMACROS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingmacros",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGONLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingonline",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGOUTPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingoutput",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGPAGES: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingpages",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGPARAGRAPHS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingparagraphs",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGRESTORES: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingrestores",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static VALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"valign",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
     name:"beginL",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static BEGINR: PrimitiveExecutable = PrimitiveExecutable {
     name:"beginR",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmarks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CURRENTGROUPTYPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentgrouptype",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CURRENTIFBRANCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentifbranch",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CURRENTIFLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiflevel",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static CURRENTIFTYPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiftype",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static ENDL: PrimitiveExecutable = PrimitiveExecutable {
     name:"endL",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
     name:"endR",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"firstmarks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUESHRINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrink",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUESHRINKORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrinkorder",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUESTRETCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretch",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUESTRETCHORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretchorder",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static GLUETOMU: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluetomu",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static INTERACTIONMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"interactionmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LASTLINEFIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastlinefit",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"marks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MUTOGLUE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mutoglue",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PAGEDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pagediscards",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PARSHAPEDIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapedimen",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PARSHAPEINDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapeindent",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PARSHAPELENGTH: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapelength",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PREDISPLAYDIRECTION: PrimitiveExecutable = PrimitiveExecutable {
     name:"predisplaydirection",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWGROUPS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showgroups",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWIFS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showifs",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SHOWTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showtokens",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SPLITBOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitbotmarks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SPLITDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitdiscards",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SPLITFIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitfirstmarks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TEXXETSTATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"TeXXeTstate",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TOPMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmarks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGASSIGNS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingassigns",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGGROUPS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracinggroups",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TRACINGIFS: PrimitiveExecutable = PrimitiveExecutable {
     name:"tracingifs",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 
 pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"efcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LEFTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"leftmarginkern",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LETTERSPACEFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"letterspacefont",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static QUITVMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"quitvmode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static RIGHTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"rightmarginkern",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"tagcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"afterassignment",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
     name:"aftergroup",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static DELCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"delcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"dimen",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static ESCAPECHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"escapechar",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"font",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FONTDIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontdimen",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static FUTURELET: PrimitiveExecutable = PrimitiveExecutable {
     name:"futurelet",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
     name:"hyphenation",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static HYPHENCHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"hyphenchar",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LCCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lccode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lpcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static RPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"rpcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SETBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"setbox",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MATHCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathcode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"muskip",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static MUSKIPDEF: PrimitiveExecutable = PrimitiveExecutable {
     name:"muskipdef",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"outer",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"pagegoal",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PATTERNS: PrimitiveExecutable = PrimitiveExecutable {
     name:"patterns",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static READLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"readline",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptfont",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SCRIPTSCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptfont",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SKEWCHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"skewchar",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static SKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"skip",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TEXTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"textfont",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static TOKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"toks",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static UCCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"uccode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 

@@ -206,19 +206,6 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    // Numbers -------------------------------------------------------------------------------------
-
-    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
-        let num = if ishex {
-            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
-        } else if allowfloat {
-            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
-        } else {
-            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
-        };
-        Ok(if isnegative {num.negate()} else {num})
-    }
-
     pub fn expand_until(&self,eat_space:bool) -> Result<(),TeXError> {
         while self.has_next() {
             let next = self.next_token();
@@ -243,35 +230,20 @@ impl Interpreter<'_> {
             }
         }
         FileEnd!(self)
-
-    }
-/*
-    pub fn expand_until_space(&self,i:Numeric) -> Result<Numeric,TeXError> {
-        while self.has_next() {
-            let next = self.next_token();
-            match next.catcode {
-                CategoryCode::Active | CategoryCode::Escape => {
-                    let p = self.get_command(&next.cmdname())?;
-                    match p.as_expandable_with_protected() {
-                        Ok(p) => p.expand(next,self)?,
-                        Err(TeXCommand::Char(tk)) if tk.catcode == CategoryCode::Space => return Ok(i),
-                        Err(_) => {
-                            self.requeue(next);
-                            return Ok(i)
-                        }
-                    }
-                },
-                CategoryCode::Space => return Ok(i),
-                _ => {
-                    self.requeue(next);
-                    return Ok(i)
-                }
-            }
-        }
-        FileEnd!(self)
     }
 
- */
+    // Numbers -------------------------------------------------------------------------------------
+
+    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
+        let num = if ishex {
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+        } else if allowfloat {
+            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+        } else {
+            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+        };
+        Ok(if isnegative {num.negate()} else {num})
+    }
 
     pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
         let mut isnegative = false;
