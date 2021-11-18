@@ -14,13 +14,13 @@ use crate::utils::{TeXError, TeXString};
 use crate::log;
 
 pub struct PrimitiveExecutable {
-    pub (in crate) _apply:fn(cs:Token,itp:&Interpreter) -> Result<Option<Expansion>,TeXError>,
+    pub (in crate) _apply:fn(tk:&Token,itp:&Interpreter) -> Result<Option<Vec<Token>>,TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }
 impl PrimitiveExecutable {
-    pub fn apply(&self,cs:Token,itp:&Interpreter) -> Result<Option<Expansion>,TeXError> {
-        (self._apply)(cs,itp)
+    pub fn apply(&self,tk:&Token,itp:&Interpreter) -> Result<Option<Vec<Token>>,TeXError> {
+        (self._apply)(tk,itp)
     }
 }
 pub struct Conditional {
@@ -106,7 +106,7 @@ use crate::stomach::whatsits::ExecutableWhatsit;
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -186,12 +186,42 @@ impl Expandable {
         log!("Expanding {}",tk);
         match self {
             Cond(c) => {c.expand(tk,int)?; Ok(vec!())},
-            Primitive(p) => match (p._apply)(tk,int)? {
-                Some(e) => Ok(e.exp),
+            Primitive(p) => match (p._apply)(&tk,int)? {
+                Some(e) => Ok(e),
                 _ => Ok(vec!())
             },
-            Ext(p) => Ok(p.expand(int)?.exp),
+            Ext(p) => Ok(p.expand(int)?),
             Def(d) => Expandable::doDef(int,d)
+        }
+    }
+    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+        use Expandable::*;
+        log!("Expanding {}",tk);
+        match self {
+            Cond(c) => c.expand(tk,int),
+            Primitive(p) => match (p._apply)(&tk,int)? {
+                Some(e) =>
+                    Ok(int.push_expansion(Expansion {
+                        cs: tk,
+                        exp: e
+                    })),
+                _ => Ok(())
+            },
+            Ext(p) => {
+                match p.expand(int)? {
+                    ls if ls.is_empty() => Ok(()),
+                    ls => Ok(int.push_expansion(Expansion {
+                        cs:tk,
+                        exp:ls
+                    }))
+                }
+            },
+            Def(d) => {
+                Ok(int.push_expansion(Expansion {
+                    cs: tk,
+                    exp: Expandable::doDef(int,d)?
+                }))
+            }
         }
     }
 
@@ -293,25 +323,6 @@ impl Expandable {
         }
         Ok(ret)
     }
-    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
-        use Expandable::*;
-        log!("Expanding {}",tk);
-        match self {
-            Cond(c) => c.expand(tk,int),
-            Primitive(p) => match (p._apply)(tk,int)? {
-                Some(e) =>
-                    Ok(int.push_expansion(e)),
-                _ => Ok(())
-            },
-            Ext(p) => Ok(int.push_expansion(p.expand(int)?)),
-            Def(d) => {
-                Ok(int.push_expansion(Expansion {
-                    cs: tk,
-                    exp: Expandable::doDef(int,d)?
-                }))
-            }
-        }
-    }
 }
 
 
@@ -411,7 +422,7 @@ pub trait ExternalCommand {
     fn has_num(&self) -> bool;
     fn name(&self) -> String;
     fn execute(&self,int : &Interpreter) -> Result<(),TeXError>;
-    fn expand(&self,int:&Interpreter) -> Result<Expansion,TeXError>;
+    fn expand(&self,int:&Interpreter) -> Result<Vec<Token>,TeXError>;
     fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError>;
     fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError>;
 }

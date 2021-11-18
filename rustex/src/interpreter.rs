@@ -4,7 +4,7 @@ pub enum TeXMode {
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use crate::ontology::Token;
+use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::Path;
@@ -65,25 +65,26 @@ pub struct Interpreter<'inner> {
 }
 use crate::{TeXErr,FileEnd};
 
-impl Interpreter<'_> {
-    pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
-        use crate::catcodes::OTHER_SCHEME;
-        tokenize(s,&OTHER_SCHEME)
-    }
-    pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
-        let mut ret : Vec<u8> = vec!();
-        for tk in tks {
-            match tk.catcode {
-                CategoryCode::Escape => {
-                    ret.push(92);
-                    for s in tk.name_opt.unwrap().0 { ret.push(s) }
-                    ret.push(32)
-                }
-                _ => ret.push(tk.char)
+pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
+    use crate::catcodes::OTHER_SCHEME;
+    tokenize(s,&OTHER_SCHEME)
+}
+pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
+    let mut ret : Vec<u8> = vec!();
+    for tk in tks {
+        match tk.catcode {
+            CategoryCode::Escape => {
+                ret.push(92);
+                for s in tk.name_opt.unwrap().0 { ret.push(s) }
+                ret.push(32)
             }
+            _ => ret.push(tk.char)
         }
-        ret.into()
     }
+    ret.into()
+}
+
+impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:Vec<Token>) -> TeXString {
         let catcodes = self.catcodes.borrow();
         let mut ret : Vec<u8> = vec!();
@@ -154,9 +155,12 @@ impl Interpreter<'_> {
                 };
                 match p {
                     TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                    TeXCommand::Primitive(p) => match p.apply(next,self)? {
+                    TeXCommand::Primitive(p) => match p.apply(&next,self)? {
                         None => Ok(()),
-                        Some(e) => Ok(self.push_expansion(e))
+                        Some(e) => Ok(self.push_expansion(Expansion {
+                            cs: next,
+                            exp: e
+                        }))
                     },
                     TeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),

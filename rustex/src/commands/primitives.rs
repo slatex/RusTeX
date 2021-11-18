@@ -10,14 +10,14 @@ use crate::VERSION_INFO;
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    _apply:|_cs: Token, _int: &Interpreter| {
+    _apply:|_cs: &Token, _int: &Interpreter| {
         Ok(None)
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    _apply:|_cs: Token, _int: &Interpreter| {
+    _apply:|_cs: &Token, _int: &Interpreter| {
         Ok(None)
     }
 };
@@ -470,10 +470,7 @@ pub static DAY : IntCommand = IntCommand {
 pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |tk,int| {
         let number = int.read_number()?;
-        Ok(Some(Expansion {
-            cs: tk,
-            exp: Interpreter::string_to_tokens(number.to_string().into())
-        }))
+        Ok(Some(crate::interpreter::string_to_tokens(number.to_string().into())))
     },
     expandable: true,
     name: "number"
@@ -541,33 +538,16 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     name:"the",
     expandable:true,
     _apply:|_tk,int| {
+        use crate::interpreter::string_to_tokens as stt;
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
         match int.get_command(&reg.cmdname())? {
-            TeXCommand::Int(ic) => Ok(Some(Expansion {
-                cs: reg,
-                exp: Interpreter::string_to_tokens((ic._getvalue)(int)?.to_string().into())
-            })),
-            TeXCommand::AV(AssignableValue::Int(i)) => Ok(Some(Expansion {
-                cs: reg,
-                exp: Interpreter::string_to_tokens((i._getvalue)(int)?.to_string().into())
-            })),
-            TeXCommand::AV(AssignableValue::PrimReg(i)) => Ok(Some(Expansion {
-                cs: reg,
-                exp: Interpreter::string_to_tokens(int.state_register(-u8toi16(i.index)).to_string().into())
-            })),
-            TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(Expansion {
-                cs: reg,
-                exp: Interpreter::string_to_tokens(int.state_register(u8toi16(i)).to_string().into())
-            })),
-            TeXCommand::AV(AssignableValue::Toks(i)) => Ok(Some(Expansion {
-                cs: reg,
-                exp: int.state_tokens(u8toi16(i))
-            })),
-            TeXCommand::AV(AssignableValue::PrimToks(r)) => Ok(Some(Expansion {
-                cs: reg,
-                exp: int.state_tokens(-u8toi16(r.index))
-            })),
+            TeXCommand::Int(ic) => Ok(Some(stt((ic._getvalue)(int)?.to_string().into()))),
+            TeXCommand::AV(AssignableValue::Int(i)) => Ok(Some(stt((i._getvalue)(int)?.to_string().into()))),
+            TeXCommand::AV(AssignableValue::PrimReg(i)) => Ok(Some(stt(int.state_register(-u8toi16(i.index)).to_string().into()))),
+            TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(stt(int.state_register(u8toi16(i)).to_string().into()))),
+            TeXCommand::AV(AssignableValue::Toks(i)) => Ok(Some(int.state_tokens(u8toi16(i)))),
+            TeXCommand::AV(AssignableValue::PrimToks(r)) => Ok(Some(int.state_tokens(-u8toi16(r.index)))),
             p => todo!("{}",p)
         }
     }
@@ -580,7 +560,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())? {
             TeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
-                let wi = (e._get)(next,int)?;
+                let wi = (e._get)(&next,int)?;
                 (wi._apply)(int)?;
                 Ok(None)
             }
@@ -737,24 +717,15 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
                     Ok(exp) => {
                         let mut ret = exp.get_expansion(next,int)?;
                         ret.insert(0,tmp);
-                        Ok(Some(Expansion {
-                            cs,
-                            exp: ret
-                        }))
+                        Ok(Some(ret))
                     },
                     Err(_) => {
                         todo!("Maybe? {}",next);
-                        Ok(Some(Expansion {
-                            cs,
-                            exp: vec![tmp,next]
-                        }))
+                        Ok(Some(vec![tmp,next]))
                     }
                 }
             },
-            _ => Ok(Some(Expansion {
-                cs,
-                exp: vec![tmp,next]
-            }))
+            _ => Ok(Some(vec![tmp,next]))
         }
     }
 };
@@ -774,10 +745,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
             }
             _ => TeXCommand::Char(next).meaning(&int.state_catcodes())
         };
-        Ok(Some(Expansion {
-            cs,
-            exp: Interpreter::string_to_tokens(string)
-        }))
+        Ok(Some(crate::interpreter::string_to_tokens(string)))
     }
 };
 
@@ -791,7 +759,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
         let exp = match next.catcode {
             CategoryCode::Escape => {
                 let mut s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
-                Interpreter::string_to_tokens(s + next.cmdname())
+                crate::interpreter::string_to_tokens(s + next.cmdname())
             }
             CategoryCode::Space => vec!(next),
             _ => vec!(Token {
@@ -802,10 +770,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
                 expand: true
             })
         };
-        Ok(Some(Expansion {
-            cs,
-            exp
-        }))
+        Ok(Some(exp))
     }
 };
 
@@ -861,10 +826,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => (),
             None => int.change_state(StateChange::Cs(cmdname,Some(TeXCommand::Primitive(&RELAX)),false))
         }
-        Ok(Some(Expansion {
-            cs,
-            exp: vec![ret]
-        }))
+        Ok(Some(vec![ret]))
     }
 };
 
@@ -914,11 +876,8 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
-    _apply: |cs: Token, _int: &Interpreter| {
-        Ok(Some(Expansion {
-            cs,
-            exp: Interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone())
-        }))
+    _apply: |_cs: &Token, _int: &Interpreter| {
+        Ok(Some(crate::interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone())))
     },
     name: "etexrevision"
 };
@@ -1733,10 +1692,7 @@ pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
             num -= 1;
             ret.push(105); // i
         }
-        Ok(Some(Expansion {
-            cs,
-            exp:Interpreter::string_to_tokens(ret.into())
-        }))
+        Ok(Some(crate::interpreter::string_to_tokens(ret.into())))
     }
 };
 

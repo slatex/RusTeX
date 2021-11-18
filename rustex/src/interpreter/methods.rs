@@ -164,14 +164,13 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
-                    let cmd = self.get_command(&next.cmdname())?.as_expandable();
-                    match cmd {
+                    let cmd = self.get_command(&next.cmdname())?;
+                    match cmd.clone().as_expandable() {
                         Ok(Expandable::Primitive(x)) if the && (*x == THE || *x == UNEXPANDED) => {
-                            match (x._apply)(next,self)? {
+                            match (x._apply)(&next,self)? {
                                 Some(e) => {
-                                    let rc = Rc::new(e);
-                                    for tk in &rc.exp {
-                                        for t in (f)(tk.copied(Rc::clone(&rc)),self)? {ret.push(t)}
+                                    for tk in e {
+                                        for t in (f)(tk.copied(&next,cmd.clone()),self)? {ret.push(t)}
                                     }
                                 }
                                 None => ()

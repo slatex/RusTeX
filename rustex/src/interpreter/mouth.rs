@@ -7,7 +7,7 @@ use std::str::from_utf8;
 use itertools::Itertools;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::references::{SourceReference,FileReference};
+use crate::references::SourceReference;
 use crate::utils::TeXString;
 
 pub enum Mouth {
@@ -54,7 +54,7 @@ impl TokenMouth {
         let rc = Rc::new(exp);
         if copy {
             for tk in &rc.exp {
-                vec.push(tk.copied(Rc::clone(&rc)))
+                vec.push(tk.clone())
             }
         } else {
             for tk in &rc.exp {
@@ -73,7 +73,7 @@ impl TokenMouth {
         self.tokens.remove(0)
     }
     fn preview(&self) -> TeXString {
-        Interpreter::tokens_to_string_default(self.tokens.clone())
+        crate::interpreter::tokens_to_string_default(self.tokens.clone())
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
@@ -246,15 +246,11 @@ impl StringMouth {
     fn make_reference(&self,line:usize,pos:usize) -> SourceReference {
         match self.source.get_file_ref() {
             None => SourceReference::None,
-            Some(r) => SourceReference::File(self.make_file_reference(r,line,pos))
+            Some(r) => self.make_file_reference(r,line,pos)
         }
     }
-    fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> FileReference {
-        FileReference {
-            file:f.path.clone(),
-            start: (line,pos),
-            end: (self.line,self.pos)
-        }
+    fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> SourceReference {
+        SourceReference::File(f.path.clone(),(line,pos),(self.line,self.pos))
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> bool {
@@ -275,16 +271,16 @@ impl StringMouth {
                                     let file = self.source.get_file();
                                     match file {
                                         Some(ltxf) => {
-                                            let nrf = FileReference {
-                                                file:ltxf.path.clone(),
-                                                start: (next.1,next.2),
-                                                end: (self.line,self.pos)
-                                            };
+                                            let nrf = SourceReference::File(
+                                                ltxf.path.clone(),
+                                                (next.1,next.2),
+                                                (self.line,self.pos)
+                                            );
                                             let tk = Token {
                                                 char: next.0,
                                                 catcode: CategoryCode::Ignored,
                                                 name_opt: None,
-                                                reference: Box::new(SourceReference::File(nrf)),
+                                                reference: Box::new(nrf),
                                                 expand:true
                                             };
                                             ltxf.add(LaTeXObject::Token(tk))
@@ -302,11 +298,9 @@ impl StringMouth {
                                             let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
                                             let end = txt.len();
                                             self.pos += end;
-                                            let nrf = FileReference {
-                                                file:ltxf.path.clone(),
-                                                start: (next.1,next.2),
-                                                end: (self.line,self.pos)
-                                            };//self.make_file_reference(ltxf,next.1,next.2);
+                                            let nrf = SourceReference::File(ltxf.path.clone(),
+                                                (next.1,next.2), (self.line,self.pos)
+                                            );
                                             let tk = Comment {
                                                 text: txt,
                                                 reference: nrf
@@ -641,7 +635,7 @@ impl Mouths {
         }
         match self.buffer.borrow() {
             None => ret,
-            Some(tk) => Interpreter::tokens_to_string_default(vec!(tk.clone())) + ret
+            Some(tk) => crate::interpreter::tokens_to_string_default(vec!(tk.clone())) + ret
         }
     }
 }

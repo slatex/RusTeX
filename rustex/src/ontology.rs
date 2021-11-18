@@ -1,9 +1,10 @@
 use std::fmt::{Display, Formatter};
-use crate::references::{SourceReference, FileReference, ExpansionReference};
+use crate::references::SourceReference;
 use std::rc::Rc;
 use std::str::from_utf8;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
+use crate::commands::TeXCommand;
 use crate::COPY_TOKENS_FULL;
 use crate::utils::TeXString;
 
@@ -84,12 +85,9 @@ impl Token {
             expand:false
         }
     }
-    pub fn copied(&self,exp:Rc<Expansion>) -> Token {
+    pub fn copied(&self,from:&Token,cmd:TeXCommand) -> Token {
         if COPY_TOKENS_FULL {
-            let nref = SourceReference::Exp(ExpansionReference {
-                exp,
-                tk: self.clone()
-            });
+            let nref = SourceReference::Exp(from.clone(),cmd);
             Token {
                 char: self.char,
                 catcode: self.catcode,
@@ -121,7 +119,7 @@ impl LaTeXFile {
 #[derive(Clone)]
 pub struct Comment {
     pub text: String,
-    pub reference : FileReference
+    pub reference : SourceReference
 }
 
 #[derive(Clone)]
