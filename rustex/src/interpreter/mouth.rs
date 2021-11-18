@@ -414,9 +414,10 @@ impl StringMouth {
                             let mut nc = self.next_char(catcodes.endlinechar).unwrap();
                             match catcodes.get_code(nc.0) {
                                 CategoryCode::Letter => {
+                                    let line = self.line;
                                     self.mouth_state = MouthState::M;
                                     buf.push(nc.0);
-                                    while self.has_next(catcodes,true) && {
+                                    while line == self.line && {
                                         nc = self.next_char(catcodes.endlinechar).unwrap();
                                         matches!(catcodes.get_code(nc.0),CategoryCode::Letter)
                                     } {

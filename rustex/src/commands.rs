@@ -211,7 +211,19 @@ impl Expandable {
                     i +=1;
                     match d.sig.elems.get(i) {
                         None if d.sig.endswithbrace => {
-                            todo!()
+                            let mut retarg : Vec<Token> = vec!();
+                            loop {
+                                int.assert_has_next()?;
+                                let next = int.next_token();
+                                match next.catcode {
+                                    CategoryCode::BeginGroup => {
+                                        int.requeue(next);
+                                        break
+                                    }
+                                    _ => retarg.push(next)
+                                }
+                            }
+                            args.push(retarg)
                         },
                         None | Some(ParamToken::Param(_,_)) => {
                             int.skip_ws();
@@ -312,39 +324,44 @@ pub enum Assignment {
 use crate::interpreter::state::StateChange;
 
 impl Assignment {
-    pub fn assign(&self,int:&Interpreter,global:bool) -> Result<(),TeXError> {
+    pub fn assign(&self,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
         use crate::utils::u8toi16;
         use crate::interpreter::dimensions::dimtostr;
+        use crate::commands::primitives::GLOBALDEFS;;
+
+        let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
+        let global = !(globals < 0) && ( globally || globals > 0 );
+
         match self {
-            Assignment::Prim(p) => (p._assign)(int,global),
+            Assignment::Prim(p) => (p._assign)(int, global),
             Assignment::Value(av) => match av {
-                AssignableValue::Int(d) => (d._assign)(int,global),
+                AssignableValue::Int(d) => (d._assign)(int, global),
                 AssignableValue::Register(i) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
-                    int.change_state(StateChange::Register(u8toi16(*i),num,global));
+                    int.change_state(StateChange::Register(u8toi16(*i), num, global));
                     Ok(())
                 }
                 AssignableValue::Dim(i) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.change_state(StateChange::Dimen(u8toi16(*i),num,global));
+                    int.change_state(StateChange::Dimen(u8toi16(*i), num, global));
                     Ok(())
                 }
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign skip register {} to {}",i,num);
-                    int.change_state(StateChange::Skip(u8toi16(*i),num,global));
+                    int.change_state(StateChange::Skip(u8toi16(*i), num, global));
                     Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Skip(-u8toi16(r.index),num,global));
+                    int.change_state(StateChange::Skip(-u8toi16(r.index), num, global));
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
@@ -353,8 +370,8 @@ impl Assignment {
                         CategoryCode::BeginGroup => {}
                         _ => TeXErr!(int,"Expected Begin Group Token")
                     }
-                    let toks = int.read_token_list(false,false)?;
-                    int.change_state(StateChange::Tokens(u8toi16(*i),toks,global));
+                    let toks = int.read_token_list(false, false)?;
+                    int.change_state(StateChange::Tokens(u8toi16(*i), toks, global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
@@ -363,26 +380,26 @@ impl Assignment {
                         CategoryCode::BeginGroup => {}
                         _ => TeXErr!(int,"Expected Begin Group Token")
                     }
-                    let toks = int.read_token_list(false,false)?;
-                    int.change_state(StateChange::Tokens(-u8toi16(r.index),toks,global));
+                    let toks = int.read_token_list(false, false)?;
+                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
                     Ok(())
                 },
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Register(-u8toi16(r.index),num,global));
+                    int.change_state(StateChange::Register(-u8toi16(r.index), num, global));
                     Ok(())
                 },
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.change_state(StateChange::Dimen(-u8toi16(r.index),num,global));
+                    int.change_state(StateChange::Dimen(-u8toi16(r.index), num, global));
                     Ok(())
                 }
-            } ,
-            Assignment::Ext(ext) => ext.assign(int,global)
+            },
+            Assignment::Ext(ext) => ext.assign(int, global)
         }
     }
 }

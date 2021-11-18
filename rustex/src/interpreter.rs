@@ -131,11 +131,6 @@ impl Interpreter<'_> {
         let ret = int.state.borrow().clone(); ret
     }
 
-    pub fn do_assignment(&self,a : Assignment,globally:bool) -> Result<(),TeXError> {
-        let global = globally; // TODO!
-        a.assign(self,global)
-    }
-
     pub fn get_command(&self,s : &TeXString) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
@@ -150,7 +145,7 @@ impl Interpreter<'_> {
             CategoryCode::Active | CategoryCode::Escape => {
                 let mut p = self.get_command(&next.cmdname())?;
                 p = match p.as_assignment() {
-                    Ok(a) => return self.do_assignment(a,false),
+                    Ok(a) => return a.assign(self,false),
                     Err(x) => x
                 };
                 p = match p.as_expandable_with_protected() {
@@ -158,7 +153,6 @@ impl Interpreter<'_> {
                     Err(x) => x
                 };
                 match p {
-                    //TeXCommand::Register(_) | TeXCommand::Dimen(_) => return self.do_assignment(p,false),
                     TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     TeXCommand::Primitive(p) => match p.apply(next,self)? {
                         None => Ok(()),
