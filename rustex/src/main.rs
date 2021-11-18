@@ -8,14 +8,14 @@ fn do_latexltx() {
     let state = default_pdf_latex_state();
     println!("{}",state.get_command(&"etexversion".into()).expect(""))
 }
-
+/*
 fn do_test() {
     let state = State::new();
     use rustex::utils::{kpsewhich,PWD};
     use std::fs;
     let latexltx = kpsewhich("pdftexconfig.tex",&PWD).expect("latex.ltx not found!");
     let content = fs::read_to_string(latexltx).unwrap();
-    let dummyexp = Expansion::dummy(vec!());
+    let dummyexp = Expansion(Token::dummy())//::dummy(vec!());
     let mut mouth = StringMouth::new(state.newlinechar(),dummyexp,content.into());
     let mut ret: Vec<Token> = Vec::new();
     while mouth.has_next(state.catcodes(),true) {
@@ -27,6 +27,8 @@ fn do_test() {
         print!("{}",r)
     }
 }
+
+ */
 
 //use ansi_term::Colour;
 //use chrono::{DateTime,Local};

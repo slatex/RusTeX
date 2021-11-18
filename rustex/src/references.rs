@@ -1,11 +1,10 @@
 use std::rc::Rc;
-use crate::commands::TeXCommand;
 
-use crate::ontology::{Expansion, Token};
+use crate::ontology::{Expansion,ExpansionRef};
 
 #[derive(Clone)]
 pub enum SourceReference {
     File(String,(usize,usize),(usize,usize)),
-    Exp(Token,TeXCommand),
+    Exp(ExpansionRef),
     None
 }

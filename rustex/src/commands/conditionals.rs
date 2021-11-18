@@ -1,5 +1,5 @@
 use crate::interpreter::Interpreter;
-use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable};
+use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::log;
@@ -17,6 +17,7 @@ fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 use crate::FileEnd;
 
 pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeXError> {
+    use PrimitiveTeXCommand::*;
     let mut inifs = initifs;
     //log!("false loop: {}",inifs);
     while int.has_next() {
@@ -26,16 +27,16 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
                 match int.state_get_command(&next.cmdname()) {
                     None => {}
                     Some(p) => {
-                        match p {
-                            TeXCommand::Primitive(x) if inifs == 0 && *x == FI => {
+                        match p.get_orig() {
+                            Primitive(x) if inifs == 0 && *x == FI => {
                                 int.popcondition();
                                 return Ok(())
                             }
-                            TeXCommand::Primitive(x) if allowelse && inifs == 0 && *x == ELSE => {
+                            Primitive(x) if allowelse && inifs == 0 && *x == ELSE => {
                                 return Ok(())
                             }
-                            TeXCommand::Primitive(x) if *x == FI => inifs -=1,
-                            TeXCommand::Cond(_) => inifs += 1,
+                            Primitive(x) if *x == FI => inifs -=1,
+                            Cond(_) => inifs += 1,
                             _ => {}
                         }
                     }
@@ -58,9 +59,9 @@ fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 }
 
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_tk,int| {
+    _apply: |_,int| {
         int.popcondition();
-        Ok(None)
+        Ok(())
     },
     expandable: true,
     name: "fi"
@@ -68,7 +69,7 @@ pub static FI : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"unless",
-    _apply: |_tk,_int| {
+    _apply: |_,_int| {
         todo!()
     },
     expandable: true
@@ -76,7 +77,7 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
-    _apply: |_tk,_int| {
+    _apply: |_,_int| {
         todo!()
     },
     expandable: true
@@ -85,15 +86,15 @@ pub static OR: PrimitiveExecutable = PrimitiveExecutable {
 use crate::TeXErr;
 
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_tk,int| {
+    _apply: |_,int| {
         match int.getcondition() {
             None => TeXErr!(int,"extra \\else"),
             Some((_,None)) => {
-                Ok(None)
+                Ok(())
             }
             Some((_,_)) => {
                 false_loop(int,0,false)?;
-                Ok(None)
+                Ok(())
             }
         }
     },
@@ -164,13 +165,16 @@ fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
                     Some((i, _)) => i == cond,
                     _ => unreachable!()
                 };
-                match int.get_command(&next.cmdname())? {
-                    TeXCommand::Char(tk) => return Ok(Some(tk)),
-                    TeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
+                let p = int.get_command(&next.cmdname())?;
+                match p.get_orig() {
+                    PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk)),
+                    PrimitiveTeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
                         return Ok(None)
                     }
-                    p => match p.as_expandable_with_protected() {
-                        Ok(e) => e.expand(next, int)?,
+                    _ => match p.as_expandable_with_protected() {
+                        Ok(e) => {
+                            e.expand(next, int)?
+                        },
                         Err(_) => return Ok(Some(next))
                     }
                 }
@@ -323,30 +327,30 @@ pub static IFFONTCHAR : Conditional = Conditional {
     }
 };
 
-pub fn conditional_commands() -> Vec<TeXCommand> {vec![
-    TeXCommand::Primitive(&ELSE),
-    TeXCommand::Primitive(&FI),
-    TeXCommand::Primitive(&UNLESS),
-    TeXCommand::Primitive(&OR),
-    TeXCommand::Cond(&IFNUM),
-    TeXCommand::Cond(&IFX),
-    TeXCommand::Cond(&IFTRUE),
-    TeXCommand::Cond(&IFFALSE),
-    TeXCommand::Cond(&IF),
-    TeXCommand::Cond(&IFEOF),
-    TeXCommand::Cond(&IFDEFINED),
-    TeXCommand::Cond(&IFODD),
-    TeXCommand::Cond(&IFDIM),
-    TeXCommand::Cond(&IFCSNAME),
-    TeXCommand::Cond(&IFCAT),
-    TeXCommand::Cond(&IFCASE),
-    TeXCommand::Cond(&IFMMODE),
-    TeXCommand::Cond(&IFHMODE),
-    TeXCommand::Cond(&IFVMODE),
-    TeXCommand::Cond(&IFVOID),
-    TeXCommand::Cond(&IFVBOX),
-    TeXCommand::Cond(&IFHBOX),
-    TeXCommand::Cond(&IFINNER),
-    TeXCommand::Cond(&IFINCSNAME),
-    TeXCommand::Cond(&IFFONTCHAR),
+pub fn conditional_commands() -> Vec<PrimitiveTeXCommand> {vec![
+    PrimitiveTeXCommand::Primitive(&ELSE),
+    PrimitiveTeXCommand::Primitive(&FI),
+    PrimitiveTeXCommand::Primitive(&UNLESS),
+    PrimitiveTeXCommand::Primitive(&OR),
+    PrimitiveTeXCommand::Cond(&IFNUM),
+    PrimitiveTeXCommand::Cond(&IFX),
+    PrimitiveTeXCommand::Cond(&IFTRUE),
+    PrimitiveTeXCommand::Cond(&IFFALSE),
+    PrimitiveTeXCommand::Cond(&IF),
+    PrimitiveTeXCommand::Cond(&IFEOF),
+    PrimitiveTeXCommand::Cond(&IFDEFINED),
+    PrimitiveTeXCommand::Cond(&IFODD),
+    PrimitiveTeXCommand::Cond(&IFDIM),
+    PrimitiveTeXCommand::Cond(&IFCSNAME),
+    PrimitiveTeXCommand::Cond(&IFCAT),
+    PrimitiveTeXCommand::Cond(&IFCASE),
+    PrimitiveTeXCommand::Cond(&IFMMODE),
+    PrimitiveTeXCommand::Cond(&IFHMODE),
+    PrimitiveTeXCommand::Cond(&IFVMODE),
+    PrimitiveTeXCommand::Cond(&IFVOID),
+    PrimitiveTeXCommand::Cond(&IFVBOX),
+    PrimitiveTeXCommand::Cond(&IFHBOX),
+    PrimitiveTeXCommand::Cond(&IFINNER),
+    PrimitiveTeXCommand::Cond(&IFINCSNAME),
+    PrimitiveTeXCommand::Cond(&IFFONTCHAR),
 ]}

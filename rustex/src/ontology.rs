@@ -9,11 +9,15 @@ use crate::COPY_TOKENS_FULL;
 use crate::utils::TeXString;
 
 #[derive(Clone)]
-pub struct Expansion {
-    pub cs : Token,
-    pub exp : Vec<Token>
+pub struct Expansion(pub Token,pub Box<TeXCommand>,pub Vec<Token>);
+
+impl Expansion {
+    pub fn get_ref(&self) -> ExpansionRef { ExpansionRef(self.0.clone(),Box::clone(&self.1)) }
 }
 
+#[derive(Clone)]
+pub struct ExpansionRef(pub(crate) Token,pub(crate) Box<TeXCommand>);
+/*
 impl Expansion {
     pub fn dummy(tks : Vec<Token>) -> Expansion {
         Expansion {
@@ -22,6 +26,7 @@ impl Expansion {
         }
     }
 }
+ */
 
 #[derive(Clone)]
 pub struct Token {
@@ -85,9 +90,9 @@ impl Token {
             expand:false
         }
     }
-    pub fn copied(&self,from:&Token,cmd:TeXCommand) -> Token {
+    pub fn copied(&self,er:ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
-            let nref = SourceReference::Exp(from.clone(),cmd);
+            let nref = SourceReference::Exp(er);
             Token {
                 char: self.char,
                 catcode: self.catcode,

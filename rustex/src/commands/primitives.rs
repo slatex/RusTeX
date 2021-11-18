@@ -1,6 +1,6 @@
-use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference, TokReference};
+use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand};
 use crate::interpreter::Interpreter;
-use crate::ontology::{Token, Expansion};
+use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::utils::{TeXError, TeXString};
@@ -10,20 +10,20 @@ use crate::VERSION_INFO;
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    _apply:|_cs: &Token, _int: &Interpreter| {
-        Ok(None)
+    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+        Ok(())
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    _apply:|_cs: &Token, _int: &Interpreter| {
-        Ok(None)
+    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+        Ok(())
     }
 };
 pub static CATCODE : AssValue<i32> = AssValue {
     name: "catcode",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let num = int.read_number()? as u8;
         int.read_eq();
         let cat = CategoryCode::fromint(int.read_number()?);
@@ -38,7 +38,7 @@ pub static CATCODE : AssValue<i32> = AssValue {
 
 pub static SFCODE : AssValue<i32> = AssValue {
     name:"sfcode",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let char = int.read_number()? as u8;
         int.read_eq();
         let val = int.read_number()?;
@@ -58,24 +58,25 @@ use chrono::{Datelike, Timelike};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        int.change_state(StateChange::Cs(c.cmdname(),Some(TeXCommand::Char(Token {
-                    char: num as u8,
-                    catcode: CategoryCode::Other,
-                    name_opt: None,
-                    reference: Box::new(SourceReference::None),
-                    expand:true
-            })),global));
+        let cmd = PrimitiveTeXCommand::Char(Token {
+            char: num as u8,
+            catcode: CategoryCode::Other,
+            name_opt: None,
+            reference: Box::new(SourceReference::None),
+            expand:true
+        }).as_ref(&rf);
+        int.change_state(StateChange::Cs(c.cmdname(),Some(cmd),global));
         Ok(())
     }
 };
 
 pub static COUNT : AssValue<i32> = AssValue {
     name: "count",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         let index = u8toi16(int.read_number()? as u8);
         int.read_eq();
         let val = int.read_number()?;
@@ -93,13 +94,14 @@ pub static COUNT : AssValue<i32> = AssValue {
 
 pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"countdef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(&rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname(),
-                                         Some(TeXCommand::AV(AssignableValue::Register(num as u8))),
+                                         Some(command),
                                          global));
         Ok(())
     }
@@ -107,13 +109,14 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"dimendef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(&rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname(),
-                                         Some(TeXCommand::AV(AssignableValue::Dim(num as u8))),
+                                         Some(command),
             global));
         Ok(())
     }
@@ -121,13 +124,14 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"skipdef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(&rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname(),
-                                         Some(TeXCommand::AV(AssignableValue::Skip(num as u8))),
+                                         Some(command),
             global));
         Ok(())
     }
@@ -135,13 +139,14 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"toksdef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(&rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname(),
-                                         Some(TeXCommand::AV(AssignableValue::Toks(num as u8))),
+                                         Some(command),
             global));
         Ok(())
     }
@@ -149,20 +154,20 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     name:"protected",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let mut long = false;
         while int.has_next() {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match int.get_command(&next.cmdname())? {
-                        TeXCommand::Ass(a) if *a == DEF => {
-                            return do_def(int,global,true,long,false)
+                    match int.get_command(&next.cmdname())?.get_orig() {
+                        PrimitiveTeXCommand::Ass(a) if *a == DEF => {
+                            return do_def(rf,int,global,true,long,false)
                         }
-                        TeXCommand::Ass(a) if *a == EDEF => {
-                            return do_def(int,global,true,long,true)
+                        PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
+                            return do_def(rf,int,global,true,long,true)
                         }
-                        TeXCommand::Ass(a) if *a == LONG => {
+                        PrimitiveTeXCommand::Ass(a) if *a == LONG => {
                             long = true;
                         }
                         _ => TeXErr!(int,"Expected \\def or \\edef or \\long after \\protected: {}",next)
@@ -177,20 +182,20 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
 
 pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
     name:"long",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let mut protected = false;
         while int.has_next() {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match int.get_command(&next.cmdname())? {
-                        TeXCommand::Ass(a) if *a == DEF => {
-                            return do_def(int,global,protected,true,false)
+                    match int.get_command(&next.cmdname())?.get_orig() {
+                        PrimitiveTeXCommand::Ass(a) if *a == DEF => {
+                            return do_def(rf,int,global,protected,true,false)
                         }
-                        TeXCommand::Ass(a) if *a == EDEF => {
-                            return do_def(int,global,protected,true,true)
+                        PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
+                            return do_def(rf,int,global,protected,true,true)
                         }
-                        TeXCommand::Ass(a) if *a == PROTECTED => {
+                        PrimitiveTeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
                         }
                         _ => TeXErr!(int,"Expected \\def or \\edef or \\protected after \\long")
@@ -230,39 +235,39 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                     }
                     _ if currarg == 1 && inext.char == 49 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(1,next.char))
+                        retsig.push(ParamToken::Param(1,next))
                     }
                     _ if currarg == 2 && inext.char == 50 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(2,next.char))
+                        retsig.push(ParamToken::Param(2,next))
                     }
                     _ if currarg == 3 && inext.char == 51 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(3,next.char))
+                        retsig.push(ParamToken::Param(3,next))
                     }
                     _ if currarg == 4 && inext.char == 52 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(4,next.char))
+                        retsig.push(ParamToken::Param(4,next))
                     }
                     _ if currarg == 5 && inext.char == 53 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(5,next.char))
+                        retsig.push(ParamToken::Param(5,next))
                     }
                     _ if currarg == 6 && inext.char == 54 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(6,next.char))
+                        retsig.push(ParamToken::Param(6,next))
                     }
                     _ if currarg == 7 && inext.char == 55 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(7,next.char))
+                        retsig.push(ParamToken::Param(7,next))
                     }
                     _ if currarg == 8 && inext.char == 56 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(8,next.char))
+                        retsig.push(ParamToken::Param(8,next))
                     }
                     _ if currarg == 9 && inext.char == 57 => {
                         currarg += 1;
-                        retsig.push(ParamToken::Param(9,next.char))
+                        retsig.push(ParamToken::Param(9,next))
                     }
                     _ => TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
                 }
@@ -273,7 +278,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
     FileEnd!(int)
 }
 
-fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
+fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     use std::str::from_utf8;
     let command = int.next_token();
     match command.catcode {
@@ -288,7 +293,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                 i.assert_has_next()?;
                 let next = i.next_token();
                 match next.catcode {
-                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,x.char))),
+                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,x))),
                     _ => {
                         let num = match from_utf8(&[next.char]) {
                             Ok(n) => match n.parse::<u8>() {
@@ -300,7 +305,7 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
                         if num < 1 || num > arity {
                             TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
                         }
-                        Ok(Some(ParamToken::Param(num,x.char)))
+                        Ok(Some(ParamToken::Param(num,x)))
                     }
                 }
             }
@@ -308,14 +313,14 @@ fn do_def(int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) ->
         }
     }))?;
     log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
-    let dm = DefMacro {
+    let dm = PrimitiveTeXCommand::Def(DefMacro {
         protected,
         long,
         sig,
         ret
-    };
+    }).as_ref(&rf);
     int.change_state(StateChange::Cs(command.cmdname(),
-                                     Some(TeXCommand::Def(Rc::new(dm))),
+                                     Some(dm),
         global));
     Ok(())
 }
@@ -326,10 +331,10 @@ use crate::stomach::whatsits::ExecutableWhatsit;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())?.as_assignment() {
-            Ok(a) => a.assign(int,true)?,
+            Ok(a) => a.assign(next,int,true)?,
             Err(_) => TeXErr!(int,"Assignment expected after \\global; found: {}",next)
         }
         Ok(())
@@ -338,27 +343,27 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
 
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
-    _assign: |int,global| do_def(int, global, false, false,false)
+    _assign: |rf,int,global| do_def(rf,int, global, false, false,false)
 };
 
 pub static GDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"gdef",
-    _assign: |int,_global| do_def(int, true, false, false,false)
+    _assign: |rf,int,_global| do_def(rf,int, true, false, false,false)
 };
 
 pub static XDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"xdef",
-    _assign: |int,_global| do_def(int, true, false, false,true)
+    _assign: |rf,int,_global| do_def(rf,int, true, false, false,true)
 };
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"edef",
-    _assign: |int,global| do_def(int,global,false,false,true)
+    _assign: |rf,int,global| do_def(rf,int,global,false,false,true)
 };
 
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     name:"let",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let cmd = int.next_token();
         if !matches!(cmd.catcode,CategoryCode::Escape) && !matches!(cmd.catcode,CategoryCode::Active) {
             TeXErr!(int,"Control sequence or active character expected; found {}",cmd)
@@ -368,9 +373,9 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
         log!("\\let {}={}",cmd,def);
         let ch = match def.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state_get_command(&def.cmdname())
+                int.state_get_command(&def.cmdname()).map(|x| x.as_ref(rf.0))
             }
-            _ => Some(TeXCommand::Char(def))
+            _ => Some(PrimitiveTeXCommand::Char(def).as_ref(&rf))
         };
         int.change_state(StateChange::Cs(cmd.cmdname(),ch,global));
         Ok(())
@@ -379,7 +384,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static NEWLINECHAR : AssValue<i32> = AssValue {
     name: "newlinechar",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\newlinechar: {}",num);
@@ -393,7 +398,7 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
 
 pub static ENDLINECHAR : AssValue<i32> = AssValue {
     name: "endlinechar",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\endlinechar: {}",num);
@@ -408,14 +413,14 @@ pub static ENDLINECHAR : AssValue<i32> = AssValue {
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_rf,int| {
         let filename = int.read_string()?;
         if filename.starts_with("|kpsewhich ") {
             todo!()
         } else {
             let file = int.get_file(&filename)?;
             int.push_file(file);
-            Ok(None)
+            Ok(())
         }
     }
 };
@@ -423,18 +428,18 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
 pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"begingroup",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_rf,int| {
         int.new_group(GroupType::Begingroup);
-        Ok(None)
+        Ok(())
     }
 };
 
 pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"endgroup",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_rf,int| {
         int.pop_group(GroupType::Begingroup)?;
-        Ok(None)
+        Ok(())
     }
 };
 
@@ -468,9 +473,10 @@ pub static DAY : IntCommand = IntCommand {
 };
 
 pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |tk,int| {
+    _apply: |rf,int| {
         let number = int.read_number()?;
-        Ok(Some(crate::interpreter::string_to_tokens(number.to_string().into())))
+        rf.2 = crate::interpreter::string_to_tokens(number.to_string().into());
+        Ok(())
     },
     expandable: true,
     name: "number"
@@ -478,14 +484,15 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
 
 use crate::utils::u8toi16;
 fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
+    use crate::commands::PrimitiveTeXCommand::*;
     let cmd = int.read_command_token()?;
     int.read_keyword(vec!("by"))?;
-    let (index,num,val) : (i16,Numeric,Numeric) = match int.get_command(&cmd.cmdname())? {
-        TeXCommand::AV(AssignableValue::Register(i)) =>
+    let (index,num,val) : (i16,Numeric,Numeric) = match int.get_command(&cmd.cmdname())?.get_orig() {
+        AV(AssignableValue::Register(i)) =>
             (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?),
-        TeXCommand::AV(AssignableValue::PrimReg(r)) =>
+        AV(AssignableValue::PrimReg(r)) =>
             (-u8toi16(r.index),Numeric::Int(int.state_register(-u8toi16(r.index))),int.read_number_i(false)?),
-        TeXCommand::AV(AssignableValue::Int(c)) if *c == COUNT => {
+        AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = u8toi16(int.read_number()? as u8);
             (i,Numeric::Int(int.state_register(i)),int.read_number_i(false)?)
         }
@@ -496,7 +503,7 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
 }
 pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     name: "divide",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         let (index,num,div) = get_inrv(int)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match (num,div) {
@@ -509,7 +516,7 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
 };
 pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     name: "multiply",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         let (index,num,fac) = get_inrv(int)?;
         log!("\\multiply sets {} to {}",index,num*fac);
         let ch = match (num,fac) {
@@ -522,7 +529,7 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
 };
 pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     name: "advance",
-    _assign: |int,global| {
+    _assign: |_,int,global| {
         let (index,num,sum) = get_inrv(int)?;
         log!("\\advance sets {} to {}",index,num+sum);
         let ch = match (num,sum) {
@@ -537,32 +544,34 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
 pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     name:"the",
     expandable:true,
-    _apply:|_tk,int| {
+    _apply:|rf,int| {
         use crate::interpreter::string_to_tokens as stt;
+        use crate::commands::PrimitiveTeXCommand::*;
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
-        match int.get_command(&reg.cmdname())? {
-            TeXCommand::Int(ic) => Ok(Some(stt((ic._getvalue)(int)?.to_string().into()))),
-            TeXCommand::AV(AssignableValue::Int(i)) => Ok(Some(stt((i._getvalue)(int)?.to_string().into()))),
-            TeXCommand::AV(AssignableValue::PrimReg(i)) => Ok(Some(stt(int.state_register(-u8toi16(i.index)).to_string().into()))),
-            TeXCommand::AV(AssignableValue::Register(i)) => Ok(Some(stt(int.state_register(u8toi16(i)).to_string().into()))),
-            TeXCommand::AV(AssignableValue::Toks(i)) => Ok(Some(int.state_tokens(u8toi16(i)))),
-            TeXCommand::AV(AssignableValue::PrimToks(r)) => Ok(Some(int.state_tokens(-u8toi16(r.index)))),
+        rf.2 = match int.get_command(&reg.cmdname())?.get_orig() {
+            Int(ic) => stt((ic._getvalue)(int)?.to_string().into()),
+            AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
+            AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-u8toi16(i.index)).to_string().into()),
+            AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(i)).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(i)),
+            AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
             p => todo!("{}",p)
-        }
+        };
+        Ok(())
     }
 };
 
 pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     name:"immediate",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_,int| {
         let next = int.read_command_token()?;
-        match int.get_command(&next.cmdname())? {
-            TeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
+        match int.get_command(&next.cmdname())?.get_orig() {
+            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
                 (wi._apply)(int)?;
-                Ok(None)
+                Ok(())
             }
             _ => todo!()
         }
@@ -586,13 +595,13 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
 };
 
 pub static OPENIN: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_tk,int| {
+    _apply: |_,int| {
         let num = int.read_number()? as u8;
         int.read_eq();
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
         int.file_openin(num,file)?;
-        Ok(None)
+        Ok(())
     },
     name:"openin",
     expandable:false,
@@ -612,10 +621,10 @@ pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
 };
 
 pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_tk,int| {
+    _apply: |_,int| {
         let num = int.read_number()? as u8;
         int.file_closein(num)?;
-        Ok(None)
+        Ok(())
     },
     name:"closein",
     expandable:false,
@@ -623,7 +632,7 @@ pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static READ: PrimitiveAssignment = PrimitiveAssignment {
     name:"read",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
@@ -634,17 +643,18 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         for tk in int.file_read(index,true)? {
             toks.push(ParamToken::Token(tk))
         }
+        let cmd = PrimitiveTeXCommand::Def(DefMacro {
+            protected: false,
+            long: false,
+            sig: Signature {
+                elems: vec![],
+                endswithbrace: false,
+                arity: 0
+            },
+            ret: toks
+        }).as_ref(&rf);
         int.change_state(StateChange::Cs(newcmd.cmdname(),
-            Some(TeXCommand::Def(Rc::new(DefMacro {
-                protected: false,
-                long: false,
-                sig: Signature {
-                    elems: vec![],
-                    endswithbrace: false,
-                    arity: 0
-                },
-                ret: toks
-            }))),
+            Some(cmd),
             global));
         Ok(())
     }
@@ -673,7 +683,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
 pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"message",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_,int| {
         use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
@@ -682,7 +692,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let ret = int.read_token_list(true,false)?;
         let string = int.tokens_to_string(ret);
         print!("{}",Yellow.paint(string.to_string()));
-        Ok(None)
+        Ok(())
     }
 };
 
@@ -699,14 +709,14 @@ pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
             reference: next.reference,
             expand: false
         });
-        Ok(None)
+        Ok(())
     }
 };
 
 pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"expandafter",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|rf,int| {
         int.assert_has_next()?;
         let tmp = int.next_token();
         int.assert_has_next()?;
@@ -715,17 +725,26 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
             CategoryCode::Escape | CategoryCode::Active => {
                 match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
                     Ok(exp) => {
-                        let mut ret = exp.get_expansion(next,int)?;
-                        ret.insert(0,tmp);
-                        Ok(Some(ret))
+                        match exp.get_expansion(next,int)? {
+                            Some(e) => rf.2 = e.2,
+                            None => ()
+                        }
+                        rf.2.insert(0,tmp);
+                        Ok(())
                     },
                     Err(_) => {
                         todo!("Maybe? {}",next);
-                        Ok(Some(vec![tmp,next]))
+                        rf.2.push(tmp);
+                        rf.2.push(next);
+                        Ok(())
                     }
                 }
             },
-            _ => Ok(Some(vec![tmp,next]))
+            _ => {
+                rf.2.push(tmp);
+                rf.2.push(next);
+                Ok(())
+            }
         }
     }
 };
@@ -733,7 +752,7 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
 pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
     name:"meaning",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|rf,int| {
         int.assert_has_next()?;
         let next = int.next_token();
         let string = match next.catcode {
@@ -743,20 +762,21 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
                     Some(p) => p.meaning(&int.state_catcodes())
                 }
             }
-            _ => TeXCommand::Char(next).meaning(&int.state_catcodes())
+            _ => PrimitiveTeXCommand::Char(next).as_ref(&rf.get_ref()).meaning(&int.state_catcodes())
         };
-        Ok(Some(crate::interpreter::string_to_tokens(string)))
+        rf.2 = crate::interpreter::string_to_tokens(string);
+        Ok(())
     }
 };
 
 pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
     name:"string",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|rf,int| {
         int.assert_has_next()?;
         let next = int.next_token();
         log!("\\string: {}",next);
-        let exp = match next.catcode {
+        rf.2 = match next.catcode {
             CategoryCode::Escape => {
                 let mut s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
                 crate::interpreter::string_to_tokens(s + next.cmdname())
@@ -770,17 +790,18 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
                 expand: true
             })
         };
-        Ok(Some(exp))
+        Ok(())
     }
 };
 
 pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"mathchardef",
-    _assign: |int,global| {
+    _assign: |rf,int,global| {
         let chartok = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        int.change_state(StateChange::Cs(chartok.cmdname(),Some(TeXCommand::MathChar(num as u32)),
+        let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(&rf);
+        int.change_state(StateChange::Cs(chartok.cmdname(),Some(cmd),
             global));
         Ok(())
     }
@@ -789,7 +810,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
 pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"csname",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|rf,int| {
         let incs = int.newincs();
         let mut cmdname : TeXString = "".into();
         while incs == int.currcs() && int.has_next() {
@@ -824,9 +845,13 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
         };
         match int.state_get_command(&cmdname) {
             Some(_) => (),
-            None => int.change_state(StateChange::Cs(cmdname,Some(TeXCommand::Primitive(&RELAX)),false))
+            None => {
+                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(&rf.get_ref());
+                int.change_state(StateChange::Cs(cmdname,Some(cmd),false))
+            }
         }
-        Ok(Some(vec![ret]))
+        rf.2.push(ret);
+        Ok(())
     }
 };
 
@@ -835,14 +860,14 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|_,int| {
         int.popcs()?;
-        Ok(None)
+        Ok(())
     }
 };
 
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
-    _apply:|_tk,int| {
+    _apply:|_,int| {
         use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
@@ -876,8 +901,9 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
-    _apply: |_cs: &Token, _int: &Interpreter| {
-        Ok(Some(crate::interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone())))
+    _apply: |rf, _int| {
+        rf.2 = crate::interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone());
+        Ok(())
     },
     name: "etexrevision"
 };
@@ -892,7 +918,9 @@ pub static ETEXVERSION : IntCommand = IntCommand {
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|exp,int| {
+        todo!()
+    }
 };
 
 // REGISTERS ---------------------------------------------------------------------------------------
@@ -1628,10 +1656,10 @@ pub static NUMEXPR: PrimitiveExecutable = PrimitiveExecutable {
 pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"romannumeral",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|rf,int| {
         let mut num = int.read_number()?;
         if num <= 0 {
-            return Ok(None)
+            return Ok(())
         }
         let mut ret : Vec<u8> = vec!();
         while num >= 1000 {
@@ -1692,7 +1720,8 @@ pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
             num -= 1;
             ret.push(105); // i
         }
-        Ok(Some(crate::interpreter::string_to_tokens(ret.into())))
+        rf.2 = crate::interpreter::string_to_tokens(ret.into());
+        Ok(())
     }
 };
 
@@ -2306,298 +2335,298 @@ pub static UCCODE: PrimitiveExecutable = PrimitiveExecutable {
 
 // -------------------------------------------------------------------------------------------------
 
-pub fn tex_commands() -> Vec<TeXCommand> {vec![
-    TeXCommand::Primitive(&PAR),
-    TeXCommand::Primitive(&RELAX),
-    TeXCommand::AV(AssignableValue::Int(&CATCODE)),
-    TeXCommand::AV(AssignableValue::Int(&SFCODE)),
-    TeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
-    TeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
-    TeXCommand::AV(AssignableValue::Int(&COUNT)),
-    TeXCommand::Ass(&CHARDEF),
-    TeXCommand::Ass(&COUNTDEF),
-    TeXCommand::Ass(&DIMENDEF),
-    TeXCommand::Ass(&SKIPDEF),
-    TeXCommand::Ass(&TOKSDEF),
-    TeXCommand::Ass(&GLOBAL),
-    TeXCommand::Ass(&DEF),
-    TeXCommand::Ass(&EDEF),
-    TeXCommand::Ass(&GDEF),
-    TeXCommand::Ass(&XDEF),
-    TeXCommand::Ass(&LET),
-    TeXCommand::Ass(&LONG),
-    TeXCommand::Ass(&PROTECTED),
-    TeXCommand::Ass(&DIVIDE),
-    TeXCommand::Ass(&MULTIPLY),
-    TeXCommand::Ass(&ADVANCE),
-    TeXCommand::Primitive(&INPUT),
-    TeXCommand::Primitive(&BEGINGROUP),
-    TeXCommand::Primitive(&ENDGROUP),
-    TeXCommand::Primitive(&THE),
-    TeXCommand::Primitive(&NUMBER),
-    TeXCommand::Primitive(&IMMEDIATE),
-    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&OPENOUT)),
-    TeXCommand::Primitive(&OPENIN),
-    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&CLOSEOUT)),
-    TeXCommand::Primitive(&CLOSEIN),
-    TeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
-    TeXCommand::Ass(&READ),
-    TeXCommand::Ass(&MATHCHARDEF),
-    TeXCommand::Int(&TIME),
-    TeXCommand::Int(&YEAR),
-    TeXCommand::Int(&MONTH),
-    TeXCommand::Int(&DAY),
-    TeXCommand::Primitive(&NOEXPAND),
-    TeXCommand::Primitive(&EXPANDAFTER),
-    TeXCommand::Primitive(&MEANING),
-    TeXCommand::Primitive(&ETEXREVISION),
-    TeXCommand::Primitive(&UNEXPANDED),
-    TeXCommand::Int(&ETEXVERSION),
+pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
+    PrimitiveTeXCommand::Primitive(&PAR),
+    PrimitiveTeXCommand::Primitive(&RELAX),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&CATCODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&SFCODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&COUNT)),
+    PrimitiveTeXCommand::Ass(&CHARDEF),
+    PrimitiveTeXCommand::Ass(&COUNTDEF),
+    PrimitiveTeXCommand::Ass(&DIMENDEF),
+    PrimitiveTeXCommand::Ass(&SKIPDEF),
+    PrimitiveTeXCommand::Ass(&TOKSDEF),
+    PrimitiveTeXCommand::Ass(&GLOBAL),
+    PrimitiveTeXCommand::Ass(&DEF),
+    PrimitiveTeXCommand::Ass(&EDEF),
+    PrimitiveTeXCommand::Ass(&GDEF),
+    PrimitiveTeXCommand::Ass(&XDEF),
+    PrimitiveTeXCommand::Ass(&LET),
+    PrimitiveTeXCommand::Ass(&LONG),
+    PrimitiveTeXCommand::Ass(&PROTECTED),
+    PrimitiveTeXCommand::Ass(&DIVIDE),
+    PrimitiveTeXCommand::Ass(&MULTIPLY),
+    PrimitiveTeXCommand::Ass(&ADVANCE),
+    PrimitiveTeXCommand::Primitive(&INPUT),
+    PrimitiveTeXCommand::Primitive(&BEGINGROUP),
+    PrimitiveTeXCommand::Primitive(&ENDGROUP),
+    PrimitiveTeXCommand::Primitive(&THE),
+    PrimitiveTeXCommand::Primitive(&NUMBER),
+    PrimitiveTeXCommand::Primitive(&IMMEDIATE),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&OPENOUT)),
+    PrimitiveTeXCommand::Primitive(&OPENIN),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&CLOSEOUT)),
+    PrimitiveTeXCommand::Primitive(&CLOSEIN),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
+    PrimitiveTeXCommand::Ass(&READ),
+    PrimitiveTeXCommand::Ass(&MATHCHARDEF),
+    PrimitiveTeXCommand::Int(&TIME),
+    PrimitiveTeXCommand::Int(&YEAR),
+    PrimitiveTeXCommand::Int(&MONTH),
+    PrimitiveTeXCommand::Int(&DAY),
+    PrimitiveTeXCommand::Primitive(&NOEXPAND),
+    PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
+    PrimitiveTeXCommand::Primitive(&MEANING),
+    PrimitiveTeXCommand::Primitive(&ETEXREVISION),
+    PrimitiveTeXCommand::Primitive(&UNEXPANDED),
+    PrimitiveTeXCommand::Int(&ETEXVERSION),
 
-    TeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
-    TeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
-    TeXCommand::AV(AssignableValue::PrimReg(&HBADNESS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&VBADNESS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&LINEPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&HYPHENPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&EXHYPHENPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&BINOPPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&RELPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&BROKENPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&PREDISPLAYPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DOUBLEHYPHENDEMERITS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&FINALHYPHENDEMERITS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&ADJDEMERITS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGLOSTCHARS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&UCHYPH)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DEFAULTHYPHENCHAR)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DEFAULTSKEWCHAR)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DELIMITERFACTOR)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXBREADTH)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimReg(&ERRORCONTEXTLINES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&MAXDEADCYCLES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGSTATS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&LEFTHYPHENMIN)),
-    TeXCommand::AV(AssignableValue::PrimReg(&RIGHTHYPHENMIN)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SAVINGHYPHCODES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&FAM)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SPACEFACTOR)),
-    TeXCommand::AV(AssignableValue::PrimReg(&GLOBALDEFS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGNESTING)),
-    TeXCommand::AV(AssignableValue::PrimReg(&MAG)),
-    TeXCommand::AV(AssignableValue::PrimReg(&LANGUAGE)),
-    TeXCommand::AV(AssignableValue::PrimReg(&HANGAFTER)),
-    TeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&FLOATINGPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&LASTNODETYPE)),
-    TeXCommand::AV(AssignableValue::PrimReg(&INSERTPENALTIES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&BADNESS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DEADCYCLES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTIES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTIES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTIES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTIES)),
-    TeXCommand::AV(AssignableValue::PrimReg(&OUTPUTPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SAVINGVDISCARDS)),
-    TeXCommand::AV(AssignableValue::PrimReg(&DISPLAYINDENT)),
-    TeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
-    TeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
-    TeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&HBADNESS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&VBADNESS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LINEPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&HYPHENPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&EXHYPHENPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&BINOPPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&RELPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&BROKENPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PREDISPLAYPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DOUBLEHYPHENDEMERITS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&FINALHYPHENDEMERITS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&ADJDEMERITS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGLOSTCHARS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&UCHYPH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DEFAULTHYPHENCHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DEFAULTSKEWCHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DELIMITERFACTOR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXBREADTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SHOWBOXDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&ERRORCONTEXTLINES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&MAXDEADCYCLES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGSTATS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LEFTHYPHENMIN)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&RIGHTHYPHENMIN)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SAVINGHYPHCODES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&FAM)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SPACEFACTOR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&GLOBALDEFS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGNESTING)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&MAG)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LANGUAGE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&HANGAFTER)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&FLOATINGPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LASTNODETYPE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&INSERTPENALTIES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&BADNESS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DEADCYCLES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTIES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&CLUBPENALTIES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&WIDOWPENALTIES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTIES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&OUTPUTPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SAVINGVDISCARDS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYINDENT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
 
-    TeXCommand::AV(AssignableValue::PrimDim(&HFUZZ)),
-    TeXCommand::AV(AssignableValue::PrimDim(&VFUZZ)),
-    TeXCommand::AV(AssignableValue::PrimDim(&OVERFULLRULE)),
-    TeXCommand::AV(AssignableValue::PrimDim(&MAXDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&SPLITMAXDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&BOXMAXDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&DELIMITERSHORTFALL)),
-    TeXCommand::AV(AssignableValue::PrimDim(&NULLDELIMITERSPACE)),
-    TeXCommand::AV(AssignableValue::PrimDim(&SCRIPTSPACE)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PARINDENT)),
-    TeXCommand::AV(AssignableValue::PrimDim(&VSIZE)),
-    TeXCommand::AV(AssignableValue::PrimDim(&HSIZE)),
-    TeXCommand::AV(AssignableValue::PrimDim(&LINESKIPLIMIT)),
-    TeXCommand::AV(AssignableValue::PrimDim(&MATHSURROUND)),
-    TeXCommand::AV(AssignableValue::PrimDim(&HANGINDENT)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGETOTAL)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGESTRETCH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILSTRETCH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLSTRETCH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLLSTRETCH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGESHRINK)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PAGEDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&EMERGENCYSTRETCH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&VOFFSET)),
-    TeXCommand::AV(AssignableValue::PrimDim(&HOFFSET)),
-    TeXCommand::AV(AssignableValue::PrimDim(&DISPLAYWIDTH)),
-    TeXCommand::AV(AssignableValue::PrimDim(&PREDISPLAYSIZE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HFUZZ)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&VFUZZ)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&OVERFULLRULE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&MAXDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&SPLITMAXDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&BOXMAXDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&DELIMITERSHORTFALL)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&NULLDELIMITERSPACE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&SCRIPTSPACE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PARINDENT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&VSIZE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HSIZE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&LINESKIPLIMIT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&MATHSURROUND)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HANGINDENT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGETOTAL)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGESTRETCH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGEFILSTRETCH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLSTRETCH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGEFILLLSTRETCH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGESHRINK)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGEDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&EMERGENCYSTRETCH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&VOFFSET)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HOFFSET)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&DISPLAYWIDTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PREDISPLAYSIZE)),
 
-    TeXCommand::AV(AssignableValue::PrimSkip(&PARSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSHORTSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSHORTSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&TOPSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&SPLITTOPSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&PARFILLSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&BASELINESKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&LINESKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&PREVDEPTH)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&LEFTSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&RIGHTSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&TABSKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&SPACESKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&XSPACESKIP)),
-    TeXCommand::AV(AssignableValue::PrimSkip(&BIGSKIPAMOUNT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&PARSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSHORTSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&BELOWDISPLAYSHORTSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&TOPSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&SPLITTOPSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&PARFILLSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&BASELINESKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&LINESKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&PREVDEPTH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&LEFTSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&RIGHTSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&TABSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&SPACESKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&XSPACESKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&BIGSKIPAMOUNT)),
 
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYJOB)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYPAR)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYMATH)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYDISPLAY)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYHBOX)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYVBOX)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYCR)),
-    TeXCommand::AV(AssignableValue::PrimToks(&EVERYEOF)),
-    TeXCommand::AV(AssignableValue::PrimToks(&ERRHELP)),
-    TeXCommand::AV(AssignableValue::PrimToks(&OUTPUT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYJOB)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYPAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYMATH)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYDISPLAY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYHBOX)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYVBOX)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYCR)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYEOF)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&ERRHELP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&OUTPUT)),
 
     // TODO ----------------------------------------------------------------------------------------
-    TeXCommand::Primitive(&END),
-    TeXCommand::Primitive(&BATCHMODE),
-    TeXCommand::Primitive(&BYE),
-    TeXCommand::Primitive(&CHAR),
-    TeXCommand::Primitive(&CR),
-    TeXCommand::Primitive(&CRCR),
-    TeXCommand::Primitive(&CSNAME),
-    TeXCommand::Primitive(&ENDCSNAME),
-    TeXCommand::Primitive(&CURRENTGROUPLEVEL),
-    TeXCommand::Primitive(&DETOKENIZE),
-    TeXCommand::Primitive(&DIMEXPR),
-    TeXCommand::Primitive(&DUMP),
-    TeXCommand::Primitive(&ENDINPUT),
-    TeXCommand::Primitive(&EQNO),
-    TeXCommand::Primitive(&ERRMESSAGE),
-    TeXCommand::Primitive(&ERRORSTOPMODE),
-    TeXCommand::Primitive(&EXPANDED),
-    TeXCommand::Primitive(&FONTNAME),
-    TeXCommand::Primitive(&FONTCHARWD),
-    TeXCommand::Primitive(&FONTCHARHT),
-    TeXCommand::Primitive(&FONTCHARDP),
-    TeXCommand::Primitive(&FONTCHARIC),
-    TeXCommand::Primitive(&GLUEEXPR),
-    TeXCommand::Primitive(&IGNORESPACES),
-    TeXCommand::Primitive(&INPUTLINENO),
-    TeXCommand::Primitive(&JOBNAME),
-    TeXCommand::Primitive(&LOWERCASE),
-    TeXCommand::Primitive(&MESSAGE),
-    TeXCommand::Primitive(&MUEXPR),
-    TeXCommand::Primitive(&NULLFONT),
-    TeXCommand::Primitive(&NUMEXPR),
-    TeXCommand::Primitive(&ROMANNUMERAL),
-    TeXCommand::Primitive(&SCANTOKENS),
-    TeXCommand::Primitive(&SHIPOUT),
-    TeXCommand::Primitive(&STRING),
-    TeXCommand::Primitive(&UPPERCASE),
-    TeXCommand::Primitive(&TEXTSTYLE),
-    TeXCommand::Primitive(&SCRIPTSTYLE),
-    TeXCommand::Primitive(&SCRIPTSCRIPTSTYLE),
-    TeXCommand::Primitive(&SPECIAL),
-    TeXCommand::Primitive(&NONSCRIPT),
-    TeXCommand::Primitive(&HOLDINGINSERTS),
-    TeXCommand::Primitive(&LEQNO),
-    TeXCommand::Primitive(&LOOSENESS),
-    TeXCommand::Primitive(&NOBOUNDARY),
-    TeXCommand::Primitive(&SCROLLMODE),
-    TeXCommand::Primitive(&NONSTOPMODE),
-    TeXCommand::Primitive(&OMIT),
-    TeXCommand::Primitive(&PAUSING),
-    TeXCommand::Primitive(&PREVGRAF),
-    TeXCommand::Primitive(&SETLANGUAGE),
-    TeXCommand::Primitive(&SHOW),
-    TeXCommand::Primitive(&SHOWBOX),
-    TeXCommand::Primitive(&SHOWLISTS),
-    TeXCommand::Primitive(&SHOWTHE),
-    TeXCommand::Primitive(&SPAN),
-    TeXCommand::Primitive(&TRACINGCOMMANDS),
-    TeXCommand::Primitive(&TRACINGMACROS),
-    TeXCommand::Primitive(&TRACINGONLINE),
-    TeXCommand::Primitive(&TRACINGOUTPUT),
-    TeXCommand::Primitive(&TRACINGPAGES),
-    TeXCommand::Primitive(&TRACINGPARAGRAPHS),
-    TeXCommand::Primitive(&TRACINGRESTORES),
-    TeXCommand::Primitive(&VALIGN),
-    TeXCommand::Primitive(&BEGINL),
-    TeXCommand::Primitive(&BEGINR),
-    TeXCommand::Primitive(&BOTMARKS),
-    TeXCommand::Primitive(&CURRENTGROUPTYPE),
-    TeXCommand::Primitive(&CURRENTIFBRANCH),
-    TeXCommand::Primitive(&CURRENTIFLEVEL),
-    TeXCommand::Primitive(&CURRENTIFTYPE),
-    TeXCommand::Primitive(&ENDL),
-    TeXCommand::Primitive(&ENDR),
-    TeXCommand::Primitive(&FIRSTMARKS),
-    TeXCommand::Primitive(&GLUESHRINK),
-    TeXCommand::Primitive(&GLUESHRINKORDER),
-    TeXCommand::Primitive(&GLUESTRETCH),
-    TeXCommand::Primitive(&GLUESTRETCHORDER),
-    TeXCommand::Primitive(&GLUETOMU),
-    TeXCommand::Primitive(&INTERACTIONMODE),
-    TeXCommand::Primitive(&LASTLINEFIT),
-    TeXCommand::Primitive(&MARKS),
-    TeXCommand::Primitive(&MUTOGLUE),
-    TeXCommand::Primitive(&PAGEDISCARDS),
-    TeXCommand::Primitive(&PARSHAPEDIMEN),
-    TeXCommand::Primitive(&PARSHAPEINDENT),
-    TeXCommand::Primitive(&PARSHAPELENGTH),
-    TeXCommand::Primitive(&PREDISPLAYDIRECTION),
-    TeXCommand::Primitive(&SHOWGROUPS),
-    TeXCommand::Primitive(&SHOWIFS),
-    TeXCommand::Primitive(&SHOWTOKENS),
-    TeXCommand::Primitive(&SPLITBOTMARKS),
-    TeXCommand::Primitive(&SPLITDISCARDS),
-    TeXCommand::Primitive(&SPLITFIRSTMARKS),
-    TeXCommand::Primitive(&TEXXETSTATE),
-    TeXCommand::Primitive(&TOPMARKS),
-    TeXCommand::Primitive(&TRACINGASSIGNS),
-    TeXCommand::Primitive(&TRACINGGROUPS),
-    TeXCommand::Primitive(&TRACINGIFS),
-    TeXCommand::Primitive(&EFCODE),
-    TeXCommand::Primitive(&LEFTMARGINKERN),
-    TeXCommand::Primitive(&LETTERSPACEFONT),
-    TeXCommand::Primitive(&QUITVMODE),
-    TeXCommand::Primitive(&RIGHTMARGINKERN),
-    TeXCommand::Primitive(&TAGCODE),
-    TeXCommand::Primitive(&AFTERASSIGNMENT),
-    TeXCommand::Primitive(&AFTERGROUP),
-    TeXCommand::Primitive(&DELCODE),
-    TeXCommand::Primitive(&DIMEN),
-    TeXCommand::Primitive(&ESCAPECHAR),
-    TeXCommand::Primitive(&FONT),
-    TeXCommand::Primitive(&FONTDIMEN),
-    TeXCommand::Primitive(&FUTURELET),
-    TeXCommand::Primitive(&HYPHENATION),
-    TeXCommand::Primitive(&HYPHENCHAR),
-    TeXCommand::Primitive(&LCCODE),
-    TeXCommand::Primitive(&LPCODE),
-    TeXCommand::Primitive(&RPCODE),
-    TeXCommand::Primitive(&SETBOX),
-    TeXCommand::Primitive(&MATHCODE),
-    TeXCommand::Primitive(&MUSKIP),
-    TeXCommand::Primitive(&MUSKIPDEF),
-    TeXCommand::Primitive(&OUTER),
-    TeXCommand::Primitive(&PAGEGOAL),
-    TeXCommand::Primitive(&PARSHAPE),
-    TeXCommand::Primitive(&PATTERNS),
-    TeXCommand::Primitive(&READLINE),
-    TeXCommand::Primitive(&SCRIPTFONT),
-    TeXCommand::Primitive(&SCRIPTSCRIPTFONT),
-    TeXCommand::Primitive(&SKEWCHAR),
-    TeXCommand::Primitive(&SKIP),
-    TeXCommand::Primitive(&TEXTFONT),
-    TeXCommand::Primitive(&TOKS),
-    TeXCommand::Primitive(&UCCODE),
+    PrimitiveTeXCommand::Primitive(&END),
+    PrimitiveTeXCommand::Primitive(&BATCHMODE),
+    PrimitiveTeXCommand::Primitive(&BYE),
+    PrimitiveTeXCommand::Primitive(&CHAR),
+    PrimitiveTeXCommand::Primitive(&CR),
+    PrimitiveTeXCommand::Primitive(&CRCR),
+    PrimitiveTeXCommand::Primitive(&CSNAME),
+    PrimitiveTeXCommand::Primitive(&ENDCSNAME),
+    PrimitiveTeXCommand::Primitive(&CURRENTGROUPLEVEL),
+    PrimitiveTeXCommand::Primitive(&DETOKENIZE),
+    PrimitiveTeXCommand::Primitive(&DIMEXPR),
+    PrimitiveTeXCommand::Primitive(&DUMP),
+    PrimitiveTeXCommand::Primitive(&ENDINPUT),
+    PrimitiveTeXCommand::Primitive(&EQNO),
+    PrimitiveTeXCommand::Primitive(&ERRMESSAGE),
+    PrimitiveTeXCommand::Primitive(&ERRORSTOPMODE),
+    PrimitiveTeXCommand::Primitive(&EXPANDED),
+    PrimitiveTeXCommand::Primitive(&FONTNAME),
+    PrimitiveTeXCommand::Primitive(&FONTCHARWD),
+    PrimitiveTeXCommand::Primitive(&FONTCHARHT),
+    PrimitiveTeXCommand::Primitive(&FONTCHARDP),
+    PrimitiveTeXCommand::Primitive(&FONTCHARIC),
+    PrimitiveTeXCommand::Primitive(&GLUEEXPR),
+    PrimitiveTeXCommand::Primitive(&IGNORESPACES),
+    PrimitiveTeXCommand::Primitive(&INPUTLINENO),
+    PrimitiveTeXCommand::Primitive(&JOBNAME),
+    PrimitiveTeXCommand::Primitive(&LOWERCASE),
+    PrimitiveTeXCommand::Primitive(&MESSAGE),
+    PrimitiveTeXCommand::Primitive(&MUEXPR),
+    PrimitiveTeXCommand::Primitive(&NULLFONT),
+    PrimitiveTeXCommand::Primitive(&NUMEXPR),
+    PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
+    PrimitiveTeXCommand::Primitive(&SCANTOKENS),
+    PrimitiveTeXCommand::Primitive(&SHIPOUT),
+    PrimitiveTeXCommand::Primitive(&STRING),
+    PrimitiveTeXCommand::Primitive(&UPPERCASE),
+    PrimitiveTeXCommand::Primitive(&TEXTSTYLE),
+    PrimitiveTeXCommand::Primitive(&SCRIPTSTYLE),
+    PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTSTYLE),
+    PrimitiveTeXCommand::Primitive(&SPECIAL),
+    PrimitiveTeXCommand::Primitive(&NONSCRIPT),
+    PrimitiveTeXCommand::Primitive(&HOLDINGINSERTS),
+    PrimitiveTeXCommand::Primitive(&LEQNO),
+    PrimitiveTeXCommand::Primitive(&LOOSENESS),
+    PrimitiveTeXCommand::Primitive(&NOBOUNDARY),
+    PrimitiveTeXCommand::Primitive(&SCROLLMODE),
+    PrimitiveTeXCommand::Primitive(&NONSTOPMODE),
+    PrimitiveTeXCommand::Primitive(&OMIT),
+    PrimitiveTeXCommand::Primitive(&PAUSING),
+    PrimitiveTeXCommand::Primitive(&PREVGRAF),
+    PrimitiveTeXCommand::Primitive(&SETLANGUAGE),
+    PrimitiveTeXCommand::Primitive(&SHOW),
+    PrimitiveTeXCommand::Primitive(&SHOWBOX),
+    PrimitiveTeXCommand::Primitive(&SHOWLISTS),
+    PrimitiveTeXCommand::Primitive(&SHOWTHE),
+    PrimitiveTeXCommand::Primitive(&SPAN),
+    PrimitiveTeXCommand::Primitive(&TRACINGCOMMANDS),
+    PrimitiveTeXCommand::Primitive(&TRACINGMACROS),
+    PrimitiveTeXCommand::Primitive(&TRACINGONLINE),
+    PrimitiveTeXCommand::Primitive(&TRACINGOUTPUT),
+    PrimitiveTeXCommand::Primitive(&TRACINGPAGES),
+    PrimitiveTeXCommand::Primitive(&TRACINGPARAGRAPHS),
+    PrimitiveTeXCommand::Primitive(&TRACINGRESTORES),
+    PrimitiveTeXCommand::Primitive(&VALIGN),
+    PrimitiveTeXCommand::Primitive(&BEGINL),
+    PrimitiveTeXCommand::Primitive(&BEGINR),
+    PrimitiveTeXCommand::Primitive(&BOTMARKS),
+    PrimitiveTeXCommand::Primitive(&CURRENTGROUPTYPE),
+    PrimitiveTeXCommand::Primitive(&CURRENTIFBRANCH),
+    PrimitiveTeXCommand::Primitive(&CURRENTIFLEVEL),
+    PrimitiveTeXCommand::Primitive(&CURRENTIFTYPE),
+    PrimitiveTeXCommand::Primitive(&ENDL),
+    PrimitiveTeXCommand::Primitive(&ENDR),
+    PrimitiveTeXCommand::Primitive(&FIRSTMARKS),
+    PrimitiveTeXCommand::Primitive(&GLUESHRINK),
+    PrimitiveTeXCommand::Primitive(&GLUESHRINKORDER),
+    PrimitiveTeXCommand::Primitive(&GLUESTRETCH),
+    PrimitiveTeXCommand::Primitive(&GLUESTRETCHORDER),
+    PrimitiveTeXCommand::Primitive(&GLUETOMU),
+    PrimitiveTeXCommand::Primitive(&INTERACTIONMODE),
+    PrimitiveTeXCommand::Primitive(&LASTLINEFIT),
+    PrimitiveTeXCommand::Primitive(&MARKS),
+    PrimitiveTeXCommand::Primitive(&MUTOGLUE),
+    PrimitiveTeXCommand::Primitive(&PAGEDISCARDS),
+    PrimitiveTeXCommand::Primitive(&PARSHAPEDIMEN),
+    PrimitiveTeXCommand::Primitive(&PARSHAPEINDENT),
+    PrimitiveTeXCommand::Primitive(&PARSHAPELENGTH),
+    PrimitiveTeXCommand::Primitive(&PREDISPLAYDIRECTION),
+    PrimitiveTeXCommand::Primitive(&SHOWGROUPS),
+    PrimitiveTeXCommand::Primitive(&SHOWIFS),
+    PrimitiveTeXCommand::Primitive(&SHOWTOKENS),
+    PrimitiveTeXCommand::Primitive(&SPLITBOTMARKS),
+    PrimitiveTeXCommand::Primitive(&SPLITDISCARDS),
+    PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARKS),
+    PrimitiveTeXCommand::Primitive(&TEXXETSTATE),
+    PrimitiveTeXCommand::Primitive(&TOPMARKS),
+    PrimitiveTeXCommand::Primitive(&TRACINGASSIGNS),
+    PrimitiveTeXCommand::Primitive(&TRACINGGROUPS),
+    PrimitiveTeXCommand::Primitive(&TRACINGIFS),
+    PrimitiveTeXCommand::Primitive(&EFCODE),
+    PrimitiveTeXCommand::Primitive(&LEFTMARGINKERN),
+    PrimitiveTeXCommand::Primitive(&LETTERSPACEFONT),
+    PrimitiveTeXCommand::Primitive(&QUITVMODE),
+    PrimitiveTeXCommand::Primitive(&RIGHTMARGINKERN),
+    PrimitiveTeXCommand::Primitive(&TAGCODE),
+    PrimitiveTeXCommand::Primitive(&AFTERASSIGNMENT),
+    PrimitiveTeXCommand::Primitive(&AFTERGROUP),
+    PrimitiveTeXCommand::Primitive(&DELCODE),
+    PrimitiveTeXCommand::Primitive(&DIMEN),
+    PrimitiveTeXCommand::Primitive(&ESCAPECHAR),
+    PrimitiveTeXCommand::Primitive(&FONT),
+    PrimitiveTeXCommand::Primitive(&FONTDIMEN),
+    PrimitiveTeXCommand::Primitive(&FUTURELET),
+    PrimitiveTeXCommand::Primitive(&HYPHENATION),
+    PrimitiveTeXCommand::Primitive(&HYPHENCHAR),
+    PrimitiveTeXCommand::Primitive(&LCCODE),
+    PrimitiveTeXCommand::Primitive(&LPCODE),
+    PrimitiveTeXCommand::Primitive(&RPCODE),
+    PrimitiveTeXCommand::Primitive(&SETBOX),
+    PrimitiveTeXCommand::Primitive(&MATHCODE),
+    PrimitiveTeXCommand::Primitive(&MUSKIP),
+    PrimitiveTeXCommand::Primitive(&MUSKIPDEF),
+    PrimitiveTeXCommand::Primitive(&OUTER),
+    PrimitiveTeXCommand::Primitive(&PAGEGOAL),
+    PrimitiveTeXCommand::Primitive(&PARSHAPE),
+    PrimitiveTeXCommand::Primitive(&PATTERNS),
+    PrimitiveTeXCommand::Primitive(&READLINE),
+    PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
+    PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
+    PrimitiveTeXCommand::Primitive(&SKEWCHAR),
+    PrimitiveTeXCommand::Primitive(&SKIP),
+    PrimitiveTeXCommand::Primitive(&TEXTFONT),
+    PrimitiveTeXCommand::Primitive(&TOKS),
+    PrimitiveTeXCommand::Primitive(&UCCODE),
 ]}

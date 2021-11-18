@@ -45,25 +45,12 @@ impl Mouth {
 }
 
 pub struct TokenMouth {
-    exp: Rc<Expansion>,
     tokens : Vec<Token>
 }
 impl TokenMouth {
-    fn new(exp:Expansion,copy:bool) -> TokenMouth {
-        let mut vec : Vec<Token> = Vec::new();
-        let rc = Rc::new(exp);
-        if copy {
-            for tk in &rc.exp {
-                vec.push(tk.clone())
-            }
-        } else {
-            for tk in &rc.exp {
-                vec.push(tk.clone())
-            }
-        }
+    fn new(tokens:Vec<Token>,copy:bool) -> TokenMouth {
         TokenMouth {
-            exp:rc,
-            tokens:vec
+            tokens
         }
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {
@@ -591,15 +578,15 @@ impl Mouths {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
         }
-        if !exp.exp.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(exp,true));
+        if !exp.2.is_empty() {
+            let nm = Mouth::Token(TokenMouth::new(exp.2,true));
             self.mouths.push(nm)
         }
     }
     pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Token>) {
         if self.buffer.is_some() { todo!() }
         if !tks.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(Expansion::dummy(tks),false));
+            let nm = Mouth::Token(TokenMouth::new(tks,false));
             self.mouths.push(nm)
         }
     }

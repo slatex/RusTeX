@@ -9,7 +9,7 @@ use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::Path;
 use std::str::from_utf8;
-use crate::commands::{Assignment, TeXCommand};
+use crate::commands::{Assignment, TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
@@ -146,23 +146,24 @@ impl Interpreter<'_> {
             CategoryCode::Active | CategoryCode::Escape => {
                 let mut p = self.get_command(&next.cmdname())?;
                 p = match p.as_assignment() {
-                    Ok(a) => return a.assign(self,false),
+                    Ok(a) => return a.assign(next,self,false),
                     Err(x) => x
                 };
                 p = match p.as_expandable_with_protected() {
                     Ok(e) => return e.expand(next,self),
                     Err(x) => x
                 };
-                match p {
-                    TeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
-                    TeXCommand::Primitive(p) => match p.apply(&next,self)? {
-                        None => Ok(()),
-                        Some(e) => Ok(self.push_expansion(Expansion {
-                            cs: next,
-                            exp: e
-                        }))
+                match p.get_orig() {
+                    PrimitiveTeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                    PrimitiveTeXCommand::Primitive(np) => {
+                        let mut exp = Expansion(next,Box::new(p),vec!());
+                        np.apply(&mut exp,self)?;
+                        if !exp.2.is_empty() {
+                            self.push_expansion(exp)
+                        }
+                        Ok(())
                     },
-                    TeXCommand::Ext(exec) =>
+                    PrimitiveTeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),
                     _ => todo!("{}",next)
 
