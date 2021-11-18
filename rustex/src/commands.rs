@@ -204,7 +204,7 @@ impl Expandable {
                 ParamToken::Token(tk) => {
                     int.assert_has_next()?;
                     let next = int.next_token();
-                    if *tk != next { TeXErr!(int,"Expected {}; found {} (in {})",tk,next,d) }
+                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected {}; found {} (in {})",tk,next,d) }
                     i += 1;
                 }
                 ParamToken::Param(_,_) => {
@@ -256,8 +256,8 @@ impl Expandable {
                                     CategoryCode::EndGroup => groups -=1,
                                     _ => ()
                                 }
-                                retarg.push(next);
-                                if groups < 0 {TeXErr!(int,"Missing { somewhere!")}
+                                retarg.push(next.clone());
+                                if groups < 0 {TeXErr!((int,Some(next)),"Missing { somewhere!")}
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
                             }
                             int.assert_has_next()?;
@@ -292,7 +292,7 @@ impl Expandable {
                             i += 1;
                             let arg = next.char - 49;
                             if (arg < 0 || arg >= d.sig.arity) {
-                                TeXErr!(int,"Expected argument number; got:{}",next)
+                                TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
                             }
                             for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
                         }
@@ -358,9 +358,10 @@ impl Assignment {
                 },
                 AssignableValue::Toks(i) => {
                     int.expand_until(false)?;
-                    match int.next_token().catcode {
+                    let next = int.next_token();
+                    match next.catcode {
                         CategoryCode::BeginGroup => {}
-                        _ => TeXErr!(int,"Expected Begin Group Token")
+                        _ => TeXErr!((int,Some(next)),"Expected Begin Group Token")
                     }
                     let toks = int.read_token_list(false, false)?;
                     int.change_state(StateChange::Tokens(u8toi16(i), toks, global));
@@ -368,9 +369,10 @@ impl Assignment {
                 },
                 AssignableValue::PrimToks(r) => {
                     int.expand_until(false)?;
-                    match int.next_token().catcode {
+                    let next = int.next_token();
+                    match next.catcode {
                         CategoryCode::BeginGroup => {}
-                        _ => TeXErr!(int,"Expected Begin Group Token")
+                        _ => TeXErr!((int,Some(next)),"Expected Begin Group Token")
                     }
                     let toks = int.read_token_list(false, false)?;
                     int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));

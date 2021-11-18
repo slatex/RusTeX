@@ -32,7 +32,9 @@ struct StackFrame {
     pub(crate) skips : HashMap<i16,Skip>,
     pub(crate) toks : HashMap<i16,Vec<Token>>,
     pub(in crate::interpreter::state) tp : Option<GroupType>,
-    pub(crate) sfcodes : HashMap<u8,i32>
+    pub(crate) sfcodes : HashMap<u8,i32>,
+    pub(crate) lccodes : HashMap<u8,u8>,
+    pub(crate) uccodes : HashMap<u8,u8>
 }
 
 impl StackFrame {
@@ -60,6 +62,8 @@ impl StackFrame {
         let skips: HashMap<i16,Skip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
+        let lccodes: HashMap<u8,u8> = HashMap::new();
+        let uccodes: HashMap<u8,u8> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -68,7 +72,7 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,
+            skips,toks,sfcodes,lccodes,uccodes,
             tp:None
         }
     }
@@ -78,6 +82,8 @@ impl StackFrame {
         let skips: HashMap<i16,Skip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
+        let lccodes: HashMap<u8,u8> = HashMap::new();
+        let uccodes: HashMap<u8,u8> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -86,7 +92,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,
+            skips,toks,sfcodes,lccodes,uccodes,
             tp:Some(tp)
         }
     }
@@ -159,6 +165,27 @@ impl State {
         }
         0
     }
+
+    pub (in crate::interpreter::state) fn lccode(&self,i:u8) -> u8 {
+        for sf in self.stacks.iter().rev() {
+            match sf.lccodes.get(&i) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        i
+    }
+
+    pub (in crate::interpreter::state) fn uccode(&self,i:u8) -> u8 {
+        for sf in self.stacks.iter().rev() {
+            match sf.uccodes.get(&i) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        i
+    }
+
     pub fn get_skip(&self, index:i16) -> Skip {
         for sf in self.stacks.iter().rev() {
             match sf.skips.get(&index) {
@@ -293,6 +320,24 @@ impl State {
                     self.stacks.last_mut().unwrap().toks.insert(i,tks);
                 }
             }
+            StateChange::Lccode(i,u,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.lccodes.insert(i,u);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().lccodes.insert(i,u);
+                }
+            }
+            StateChange::Uccode(i,u,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.uccodes.insert(i,u);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().uccodes.insert(i,u);
+                }
+            }
             //_ => todo!()
         }
     }
@@ -304,14 +349,14 @@ impl State {
         self.stacks.push(sf)
     }
     pub (in crate::interpreter::state) fn pop(&mut self,int:&Interpreter,_tp : GroupType) -> Result<&CategoryCodeScheme,TeXError> {
-        if self.stacks.len() < 2 { TeXErr!(int,"No group here to end!")}
+        if self.stacks.len() < 2 { TeXErr!((int,None),"No group here to end!")}
         match self.stacks.pop() {
             Some(sf) => match sf.tp {
-                None => TeXErr!(int,"No group here to end!"),
-                Some(ltp) if !matches!(ltp,_tp) => TeXErr!(int,"Group opened by {} ended by {}",ltp,_tp),
+                None => TeXErr!((int,None),"No group here to end!"),
+                Some(ltp) if !matches!(ltp,_tp) => TeXErr!((int,None),"Group opened by {} ended by {}",ltp,_tp),
                 _ => Ok(&self.stacks.last().unwrap().catcodes)
             }
-            None => TeXErr!(int,"No group here to end!")
+            None => TeXErr!((int,None),"No group here to end!")
         }
 
     }
@@ -356,7 +401,7 @@ impl Interpreter<'_> {
             }
             i => {
                 match self.state.borrow_mut().infiles.get_mut(&i) {
-                    None => TeXErr!(self,"No file open at index {}",i),
+                    None => TeXErr!((self,None),"No file open at index {}",i),
                     Some(fm) => Ok(fm.read_line(&self.catcodes.borrow(),nocomment))
                 }
             }
@@ -364,14 +409,14 @@ impl Interpreter<'_> {
     }
     pub fn file_eof(&self,index:u8) -> Result<bool,TeXError> {
         match self.state.borrow_mut().infiles.get_mut(&index) {
-            None => TeXErr!(self,"No file open at index {}",index),
+            None => TeXErr!((self,None),"No file open at index {}",index),
             Some(fm) => Ok(!fm.has_next(&self.catcodes.borrow(),false))
         }
     }
     pub fn file_openin(&self,index:u8,file:VFile) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         if state.infiles.contains_key(&index) {
-            TeXErr!(self,"File already open at {}",index)
+            TeXErr!((self,None),"File already open at {}",index)
         }
         let mouth = StringMouth::new_from_file(&self.catcodes.borrow(),&file);
         self.filestore.borrow_mut().files.insert(file.id.clone(),file);
@@ -381,7 +426,7 @@ impl Interpreter<'_> {
     pub fn file_closein(&self,index:u8) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         match state.infiles.remove(&index) {
-            None => TeXErr!(self,"No file open at index {}",index),
+            None => TeXErr!((self,None),"No file open at index {}",index),
             Some(f) => {
                 f.source.pop_file().unwrap();
             }
@@ -391,7 +436,7 @@ impl Interpreter<'_> {
     pub fn file_openout(&self,index:u8,file:VFile) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         if state.outfiles.contains_key(&index) {
-            TeXErr!(self,"File already open at {}",index)
+            TeXErr!((self,None),"File already open at {}",index)
         }
         state.outfiles.insert(index,file);
         Ok(())
@@ -420,7 +465,7 @@ impl Interpreter<'_> {
                          x@None => *x = Some(s),
                          Some(st) => *st += s
                      }
-                     None => TeXErr!(self,"No file open at index {}",index)
+                     None => TeXErr!((self,None),"No file open at index {}",index)
                  }
                  Ok(())
              }
@@ -466,6 +511,8 @@ impl Interpreter<'_> {
     }
     pub fn state_sfcode(&self,i:u8) -> i32 { self.state.borrow().get_sfcode(i) }
     pub fn state_tokens(&self,i:i16) -> Vec<Token> { self.state.borrow().tokens(i)}
+    pub fn state_lccode(&self,i:u8) -> u8 { self.state.borrow().lccode(i) }
+    pub fn state_uccode(&self,i:u8) -> u8 { self.state.borrow().uccode(i) }
 
     pub fn pushcondition(&self) -> u8 {
         let mut state = self.state.borrow_mut();
@@ -502,7 +549,7 @@ impl Interpreter<'_> {
             state.incs -= 1;
             Ok(())
         } else {
-            TeXErr!(self,"spurious \\endcsname")
+            TeXErr!((self,None),"spurious \\endcsname")
         }
     }
     pub fn state_get_command(&self,s:&TeXString) -> Option<TeXCommand> {
@@ -519,5 +566,7 @@ pub enum StateChange {
     Newline(u8,bool),
     Endline(u8,bool),
     Sfcode(u8,i32,bool),
-    Tokens(i16,Vec<Token>,bool)
+    Tokens(i16,Vec<Token>,bool),
+    Lccode(u8,u8,bool),
+    Uccode(u8,u8,bool)
 }

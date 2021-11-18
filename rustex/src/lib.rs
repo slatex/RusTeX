@@ -22,14 +22,24 @@ macro_rules! log {
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
     })
 }
+
+fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {
+    match tk {
+        None if int.has_next() => tex_stacktrace(int,Some(int.next_token())),
+        None => "(No tracing information available)".to_string(),
+        Some(tk) => crate::utils::stacktrace(tk)
+    }
+}
+
+
 #[macro_export]
 macro_rules! TeXErr {
-    ($int:tt,$head:tt) => (return Err(crate::utils::TeXError::new(std::format!("{} in: {}:   >>{}",$head,crate::interpreter::Interpreter::current_line($int),
-        crate::interpreter::Interpreter::preview($int)))));
-    ($int:tt,$head:tt,$($tl:expr),*) => ({
+    (($int:tt,$tk:expr),$head:tt) => (return Err(crate::utils::TeXError::new(std::format!("{} in: {}:\n>>{}\n\n{}",$head,crate::interpreter::Interpreter::current_line($int),
+        crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk)))));
+    (($int:tt,$tk:expr),$head:tt,$($tl:expr),*) => ({
         //println!($head,$($tl),*);
-        let retstr = std::format!("{} in: {}:   >>{}",std::format_args!($head,$($tl),*),crate::interpreter::Interpreter::current_line($int),
-            crate::interpreter::Interpreter::preview($int));
+        let retstr = std::format!("{} in: {}:\n>>{}\n\n{}",std::format_args!($head,$($tl),*),crate::interpreter::Interpreter::current_line($int),
+            crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk));
         return Err(crate::utils::TeXError::new(retstr))
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
     })
@@ -37,12 +47,15 @@ macro_rules! TeXErr {
 
 #[macro_export]
 macro_rules! FileEnd {
-    ($int:tt) => (TeXErr!($int,"File ended unexpectedly"))
+    ($int:tt) => (TeXErr!(($int,None),"File ended unexpectedly"))
 }
 
 #[macro_use]
 extern crate lazy_static;
 
+use std::borrow::Borrow;
+use crate::interpreter::Interpreter;
+use crate::ontology::Token;
 use crate::utils::TeXString;
 
 

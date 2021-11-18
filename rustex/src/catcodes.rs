@@ -65,7 +65,7 @@ impl CategoryCode {
             _ => unreachable!()
         }
     }
-    pub fn toint(&self) -> i8 {
+    pub fn toint(&self) -> u8 {
         use CategoryCode::*;
         match *self {
             Escape => 0,

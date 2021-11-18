@@ -18,6 +18,9 @@ impl TeXString {
     pub fn to_string(&self) -> String {
         let mut ret : Vec<u8> = vec!();
         for u in &self.0 { match u {
+            0 => for x in "\\u0000".as_bytes() {
+                ret.push(*x)
+            }
             13 => ret.push(10),
             _ if u.is_ascii() => {
                 ret.push(*u)
@@ -218,5 +221,42 @@ impl std::error::Error for TeXError {
             Some(e) => Some(e),
             None => None
         }
+    }
+}
+
+use crate::references::SourceReference;
+use crate::ontology::ExpansionRef;
+use crate::catcodes::CategoryCode;
+use crate::ontology::Token;
+use crate::commands::TeXCommand;
+
+fn getTop(tk : Token) -> Token {
+    let mut t = tk;
+    loop {
+        match *t.reference {
+            SourceReference::File(_,_,_) => return t,
+            SourceReference::None => return t,
+            SourceReference::Exp(ExpansionRef(nt,_)) => t = nt
+        }
+    }
+}
+
+pub fn stacktrace<'a>(tk : Token) -> String {
+    (match tk.catcode {
+        CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
+        _ => TeXString(vec!(tk.char)).to_string()
+    }) + " - " +
+    &match *tk.reference {
+        SourceReference::File(str,(sl,sp),(el,ep)) =>
+            str + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
+        SourceReference::None => "".to_string(),
+        SourceReference::Exp(ExpansionRef(tk,cmd)) =>
+            "Expanded from ".to_string() + &match tk.catcode {
+                CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
+                _ => TeXString(vec!(tk.char)).to_string()
+            } + " defined by " + &match &*cmd {
+                TeXCommand::Prim(p) => cmd.name().unwrap().to_string() + "\n",
+                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(getTop(rf.0.clone()))
+            } + &stacktrace(tk)
     }
 }

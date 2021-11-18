@@ -129,7 +129,7 @@ impl Interpreter<'_> {
                         }
                     }
                 }
-                _ => TeXErr!(self,"Command expected; found: {}",next)
+                _ => TeXErr!((self,Some(next.clone())),"Command expected; found: {}",next)
             }
         };
         match cmd {
@@ -236,11 +236,11 @@ impl Interpreter<'_> {
 
     fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
         let num = if ishex {
-            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else if allowfloat {
-            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else {
-            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!(self,"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
@@ -263,7 +263,7 @@ impl Interpreter<'_> {
                             Ok(e) => e.expand(next,self)?,
                             Err(e) => match e.get_orig() {
                                 PrimitiveTeXCommand::Char(tk) => return Ok(Numeric::Int(if isnegative {-(tk.char as i32)} else {tk.char as i32})),
-                                _ => TeXErr!(self,"Number expected; found {}",next)
+                                _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                             }
                         }
                     };
@@ -291,7 +291,31 @@ impl Interpreter<'_> {
                             self.expand_until(true)?;
                             return Ok(Numeric::Int(if isnegative { -num } else { num }))
                         }
-                        CategoryCode::Active | CategoryCode::Escape => todo!("{} ({}) >>{}{}",self.current_line(),next.cmdname().len(),next,self.preview()),
+                        CategoryCode::Escape => {
+                            match self.get_command(&next.cmdname())?.as_expandable() {
+                                Ok(e) => e.expand(next,self)?,
+                                Err(p) => match p.get_orig() {
+                                    PrimitiveTeXCommand::Char(c) => {
+                                        self.expand_until(true)?;
+                                        return Ok(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32}))
+                                    }
+                                    _ => TeXErr!((self,Some(next)),"Number expected!")
+                                }
+                            }
+                        }
+                        /*
+                        CategoryCode::Active => {
+                            match self.get_command(&next.cmdname())?.as_expandable() {
+                                Ok(e) => e.expand(next,self)?,
+                                Err(p) => match p.get_orig() {
+                                    PrimitiveTeXCommand::Char(c) => {
+                                        self.expand_until(true)?;
+                                        return Ok(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32}))
+                                    }
+                                    _ => return Ok(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
+                                }
+                            }
+                        } */
                         _ => {
                             self.expand_until(true)?;
                             return Ok(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
@@ -337,7 +361,7 @@ impl Interpreter<'_> {
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
             Some(o) => todo!("{}",o),
-            None => TeXErr!(self,"expected unit for dimension")
+            None => TeXErr!((self,None),"expected unit for dimension")
         }
     }
 

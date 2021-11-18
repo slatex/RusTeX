@@ -200,7 +200,7 @@ impl StringMouth {
                             match self.atendofline {
                                 Some(cb) => {
                                     self.atendofline = None;
-                                    return Some((cb, self.line + 1, self.pos))
+                                    return Some((cb, self.line, self.pos))
                                 },
                                 None => match self.do_line(endlinechar) {
                                     true => {},
@@ -210,7 +210,7 @@ impl StringMouth {
                         } else {
                             let ret = str.0.get(self.pos).unwrap();
                             self.pos += 1;
-                            return Some((*ret, self.line + 1, self.pos))
+                            return Some((*ret, self.line, self.pos))
                         }
                     }
                 }
@@ -617,7 +617,7 @@ impl Mouths {
     }
     pub fn preview(&self) -> TeXString {
         let mut ret : TeXString = "".into();
-        for s in &self.mouths {
+        for s in self.mouths.iter().rev() {
             ret += s.preview()
         }
         match self.buffer.borrow() {

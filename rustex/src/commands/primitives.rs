@@ -176,10 +176,10 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == LONG => {
                             long = true;
                         }
-                        _ => TeXErr!(int,"Expected \\def or \\edef or \\long after \\protected: {}",next)
+                        _ => TeXErr!((int,Some(next.clone())),"Expected \\def or \\edef or \\long after \\protected: {}",next)
                     }
                 }
-                _ => TeXErr!(int,"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
             }
         }
         FileEnd!(int)
@@ -210,10 +210,10 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
                         }
-                        _ => TeXErr!(int,"Expected \\def or \\edef or \\protected after \\long")
+                        _ => TeXErr!((int,Some(next)),"Expected \\def or \\edef or \\protected after \\long")
                     }
                 }
-                _ => TeXErr!(int,"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
             }
         }
         FileEnd!(int)
@@ -251,7 +251,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                             retsig.push(ParamToken::Param(arg,next));
                             currarg += 1
                         } else {
-                            TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
+                            TeXErr!((int,Some(next.clone())),"Expected argument {}; got:{}",currarg,next)
                         }
                     }
                 }
@@ -267,7 +267,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
-        _ => TeXErr!(int,"\\def expected control sequence or active character; got: {}",command)
+        _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
     let sig = read_sig(int)?;
     let arity = sig.arity;
@@ -320,7 +320,7 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())?.as_assignment() {
             Ok(a) => a.assign(next,int,true)?,
-            Err(_) => TeXErr!(int,"Assignment expected after \\global; found: {}",next)
+            Err(_) => TeXErr!((int,Some(next.clone())),"Assignment expected after \\global; found: {}",next)
         }
         Ok(())
     }
@@ -351,7 +351,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |rf,int,global| {
         let cmd = int.next_token();
         if !matches!(cmd.catcode,CategoryCode::Escape) && !matches!(cmd.catcode,CategoryCode::Active) {
-            TeXErr!(int,"Control sequence or active character expected; found {}",cmd)
+            TeXErr!((int,Some(cmd.clone())),"Control sequence or active character expected; found {}",cmd)
         }
         int.read_eq();
         let def = int.next_token();
@@ -621,7 +621,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!(int,"\"to\" expected in \\read")
+            None => TeXErr!((int,None),"\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
         let toks = int.file_read(index,true)?;
@@ -649,7 +649,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         int.assert_has_next()?;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!(int,"Begin group token expected after \\write")
+            TeXErr!((int,Some(next)),"Begin group token expected after \\write")
         }
 
         let ret = int.read_token_list(true,false)?;
@@ -669,7 +669,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!(int,"Begin group token expected after \\message")
+            TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false)?;
         let string = int.tokens_to_string(ret);
@@ -852,7 +852,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!(int,"Begin group token expected after \\message")
+            TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false)?;
         let string = int.tokens_to_string(ret);
@@ -876,7 +876,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
             let rethelp = int.read_token_list(true,false)?;
             int.tokens_to_string(rethelp)
         } else {"".into()};
-        TeXErr!(int,"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
+        TeXErr!((int,None),"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
     }
 };
 
@@ -901,12 +901,13 @@ pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|exp,int| {
         int.expand_until(true);
-        match int.next_token().catcode {
+        let next = int.next_token();
+        match next.catcode {
             CategoryCode::BeginGroup => {
                 exp.2 = int.read_token_list(false,false)?;
                 Ok(())
             }
-            _ => TeXErr!(int,"Balanced argument expected after \\unexpanded")
+            _ => TeXErr!((int,Some(next)),"Balanced argument expected after \\unexpanded")
         }
     }
 };
@@ -991,7 +992,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::BeginGroup => (),
-            _ => TeXErr!(int,"Expected balanced argument after \\detokenize")
+            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\detokenize")
         }
         let tkl = int.read_token_list(false,false)?;
         for t in tkl {
@@ -1018,6 +1019,90 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
             }
         }
         log!("\\detokenize: {}",TokenList(&exp.2));
+        Ok(())
+    }
+};
+
+pub static LCCODE: AssValue<i32> = AssValue {
+    name:"lccode",
+    _assign: |_,int,global| {
+        let num1 = int.read_number()? as u8;
+        int.read_eq();
+        let num2 = int.read_number()? as u8;
+        int.change_state(StateChange::Lccode(num1,num2,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let char = int.read_number()? as u8;
+        Ok(int.state_lccode(char) as i32)
+    }
+};
+
+pub static UCCODE: AssValue<i32> = AssValue {
+    name: "uccode",
+    _assign: |_, int, global| {
+        let num1 = int.read_number()? as u8;
+        int.read_eq();
+        let num2 = int.read_number()? as u8;
+        int.change_state(StateChange::Uccode(num1, num2, global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let char = int.read_number()? as u8;
+        Ok(int.state_uccode(char) as i32)
+    }
+};
+
+pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lowercase",
+    expandable:false,
+    _apply:|rf,int| {
+        int.expand_until(true);
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => (),
+            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\lowercase")
+        }
+        let erf = rf.get_ref();
+        for t in int.read_token_list(false,false)? {
+            match t.catcode {
+                CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
+                o => rf.2.push(Token {
+                    char: int.state_lccode(t.char),
+                    catcode: o,
+                    name_opt: None,
+                    reference: Box::new(SourceReference::Exp(erf.clone())),
+                    expand: true
+                })
+            }
+        }
+        Ok(())
+    }
+};
+
+pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"uppercase",
+    expandable:false,
+    _apply:|rf,int| {
+        int.expand_until(true);
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => (),
+            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\uppercase")
+        }
+        let erf = rf.get_ref();
+        for t in int.read_token_list(false,false)? {
+            match t.catcode {
+                CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
+                o => rf.2.push(Token {
+                    char: int.state_uccode(t.char),
+                    catcode: o,
+                    name_opt: None,
+                    reference: Box::new(SourceReference::Exp(erf.clone())),
+                    expand: true
+                })
+            }
+        }
         Ok(())
     }
 };
@@ -1665,7 +1750,7 @@ pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
 pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {todo!("{}",_int.current_line())}
 };
 
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
@@ -1722,12 +1807,6 @@ pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lowercase",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MUEXPR: PrimitiveExecutable = PrimitiveExecutable {
     name:"muexpr",
     expandable:true,
@@ -1754,12 +1833,6 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"uppercase",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2239,12 +2312,6 @@ pub static HYPHENCHAR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static LCCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lccode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lpcode",
     expandable:true,
@@ -2347,13 +2414,6 @@ pub static TOKS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static UCCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"uccode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-
 // -------------------------------------------------------------------------------------------------
 
 pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
@@ -2403,6 +2463,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ETEXREVISION),
     PrimitiveTeXCommand::Primitive(&UNEXPANDED),
     PrimitiveTeXCommand::Int(&ETEXVERSION),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -2631,7 +2693,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&FUTURELET),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&HYPHENCHAR),
-    PrimitiveTeXCommand::Primitive(&LCCODE),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),
     PrimitiveTeXCommand::Primitive(&SETBOX),
@@ -2649,5 +2710,4 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SKIP),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
     PrimitiveTeXCommand::Primitive(&TOKS),
-    PrimitiveTeXCommand::Primitive(&UCCODE),
 ]}

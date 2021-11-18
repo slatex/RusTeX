@@ -105,7 +105,7 @@ impl Interpreter<'_> {
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
         use crate::utils::kpsewhich;
         match kpsewhich(filename,self.jobinfo.in_file()) {
-            None =>TeXErr!(self,"File {} not found",filename),
+            None =>TeXErr!((self,None),"File {} not found",filename),
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
         }
     }
@@ -136,7 +136,7 @@ impl Interpreter<'_> {
     pub fn get_command(&self,s : &TeXString) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
-            None => TeXErr!(self,"Unknown control sequence: \\{}",s)
+            None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)
         }
     }
 

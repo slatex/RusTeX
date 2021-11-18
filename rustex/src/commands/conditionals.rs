@@ -3,6 +3,7 @@ use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable, PrimitiveTeX
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::log;
+use crate::utils::TeXString;
 
 
 fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
@@ -88,7 +89,7 @@ use crate::TeXErr;
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |_,int| {
         match int.getcondition() {
-            None => TeXErr!(int,"extra \\else"),
+            None => TeXErr!((int,None),"extra \\else"),
             Some((_,None)) => {
                 Ok(())
             }
@@ -134,7 +135,7 @@ pub static IFNUM : Conditional = Conditional {
             Some(ref s) if s == "<" => i1 < i2,
             Some(ref s) if s == "=" => i1 == i2,
             Some(ref s) if s == ">" => i1 > i2,
-            _ =>  TeXErr!(int,"Expected '<','=' or '>' in \\ifnum")
+            _ =>  TeXErr!((int,None),"Expected '<','=' or '>' in \\ifnum")
         };
         log!("\\ifnum {}{}{}: {}",i1,rel.as_ref().unwrap(),i2,istrue);
         if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
@@ -223,9 +224,75 @@ pub static IFDEFINED : Conditional = Conditional {
         let istrue = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active =>
                 int.state_get_command(&next.cmdname()).is_some(),
-            _ => TeXErr!(int,"Expected command after \\ifdefined; got: {}",next)
+            _ => TeXErr!((int,Some(next.clone())),"Expected command after \\ifdefined; got: {}",next)
         };
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
+    }
+};
+
+pub static IFCSNAME : Conditional = Conditional {
+    name:"ifcsname",
+    _apply: |int,cond,unless| {
+        let incs = int.newincs();
+        let mut cmdname : TeXString = "".into();
+        while incs == int.currcs() && int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Escape => {
+                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(exp) => exp.expand(next,int)?,
+                        Err(_) => {
+                            if int.state_catcodes().escapechar != 255 {
+                                cmdname += int.state_catcodes().escapechar.into()
+                            }
+                            cmdname += next.name()
+                        }
+                    }
+                }
+                CategoryCode::Active =>  {
+                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
+                        Ok(exp) => exp.expand(next,int)?,
+                        Err(_) => cmdname += next.name()
+                    }
+                }
+                _ => cmdname += next.char.into()
+            }
+        }
+        let istrue = int.state_get_command(&cmdname).is_some();
+        if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
+    }
+};
+
+pub static IFCAT : Conditional = Conditional {
+    name:"ifcat",
+    _apply: |int,cond,unless| {
+        let first = match get_if_token(cond,int)? {
+            Some(tk) => tk,
+            None => return dofalse(int,cond,unless)
+        };
+        let second = match get_if_token(cond,int)? {
+            Some(tk) => tk,
+            None => return dofalse(int,cond,unless)
+        };
+        let cc1 = match first.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                match int.state_get_command(&first.cmdname()).map(|x| x.get_orig()) {
+                    Some(PrimitiveTeXCommand::Char(tk)) => tk.catcode.toint(),
+                    _ => 255
+                }
+            }
+            o => o.toint()
+        };
+        let cc2 = match second.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                match int.state_get_command(&second.cmdname()).map(|x| x.get_orig()) {
+                    Some(PrimitiveTeXCommand::Char(tk)) => tk.catcode.toint(),
+                    _ => 255
+                }
+            }
+            o => o.toint()
+        };
+        if cc1 == cc2 { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 
@@ -238,20 +305,6 @@ pub static IFODD : Conditional = Conditional {
 
 pub static IFDIM : Conditional = Conditional {
     name:"ifdim",
-    _apply: |_int,_cond,_unless| {
-        todo!()
-    }
-};
-
-pub static IFCSNAME : Conditional = Conditional {
-    name:"ifcsname",
-    _apply: |_int,_cond,_unless| {
-        todo!()
-    }
-};
-
-pub static IFCAT : Conditional = Conditional {
-    name:"ifcat",
     _apply: |_int,_cond,_unless| {
         todo!()
     }
