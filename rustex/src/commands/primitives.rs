@@ -233,43 +233,15 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                             arity:currarg-1
                         })
                     }
-                    _ if currarg == 1 && inext.char == 49 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(1,next))
+                    _ => {
+                        let arg = inext.char - 48;
+                        if currarg == arg {
+                            retsig.push(ParamToken::Param(arg,next));
+                            currarg += 1
+                        } else {
+                            TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
+                        }
                     }
-                    _ if currarg == 2 && inext.char == 50 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(2,next))
-                    }
-                    _ if currarg == 3 && inext.char == 51 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(3,next))
-                    }
-                    _ if currarg == 4 && inext.char == 52 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(4,next))
-                    }
-                    _ if currarg == 5 && inext.char == 53 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(5,next))
-                    }
-                    _ if currarg == 6 && inext.char == 54 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(6,next))
-                    }
-                    _ if currarg == 7 && inext.char == 55 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(7,next))
-                    }
-                    _ if currarg == 8 && inext.char == 56 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(8,next))
-                    }
-                    _ if currarg == 9 && inext.char == 57 => {
-                        currarg += 1;
-                        retsig.push(ParamToken::Param(9,next))
-                    }
-                    _ => TeXErr!(int,"Expected argument {}; got:{}",currarg,next)
                 }
             }
             _ => retsig.push(ParamToken::Token(next))
@@ -287,7 +259,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     }
     let sig = read_sig(int)?;
     let arity = sig.arity;
-    let ret = int.read_token_list_map(edef,edef,Box::new(|x,i| {
+    let ret = int.read_token_list(edef,edef)?;/*,Box::new(|x,i| {
         match x.catcode {
             CategoryCode::Parameter => {
                 i.assert_has_next()?;
@@ -311,8 +283,8 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
             }
             _ => Ok(Some(ParamToken::Token(x)))
         }
-    }))?;
-    log!("\\def {}{}{}{}{}",command,sig,"{",ParamList(&ret),"}");
+    }))?; */
+    log!("\\def {}{}{}{}{}",command,sig,"{",TokenList(&ret),"}");
     let dm = PrimitiveTeXCommand::Def(DefMacro {
         protected,
         long,
@@ -639,10 +611,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             None => TeXErr!(int,"\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
-        let mut toks : Vec<ParamToken> = vec!();
-        for tk in int.file_read(index,true)? {
-            toks.push(ParamToken::Token(tk))
-        }
+        let toks = int.file_read(index,true)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,

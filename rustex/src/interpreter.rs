@@ -14,6 +14,7 @@ use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
 use crate::utils::{TeXError, TeXString};
+use std::rc::Rc;
 
 pub mod mouth;
 pub mod state;
@@ -156,7 +157,7 @@ impl Interpreter<'_> {
                 match p.get_orig() {
                     PrimitiveTeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
                     PrimitiveTeXCommand::Primitive(np) => {
-                        let mut exp = Expansion(next,Box::new(p),vec!());
+                        let mut exp = Expansion(next,Rc::new(p),vec!());
                         np.apply(&mut exp,self)?;
                         if !exp.2.is_empty() {
                             self.push_expansion(exp)

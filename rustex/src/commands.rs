@@ -94,11 +94,11 @@ pub struct DefMacro {
     pub protected:bool,
     pub long:bool,
     pub sig:Signature,
-    pub ret:Vec<ParamToken>
+    pub ret:Vec<Token>
 }
 impl Display for DefMacro {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}->{}{}{}",self.sig,"{",ParamList(&self.ret),"}")
+        write!(f,"{}->{}{}{}",self.sig,"{",TokenList(&self.ret),"}")
     }
 }
 
@@ -174,12 +174,12 @@ impl Expandable {
         match self.0.get_orig() {
             Cond(c) => {c.expand(int)?; Ok(None)},
             Primitive(p) => {
-                let mut exp = Expansion(tk,Box::new(self.0.clone()),vec!());
+                let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
                 (p._apply)(&mut exp,int)?;
                 Ok(Some(exp))
             },
             Ext(p) => {
-                let mut exp = Expansion(tk,Box::new(self.0.clone()),vec!());
+                let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
                 p.expand(&mut exp,int)?;
                 Ok(Some(exp))
             },
@@ -275,15 +275,34 @@ impl Expandable {
                 }
             }
         }
-        let mut exp = Expansion(tk,Box::new(self.0.clone()),vec!());
+        let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
         let rf = exp.get_ref();
-        for tk in &d.ret {
-            match tk {
-                ParamToken::Token(tk) => exp.2.push(tk.copied(rf.clone())),
-                ParamToken::Param(0,c) => {
-                    exp.2.push(c.clone())
+        let mut i = 0;
+        while i < d.ret.len() {
+            let tk = d.ret.get(i).unwrap();
+            match tk.catcode {
+                CategoryCode::Parameter => {
+                    i += 1;
+                    let next = d.ret.get(i).unwrap();
+                    match next.catcode {
+                        CategoryCode::Parameter => {
+                            i += 1;
+                            exp.2.push(tk.copied(rf.clone()))
+                        }
+                        _ => {
+                            i += 1;
+                            let arg = next.char - 49;
+                            if (arg < 0 || arg >= d.sig.arity) {
+                                TeXErr!(int,"Expected argument number; got:{}",next)
+                            }
+                            for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
+                        }
+                    }
                 }
-                ParamToken::Param(i,_) => for tk in args.get((i-1) as usize).unwrap() { exp.2.push(tk.clone()) }
+                _ => {
+                    i += 1;
+                    exp.2.push(tk.copied(rf.clone()))
+                },
             }
         }
         Ok(exp)
@@ -304,7 +323,7 @@ impl Assignment {
 
         let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
         let global = !(globals < 0) && ( globally || globals > 0 );
-        let rf = ExpansionRef(tk,Box::new(self.0.clone()));
+        let rf = ExpansionRef(tk,Rc::new(self.0.clone()));
 
         match self.0.get_orig() {
             Ass(p) => (p._assign)(rf,int, global),
@@ -499,7 +518,7 @@ pub enum PrimitiveTeXCommand {
 impl PrimitiveTeXCommand {
     pub fn as_ref(self,rf:&ExpansionRef) -> TeXCommand {
         if COPY_COMMANDS_FULL {
-            TeXCommand::Ref(ExpansionRef(rf.0.clone(),Box::new(TeXCommand::Prim(self))))//(rf, Box::new(TeXCommand::Prim(self)))
+            TeXCommand::Ref(ExpansionRef(rf.0.clone(),Rc::new(TeXCommand::Prim(self))))//(rf, Box::new(TeXCommand::Prim(self)))
         } else {
             TeXCommand::Prim(self)
         }
@@ -634,23 +653,14 @@ impl TeXCommand {
                     }
                 }
                 meaning += "->".into();
-                for s in &d.ret {
-                    match s {
-                        ParamToken::Token(tk) => {
-                            match tk.catcode {
-                                CategoryCode::Escape => {
-                                    meaning += escape.clone();
-                                    meaning += tk.name();
-                                    meaning += " ".into()
-                                }
-                                _ => meaning += tk.char.into()
-                            }
-                        },
-                        ParamToken::Param(0,u) => meaning += vec!(u.char,u.char).into(),
-                        ParamToken::Param(i,u) => {
-                            meaning += (u.char).into();
-                            meaning += i.to_string().into();
+                for tk in &d.ret {
+                    match tk.catcode {
+                        CategoryCode::Escape => {
+                            meaning += escape.clone();
+                            meaning += tk.name();
+                            meaning += " ".into()
                         }
+                        _ => meaning += tk.char.into()
                     }
                 }
                 meaning
@@ -727,7 +737,7 @@ impl TeXCommand {
     }
     pub fn as_ref(self,tk:Token) -> TeXCommand {
         if COPY_COMMANDS_FULL {
-            TeXCommand::Ref(ExpansionRef(tk,Box::new(self)))
+            TeXCommand::Ref(ExpansionRef(tk,Rc::new(self)))
         } else { self }
     }
 }
