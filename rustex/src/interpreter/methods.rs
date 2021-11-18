@@ -171,7 +171,15 @@ impl Interpreter<'_> {
                                 Some(exp) => {
                                     let rf = exp.get_ref();
                                     for tk in exp.2 {
-                                        for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
+                                        match tk.catcode {
+                                            CategoryCode::Parameter => {
+                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
+                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
+                                            }
+                                            _ =>
+                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
+
+                                        }
                                     }
                                 }
                                 None => {}

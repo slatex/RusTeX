@@ -919,7 +919,14 @@ pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
     _apply:|exp,int| {
-        todo!()
+        int.expand_until(true);
+        match int.next_token().catcode {
+            CategoryCode::BeginGroup => {
+                exp.2 = int.read_token_list(false,false)?;
+                Ok(())
+            }
+            _ => TeXErr!(int,"Balanced argument expected after \\unexpanded")
+        }
     }
 };
 
