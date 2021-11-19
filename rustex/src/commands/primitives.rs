@@ -246,6 +246,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                         })
                     }
                     _ => {
+                        log!("{},{} at {}",inext.char,inext.catcode,int.current_line());
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
@@ -271,31 +272,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     }
     let sig = read_sig(int)?;
     let arity = sig.arity;
-    let ret = int.read_token_list(edef,edef)?;/*,Box::new(|x,i| {
-        match x.catcode {
-            CategoryCode::Parameter => {
-                i.assert_has_next()?;
-                let next = i.next_token();
-                match next.catcode {
-                    CategoryCode::Parameter => Ok(Some(ParamToken::Param(0,x))),
-                    _ => {
-                        let num = match from_utf8(&[next.char]) {
-                            Ok(n) => match n.parse::<u8>() {
-                                Ok(u) => u,
-                                Err(_) => TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
-                            }
-                            Err(_) => TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
-                        };
-                        if num < 1 || num > arity {
-                            TeXErr!(i,"Expected digit between 1 and {}; got: {}",arity,next)
-                        }
-                        Ok(Some(ParamToken::Param(num,x)))
-                    }
-                }
-            }
-            _ => Ok(Some(ParamToken::Token(x)))
-        }
-    }))?; */
+    let ret = int.read_token_list(edef,true,edef,false)?;
     log!("\\def {}{}{}{}{}",command,sig,"{",TokenList(&ret),"}");
     let dm = PrimitiveTeXCommand::Def(DefMacro {
         protected,
@@ -652,7 +629,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
             TeXErr!((int,Some(next)),"Begin group token expected after \\write")
         }
 
-        let ret = int.read_token_list(true,false)?;
+        let ret = int.read_token_list(true,true,false,true)?;
         let string = int.tokens_to_string(ret);
         return Ok(ExecutableWhatsit {
             _apply: Box::new(move |int| {
@@ -671,7 +648,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
-        let ret = int.read_token_list(true,false)?;
+        let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(ret);
         print!("{}",Yellow.paint(string.to_string()));
         Ok(())
@@ -854,7 +831,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
-        let ret = int.read_token_list(true,false)?;
+        let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(ret);
         let mut eh = int.state_tokens(-u8toi16(ERRHELP.index));
         let rethelp = if !eh.is_empty() {
@@ -873,7 +850,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
                 expand: false
             });
             int.push_tokens(eh);
-            let rethelp = int.read_token_list(true,false)?;
+            let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(rethelp)
         } else {"".into()};
         TeXErr!((int,None),"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
@@ -900,7 +877,7 @@ pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
     _apply:|exp,int| {
-        exp.2 = int.read_balanced_argument(false,false)?;
+        exp.2 = int.read_balanced_argument(false,false,false,true)?;
         Ok(())
     }
 };
@@ -909,6 +886,7 @@ pub static ROMANNUMERAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"romannumeral",
     expandable:true,
     _apply:|rf,int| {
+        log!("\\romannumeral: {}",int.preview());
         let mut num = int.read_number()?;
         if num <= 0 {
             return Ok(())
@@ -981,7 +959,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"detokenize",
     expandable:true,
     _apply:|exp,int| {
-        let tkl = int.read_balanced_argument(false,false)?;
+        let tkl = int.read_balanced_argument(false,false,false,true)?;
         for t in tkl {
             exp.2.push(Token {
                 char: t.char,
@@ -1045,7 +1023,7 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|rf,int| {
         let erf = rf.get_ref();
-        for t in int.read_balanced_argument(false,false)? {
+        for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => rf.2.push(Token {
@@ -1066,7 +1044,7 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|rf,int| {
         let erf = rf.get_ref();
-        for t in int.read_balanced_argument(false,false)? {
+        for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => rf.2.push(Token {
@@ -1725,7 +1703,10 @@ pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
 pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
     expandable:true,
-    _apply:|_tk,_int| {todo!("{}",_int.current_line())}
+    _apply:|rf,int| {
+        rf.2 = int.read_balanced_argument(true,true,false,true)?;
+        Ok(())
+    }
 };
 
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {

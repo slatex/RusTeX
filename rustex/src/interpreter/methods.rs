@@ -143,7 +143,7 @@ impl Interpreter<'_> {
     pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
         let next = self.next_token();
         if next.catcode == CategoryCode::BeginGroup {
-            self.read_token_list(false,false)
+            self.read_token_list(false,false,false,true)
         } else {
             Ok(vec!(next))
         }
@@ -151,7 +151,7 @@ impl Interpreter<'_> {
 
 
     #[inline(always)]
-    pub fn read_token_list(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_token_list(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
         use std::rc::Rc;
         let mut ingroups : i8 = 0;
@@ -160,29 +160,35 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
-                    let cmd = self.get_command(&next.cmdname())?;
-                    match cmd.get_orig() {
-                        PrimitiveTeXCommand::Primitive(x) if the && (*x == THE || *x == UNEXPANDED) => {
-                            match cmd.as_expandable().ok().unwrap().get_expansion(next,self)? {
-                                Some(exp) => {
-                                    let rf = exp.get_ref();
-                                    for tk in exp.2 {
-                                        match tk.catcode {
-                                            CategoryCode::Parameter => {
-                                                ret.push(tk.clone());
-                                                ret.push(tk);
+                    match self.state_get_command(&next.cmdname()) {
+                        Some(cmd) => match cmd.get_orig() {
+                            PrimitiveTeXCommand::Primitive(x) if (the && *x == THE) || *x == UNEXPANDED => {
+                                match cmd.as_expandable().ok().unwrap().get_expansion(next,self)? {
+                                    Some(exp) => {
+                                        let rf = exp.get_ref();
+                                        for tk in exp.2 {
+                                            match tk.catcode {
+                                                CategoryCode::Parameter if the => {
+                                                    ret.push(tk.clone());
+                                                    ret.push(tk);
+                                                }
+                                                _ => ret.push(tk)
                                             }
-                                            _ => ret.push(tk)
                                         }
                                     }
+                                    None => {}
                                 }
-                                None => {}
+                            }
+                            _ => {
+                                let exp = if (protect) {cmd.as_expandable()} else {cmd.as_expandable_with_protected()};
+                                match exp {
+                                    Ok(e) => e.expand(next, self)?,
+                                    Err(_) => ret.push(next)
+                                }
                             }
                         }
-                        _ => match cmd.as_expandable() {
-                            Ok(e) => e.expand(next, self)?,
-                            Err(_) => ret.push(next)
-                        }
+                        None if allowunknowns => ret.push(next),
+                        None => {self.get_command(&next.cmdname())?;}
                     }
                 }
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
@@ -226,14 +232,14 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn read_balanced_argument(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_balanced_argument(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         match next.catcode {
             CategoryCode::BeginGroup => {}
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
         }
-        self.read_token_list(false, false)
+        self.read_token_list(expand, protect,the,allowunknowns)
     }
 
     // Numbers -------------------------------------------------------------------------------------
@@ -303,7 +309,7 @@ impl Interpreter<'_> {
                                         self.expand_until(true)?;
                                         return Ok(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32}))
                                     }
-                                    _ => TeXErr!((self,Some(next)),"Number expected!")
+                                    _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                                 }
                             }
                         }
@@ -317,7 +323,7 @@ impl Interpreter<'_> {
                     self.requeue(next);
                     return self.num_do_ret(ishex,isnegative,allowfloat,ret)
                 }
-                _ => todo!("{},{}: {}",next,self.current_line(),self.preview())
+                _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
             }
         }
         FileEnd!(self)

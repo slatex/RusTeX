@@ -357,12 +357,12 @@ impl Assignment {
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
-                    let toks = int.read_balanced_argument(false,false)?;
+                    let toks = int.read_balanced_argument(false,false,false,true)?;
                     int.change_state(StateChange::Tokens(u8toi16(i), toks, global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
-                    let toks = int.read_balanced_argument(false,false)?;
+                    let toks = int.read_balanced_argument(false,false,false,true)?;
                     int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
                     Ok(())
                 },

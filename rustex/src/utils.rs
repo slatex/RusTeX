@@ -229,6 +229,7 @@ use crate::ontology::ExpansionRef;
 use crate::catcodes::CategoryCode;
 use crate::ontology::Token;
 use crate::commands::TeXCommand;
+use crate::interpreter::Interpreter;
 
 fn getTop(tk : Token) -> Token {
     let mut t = tk;
@@ -241,7 +242,7 @@ fn getTop(tk : Token) -> Token {
     }
 }
 
-pub fn stacktrace<'a>(tk : Token) -> String {
+pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
     (match tk.catcode {
         CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
         _ => TeXString(vec!(tk.char)).to_string()
@@ -252,11 +253,14 @@ pub fn stacktrace<'a>(tk : Token) -> String {
         SourceReference::None => "".to_string(),
         SourceReference::Exp(ExpansionRef(tk,cmd)) =>
             "Expanded from ".to_string() + &match tk.catcode {
-                CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
+                CategoryCode::Escape => "\\".to_string() + &tk.name().to_string() + " " + &match int.state_get_command(&tk.cmdname()) {
+                    Some(o) => o.meaning(&int.state_catcodes()).to_string(),
+                    _ => "".to_string()
+                },
                 _ => TeXString(vec!(tk.char)).to_string()
             } + " defined by " + &match &*cmd {
                 TeXCommand::Prim(p) => cmd.name().unwrap().to_string() + "\n",
-                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(getTop(rf.0.clone()))
-            } + &stacktrace(tk)
+                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(getTop(rf.0.clone()),int)
+            } + &stacktrace(tk,int)
     }
 }
