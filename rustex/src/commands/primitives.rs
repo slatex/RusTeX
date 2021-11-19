@@ -900,15 +900,8 @@ pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
     _apply:|exp,int| {
-        int.expand_until(true);
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => {
-                exp.2 = int.read_token_list(false,false)?;
-                Ok(())
-            }
-            _ => TeXErr!((int,Some(next)),"Balanced argument expected after \\unexpanded")
-        }
+        exp.2 = int.read_balanced_argument(false,false)?;
+        Ok(())
     }
 };
 
@@ -988,13 +981,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"detokenize",
     expandable:true,
     _apply:|exp,int| {
-        int.expand_until(true)?;
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => (),
-            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\detokenize")
-        }
-        let tkl = int.read_token_list(false,false)?;
+        let tkl = int.read_balanced_argument(false,false)?;
         for t in tkl {
             exp.2.push(Token {
                 char: t.char,
@@ -1057,14 +1044,8 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lowercase",
     expandable:false,
     _apply:|rf,int| {
-        int.expand_until(true);
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => (),
-            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\lowercase")
-        }
         let erf = rf.get_ref();
-        for t in int.read_token_list(false,false)? {
+        for t in int.read_balanced_argument(false,false)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => rf.2.push(Token {
@@ -1084,14 +1065,8 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"uppercase",
     expandable:false,
     _apply:|rf,int| {
-        int.expand_until(true);
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => (),
-            _ => TeXErr!((int,Some(next)),"Expected balanced argument after \\uppercase")
-        }
         let erf = rf.get_ref();
-        for t in int.read_token_list(false,false)? {
+        for t in int.read_balanced_argument(false,false)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => rf.2.push(Token {

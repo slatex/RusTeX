@@ -149,17 +149,13 @@ impl Interpreter<'_> {
         }
     }
 
-    #[inline(always)]
-    pub fn read_token_list(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
-        self.read_token_list_map(expand,the,Box::new(|x,_| Ok(Some(x))))
-    }
 
     #[inline(always)]
-    pub fn read_token_list_map<'a,T>(&self,expand:bool,the:bool,f:Box<dyn Fn(Token,&Interpreter) -> Result<Option<T>,TeXError> + 'a>) -> Result<Vec<T>,TeXError> {
+    pub fn read_token_list(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
         use std::rc::Rc;
         let mut ingroups : i8 = 0;
-        let mut ret : Vec<T> = vec!();
+        let mut ret : Vec<Token> = vec!();
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -173,12 +169,10 @@ impl Interpreter<'_> {
                                     for tk in exp.2 {
                                         match tk.catcode {
                                             CategoryCode::Parameter => {
-                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
-                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
+                                                ret.push(tk.clone());
+                                                ret.push(tk);
                                             }
-                                            _ =>
-                                                for t in (f)(tk.copied(rf.clone()),self)? {ret.push(t)}
-
+                                            _ => ret.push(tk)
                                         }
                                     }
                                 }
@@ -187,20 +181,20 @@ impl Interpreter<'_> {
                         }
                         _ => match cmd.as_expandable() {
                             Ok(e) => e.expand(next, self)?,
-                            Err(_) => for t in (f)(next, self)? { ret.push(t) }
+                            Err(_) => ret.push(next)
                         }
                     }
                 }
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
                 CategoryCode::BeginGroup => {
                     ingroups += 1;
-                    for t in (f)(next,self)? {ret.push(t)};
+                    ret.push(next)
                 }
                 CategoryCode::EndGroup => {
                     ingroups -= 1;
-                    for t in (f)(next,self)? {ret.push(t)};
+                    ret.push(next);
                 }
-                _ => for t in (f)(next,self)? {ret.push(t)}
+                _ => ret.push(next)
             }
         }
         FileEnd!(self)
@@ -230,6 +224,16 @@ impl Interpreter<'_> {
             }
         }
         FileEnd!(self)
+    }
+
+    pub fn read_balanced_argument(&self,expand:bool,the:bool) -> Result<Vec<Token>,TeXError> {
+        self.expand_until(false)?;
+        let next = self.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {}
+            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+        }
+        self.read_token_list(false, false)
     }
 
     // Numbers -------------------------------------------------------------------------------------
@@ -303,19 +307,6 @@ impl Interpreter<'_> {
                                 }
                             }
                         }
-                        /*
-                        CategoryCode::Active => {
-                            match self.get_command(&next.cmdname())?.as_expandable() {
-                                Ok(e) => e.expand(next,self)?,
-                                Err(p) => match p.get_orig() {
-                                    PrimitiveTeXCommand::Char(c) => {
-                                        self.expand_until(true)?;
-                                        return Ok(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32}))
-                                    }
-                                    _ => return Ok(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))
-                                }
-                            }
-                        } */
                         _ => {
                             self.expand_until(true)?;
                             return Ok(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32}))

@@ -357,24 +357,12 @@ impl Assignment {
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
-                    int.expand_until(false)?;
-                    let next = int.next_token();
-                    match next.catcode {
-                        CategoryCode::BeginGroup => {}
-                        _ => TeXErr!((int,Some(next)),"Expected Begin Group Token")
-                    }
-                    let toks = int.read_token_list(false, false)?;
+                    let toks = int.read_balanced_argument(false,false)?;
                     int.change_state(StateChange::Tokens(u8toi16(i), toks, global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
-                    int.expand_until(false)?;
-                    let next = int.next_token();
-                    match next.catcode {
-                        CategoryCode::BeginGroup => {}
-                        _ => TeXErr!((int,Some(next)),"Expected Begin Group Token")
-                    }
-                    let toks = int.read_token_list(false, false)?;
+                    let toks = int.read_balanced_argument(false,false)?;
                     int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
                     Ok(())
                 },
