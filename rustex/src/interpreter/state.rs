@@ -443,18 +443,22 @@ impl Interpreter<'_> {
     }
     pub fn file_write(&self,index:u8,s:TeXString) -> Result<(),TeXError> {
         use ansi_term::Colour::*;
+        use std::io::Write;
         match index {
             17 => {
                 print!("{}",s);
+                std::io::stdout().flush();
                 Ok(())
             }
             16 => {
                 print!("{}",White.bold().paint(s.to_utf8()));
+                std::io::stdout().flush();
                 Ok(())
             }
             18 => todo!("{}",index),
             255 => {
                 print!("{}",Black.on(Blue).paint(s.to_utf8()));
+                std::io::stdout().flush();
                 Ok(())
             }
             i if !self.state.borrow().outfiles.contains_key(&i) => todo!("{}",i),

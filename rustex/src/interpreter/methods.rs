@@ -244,9 +244,11 @@ impl Interpreter<'_> {
 
     // Numbers -------------------------------------------------------------------------------------
 
-    fn num_do_ret(&self,ishex:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
+    fn num_do_ret(&self,ishex:bool,isoct:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
         let num = if ishex {
             Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+        } else if isoct {
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 8).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else if allowfloat {
             Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else {
@@ -258,6 +260,7 @@ impl Interpreter<'_> {
     pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
+        let mut isoct = false;
         let mut isfloat = false;
         let mut ret : TeXString = "".into();
         self.skip_ws();
@@ -284,15 +287,17 @@ impl Interpreter<'_> {
                         Ok(e) => e.expand(next,self)?,
                         _ => {
                             self.requeue(next);
-                            return self.num_do_ret(ishex,isnegative,allowfloat,ret)
+                            return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
                         }
                     }
                 }
-                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isnegative,allowfloat,ret),
+                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret),
                 _ if next.char.is_ascii_digit() => ret += next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
                 _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += ".".into() }
+                _ if next.char == 34 && ret.is_empty() && !ishex && !isoct => ishex = true,
+                _ if next.char == 39 && ret.is_empty() && !ishex && !isoct => isoct = true,
                 _ if next.char == 96 => while self.has_next() {
                     let next = self.next_token();
                     match next.catcode {
@@ -321,7 +326,7 @@ impl Interpreter<'_> {
                 }
                 _ if !ret.is_empty() => {
                     self.requeue(next);
-                    return self.num_do_ret(ishex,isnegative,allowfloat,ret)
+                    return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
                 }
                 _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
             }

@@ -8,6 +8,12 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
     name: "pdftexversion"
 };
 
+pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfstrcmp",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -84,235 +90,229 @@ pub static IFPDFPRIMITIVE : Conditional = Conditional {
 
 pub static PDFESCAPESTRING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapestring",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapename",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfannot",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcatalog",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcolorstackinit",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcolorstack",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFDEST: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfdest",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapehex",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffiledump",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilesize",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontsize",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontexpand",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFGLYPHTOUNICODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfglyphtounicode",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfunescapehex",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfinfo",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFLITERAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfliteral",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmatch",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastmatch",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfobj",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfoutline",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfpageattr",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFREFXFORM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfrefxform",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFRESTORE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfrestore",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFSAVE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsave",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFSAVEPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsavepos",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFLASTXPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastxpos",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastypos",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFSETMATRIX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsetmatrix",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFSHELLESCAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfshellescape",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFSTARTLINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstartlink",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFENDLINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfendlink",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfxform",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfximage",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfrefximage",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmdfivesum",
-    expandable:false,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfstrcmp",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdftexrevision",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmajorversion",
-    expandable:false,
+    expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 

@@ -110,12 +110,22 @@ pub static IFX : Conditional = Conditional {
         let tka = int.next_token();
         let tkb = int.next_token();
         let istrue = match (tka.catcode,tkb.catcode) {
+            //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
             (Active|Escape,Active|Escape) => {
-               match (int.state_get_command(&tka.cmdname()),int.state_get_command(&tkb.cmdname())) {
+               match (int.state_get_command(&tka.cmdname()).map(|x| x.get_orig()),int.state_get_command(&tkb.cmdname()).map(|x| x.get_orig())) {
                    (None,None) => true,
                    (None,_) => false,
                    (_,None) => false,
-                   (Some(cmd1),Some(cmd2)) => cmd1 == cmd2
+                   (Some(cmd1),Some(cmd2)) => {
+                       match (tka.expand,tkb.expand) {
+                           (true,true) | (false,false) => cmd1 == cmd2,
+                           (true,false) | (false,true) =>
+                               match (TeXCommand::Prim(cmd1).as_expandable_with_protected(),TeXCommand::Prim(cmd2).as_expandable_with_protected()) {
+                                   (Err(a),Err(b)) => a == b,
+                                   _ => false
+                               }
+                       }
+                   }
                }
             }
             (_a,_b) if matches!(_a,_b) => tka.char == tkb.char,
@@ -298,8 +308,8 @@ pub static IFCAT : Conditional = Conditional {
 
 pub static IFODD : Conditional = Conditional {
     name:"ifodd",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        if int.read_number()? % 2 == 1 { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 

@@ -246,7 +246,6 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                         })
                     }
                     _ => {
-                        log!("{},{} at {}",inext.char,inext.catcode,int.current_line());
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
@@ -509,6 +508,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|rf,int| {
         use crate::interpreter::string_to_tokens as stt;
         use crate::commands::PrimitiveTeXCommand::*;
+        int.expand_until(false)?;
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
         rf.2 = match int.get_command(&reg.cmdname())?.get_orig() {
@@ -871,6 +871,27 @@ pub static ETEXVERSION : IntCommand = IntCommand {
         Ok(VERSION_INFO.etexversion.to_string().parse().unwrap())
     },
     name: "eTeXversion"
+};
+
+fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+    int.skip_ws();
+    let first = (getnum)(int)?;
+    match int.read_keyword(vec!("+","*","/","(",")"))? {
+        Some(o) => TeXErr!((int,None),"TODO: {}",o),
+        None => Ok(first)
+    }
+}
+
+pub static NUMEXPR: IntCommand = IntCommand {
+    name:"numexpr",
+    _getvalue: |int| {
+        match expr_loop(int,|i| i.read_number_i(false))? {
+            Numeric::Int(i) => Ok(i),
+            Numeric::Float(_) => unreachable!(),
+            Numeric::Dim(i) => Ok(i),
+            Numeric::Skip(s) => Ok(s.base)
+        }
+    }
 };
 
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
@@ -1775,12 +1796,6 @@ pub static NULLFONT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static NUMEXPR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"end",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"scantokens",
     expandable:true,
@@ -2413,6 +2428,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&YEAR),
     PrimitiveTeXCommand::Int(&MONTH),
     PrimitiveTeXCommand::Int(&DAY),
+    PrimitiveTeXCommand::Int(&NUMEXPR),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
     PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
     PrimitiveTeXCommand::Primitive(&MEANING),
@@ -2564,7 +2580,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MESSAGE),
     PrimitiveTeXCommand::Primitive(&MUEXPR),
     PrimitiveTeXCommand::Primitive(&NULLFONT),
-    PrimitiveTeXCommand::Primitive(&NUMEXPR),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&SCANTOKENS),
     PrimitiveTeXCommand::Primitive(&SHIPOUT),
