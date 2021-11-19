@@ -49,22 +49,22 @@ pub struct TokenMouth {
 }
 impl TokenMouth {
     fn new(tokens:Vec<Token>,copy:bool) -> TokenMouth {
-        TokenMouth {
-            tokens
-        }
+        let mut tm = TokenMouth { tokens };
+        tm.tokens.reverse();
+        tm
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {
         !self.tokens.is_empty()
     }
     fn pop_next(&mut self, _nocomment: bool) -> Token {
-        self.tokens.remove(0)
+        self.tokens.pop().unwrap()
     }
     fn preview(&self) -> TeXString {
-        crate::interpreter::tokens_to_string_default(self.tokens.clone())
+        crate::interpreter::tokens_to_string_default(self.tokens.iter().rev().map(|x| x.clone()).collect())
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
-        self.tokens.first().expect("").clone()
+        self.tokens.last().expect("").clone()
     }
 }
 

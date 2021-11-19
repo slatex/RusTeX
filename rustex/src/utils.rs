@@ -180,8 +180,7 @@ impl TeXError {
         for b in bt.frames() {
             frames.push(b.clone())
         }
-        frames.remove(0);
-        frames.remove(0);
+        frames = Vec::from(frames.get(2..).unwrap());
         Backtrace::from(frames)
     }
     pub (in crate) fn new(msg:String) -> TeXError {

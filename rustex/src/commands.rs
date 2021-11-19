@@ -204,7 +204,7 @@ impl Expandable {
                 ParamToken::Token(tk) => {
                     int.assert_has_next()?;
                     let next = int.next_token();
-                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected {}; found {} (in {})",tk,next,d) }
+                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})",tk,next,d) }
                     i += 1;
                 }
                 ParamToken::Param(_,_) => {
@@ -265,8 +265,7 @@ impl Expandable {
                             if totalgroups == 1 &&
                                 match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
                                 match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
-                                retarg.remove(0);
-                                retarg.pop();
+                                retarg = Vec::from(retarg.get(1..retarg.len()-1).unwrap());
                             }
                             args.push(retarg)
                         }
@@ -277,7 +276,7 @@ impl Expandable {
         if crate::LOG {
             log!("    args:");
             for (i, a) in args.iter().enumerate() {
-                log!("    {}:{}",i,TokenList(a));
+                log!("    {}:{}",i+1,TokenList(a));
             }
         }
         let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());

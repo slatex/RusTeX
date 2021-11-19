@@ -301,6 +301,14 @@ impl State {
                     }
                 }
             }
+            StateChange::Escapechar(char,global) => {
+                int.catcodes.borrow_mut().escapechar = char;
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.catcodes.escapechar = char;
+                    }
+                }
+            }
             StateChange::Sfcode(char,value,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
@@ -569,6 +577,7 @@ pub enum StateChange {
     Cat(u8,CategoryCode,bool),
     Newline(u8,bool),
     Endline(u8,bool),
+    Escapechar(u8,bool),
     Sfcode(u8,i32,bool),
     Tokens(i16,Vec<Token>,bool),
     Lccode(u8,u8,bool),

@@ -69,8 +69,20 @@ pub static FI : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"unless",
-    _apply: |_,_int| {
-        todo!()
+    _apply: |rf,int| {
+        let cnd = int.next_token();
+        match cnd.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                let cmd = int.get_command(&cnd.cmdname())?;
+                match cmd.get_orig() {
+                    PrimitiveTeXCommand::Cond(c) => {
+                        (c._apply)(int,int.pushcondition(),true)
+                    }
+                    _ => TeXErr!((int,Some(cnd)),"Expected conditional after \\unless")
+                }
+            }
+            _ => TeXErr!((int,Some(cnd)),"Expected conditional after \\unless")
+        }
     },
     expandable: true
 };
@@ -186,7 +198,7 @@ fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
                 };
                 let p = int.get_command(&next.cmdname())?;
                 match p.get_orig() {
-                    PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk)),
+                    //PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk)),
                     PrimitiveTeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
                         return Ok(None)
                     }
@@ -209,10 +221,20 @@ pub static IF : Conditional = Conditional {
     _apply: |int,cond,unless| {
         let first = get_if_token(cond,int)?;
         let second = get_if_token(cond,int)?;
+        if crate::LOG {
+            match (&first,&second) {
+                (Some(ref a),Some(ref b)) => log!("   {}=={}",a,b),
+                (None,Some(ref b)) => log!("   NONE=={}",b),
+                (Some(ref a),None) => log!("   {}==NONE",a),
+                (None,None) => log!("   NONE==NONE"),
+            }
+        }
         let istrue = match (first,second) {
             (None,_) | (_,None) => false,
             (Some(a),Some(b)) => {
-                if a.catcode == CategoryCode::Escape && b.catcode == CategoryCode::Escape { true } else {
+                if a.catcode == CategoryCode::Escape && b.catcode == CategoryCode::Escape { true } else
+                if a.catcode == CategoryCode::Escape || b.catcode == CategoryCode::Escape { false } else
+                {
                     a.char == b.char
                 }
             }

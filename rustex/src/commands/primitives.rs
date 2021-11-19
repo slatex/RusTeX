@@ -371,6 +371,20 @@ pub static ENDLINECHAR : AssValue<i32> = AssValue {
     }
 };
 
+pub static ESCAPECHAR: AssValue<i32> = AssValue {
+    name:"escapechar",
+    _assign: |_,int,global| {
+        int.read_eq();
+        let num = int.read_number()? as u8;
+        log!("\\escapechar: {}",num);
+        int.change_state(StateChange::Escapechar(num,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        Ok(int.state_catcodes().escapechar as i32)
+    }
+};
+
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
     expandable:false,
@@ -2284,12 +2298,6 @@ pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static ESCAPECHAR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"escapechar",
-    expandable:true,
-    _apply:|rf,int| {todo!("{}",int.current_line())}
-};
-
 pub static FONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"font",
     expandable:true,
@@ -2431,6 +2439,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&SFCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&NEWLINECHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&ESCAPECHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&COUNT)),
     PrimitiveTeXCommand::Ass(&CHARDEF),
     PrimitiveTeXCommand::Ass(&COUNTDEF),
@@ -2695,7 +2704,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
     PrimitiveTeXCommand::Primitive(&DELCODE),
     PrimitiveTeXCommand::Primitive(&DIMEN),
-    PrimitiveTeXCommand::Primitive(&ESCAPECHAR),
     PrimitiveTeXCommand::Primitive(&FONT),
     PrimitiveTeXCommand::Primitive(&FONTDIMEN),
     PrimitiveTeXCommand::Primitive(&FUTURELET),
