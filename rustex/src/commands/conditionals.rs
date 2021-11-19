@@ -53,8 +53,7 @@ fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     if unless {
         dotrue(int,cond,false)
     } else {
-        let initifs = int.setcondition(cond,false);
-        let inifs = initifs;
+        let inifs = int.setcondition(cond,false);
         false_loop(int,inifs,true)
     }
 }
@@ -78,8 +77,17 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
-    _apply: |_,_int| {
-        todo!()
+    _apply: |_,int| {
+        match int.getcondition() {
+            None => TeXErr!((int,None),"extra \\or"),
+            Some((_,None)) => {
+                Ok(())
+            }
+            Some((_,_)) => {
+                false_loop(int,0,false)?;
+                Ok(())
+            }
+        }
     },
     expandable: true
 };
@@ -243,31 +251,8 @@ pub static IFDEFINED : Conditional = Conditional {
 pub static IFCSNAME : Conditional = Conditional {
     name:"ifcsname",
     _apply: |int,cond,unless| {
-        let incs = int.newincs();
-        let mut cmdname : TeXString = "".into();
-        while incs == int.currcs() && int.has_next() {
-            let next = int.next_token();
-            match next.catcode {
-                CategoryCode::Escape => {
-                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(exp) => exp.expand(next,int)?,
-                        Err(_) => {
-                            if int.state_catcodes().escapechar != 255 {
-                                cmdname += int.state_catcodes().escapechar.into()
-                            }
-                            cmdname += next.name()
-                        }
-                    }
-                }
-                CategoryCode::Active =>  {
-                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(exp) => exp.expand(next,int)?,
-                        Err(_) => cmdname += next.name()
-                    }
-                }
-                _ => cmdname += next.char.into()
-            }
-        }
+        use crate::commands::primitives::csname;
+        let cmdname = csname(int)?;
         let istrue = int.state_get_command(&cmdname).is_some();
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
@@ -313,15 +298,51 @@ pub static IFODD : Conditional = Conditional {
     }
 };
 
-pub static IFDIM : Conditional = Conditional {
-    name:"ifdim",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+pub static IFCASE : Conditional = Conditional {
+    name:"ifcase",
+    _apply: |int,cond,unless| {
+        let num = int.read_number()? as u8;
+        if num == 0 {dotrue(int,cond,unless)} else {
+            use PrimitiveTeXCommand::*;
+            let initifs = int.setcondition(cond,false);
+            let mut inifs = 0 as u8;
+            let mut currnum = 1 as u8;
+            //log!("false loop: {}",inifs);
+            while int.has_next() {
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::Escape | CategoryCode::Active => {
+                        match int.state_get_command(&next.cmdname()) {
+                            None => {}
+                            Some(p) => {
+                                match p.get_orig() {
+                                    Primitive(x) if inifs == 0 && *x == FI => {
+                                        int.popcondition();
+                                        return Ok(())
+                                    }
+                                    Primitive(x) if inifs == 0 && *x == ELSE => {
+                                        return Ok(())
+                                    }
+                                    Primitive(x) if inifs == 0 && *x == OR => {
+                                        if num == currnum { return Ok(()) } else { currnum += 1 }
+                                    }
+                                    Primitive(x) if *x == FI => inifs -=1,
+                                    Cond(_) => inifs += 1,
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            FileEnd!(int)
+        }
     }
 };
 
-pub static IFCASE : Conditional = Conditional {
-    name:"ifcase",
+pub static IFDIM : Conditional = Conditional {
+    name:"ifdim",
     _apply: |_int,_cond,_unless| {
         todo!()
     }

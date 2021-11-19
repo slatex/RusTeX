@@ -214,16 +214,18 @@ impl Interpreter<'_> {
                     match self.get_command(&next.cmdname())?.as_expandable_with_protected() {
                         Ok(p) => p.expand(next,self)?,
                         Err(p) => match p.get_orig() {
-                            PrimitiveTeXCommand::Char(tk) if eat_space && tk.catcode == CategoryCode::Space => return Ok(()),
+                            PrimitiveTeXCommand::Char(tk) if eat_space && (tk.catcode == CategoryCode::Space || tk.catcode == CategoryCode::EOL) => return Ok(()),
                             _ => {
+                                log!("expand_until ended by {}",next);
                                 self.requeue(next);
                                 return Ok(())
                             }
                         }
                     }
                 },
-                CategoryCode::Space if eat_space => return Ok(()),
+                CategoryCode::Space | CategoryCode::EOL if eat_space => return Ok(()),
                 _ => {
+                    log!("expand_until ended by {}",next);
                     self.requeue(next);
                     return Ok(())
                 }
@@ -268,7 +270,7 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex => {
+                CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex && !isoct => {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_hasnum() {
                         Ok(hn) => return Ok(if isnegative { hn.get(self)?.negate() } else { hn.get(self)? }),
@@ -285,9 +287,13 @@ impl Interpreter<'_> {
                     let p = self.get_command(&next.cmdname())?;
                     match p.as_expandable_with_protected() {
                         Ok(e) => e.expand(next,self)?,
-                        _ => {
-                            self.requeue(next);
-                            return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
+                        Err(e) => match e.get_orig() {
+                            PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space || tk.catcode == CategoryCode::EOL =>
+                                return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret),
+                            _ => {
+                                self.requeue(next);
+                                return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
+                            }
                         }
                     }
                 }

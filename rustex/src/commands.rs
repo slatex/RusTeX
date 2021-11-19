@@ -274,6 +274,12 @@ impl Expandable {
                 }
             }
         }
+        if crate::LOG {
+            log!("    args:");
+            for (i, a) in args.iter().enumerate() {
+                log!("    {}:{}",i,TokenList(a));
+            }
+        }
         let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
         let rf = exp.get_ref();
         let mut i = 0;
@@ -468,8 +474,8 @@ impl Display for TokenList<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for e in self.0 {
             match e.catcode {
-                CategoryCode::Escape => write!(f,"\\{}",e.name())?,
-                _ => write!(f,"{}",from_utf8(&[e.char]).unwrap())?
+                CategoryCode::Escape => write!(f,"\\{}",e.name().to_string())?,
+                _ => write!(f,"{}",TeXString(vec!(e.char)).to_string())?
             }
         }
         write!(f,"")

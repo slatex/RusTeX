@@ -765,35 +765,52 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
-    name:"csname",
-    expandable:true,
-    _apply:|rf,int| {
-        let incs = int.newincs();
-        let mut cmdname : TeXString = "".into();
-        while incs == int.currcs() && int.has_next() {
-            let next = int.next_token();
-            match next.catcode {
-                CategoryCode::Escape => {
-                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(exp) => exp.expand(next,int)?,
-                        Err(_) => {
+pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
+    let incs = int.newincs();
+    let mut cmdname : TeXString = "".into();
+    log!("\\csname: {}",int.preview());
+    while incs == int.currcs() && int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                let cmd = int.get_command(&next.cmdname())?;
+                match cmd.get_orig() {
+                    PrimitiveTeXCommand::Primitive(ec) if *ec == ENDCSNAME => {
+                        int.popcs()?
+                    }
+                    PrimitiveTeXCommand::Primitive(ec) if *ec == CSNAME => {
+                        cmd.as_expandable().ok().unwrap().expand(next,int);
+                    }
+                    _ if next.expand => match cmd.as_expandable_with_protected() {
+                        Ok(exp) => exp.expand(next, int)?,
+                        _ if next.catcode == CategoryCode::Escape => {
                             if int.state_catcodes().escapechar != 255 {
                                 cmdname += int.state_catcodes().escapechar.into()
                             }
                             cmdname += next.name()
                         }
+                        _ => cmdname += next.char.into()
                     }
-                }
-                CategoryCode::Active =>  {
-                    match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(exp) => exp.expand(next,int)?,
-                        Err(_) => cmdname += next.name()
+                    _ if next.catcode == CategoryCode::Escape => {
+                        if int.state_catcodes().escapechar != 255 {
+                            cmdname += int.state_catcodes().escapechar.into()
+                        }
+                        cmdname += next.name()
                     }
+                    _ => cmdname += next.char.into()
                 }
-                _ => cmdname += next.char.into()
             }
+            _ => cmdname += next.char.into()
         }
+    }
+    return Ok(cmdname)
+}
+
+pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"csname",
+    expandable:true,
+    _apply:|rf,int| {
+        let cmdname = csname(int)?;
         let ret = Token {
             char: int.state_catcodes().escapechar,
             catcode: CategoryCode::Escape,
@@ -815,7 +832,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"endcsname",
-    expandable:true,
+    expandable:false,
     _apply:|_,int| {
         int.popcs()?;
         Ok(())
@@ -877,15 +894,35 @@ fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXE
     int.skip_ws();
     let first = (getnum)(int)?;
     match int.read_keyword(vec!("+","*","/","(",")"))? {
+        Some(o) => Ok(first + expr_loop(int,getnum)?),
         Some(o) => TeXErr!((int,None),"TODO: {}",o),
         None => Ok(first)
+    }
+}
+
+fn eatrelax(int : &Interpreter) {
+    if int.has_next() {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                match int.state_get_command(&next.cmdname()).map(|x| x.get_orig()) {
+                    Some(PrimitiveTeXCommand::Primitive(r)) if *r == RELAX => (),
+                    _ => int.requeue(next)
+                }
+            }
+            _ => {
+                int.requeue(next)
+            }
+        }
     }
 }
 
 pub static NUMEXPR: IntCommand = IntCommand {
     name:"numexpr",
     _getvalue: |int| {
-        match expr_loop(int,|i| i.read_number_i(false))? {
+        let ret =expr_loop(int,|i| i.read_number_i(false))?;
+        eatrelax(int);
+        match ret {
             Numeric::Int(i) => Ok(i),
             Numeric::Float(_) => unreachable!(),
             Numeric::Dim(i) => Ok(i),
@@ -2250,7 +2287,7 @@ pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
 pub static ESCAPECHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"escapechar",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|rf,int| {todo!("{}",int.current_line())}
 };
 
 pub static FONT: PrimitiveExecutable = PrimitiveExecutable {

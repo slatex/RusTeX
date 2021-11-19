@@ -1,5 +1,7 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, TeXCommand, IntCommand,PrimitiveTeXCommand};
+use crate::interpreter::tokenize;
 use crate::VERSION_INFO;
+use crate::{log,TeXErr};
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
@@ -11,7 +13,20 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
 pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstrcmp",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|rf,int| {
+        let first = int.tokens_to_string(int.read_balanced_argument(true,false,false,true)?);
+        let second = int.tokens_to_string(int.read_balanced_argument(true,false,false,true)?);
+        log!("\\pdfstrcmp: \"{}\" == \"{}\"?",first,second);
+        if first == second {
+            log!("true");
+            rf.2 = tokenize("0".into(),&crate::catcodes::OTHER_SCHEME)
+        } else if first.to_string() < second.to_string() {
+            rf.2 = tokenize("-1".into(),&crate::catcodes::OTHER_SCHEME)
+        } else {
+            rf.2 = tokenize("1".into(),&crate::catcodes::OTHER_SCHEME)
+        }
+        Ok(())
+    }
 };
 
 

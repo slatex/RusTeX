@@ -457,7 +457,7 @@ impl Interpreter<'_> {
             }
             18 => todo!("{}",index),
             255 => {
-                print!("{}",Black.on(Blue).paint(s.to_utf8()));
+                println!("{}",Black.on(Blue).paint(s.to_utf8()));
                 std::io::stdout().flush();
                 Ok(())
             }
