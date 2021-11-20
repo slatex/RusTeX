@@ -369,7 +369,8 @@ impl Interpreter<'_> {
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
             Some(o) => todo!("{}",o),
-            None => TeXErr!((self,None),"expected unit for dimension")
+            None => Ok(SkipDim::Pt(self.read_dimension()?))
+                //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
     }
 

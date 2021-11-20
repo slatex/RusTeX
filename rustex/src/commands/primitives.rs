@@ -945,6 +945,20 @@ pub static NUMEXPR: IntCommand = IntCommand {
     }
 };
 
+pub static DIMEXPR: IntCommand = IntCommand {
+    name:"dimexpr",
+    _getvalue: |int| {
+        let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
+        eatrelax(int);
+        match ret {
+            Numeric::Int(i) => Ok(i),
+            Numeric::Float(_) => unreachable!(),
+            Numeric::Dim(i) => Ok(i),
+            Numeric::Skip(s) => Ok(s.base)
+        }
+    }
+};
+
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
     expandable:true,
@@ -1742,12 +1756,6 @@ pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DIMEXPR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"dimexpr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"dump",
     expandable:true,
@@ -2475,6 +2483,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&MONTH),
     PrimitiveTeXCommand::Int(&DAY),
     PrimitiveTeXCommand::Int(&NUMEXPR),
+    PrimitiveTeXCommand::Int(&DIMEXPR),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
     PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
     PrimitiveTeXCommand::Primitive(&MEANING),
@@ -2606,7 +2615,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ENDCSNAME),
     PrimitiveTeXCommand::Primitive(&CURRENTGROUPLEVEL),
     PrimitiveTeXCommand::Primitive(&DETOKENIZE),
-    PrimitiveTeXCommand::Primitive(&DIMEXPR),
     PrimitiveTeXCommand::Primitive(&DUMP),
     PrimitiveTeXCommand::Primitive(&ENDINPUT),
     PrimitiveTeXCommand::Primitive(&EQNO),

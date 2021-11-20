@@ -12,7 +12,7 @@ pub enum VFileBase {
 #[derive(Clone)]
 pub struct VFile {
     pub source:VFileBase,
-    pub(in crate::interpreter) string: Option<TeXString>,
+    pub(in crate) string: Option<TeXString>,
     pub(in crate::interpreter) id : String
 }
 

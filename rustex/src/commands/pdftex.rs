@@ -29,6 +29,22 @@ pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdffilesize",
+    expandable:true,
+    _apply:|rf,int| {
+        let strtks = int.read_balanced_argument(true,false,false,true)?;
+        let str = int.tokens_to_string(strtks);
+        let file = int.get_file(&str.to_utf8())?;
+        match file.string {
+            None => (),
+            Some(s) => rf.2 = crate::interpreter::tokenize(
+                s.len().to_string().into(),&crate::catcodes::OTHER_SCHEME
+            )
+        };
+        Ok(())
+    }
+};
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -159,12 +175,6 @@ pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdffilesize",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
