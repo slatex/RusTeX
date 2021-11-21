@@ -13,7 +13,7 @@ use crate::commands::{Assignment, TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
-use crate::utils::{TeXError, TeXString};
+use crate::utils::{TeXError, TeXString, TeXStr};
 use std::rc::Rc;
 
 pub mod mouth;
@@ -26,13 +26,7 @@ pub mod methods;
 pub fn tokenize(s : TeXString,cats: &CategoryCodeScheme) -> Vec<Token> {
     let mut retvec: Vec<Token> = Vec::new();
     for next in s.0 {
-        retvec.push(Token {
-            catcode: cats.get_code(next),
-            name_opt: None,
-            char: next,
-            reference: Box::new(SourceReference::None),
-            expand:true
-        })
+        retvec.push(Token::new(next,cats.get_code(next),None,SourceReference::None,true))
     }
     retvec
 }
@@ -76,7 +70,7 @@ pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
         match tk.catcode {
             CategoryCode::Escape => {
                 ret.push(92);
-                for s in tk.name_opt.unwrap().0 { ret.push(s) }
+                for s in tk.name().iter() { ret.push(*s) }
                 ret.push(32)
             }
             _ => ret.push(tk.char)
@@ -93,7 +87,7 @@ impl Interpreter<'_> {
             match tk.catcode {
                 CategoryCode::Escape if catcodes.escapechar != 255 => {
                     ret.push(catcodes.escapechar);
-                    for s in tk.name_opt.unwrap().0 { ret.push(s) }
+                    for s in tk.name().iter() { ret.push(*s) }
                     ret.push(32)
                 }
                 _ => ret.push(tk.char)
@@ -133,7 +127,7 @@ impl Interpreter<'_> {
         let ret = int.state.borrow().clone(); ret
     }
 
-    pub fn get_command(&self,s : &TeXString) -> Result<TeXCommand,TeXError> {
+    pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
             None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)

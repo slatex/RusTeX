@@ -10,7 +10,7 @@ use std::fmt::{Display, Formatter, Pointer};
 use std::str::from_utf8;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::Numeric;
-use crate::utils::{TeXError, TeXString};
+use crate::utils::{TeXError, TeXString,TeXStr};
 use crate::{COPY_COMMANDS_FULL, log};
 
 pub struct PrimitiveExecutable {
@@ -125,7 +125,7 @@ pub enum AssignableValue {
 }
 
 impl AssignableValue {
-    pub fn name(&self) -> Option<TeXString> {
+    pub fn name(&self) -> Option<TeXStr> {
         use AssignableValue::*;
         match self {
             Dim(_) | Register(_) | Skip(_) | Toks(_) => None,
@@ -487,7 +487,7 @@ pub enum ProvidesWhatsit {
     Other
 }
 impl ProvidesWhatsit {
-    pub fn name(&self) -> Option<TeXString> {
+    pub fn name(&self) -> Option<TeXStr> {
         match self {
             ProvidesWhatsit::Exec(e) => Some(e.name.into()),
             _ => todo!()
@@ -620,13 +620,13 @@ impl TeXCommand {
                 let mut meaning : TeXString = "".into();
                 if d.protected {
                     meaning += escape.clone();
-                    meaning += "protected ".into()
+                    meaning += "protected "
                 }
                 if d.long {
                     meaning += escape.clone();
-                    meaning += "long ".into()
+                    meaning += "long "
                 }
-                meaning += "macro:".into();
+                meaning += "macro:";
                 for s in &d.sig.elems {
                     match s {
                         ParamToken::Token(tk) => {
@@ -634,27 +634,30 @@ impl TeXCommand {
                                 CategoryCode::Escape => {
                                     meaning += escape.clone();
                                     meaning += tk.name();
-                                    meaning += " ".into()
+                                    meaning += " "
                                 }
-                                _ => meaning += tk.char.into()
+                                _ => meaning += tk.char
                             }
                         },
-                        ParamToken::Param(0,u) => meaning += vec!(u.char,u.char).into(),
+                        ParamToken::Param(0,u) => {
+                            meaning += u.char;
+                            meaning += u.char
+                        },
                         ParamToken::Param(i,u) => {
-                            meaning += (u.char).into();
-                            meaning += i.to_string().into();
+                            meaning += u.char;
+                            meaning += i.to_string();
                         }
                     }
                 }
-                meaning += "->".into();
+                meaning += "->";
                 for tk in &d.ret {
                     match tk.catcode {
                         CategoryCode::Escape => {
                             meaning += escape.clone();
                             meaning += tk.name();
-                            meaning += " ".into()
+                            meaning += " "
                         }
-                        _ => meaning += tk.char.into()
+                        _ => meaning += tk.char
                     }
                 }
                 meaning
@@ -670,14 +673,14 @@ impl TeXCommand {
             _ => todo!("{}",self)
         }
     }
-    pub fn name(&self) -> Option<TeXString> {
+    pub fn name(&self) -> Option<TeXStr> {
         use PrimitiveTeXCommand::*;
         match self.get_orig() {
             Char(_) => None,
             Ass(a) => Some(a.name.into()),
             Primitive(pr) => Some(pr.name.into()),
             AV(av) => av.name(),
-            Ext(jr) => Some(jr.name().into()),
+            Ext(jr) => Some(jr.name().as_str().into()),
             Cond(c) => Some(c.name.into()),
             Int(i) => Some(i.name.into()),
             Def(_) => None,

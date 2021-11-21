@@ -1,12 +1,79 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::ops::{AddAssign, Deref};
 use std::path::{Path, PathBuf};
 use std::str::{from_utf8, from_utf8_unchecked};
+use std::rc::Rc;
 
 pub fn u8toi16(i : u8) -> i16 {
     i16::from(i)
+}
+
+#[derive(Clone)]
+pub struct TeXStr(Rc<Vec<u8>>);
+impl PartialEq for TeXStr {
+    fn eq(&self, other: &Self) -> bool {
+        *self.0.deref() == *other.0.deref()
+    }
+}
+impl Eq for TeXStr {}
+impl Hash for TeXStr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self.0.deref()).hash(state)
+    }
+}
+impl TeXStr {
+    pub fn iter(&self) -> &[u8] {
+        self.0.deref()
+    }
+    pub fn new(chars: &[u8]) -> TeXStr {
+        TeXStr(Rc::new(chars.to_vec()))
+    }
+    pub fn len(&self) -> usize {
+        self.0.deref().len()
+    }
+}
+impl From<&str> for TeXStr {
+    fn from(s: &str) -> Self {
+        TeXStr(Rc::new(s.as_bytes().to_vec()))
+    }
+}
+impl From<TeXString> for TeXStr {
+    fn from(ts: TeXString) -> Self {
+        TeXStr(Rc::new(ts.0))
+    }
+}
+impl PartialEq<str> for TeXStr {
+    fn eq(&self, other: &str) -> bool {
+        self.0.deref() == other.as_bytes()
+    }
+}
+
+impl Display for TeXStr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}",display(self.0.deref()))
+    }
+}
+
+fn display(us:&[u8]) -> String {
+    let mut ret : Vec<u8> = vec!();
+    for u in us { match u {
+        0 => for x in "\\u0000".as_bytes() {
+            ret.push(*x)
+        }
+        13 => ret.push(10),
+        _ if u.is_ascii() => {
+            ret.push(*u)
+        }
+        _ => {
+            for x in ("\\u00".to_string() + &format!("{:X}", u)).as_bytes() {
+                ret.push(*x)
+            }
+        }
+    }}
+    unsafe { from_utf8_unchecked(&ret).to_string() }
 }
 
 #[derive(Clone,PartialEq,Eq,Hash)]
@@ -16,22 +83,7 @@ impl TeXString {
         self.0.is_empty()
     }
     pub fn to_string(&self) -> String {
-        let mut ret : Vec<u8> = vec!();
-        for u in &self.0 { match u {
-            0 => for x in "\\u0000".as_bytes() {
-                ret.push(*x)
-            }
-            13 => ret.push(10),
-            _ if u.is_ascii() => {
-                ret.push(*u)
-            }
-            _ => {
-                for x in ("\\u00".to_string() + &format!("{:X}", u)).as_bytes() {
-                    ret.push(*x)
-                }
-            }
-        }}
-        unsafe { from_utf8_unchecked(&ret).to_string() }
+        display(self.0.as_slice())
     }
     pub fn to_utf8(&self) -> String {
         from_utf8(&self.0).unwrap().to_string()
@@ -74,6 +126,18 @@ impl From<&[u8]> for TeXString {
         TeXString(s.to_vec())
     }
 }
+
+impl From<TeXStr> for TeXString {
+    fn from(s: TeXStr) -> Self {
+        TeXString(s.0.deref().to_vec())
+    }
+}
+
+impl From<&TeXStr> for TeXString {
+    fn from(s: &TeXStr) -> Self {
+        TeXString(s.0.deref().to_vec())
+    }
+}
 impl std::ops::Add for TeXString {
     type Output = TeXString;
     fn add(self, rhs: Self) -> Self::Output {
@@ -94,6 +158,36 @@ impl AddAssign for TeXString {
     fn add_assign(&mut self, rhs: Self) {
         for u in rhs.0 {
             self.0.push(u)
+        }
+    }
+}
+
+impl AddAssign<&TeXStr> for TeXString {
+    fn add_assign(&mut self, rhs: &TeXStr) {
+        for u in rhs.0.deref() {
+            self.0.push(*u)
+        }
+    }
+}
+
+impl AddAssign<&str> for TeXString {
+    fn add_assign(&mut self, rhs: &str) {
+        for u in rhs.as_bytes() {
+            self.0.push(*u)
+        }
+    }
+}
+
+impl AddAssign<u8> for TeXString {
+    fn add_assign(&mut self, rhs: u8) {
+        self.0.push(rhs)
+    }
+}
+
+impl AddAssign<String> for TeXString {
+    fn add_assign(&mut self, rhs: String) {
+        for u in rhs.as_bytes() {
+            self.0.push(*u)
         }
     }
 }

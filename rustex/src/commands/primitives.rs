@@ -1,9 +1,10 @@
+use std::ops::Deref;
 use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{GroupType, StateChange};
-use crate::utils::{TeXError, TeXString};
+use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
 
@@ -62,14 +63,8 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::Char(Token {
-            char: num as u8,
-            catcode: CategoryCode::Other,
-            name_opt: None,
-            reference: Box::new(SourceReference::None),
-            expand:true
-        }).as_ref(&rf);
-        int.change_state(StateChange::Cs(c.cmdname(),Some(cmd),global));
+        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(&rf);
+        int.change_state(StateChange::Cs(c.cmdname().clone(),Some(cmd),global));
         Ok(())
     }
 };
@@ -100,7 +95,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(&rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname(),
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
                                          global));
         Ok(())
@@ -115,7 +110,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(&rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname(),
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
             global));
         Ok(())
@@ -130,7 +125,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(&rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname(),
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
             global));
         Ok(())
@@ -145,7 +140,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(&rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname(),
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
             global));
         Ok(())
@@ -279,7 +274,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         sig,
         ret
     }).as_ref(&rf);
-    int.change_state(StateChange::Cs(command.cmdname(),
+    int.change_state(StateChange::Cs(command.cmdname().clone(),
                                      Some(dm),
         global));
     Ok(())
@@ -338,7 +333,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             }
             _ => Some(PrimitiveTeXCommand::Char(def).as_ref(&rf))
         };
-        int.change_state(StateChange::Cs(cmd.cmdname(),ch,global));
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),ch,global));
         Ok(())
     }
 };
@@ -576,6 +571,7 @@ pub static OPENIN: PrimitiveExecutable = PrimitiveExecutable {
         int.read_eq();
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
+        log!("\\openin {}",num);
         int.file_openin(num,file)?;
         Ok(())
     },
@@ -599,6 +595,7 @@ pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
 pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |_,int| {
         let num = int.read_number()? as u8;
+        log!("\\closein {}",num);
         int.file_closein(num)?;
         Ok(())
     },
@@ -626,7 +623,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(&rf);
-        int.change_state(StateChange::Cs(newcmd.cmdname(),
+        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
             Some(cmd),
             global));
         Ok(())
@@ -675,13 +672,7 @@ pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|cs,int| {
         int.assert_has_next()?;
         let next = int.next_token();
-        int.requeue(Token {
-            char: next.char,
-            catcode: next.catcode,
-            name_opt: next.name_opt,
-            reference: next.reference,
-            expand: false
-        });
+        int.requeue(Token::new(next.char,next.catcode,Some(next.name().clone()),*next.reference,false));
         Ok(())
     }
 };
@@ -751,16 +742,10 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
         rf.2 = match next.catcode {
             CategoryCode::Escape => {
                 let mut s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
-                crate::interpreter::string_to_tokens(s + next.cmdname())
+                crate::interpreter::string_to_tokens(s + next.cmdname().into())
             }
             CategoryCode::Space => vec!(next),
-            _ => vec!(Token {
-                char: next.char,
-                catcode: CategoryCode::Other,
-                name_opt: next.name_opt,
-                reference: next.reference,
-                expand: true
-            })
+            _ => vec!(Token::new(next.char,CategoryCode::Other,Some(next.name().clone()),next.reference.deref().clone(),true))
         };
         Ok(())
     }
@@ -773,7 +758,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(&rf);
-        int.change_state(StateChange::Cs(chartok.cmdname(),Some(cmd),
+        int.change_state(StateChange::Cs(chartok.cmdname().clone(),Some(cmd),
             global));
         Ok(())
     }
@@ -799,22 +784,22 @@ pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
                         Ok(exp) => exp.expand(next, int)?,
                         _ if next.catcode == CategoryCode::Escape => {
                             if int.state_catcodes().escapechar != 255 {
-                                cmdname += int.state_catcodes().escapechar.into()
+                                cmdname += int.state_catcodes().escapechar
                             }
                             cmdname += next.name()
                         }
-                        _ => cmdname += next.char.into()
+                        _ => cmdname += next.char
                     }
                     _ if next.catcode == CategoryCode::Escape => {
                         if int.state_catcodes().escapechar != 255 {
-                            cmdname += int.state_catcodes().escapechar.into()
+                            cmdname += int.state_catcodes().escapechar
                         }
                         cmdname += next.name()
                     }
-                    _ => cmdname += next.char.into()
+                    _ => cmdname += next.char
                 }
             }
-            _ => cmdname += next.char.into()
+            _ => cmdname += next.char
         }
     }
     return Ok(cmdname)
@@ -824,14 +809,8 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"csname",
     expandable:true,
     _apply:|rf,int| {
-        let cmdname = csname(int)?;
-        let ret = Token {
-            char: int.state_catcodes().escapechar,
-            catcode: CategoryCode::Escape,
-            name_opt: Some(cmdname.clone()),
-            reference: Box::new(SourceReference::None),
-            expand: true
-        };
+        let cmdname : TeXStr = csname(int)?.into();
+        let ret = Token::new(int.state_catcodes().escapechar,CategoryCode::Escape,Some(cmdname.clone()),SourceReference::None,true);
         match int.state_get_command(&cmdname) {
             Some(_) => (),
             None => {
@@ -866,20 +845,8 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let string = int.tokens_to_string(ret);
         let mut eh = int.state_tokens(-u8toi16(ERRHELP.index));
         let rethelp = if !eh.is_empty() {
-            eh.push(Token{
-                char: 0,
-                catcode: CategoryCode::EndGroup,
-                name_opt: None,
-                reference: Box::new(SourceReference::None),
-                expand: false
-            });
-            eh.insert(0,Token {
-                char: 0,
-                catcode: CategoryCode::BeginGroup,
-                name_opt: None,
-                reference: Box::new(SourceReference::None),
-                expand: false
-            });
+            eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
+            eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
             int.push_tokens(eh);
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(rethelp)
@@ -1047,23 +1014,11 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|exp,int| {
         let tkl = int.read_balanced_argument(false,false,false,true)?;
         for t in tkl {
-            exp.2.push(Token {
-                char: t.char,
-                catcode: CategoryCode::Other,
-                name_opt: None,
-                reference: Box::new(SourceReference::None),
-                expand: false
-            });
+            exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
             match t.catcode {
                 CategoryCode::Escape => {
-                    for t in t.name().0 {
-                        exp.2.push(Token {
-                            char: t,
-                            catcode: CategoryCode::Other,
-                            name_opt: None,
-                            reference: Box::new(SourceReference::None),
-                            expand: false
-                        });
+                    for t in t.name().iter() {
+                        exp.2.push(Token::new(*t,CategoryCode::Other,None,SourceReference::None,false));
                     }
                 }
                 _ => ()
@@ -1112,13 +1067,10 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
         for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
-                o => rf.2.push(Token {
-                    char: int.state_lccode(t.char),
-                    catcode: o,
-                    name_opt: None,
-                    reference: Box::new(SourceReference::Exp(erf.clone())),
-                    expand: true
-                })
+                o => {
+                    let lc = int.state_lccode(t.char);
+                    rf.2.push(Token::new(lc,o,None,SourceReference::Exp(erf.clone()),true))
+                }
             }
         }
         Ok(())
@@ -1133,13 +1085,10 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
         for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
-                o => rf.2.push(Token {
-                    char: int.state_uccode(t.char),
-                    catcode: o,
-                    name_opt: None,
-                    reference: Box::new(SourceReference::Exp(erf.clone())),
-                    expand: true
-                })
+                o => {
+                    let uc = int.state_uccode(t.char);
+                    rf.2.push(Token::new(uc,o,None,SourceReference::Exp(erf.clone()),true))
+                }
             }
         }
         Ok(())

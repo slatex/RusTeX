@@ -301,14 +301,14 @@ impl Interpreter<'_> {
                 _ if next.char.is_ascii_digit() => ret += next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
-                _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += ".".into() }
+                _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += "." }
                 _ if next.char == 34 && ret.is_empty() && !ishex && !isoct => ishex = true,
                 _ if next.char == 39 && ret.is_empty() && !ishex && !isoct => isoct = true,
                 _ if next.char == 96 => while self.has_next() {
                     let next = self.next_token();
                     match next.catcode {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
-                            let num = *next.cmdname().0.first().unwrap() as i32;
+                            let num = *next.cmdname().iter().first().unwrap() as i32;
                             self.expand_until(true)?;
                             return Ok(Numeric::Int(if isnegative { -num } else { num }))
                         }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
-use crate::utils::{kpsewhich, PWD, TeXError, TeXString};
+use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
 
 #[derive(Copy,Clone)]
@@ -26,7 +26,7 @@ struct StackFrame {
     pub(crate) catcodes: CategoryCodeScheme,
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
-    pub(crate) commands: HashMap<TeXString,Option<TeXCommand>>,
+    pub(crate) commands: HashMap<TeXStr,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i16,i32>,
     pub(crate) dimensions: HashMap<i16,i32>,
     pub(crate) skips : HashMap<i16,Skip>,
@@ -42,18 +42,18 @@ impl StackFrame {
         use crate::commands::conditionals::conditional_commands;
         use crate::commands::primitives::tex_commands;
         use crate::commands::pdftex::pdftex_commands;
-        let mut cmds: HashMap<TeXString,Option<TeXCommand>> = HashMap::new();
+        let mut cmds: HashMap<TeXStr,Option<TeXCommand>> = HashMap::new();
         for c in conditional_commands() {
             let c = TeXCommand::Prim(c);
-            cmds.insert(c.name().unwrap(),Some(c));
+            cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         for c in tex_commands() {
             let c = TeXCommand::Prim(c);
-            cmds.insert(c.name().unwrap(),Some(c));
+            cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         for c in pdftex_commands() {
             let c = TeXCommand::Prim(c);
-            cmds.insert(c.name().unwrap(),Some(c));
+            cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         let mut reg: HashMap<i16,i32> = HashMap::new();
         reg.insert(-crate::utils::u8toi16(crate::commands::primitives::MAG.index),1000);
@@ -121,15 +121,14 @@ impl State {
     }
     pub fn with_commands(mut procs:Vec<TeXCommand>) -> State {
         let mut st = State::new();
-        while !procs.is_empty() {
-            let p = procs.pop().unwrap();
+        for p in procs {
             let name = p.name().unwrap();
-            st.stacks.last_mut().unwrap().commands.insert(name,Some(p));
+            st.stacks.last_mut().unwrap().commands.insert(name.clone(),Some(p));
         }
         st
     }
 
-    pub fn get_command(&self, name: &TeXString) -> Option<TeXCommand> {
+    pub fn get_command(&self, name: &TeXStr) -> Option<TeXCommand> {
         for sf in self.stacks.iter().rev() {
             match sf.commands.get(name) {
                 Some(r) => return r.clone(),
@@ -418,7 +417,10 @@ impl Interpreter<'_> {
     pub fn file_eof(&self,index:u8) -> Result<bool,TeXError> {
         match self.state.borrow_mut().infiles.get_mut(&index) {
             None => TeXErr!((self,None),"No file open at index {}",index),
-            Some(fm) => Ok(!fm.has_next(&self.catcodes.borrow(),false))
+            Some(fm) => {
+                let ret = fm.has_next(&self.catcodes.borrow(),false);
+                Ok(!ret)
+            }
         }
     }
     pub fn file_openin(&self,index:u8,file:VFile) -> Result<(),TeXError> {
@@ -564,7 +566,7 @@ impl Interpreter<'_> {
             TeXErr!((self,None),"spurious \\endcsname")
         }
     }
-    pub fn state_get_command(&self,s:&TeXString) -> Option<TeXCommand> {
+    pub fn state_get_command(&self,s:&TeXStr) -> Option<TeXCommand> {
         self.state.borrow().get_command(s)
     }
 }
@@ -573,7 +575,7 @@ pub enum StateChange {
     Register(i16,i32,bool),
     Dimen(i16,i32,bool),
     Skip(i16,Skip,bool),
-    Cs(TeXString,Option<TeXCommand>,bool),
+    Cs(TeXStr,Option<TeXCommand>,bool),
     Cat(u8,CategoryCode,bool),
     Newline(u8,bool),
     Endline(u8,bool),

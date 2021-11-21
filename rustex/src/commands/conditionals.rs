@@ -179,7 +179,9 @@ pub static IFEOF : Conditional = Conditional {
         match int.read_number()? as u8 {
             18 => dofalse(int,cond,unless),
             i => {
-                if int.file_eof(i)? {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
+                let ret = int.file_eof(i)?;
+                log!("\\ifeof {}: {}",i,ret);
+                if ret {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
             }
         }
     }
@@ -274,7 +276,7 @@ pub static IFCSNAME : Conditional = Conditional {
     name:"ifcsname",
     _apply: |int,cond,unless| {
         use crate::commands::primitives::csname;
-        let cmdname = csname(int)?;
+        let cmdname = csname(int)?.into();
         let istrue = int.state_get_command(&cmdname).is_some();
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }

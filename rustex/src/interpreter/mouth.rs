@@ -8,7 +8,7 @@ use itertools::Itertools;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
-use crate::utils::TeXString;
+use crate::utils::{TeXStr, TeXString};
 
 pub enum Mouth {
     Token(TokenMouth),
@@ -135,7 +135,7 @@ impl StringMouth {
         }
         match ret.last() {
             Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
-            Some(tk) if tk.char == 0 && match &tk.name_opt {Some(s) if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();}
+            Some(tk) if tk.char == 0 && match tk.name() {s if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();}
             _ => ()
         }
         ret
@@ -263,13 +263,7 @@ impl StringMouth {
                                                 (next.1,next.2),
                                                 (self.line,self.pos)
                                             );
-                                            let tk = Token {
-                                                char: next.0,
-                                                catcode: CategoryCode::Ignored,
-                                                name_opt: None,
-                                                reference: Box::new(nrf),
-                                                expand:true
-                                            };
+                                            let tk = Token::new(next.0,CategoryCode::Ignored,None,nrf,true);
                                             ltxf.add(LaTeXObject::Token(tk))
                                             // TODO
                                         }
@@ -355,13 +349,7 @@ impl StringMouth {
                     match &self.string {
                         Some(s) => {
                             if self.pos == s.len() {
-                                let tk = Token {
-                                    char,
-                                    catcode: CategoryCode::Escape,
-                                    name_opt: Some("".into()),
-                                    reference: Box::new(self.make_reference(l,p)),
-                                    expand:true
-                                };
+                                let tk = Token::new(char,CategoryCode::Escape,Some("".into()),self.make_reference(l,p),true);
                                 self.do_line(catcodes.endlinechar);
                                 return tk
                             }
@@ -372,22 +360,10 @@ impl StringMouth {
                     let maybecomment = self.next_char(catcodes.endlinechar);
                     match maybecomment {
                         Some((tk,_,_)) if catcodes.get_code(tk) == CategoryCode::Comment || catcodes.get_code(tk) == CategoryCode::Ignored => {
-                            Token {
-                                char,
-                                catcode: CategoryCode::Escape,
-                                name_opt: Some(tk.into()),
-                                reference: Box::new(self.make_reference(l,p)),
-                                expand:true
-                            }
+                            Token::new(char,CategoryCode::Escape,Some(TeXStr::new(&[tk])),self.make_reference(l,p),true)
                         }
                         None => {
-                            Token {
-                                char,
-                                catcode: CategoryCode::Escape,
-                                name_opt: Some("".into()),
-                                reference: Box::new(self.make_reference(l,p)),
-                                expand:true
-                            }
+                            Token::new(char,CategoryCode::Escape,Some(TeXStr::new(&[])),self.make_reference(l,p),true)
                         }
                         _ => {
                             self.charbuffer = maybecomment;
@@ -417,25 +393,13 @@ impl StringMouth {
                                     self.mouth_state = MouthState::M
                                 }
                             }
-                            Token {
-                                char,
-                                catcode: CategoryCode::Escape,
-                                name_opt: Some(buf.into()),
-                                reference: Box::new(self.make_reference(l,p)),
-                                expand:true
-                            }
+                            Token::new(char,CategoryCode::Escape,Some(TeXStr::new(buf.as_slice())),self.make_reference(l,p),true)
                         }
                     }
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {
                     self.mouth_state = MouthState::S;
-                    Token {
-                        char,
-                        catcode:CategoryCode::Space,
-                        name_opt:None,
-                        reference: Box::new(self.make_reference(l,p)),
-                        expand:true
-                    }
+                    Token::new(char,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
                     while self.has_next(catcodes,nocomment) {
@@ -445,33 +409,15 @@ impl StringMouth {
                             break
                         }
                     }
-                    Token {
-                        char,
-                        catcode:CategoryCode::Escape,
-                        name_opt:Some("par".into()),
-                        reference:Box::new(self.make_reference(l,p)),
-                        expand:true
-                    }
+                    Token::new(char,CategoryCode::Escape,Some("par".into()),self.make_reference(l,p),true)
                 }
                 CategoryCode::Space if matches!(self.mouth_state,MouthState::M) => {
                     self.mouth_state = MouthState::S;
-                    Token {
-                        char,
-                        catcode:CategoryCode::Space,
-                        name_opt:None,
-                        reference:Box::new(self.make_reference(l,p)),
-                        expand:true
-                    }
+                    Token::new(char,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
                 o => {
                     self.mouth_state = MouthState::M;
-                    Token {
-                        char,
-                        catcode:o,
-                        name_opt:None,
-                        reference:Box::new(self.make_reference(l,p)),
-                        expand:true
-                    }
+                    Token::new(char,o,None,self.make_reference(l,p),true)
                 }
             };
             match (STORE_IN_FILE,self.source.get_file()) {
@@ -680,13 +626,7 @@ impl Interpreter<'_> {
     }
 
     fn eof_token(&self) -> Token {
-        Token {
-            char: 0,
-            catcode: CategoryCode::EOL,
-            name_opt: Some("EOF".into()),
-            reference: Box::new(SourceReference::None),
-            expand:true
-        }
+        Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
     }
 }
 
