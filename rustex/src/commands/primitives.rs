@@ -1127,6 +1127,15 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
 pub static FONT: FontAssValue = FontAssValue {
     name:"font",
     _assign: |rf,int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let mut name = int.read_string()?;
+        if !name.ends_with(".tfm") {name += ".tfm"}
+        let at = match int.read_keyword(vec!("at","scaled"))? {
+            Some(_) /* if s == "at" TODO special treatment for scaled vs at? */ => Some((int.read_dimension()? as f32) / 65536.0),
+            None => None
+        };
+        let ff = int.state_get_font(&name)?;
         todo!()
     },
     _getvalue: |int| {

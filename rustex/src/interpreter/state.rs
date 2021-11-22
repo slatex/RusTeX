@@ -103,25 +103,95 @@ impl StackFrame {
 
 // ------------------------------------------------------------------------------------------------
 
+use std::rc::Rc;
+
 #[derive(Clone)]
 pub struct State {
     stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>,
     pub(in crate) outfiles:HashMap<u8,VFile>,
     pub(in crate) infiles:HashMap<u8,StringMouth>,
-    pub(in crate) incs : u8
+    pub(in crate) incs : u8,
+    fontfiles: HashMap<TeXStr,Rc<FontFile>>
+}
+
+#[repr(C)]
+struct Kpse;
+#[repr(C)]
+#[derive(Clone)]
+enum KpseFileFormatType {
+    kpse_gf_format, kpse_pk_format, kpse_any_glyph_format,kpse_tfm_format, kpse_afm_format,
+    kpse_base_format, kpse_bib_format, kpse_bst_format, kpse_cnf_format, kpse_db_format,
+    kpse_fmt_format, kpse_fontmap_format, kpse_mem_format, kpse_mf_format, kpse_mfpool_format,
+    kpse_mft_format, kpse_mp_format, kpse_mppool_format, kpse_mpsupport_format, kpse_ocp_format,
+    kpse_ofm_format, kpse_opl_format, kpse_otp_format, kpse_ovf_format, kpse_ovp_format,
+    kpse_pict_format, kpse_tex_format, kpse_texdoc_format, kpse_texpool_format, kpse_texsource_format,
+    kpse_tex_ps_header_format, kpse_troff_font_format, kpse_type1_format, kpse_vf_format,
+    kpse_dvips_config_format, kpse_ist_format, kpse_truetype_format, kpse_type42_format,
+    kpse_web2c_format, kpse_program_text_format, kpse_program_binary_format, kpse_miscfonts_format,
+    kpse_web_format, kpse_cweb_format, kpse_enc_format, kpse_cmap_format, kpse_sfd_format,
+    kpse_opentype_format, kpse_pdftex_config_format, kpse_lig_format, kpse_texmfscripts_format,
+    kpse_lua_format, kpse_fea_format, kpse_cid_format, kpse_mlbib_format, kpse_mlbst_format,
+    kpse_clua_format, kpse_ris_format, kpse_bltxml_format,
+    kpse_last_format /* one past last index */
+}
+
+#[link(name = "kpathsea")]
+extern {
+    fn kpathsea_new() -> *const Kpse;
+    fn kpathsea_set_program_name(k : *const Kpse,name1: *const u8, name2: *const u8);
+    fn kpathsea_init_prog(k : *const Kpse,name1: *const u8,dpi:u16,mode: *const u8,fallback: *const u8);
+    fn kpathsea_find_file(k : *const Kpse,name: *const u8,fmt:*const KpseFileFormatType,must_exist:bool) -> *const u8;
 }
 
 impl State {
     pub fn new() -> State {
+        /*
+        let kpath = kpathsea::Kpaths::new().unwrap();
+        let file = kpath.find_file("latex.ltx");
+        println!("");
+         */
+        /* unsafe {
+            let kpse = kpathsea_new();
+            println!("Here");
+            kpathsea_set_program_name(kpse,"".as_ptr(),"rustex".as_ptr());
+            println!("Here");
+            kpathsea_init_prog(kpse,"rustex".as_ptr(),600,std::ptr::null(),std::ptr::null());
+            println!("Here");
+            let file = "latex.ltx".as_ptr();
+            println!("Here");
+            let test = kpathsea_find_file(kpse,"latex.ltx".as_ptr(),std::ptr::null(),false);
+            println!("Test: {}", test.as_ref().unwrap());
+            print!("")
+        } */
+        let fonts: HashMap<TeXStr,Rc<FontFile>> = HashMap::new();
         State {
             stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![],
             outfiles:HashMap::new(),
             infiles:HashMap::new(),
-            incs:0
+            incs:0,
+            fontfiles: fonts
         }
     }
+
+    pub fn get_font(&mut self,int:&Interpreter,name:TeXStr) -> Result<Rc<FontFile>,TeXError> {
+        match self.fontfiles.get(&name) {
+            Some(ff) => Ok(Rc::clone(ff)),
+            None => {
+                let ret = unsafe{int.kpsewhich(from_utf8_unchecked(name.iter()))};
+                match ret {
+                    Some(pb) if pb.exists() => {
+                        let f = Rc::new(FontFile::new(pb));
+                        self.fontfiles.insert(name,Rc::clone(&f));
+                        Ok(f)
+                    }
+                    _ => TeXErr!((int,None),"Font file {} not found",name)
+                }
+            }
+        }
+    }
+
     pub fn with_commands(procs:Vec<TeXCommand>) -> State {
         let mut st = State::new();
         for p in procs {
@@ -404,8 +474,9 @@ pub fn default_pdf_latex_state() -> State {
 
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
+use std::str::from_utf8_unchecked;
 use crate::interpreter::dimensions::{MuSkip, Skip};
-use crate::interpreter::files::VFile;
+use crate::interpreter::files::{FontFile, VFile};
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 
@@ -580,6 +651,9 @@ impl Interpreter<'_> {
     }
     pub fn state_get_command(&self,s:&TeXStr) -> Option<TeXCommand> {
         self.state.borrow().get_command(s)
+    }
+    pub fn state_get_font(&self,name:&str) -> Result<Rc<FontFile>,TeXError> {
+        self.state.borrow_mut().get_font(self,name.into())
     }
 }
 

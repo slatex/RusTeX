@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use crate::commands::{TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{FileStore, VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
-use crate::utils::{TeXError, TeXString, TeXStr};
+use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich};
 use std::rc::Rc;
 
 pub mod mouth;
@@ -95,9 +95,13 @@ impl Interpreter<'_> {
         ret.into()
     }
 
+    pub fn kpsewhich(&self,filename: &str) -> Option<PathBuf> {
+        kpsewhich(filename,self.jobinfo.in_file())
+    }
+
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
         use crate::utils::kpsewhich;
-        match kpsewhich(filename,self.jobinfo.in_file()) {
+        match self.kpsewhich(filename) {
             None =>TeXErr!((self,None),"File {} not found",filename),
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
         }
