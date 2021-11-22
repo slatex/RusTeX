@@ -2,10 +2,11 @@ use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenRe
 use crate::interpreter::tokenize;
 use crate::VERSION_INFO;
 use crate::{log,TeXErr};
+use crate::interpreter::dimensions::Numeric;
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
-        Ok(VERSION_INFO.pdftexversion.to_string().parse().unwrap())
+        Ok(Numeric::Int(VERSION_INFO.pdftexversion.to_string().parse().unwrap()))
     },
     name: "pdftexversion"
 };

@@ -6,7 +6,7 @@ pub mod commands;
 pub mod catcodes;
 pub mod stomach;
 
-static LOG : bool = false;
+static LOG : bool = true;
 static STORE_IN_FILE : bool = true;
 static COPY_TOKENS_FULL : bool = true;
 static COPY_COMMANDS_FULL : bool = true;

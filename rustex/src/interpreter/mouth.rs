@@ -436,6 +436,11 @@ impl StringMouth {
     }
     fn preview(&self) -> TeXString {
         let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().0)[self.pos..].to_vec();
+        for s in &self.allstrings {
+            for c in &s.0 {
+                rest.push(*c)
+            }
+        }
         match self.charbuffer {
             None => (),
             Some((c,_,_)) => rest.insert(0,c)
@@ -575,7 +580,7 @@ impl Mouths {
 
 impl Interpreter<'_> {
     pub fn preview(&self) -> TeXString {
-        self.mouths.borrow().preview()
+        TeXString(self.mouths.borrow().preview().0.get(0..1000).unwrap().to_vec())
     }
     pub fn push_file(&self,file:VFile) {
         use crate::interpreter::files::VFileBase;

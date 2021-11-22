@@ -13,6 +13,14 @@ pub enum SkipDim {
     Filll(i32)
 }
 impl SkipDim {
+    pub fn tomu(self) -> MuSkipDim {
+        match self {
+            SkipDim::Pt(i) => MuSkipDim::Mu(i),
+            SkipDim::Fil(i) => MuSkipDim::Fil(i),
+            SkipDim::Fill(i) => MuSkipDim::Fill(i),
+            SkipDim::Filll(i) => MuSkipDim::Filll(i)
+        }
+    }
     pub fn negate(self) -> SkipDim {
         use SkipDim::*;
         match self {
@@ -66,12 +74,76 @@ impl Skip {
     }
 }
 
+
+#[derive(Copy,Clone)]
+pub enum MuSkipDim {
+    Mu(i32),
+    Fil(i32),
+    Fill(i32),
+    Filll(i32)
+}
+impl MuSkipDim {
+    pub fn negate(self) -> MuSkipDim {
+        use MuSkipDim::*;
+        match self {
+            Mu(i) => Mu(-i),
+            Fil(i) => Fil(-i),
+            Fill(i) => Fill(-i),
+            Filll(i) => Filll(-i)
+        }
+    }
+    pub fn to_string(&self) -> String {
+        use MuSkipDim::*;
+        match self {
+            Mu(i) =>
+                ((*i as f32) / 65536.0).to_string() + "mu",
+            Fil(i) =>
+                ((*i as f32) / 65536.0).to_string() + "fil",
+            Fill(i) =>
+                ((*i as f32) / 65536.0).to_string() + "fill",
+            Filll(i) =>
+                ((*i as f32) / 65536.0).to_string() + "filll",
+        }
+    }
+}
+
+#[derive(Copy,Clone)]
+pub struct MuSkip {
+    pub base : i32,
+    pub stretch : Option<MuSkipDim>,
+    pub shrink: Option<MuSkipDim>
+}
+impl Display for MuSkip {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}",self.to_string())
+    }
+}
+impl MuSkip {
+    pub fn negate(self) -> MuSkip {
+        MuSkip {
+            base:-self.base,
+            stretch:self.stretch.map(|x| x.negate()),
+            shrink:self.shrink.map(|x| x.negate())
+        }
+    }
+    pub fn to_string(&self) -> String {
+        mudimtostr(self.base) + &match self.stretch {
+            None => "".to_string(),
+            Some(s) => " plus ".to_string() + &s.to_string()
+        } + &match self.shrink {
+            None => "".to_string(),
+            Some(s) => " minus ".to_string() + &s.to_string()
+        }
+    }
+}
+
 #[derive(Copy,Clone)]
 pub enum Numeric {
     Int(i32),
     Dim(i32),
     Float(f32),
-    Skip(Skip)
+    Skip(Skip),
+    MuSkip(MuSkip)
 }
 impl Numeric {
     pub fn negate(self) -> Numeric {
@@ -80,12 +152,16 @@ impl Numeric {
             Int(i) => Int(-i),
             Dim(i) => Dim(-i),
             Float(f) => Float(-f),
-            Skip(sk) => Skip(sk.negate())
+            Skip(sk) => Skip(sk.negate()),
+            MuSkip(sk) => MuSkip(sk.negate())
         }
     }
 }
 pub fn dimtostr(dim:i32) -> String {
     ((dim as f32) / 65536.0).to_string() + "pt"
+}
+pub fn mudimtostr(dim:i32) -> String {
+    ((dim as f32) / 65536.0).to_string() + "mu"
 }
 impl Numeric {
     fn as_string(&self) -> String {
@@ -94,7 +170,8 @@ impl Numeric {
             Int(i) => i.to_string(),
             Dim(i) => dimtostr(*i),
             Float(f) => f.to_string(),
-            Skip(sk) => sk.to_string()
+            Skip(sk) => sk.to_string(),
+            MuSkip(ms) => ms.to_string()
         }
     }
 }
@@ -114,6 +191,9 @@ impl std::ops::Mul for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i*j),
+            (Int(i),Float(j)) => Int(((i as f32)*j).round() as i32),
+            (Float(i),Int(j)) => Float(i*(j as f32)),
+            (Float(i),Float(j)) => Float(i*j),
             _ => todo!("{}*{}",self,rhs)
         }
     }

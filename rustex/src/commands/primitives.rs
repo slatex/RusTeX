@@ -22,7 +22,7 @@ pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
         Ok(())
     }
 };
-pub static CATCODE : AssValue<i32> = AssValue {
+pub static CATCODE : AssValue = AssValue {
     name: "catcode",
     _assign: |rf,int,global| {
         let num = int.read_number()? as u8;
@@ -33,11 +33,11 @@ pub static CATCODE : AssValue<i32> = AssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()?;
-        Ok(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32)
+        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32))
     }
 };
 
-pub static SFCODE : AssValue<i32> = AssValue {
+pub static SFCODE : AssValue = AssValue {
     name:"sfcode",
     _assign: |rf,int,global| {
         let char = int.read_number()? as u8;
@@ -48,7 +48,7 @@ pub static SFCODE : AssValue<i32> = AssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(int.state_sfcode(char))
+        Ok(Numeric::Int(int.state_sfcode(char)))
     }
 };
 
@@ -69,7 +69,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static COUNT : AssValue<i32> = AssValue {
+pub static COUNT : AssValue = AssValue {
     name: "count",
     _assign: |_,int,global| {
         let index = u8toi16(int.read_number()? as u8);
@@ -83,7 +83,7 @@ pub static COUNT : AssValue<i32> = AssValue {
         let index = int.read_number()? as u8;
         let num = int.state_register(u8toi16(index));
         log!("\\count {} = {}",index,num);
-        Ok(num)
+        Ok(Numeric::Int(num))
     }
 };
 
@@ -128,6 +128,21 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
             global));
+        Ok(())
+    }
+};
+
+pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
+    name:"muskipdef",
+    _assign: |rf,int,global| {
+        let cmd = int.read_command_token()?;
+        int.read_eq();
+        let num = int.read_number()?;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num as u8)).as_ref(&rf);
+
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
+                                         Some(command),
+                                         global));
         Ok(())
     }
 };
@@ -338,7 +353,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static NEWLINECHAR : AssValue<i32> = AssValue {
+pub static NEWLINECHAR : AssValue = AssValue {
     name: "newlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -348,11 +363,11 @@ pub static NEWLINECHAR : AssValue<i32> = AssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(int.state_catcodes().newlinechar as i32)
+        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
     }
 };
 
-pub static ENDLINECHAR : AssValue<i32> = AssValue {
+pub static ENDLINECHAR : AssValue = AssValue {
     name: "endlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -362,11 +377,11 @@ pub static ENDLINECHAR : AssValue<i32> = AssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(int.state_catcodes().newlinechar as i32)
+        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
     }
 };
 
-pub static ESCAPECHAR: AssValue<i32> = AssValue {
+pub static ESCAPECHAR: AssValue = AssValue {
     name:"escapechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -376,7 +391,7 @@ pub static ESCAPECHAR: AssValue<i32> = AssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(int.state_catcodes().escapechar as i32)
+        Ok(Numeric::Int(int.state_catcodes().escapechar as i32))
     }
 };
 
@@ -416,7 +431,7 @@ pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
 pub static TIME : IntCommand = IntCommand {
     _getvalue: |int| {
         let time = int.jobinfo.time;
-        Ok(((time.hour() * 60) + time.minute()) as i32)
+        Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i32))
     },
     name: "time"
 };
@@ -424,21 +439,21 @@ pub static TIME : IntCommand = IntCommand {
 pub static YEAR : IntCommand = IntCommand {
     name:"year",
     _getvalue: |int| {
-        Ok(int.jobinfo.time.year())
+        Ok(Numeric::Int(int.jobinfo.time.year()))
     }
 };
 
 pub static MONTH : IntCommand = IntCommand {
     name:"month",
     _getvalue: |int| {
-        Ok(int.jobinfo.time.month() as i32)
+        Ok(Numeric::Int(int.jobinfo.time.month() as i32))
     }
 };
 
 pub static DAY : IntCommand = IntCommand {
     name:"day",
     _getvalue: |int| {
-        Ok(int.jobinfo.time.day() as i32)
+        Ok(Numeric::Int(int.jobinfo.time.day() as i32))
     }
 };
 
@@ -521,7 +536,11 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
         rf.2 = match int.get_command(&reg.cmdname())?.get_orig() {
-            Int(ic) => stt((ic._getvalue)(int)?.to_string().into()),
+            Int(ic) => {
+                let ret = (ic._getvalue)(int)?;
+                log!("\\the{} = {}",reg,ret);
+                stt(ret.to_string().into())
+            },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
             AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-u8toi16(i.index)).to_string().into()),
             AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(i)).to_string().into()),
@@ -866,7 +885,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ETEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
-        Ok(VERSION_INFO.etexversion.to_string().parse().unwrap())
+        Ok(Numeric::Int(VERSION_INFO.etexversion.to_string().parse().unwrap()))
     },
     name: "eTeXversion"
 };
@@ -875,7 +894,8 @@ fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXE
     int.skip_ws();
     let first = (getnum)(int)?;
     match int.read_keyword(vec!("+","*","/","(",")"))? {
-        Some(o) => Ok(first + expr_loop(int,getnum)?),
+        Some(p) if p == "+" => Ok(first + expr_loop(int,getnum)?),
+        Some(p) if p == "*" => Ok(first * int.read_number_i(true)?),
         Some(o) => TeXErr!((int,None),"TODO: {}",o),
         None => Ok(first)
     }
@@ -903,12 +923,7 @@ pub static NUMEXPR: IntCommand = IntCommand {
     _getvalue: |int| {
         let ret =expr_loop(int,|i| i.read_number_i(false))?;
         eatrelax(int);
-        match ret {
-            Numeric::Int(i) => Ok(i),
-            Numeric::Float(_) => unreachable!(),
-            Numeric::Dim(i) => Ok(i),
-            Numeric::Skip(s) => Ok(s.base)
-        }
+        Ok(ret)
     }
 };
 
@@ -917,14 +932,31 @@ pub static DIMEXPR: IntCommand = IntCommand {
     _getvalue: |int| {
         let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
         eatrelax(int);
-        match ret {
-            Numeric::Int(i) => Ok(i),
-            Numeric::Float(_) => unreachable!(),
-            Numeric::Dim(i) => Ok(i),
-            Numeric::Skip(s) => Ok(s.base)
-        }
+        log!("\\dimexpr: {}",ret);
+        Ok(ret)
     }
 };
+
+pub static GLUEEXPR: IntCommand = IntCommand {
+    name:"glueexpr",
+    _getvalue: |int| {
+        let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
+        eatrelax(int);
+        log!("\\glueexpr: {}",ret);
+        Ok(ret)
+    }
+};
+
+pub static MUEXPR: IntCommand = IntCommand {
+    name:"muexpr",
+    _getvalue: |int| {
+        let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
+        eatrelax(int);
+        log!("\\muexpr: {}",ret);
+        Ok(ret)
+    }
+};
+
 
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
@@ -1029,7 +1061,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub static LCCODE: AssValue<i32> = AssValue {
+pub static LCCODE: AssValue = AssValue {
     name:"lccode",
     _assign: |_,int,global| {
         let num1 = int.read_number()? as u8;
@@ -1040,11 +1072,11 @@ pub static LCCODE: AssValue<i32> = AssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(int.state_lccode(char) as i32)
+        Ok(Numeric::Int(int.state_lccode(char) as i32))
     }
 };
 
-pub static UCCODE: AssValue<i32> = AssValue {
+pub static UCCODE: AssValue = AssValue {
     name: "uccode",
     _assign: |_, int, global| {
         let num1 = int.read_number()? as u8;
@@ -1055,7 +1087,7 @@ pub static UCCODE: AssValue<i32> = AssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(int.state_uccode(char) as i32)
+        Ok(Numeric::Int(int.state_uccode(char) as i32))
     }
 };
 
@@ -1768,12 +1800,6 @@ pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static GLUEEXPR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"glueexpr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
     expandable:true,
@@ -1788,12 +1814,6 @@ pub static INPUTLINENO: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"jobname",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MUEXPR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"muexpr",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2315,12 +2335,6 @@ pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MUSKIPDEF: PrimitiveExecutable = PrimitiveExecutable {
-    name:"muskipdef",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"outer",
     expandable:true,
@@ -2402,6 +2416,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&COUNTDEF),
     PrimitiveTeXCommand::Ass(&DIMENDEF),
     PrimitiveTeXCommand::Ass(&SKIPDEF),
+    PrimitiveTeXCommand::Ass(&MUSKIPDEF),
     PrimitiveTeXCommand::Ass(&TOKSDEF),
     PrimitiveTeXCommand::Ass(&GLOBAL),
     PrimitiveTeXCommand::Ass(&DEF),
@@ -2433,6 +2448,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&DAY),
     PrimitiveTeXCommand::Int(&NUMEXPR),
     PrimitiveTeXCommand::Int(&DIMEXPR),
+    PrimitiveTeXCommand::Int(&GLUEEXPR),
+    PrimitiveTeXCommand::Int(&MUEXPR),
+    PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
     PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
     PrimitiveTeXCommand::Primitive(&MEANING),
@@ -2575,15 +2593,12 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&FONTCHARHT),
     PrimitiveTeXCommand::Primitive(&FONTCHARDP),
     PrimitiveTeXCommand::Primitive(&FONTCHARIC),
-    PrimitiveTeXCommand::Primitive(&GLUEEXPR),
     PrimitiveTeXCommand::Primitive(&IGNORESPACES),
     PrimitiveTeXCommand::Primitive(&INPUTLINENO),
     PrimitiveTeXCommand::Primitive(&JOBNAME),
     PrimitiveTeXCommand::Primitive(&LOWERCASE),
     PrimitiveTeXCommand::Primitive(&MESSAGE),
-    PrimitiveTeXCommand::Primitive(&MUEXPR),
     PrimitiveTeXCommand::Primitive(&NULLFONT),
-    PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&SCANTOKENS),
     PrimitiveTeXCommand::Primitive(&SHIPOUT),
     PrimitiveTeXCommand::Primitive(&STRING),
@@ -2671,7 +2686,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SETBOX),
     PrimitiveTeXCommand::Primitive(&MATHCODE),
     PrimitiveTeXCommand::Primitive(&MUSKIP),
-    PrimitiveTeXCommand::Primitive(&MUSKIPDEF),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
     PrimitiveTeXCommand::Primitive(&PARSHAPE),

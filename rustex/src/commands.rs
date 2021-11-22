@@ -39,19 +39,19 @@ impl PartialEq for PrimitiveExecutable {
     }
 }
 
-pub struct AssValue<T> {
+pub struct AssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<T,TeXError>
+    pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>
 }
-impl<T> PartialEq for AssValue<T> {
+impl PartialEq for AssValue {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
 }
 
 pub struct IntCommand {
-    pub _getvalue: fn(int: &Interpreter) -> Result<i32,TeXError>,
+    pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>,
     pub name : &'static str
 }
 
@@ -69,6 +69,12 @@ pub struct DimenReference {
 
 #[derive(PartialEq)]
 pub struct SkipReference {
+    pub index: u8,
+    pub name: &'static str
+}
+
+#[derive(PartialEq)]
+pub struct MuSkipReference {
     pub index: u8,
     pub name: &'static str
 }
@@ -116,11 +122,13 @@ pub enum AssignableValue {
     Dim(u8),
     Register(u8),
     Skip(u8),
+    MuSkip(u8),
     Toks(u8),
-    Int(&'static AssValue<i32>),
+    Int(&'static AssValue),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
+    PrimMuSkip(&'static MuSkipReference),
     PrimToks(&'static TokReference)
 }
 
@@ -128,11 +136,12 @@ impl AssignableValue {
     pub fn name(&self) -> Option<TeXStr> {
         use AssignableValue::*;
         match self {
-            Dim(_) | Register(_) | Skip(_) | Toks(_) => None,
+            Dim(_) | Register(_) | Skip(_) | Toks(_) | MuSkip(_) => None,
             Int(i) => Some(i.name.into()),
             PrimReg(r) => Some(r.name.into()),
             PrimDim(d) => Some(d.name.into()),
             PrimSkip(d) => Some(d.name.into()),
+            PrimMuSkip(d) => Some(d.name.into()),
             PrimToks(d) => Some(d.name.into())
         }
     }
@@ -149,8 +158,8 @@ impl HasNum {
             AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(u8toi16(i)))),
             AV(Register(i)) => Ok(Numeric::Int(int.state_register(u8toi16(i)))),
             AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(u8toi16(i)))),
-            AV(AssignableValue::Int(i)) => Ok(Numeric::Int((i._getvalue)(int)?)),
-            PrimitiveTeXCommand::Int(i) => Ok(Numeric::Int((i._getvalue)(int)?)),
+            AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
+            PrimitiveTeXCommand::Int(i) => Ok((i._getvalue)(int)?),
             AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-u8toi16(r.index)))),
             AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
             AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
@@ -342,6 +351,7 @@ impl Assignment {
                 }
                 AssignableValue::Dim(i) => {
                     int.read_eq();
+                    log!("Assigning dimen {}",i);
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
                     int.change_state(StateChange::Dimen(u8toi16(i), num, global));
@@ -353,12 +363,26 @@ impl Assignment {
                     log!("Assign skip register {} to {}",i,num);
                     int.change_state(StateChange::Skip(u8toi16(i), num, global));
                     Ok(())
+                }
+                AssignableValue::MuSkip(i) => {
+                    int.read_eq();
+                    let num = int.read_muskip()?;
+                    log!("Assign muskip register {} to {}",i,num);
+                    int.change_state(StateChange::MuSkip(u8toi16(i), num, global));
+                    Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
                     int.change_state(StateChange::Skip(-u8toi16(r.index), num, global));
+                    Ok(())
+                },
+                AssignableValue::PrimMuSkip(r) => {
+                    int.read_eq();
+                    let num = int.read_muskip()?;
+                    log!("Assign {} to {}",r.name,num);
+                    int.change_state(StateChange::MuSkip(-u8toi16(r.index), num, global));
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
@@ -711,14 +735,16 @@ impl TeXCommand {
     pub fn as_hasnum(self) -> Result<HasNum,TeXCommand> {
         match self.get_orig() {
             PrimitiveTeXCommand::AV(ref av) => match av {
-                AssignableValue::Register(s) => Ok(HasNum(self)),
-                AssignableValue::Dim(s) => Ok(HasNum(self)),
-                AssignableValue::Skip(s) => Ok(HasNum(self)),
-                AssignableValue::Int(d) => Ok(HasNum(self)),
-                AssignableValue::PrimDim(d) => Ok(HasNum(self)),
-                AssignableValue::PrimReg(d) => Ok(HasNum(self)),
-                AssignableValue::PrimSkip(d) => Ok(HasNum(self)),
-                AssignableValue::Toks(s) => Err(self),
+                AssignableValue::Register(_) => Ok(HasNum(self)),
+                AssignableValue::Dim(_) => Ok(HasNum(self)),
+                AssignableValue::Skip(_) => Ok(HasNum(self)),
+                AssignableValue::MuSkip(_) => Ok(HasNum(self)),
+                AssignableValue::Int(_) => Ok(HasNum(self)),
+                AssignableValue::PrimDim(_) => Ok(HasNum(self)),
+                AssignableValue::PrimReg(_) => Ok(HasNum(self)),
+                AssignableValue::PrimSkip(_) => Ok(HasNum(self)),
+                AssignableValue::PrimMuSkip(_) => Ok(HasNum(self)),
+                AssignableValue::Toks(_) => Err(self),
                 AssignableValue::PrimToks(_) => Err(self),
             },
             PrimitiveTeXCommand::Ext(ext) if ext.has_num() =>Ok(HasNum(self)),

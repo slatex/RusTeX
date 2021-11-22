@@ -30,6 +30,7 @@ struct StackFrame {
     pub(crate) registers: HashMap<i16,i32>,
     pub(crate) dimensions: HashMap<i16,i32>,
     pub(crate) skips : HashMap<i16,Skip>,
+    pub(crate) muskips : HashMap<i16,MuSkip>,
     pub(crate) toks : HashMap<i16,Vec<Token>>,
     pub(in crate::interpreter::state) tp : Option<GroupType>,
     pub(crate) sfcodes : HashMap<u8,i32>,
@@ -60,6 +61,7 @@ impl StackFrame {
 
         let dims: HashMap<i16,i32> = HashMap::new();
         let skips: HashMap<i16,Skip> = HashMap::new();
+        let muskips: HashMap<i16,MuSkip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
         let lccodes: HashMap<u8,u8> = HashMap::new();
@@ -72,7 +74,7 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,
             tp:None
         }
     }
@@ -80,6 +82,7 @@ impl StackFrame {
         let reg: HashMap<i16,i32> = HashMap::new();
         let dims: HashMap<i16,i32> = HashMap::new();
         let skips: HashMap<i16,Skip> = HashMap::new();
+        let muskips: HashMap<i16,MuSkip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
         let lccodes: HashMap<u8,u8> = HashMap::new();
@@ -92,7 +95,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,
             tp:Some(tp)
         }
     }
@@ -245,6 +248,15 @@ impl State {
                     self.stacks.last_mut().unwrap().skips.insert(index,value);
                 }
             }
+            StateChange::MuSkip(index,value,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.muskips.insert(index,value);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().muskips.insert(index,value);
+                }
+            }
             StateChange::Cs(name,cmd,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
@@ -392,7 +404,7 @@ pub fn default_pdf_latex_state() -> State {
 
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
-use crate::interpreter::dimensions::Skip;
+use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
@@ -575,6 +587,7 @@ pub enum StateChange {
     Register(i16,i32,bool),
     Dimen(i16,i32,bool),
     Skip(i16,Skip,bool),
+    MuSkip(i16,MuSkip,bool),
     Cs(TeXStr,Option<TeXCommand>,bool),
     Cat(u8,CategoryCode,bool),
     Newline(u8,bool),
