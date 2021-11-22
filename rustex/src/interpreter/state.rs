@@ -122,7 +122,7 @@ impl State {
             incs:0
         }
     }
-    pub fn with_commands(mut procs:Vec<TeXCommand>) -> State {
+    pub fn with_commands(procs:Vec<TeXCommand>) -> State {
         let mut st = State::new();
         for p in procs {
             let name = p.name().unwrap();

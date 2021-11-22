@@ -1,9 +1,9 @@
 use crate::catcodes::CategoryCode;
 use crate::interpreter::Interpreter;
-use crate::ontology::{Expansion, Token};
+use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{Expandable, TeXCommand, TokReference,PrimitiveTeXCommand};
+use crate::commands::{Expandable, TokReference,PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
 use crate::utils::u8toi16;
@@ -153,7 +153,6 @@ impl Interpreter<'_> {
     #[inline(always)]
     pub fn read_token_list(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
-        use std::rc::Rc;
         let mut ingroups : i8 = 0;
         let mut ret : Vec<Token> = vec!();
         while self.has_next() {
@@ -165,7 +164,7 @@ impl Interpreter<'_> {
                             PrimitiveTeXCommand::Primitive(x) if (the && *x == THE) || *x == UNEXPANDED => {
                                 match cmd.as_expandable().ok().unwrap().get_expansion(next,self)? {
                                     Some(exp) => {
-                                        let rf = exp.get_ref();
+                                        //let rf = exp.get_ref();
                                         for tk in exp.2 {
                                             match tk.catcode {
                                                 CategoryCode::Parameter if the => {
@@ -180,7 +179,7 @@ impl Interpreter<'_> {
                                 }
                             }
                             _ => {
-                                let exp = if (protect) {cmd.as_expandable()} else {cmd.as_expandable_with_protected()};
+                                let exp = if protect {cmd.as_expandable()} else {cmd.as_expandable_with_protected()};
                                 match exp {
                                     Ok(e) => e.expand(next, self)?,
                                     Err(_) => ret.push(next)
@@ -376,7 +375,6 @@ impl Interpreter<'_> {
     }
 
     fn make_true(&self,f : f32,istrue:bool) -> i32 {
-        use crate::utils::u8toi16;
         use crate::commands::primitives::MAG;
         if istrue {
             let mag = (self.state_register(-u8toi16(MAG.index)) as f32) / 1000.0;
@@ -390,7 +388,7 @@ impl Interpreter<'_> {
             Numeric::Int(i) => self.point_to_int(i as f32,false)?,
             Numeric::Float(f) => self.point_to_int(f,false)?,
             Numeric::Skip(sk) => return Ok(sk.base),
-            Numeric::MuSkip(sk) => TeXErr!((self,None),"Dimension expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!((self,None),"Dimension expected; muskip found")
         } {
             SkipDim::Pt(i) => Ok(i),
             _ => unreachable!()
@@ -409,7 +407,7 @@ impl Interpreter<'_> {
                 _ => unreachable!()
             }),
             Numeric::Skip(s) => Ok(s),
-            Numeric::MuSkip(s) => TeXErr!((self,None),"Skip expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
         }
     }
 
@@ -424,7 +422,7 @@ impl Interpreter<'_> {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             }),
-            Numeric::Skip(s) => TeXErr!((self,None),"MuSkip expected; skip found"),
+            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
             Numeric::MuSkip(s) =>  Ok(s)
         }
     }
@@ -433,7 +431,7 @@ impl Interpreter<'_> {
 
     fn point_to_muskip(&self,f:f32) -> Result<MuSkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
-        let mut kws = vec!("mu","fil","fill","filll");
+        let kws = vec!("mu","fil","fill","filll");
         //let istrue = self.read_keyword(vec!("true"))?.is_some();
         match self.read_keyword(kws)? {
             Some(s) if s == "mu" => Ok(MuSkipDim::Mu(pt(f).round() as i32)),
@@ -535,7 +533,7 @@ impl Interpreter<'_> {
             Numeric::Int(i) => self.point_to_int(i as f32,true),
             Numeric::Float(f) => self.point_to_int(f,true),
             Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base)),
-            Numeric::MuSkip(sk) => TeXErr!((self,None),"Skip expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
         }
     }
 
@@ -544,7 +542,7 @@ impl Interpreter<'_> {
             Numeric::Dim(i) => Ok(MuSkipDim::Mu(i)),
             Numeric::Int(i) => self.point_to_muskip(i as f32),
             Numeric::Float(f) => self.point_to_muskip(f),
-            Numeric::Skip(sk) => TeXErr!((self,None),"MuSkip expected; skip found"),
+            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
             Numeric::MuSkip(sk) => Ok(MuSkipDim::Mu(sk.base))
         }
     }

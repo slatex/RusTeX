@@ -1,7 +1,7 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, TeXCommand, IntCommand,PrimitiveTeXCommand};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand,PrimitiveTeXCommand};
 use crate::interpreter::tokenize;
 use crate::VERSION_INFO;
-use crate::{log,TeXErr};
+use crate::log;
 use crate::interpreter::dimensions::Numeric;
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {

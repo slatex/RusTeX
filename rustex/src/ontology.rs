@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::references::SourceReference;
 use std::rc::Rc;
-use std::str::from_utf8;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::commands::TeXCommand;
@@ -82,7 +81,7 @@ impl Token {
                 CategoryCode::Escape => name,
                 _ => TeXStr::new(&[])
             },
-            reference: Box::new(SourceReference::None),
+            reference: Box::new(rf),
             expand
         }
     }

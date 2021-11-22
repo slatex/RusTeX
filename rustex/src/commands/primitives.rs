@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::commands::{RegisterReference, AssignableValue, AssValue, DefMacro, IntCommand, ParamList, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TeXCommand, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand};
+use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -22,9 +22,9 @@ pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
         Ok(())
     }
 };
-pub static CATCODE : AssValue = AssValue {
+pub static CATCODE : IntAssValue = IntAssValue {
     name: "catcode",
-    _assign: |rf,int,global| {
+    _assign: |_rf,int,global| {
         let num = int.read_number()? as u8;
         int.read_eq();
         let cat = CategoryCode::fromint(int.read_number()?);
@@ -37,9 +37,9 @@ pub static CATCODE : AssValue = AssValue {
     }
 };
 
-pub static SFCODE : AssValue = AssValue {
+pub static SFCODE : IntAssValue = IntAssValue {
     name:"sfcode",
-    _assign: |rf,int,global| {
+    _assign: |_rf,int,global| {
         let char = int.read_number()? as u8;
         int.read_eq();
         let val = int.read_number()?;
@@ -53,8 +53,6 @@ pub static SFCODE : AssValue = AssValue {
 };
 
 use crate::references::SourceReference;
-use std::rc::Rc;
-use std::str::from_utf8;
 use chrono::{Datelike, Timelike};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -69,7 +67,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static COUNT : AssValue = AssValue {
+pub static COUNT : IntAssValue = IntAssValue {
     name: "count",
     _assign: |_,int,global| {
         let index = u8toi16(int.read_number()? as u8);
@@ -273,14 +271,13 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
 }
 
 fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
-    use std::str::from_utf8;
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
     let sig = read_sig(int)?;
-    let arity = sig.arity;
+    //let arity = sig.arity;
     let ret = int.read_token_list(edef,true,edef,false)?;
     log!("\\def {}{}{}{}{}",command,sig,"{",TokenList(&ret),"}");
     let dm = PrimitiveTeXCommand::Def(DefMacro {
@@ -295,13 +292,12 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     Ok(())
 }
 
-use crate::commands::Expandable;
 use crate::interpreter::dimensions::Numeric;
 use crate::stomach::whatsits::ExecutableWhatsit;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
-    _assign: |rf,int,global| {
+    _assign: |_rf,int,_global| {
         int.expand_until(true)?;
         let next = int.read_command_token()?;
         match int.get_command(&next.cmdname())?.as_assignment() {
@@ -353,7 +349,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static NEWLINECHAR : AssValue = AssValue {
+pub static NEWLINECHAR : IntAssValue = IntAssValue {
     name: "newlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -367,7 +363,7 @@ pub static NEWLINECHAR : AssValue = AssValue {
     }
 };
 
-pub static ENDLINECHAR : AssValue = AssValue {
+pub static ENDLINECHAR : IntAssValue = IntAssValue {
     name: "endlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -381,7 +377,7 @@ pub static ENDLINECHAR : AssValue = AssValue {
     }
 };
 
-pub static ESCAPECHAR: AssValue = AssValue {
+pub static ESCAPECHAR: IntAssValue = IntAssValue {
     name:"escapechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -688,7 +684,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
 pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     name:"noexpand",
     expandable:true,
-    _apply:|cs,int| {
+    _apply:|_cs,int| {
         int.assert_has_next()?;
         let next = int.next_token();
         int.requeue(Token::new(next.char,next.catcode,Some(next.name().clone()),*next.reference,false));
@@ -760,7 +756,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
         log!("\\string: {}",next);
         rf.2 = match next.catcode {
             CategoryCode::Escape => {
-                let mut s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
+                let s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
                 crate::interpreter::string_to_tokens(s + next.cmdname().into())
             }
             CategoryCode::Space => vec!(next),
@@ -797,7 +793,7 @@ pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
                         int.popcs()?
                     }
                     PrimitiveTeXCommand::Primitive(ec) if *ec == CSNAME => {
-                        cmd.as_expandable().ok().unwrap().expand(next,int);
+                        cmd.as_expandable().ok().unwrap().expand(next,int)?;
                     }
                     _ if next.expand => match cmd.as_expandable_with_protected() {
                         Ok(exp) => exp.expand(next, int)?,
@@ -893,9 +889,10 @@ pub static ETEXVERSION : IntCommand = IntCommand {
 fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
     let first = (getnum)(int)?;
-    match int.read_keyword(vec!("+","*","/","(",")"))? {
+    match int.read_keyword(vec!("-","+","*","/","(",")"))? {
         Some(p) if p == "+" => Ok(first + expr_loop(int,getnum)?),
         Some(p) if p == "*" => Ok(first * int.read_number_i(true)?),
+        Some(p) if p == "-" => Ok(first - expr_loop(int,getnum)?),
         Some(o) => TeXErr!((int,None),"TODO: {}",o),
         None => Ok(first)
     }
@@ -1061,7 +1058,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub static LCCODE: AssValue = AssValue {
+pub static LCCODE: IntAssValue = IntAssValue {
     name:"lccode",
     _assign: |_,int,global| {
         let num1 = int.read_number()? as u8;
@@ -1076,7 +1073,7 @@ pub static LCCODE: AssValue = AssValue {
     }
 };
 
-pub static UCCODE: AssValue = AssValue {
+pub static UCCODE: IntAssValue = IntAssValue {
     name: "uccode",
     _assign: |_, int, global| {
         let num1 = int.read_number()? as u8;
@@ -1124,6 +1121,16 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
             }
         }
         Ok(())
+    }
+};
+
+pub static FONT: FontAssValue = FontAssValue {
+    name:"font",
+    _assign: |rf,int,global| {
+        todo!()
+    },
+    _getvalue: |int| {
+        todo!()
     }
 };
 
@@ -2275,12 +2282,6 @@ pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static FONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"font",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static FONTDIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontdimen",
     expandable:true,
@@ -2429,6 +2430,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&DIVIDE),
     PrimitiveTeXCommand::Ass(&MULTIPLY),
     PrimitiveTeXCommand::Ass(&ADVANCE),
+    PrimitiveTeXCommand::AV(AssignableValue::Font(&FONT)),
     PrimitiveTeXCommand::Primitive(&INPUT),
     PrimitiveTeXCommand::Primitive(&BEGINGROUP),
     PrimitiveTeXCommand::Primitive(&ENDGROUP),
@@ -2676,7 +2678,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
     PrimitiveTeXCommand::Primitive(&DELCODE),
     PrimitiveTeXCommand::Primitive(&DIMEN),
-    PrimitiveTeXCommand::Primitive(&FONT),
     PrimitiveTeXCommand::Primitive(&FONTDIMEN),
     PrimitiveTeXCommand::Primitive(&FUTURELET),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),

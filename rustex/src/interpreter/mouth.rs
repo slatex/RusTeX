@@ -2,9 +2,7 @@
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
-use std::rc::Rc;
 use std::str::from_utf8;
-use itertools::Itertools;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
@@ -48,7 +46,7 @@ pub struct TokenMouth {
     tokens : Vec<Token>
 }
 impl TokenMouth {
-    fn new(tokens:Vec<Token>,copy:bool) -> TokenMouth {
+    fn new(tokens:Vec<Token>) -> TokenMouth {
         let mut tm = TokenMouth { tokens };
         tm.tokens.reverse();
         tm
@@ -436,7 +434,7 @@ impl StringMouth {
     }
     fn preview(&self) -> TeXString {
         let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().0)[self.pos..].to_vec();
-        for s in &self.allstrings {
+        for s in self.allstrings.iter().rev() {
             for c in &s.0 {
                 rest.push(*c)
             }
@@ -530,14 +528,14 @@ impl Mouths {
             self.push_tokens(vec!(buf))
         }
         if !exp.2.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(exp.2,true));
+            let nm = Mouth::Token(TokenMouth::new(exp.2));
             self.mouths.push(nm)
         }
     }
     pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Token>) {
         if self.buffer.is_some() { todo!() }
         if !tks.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(tks,false));
+            let nm = Mouth::Token(TokenMouth::new(tks));
             self.mouths.push(nm)
         }
     }
@@ -580,7 +578,10 @@ impl Mouths {
 
 impl Interpreter<'_> {
     pub fn preview(&self) -> TeXString {
-        TeXString(self.mouths.borrow().preview().0.get(0..1000).unwrap().to_vec())
+        match self.mouths.borrow().preview().0.get(0..1000) {
+            Some(s) => TeXString(s.to_vec()),
+            None => "".into()
+        }
     }
     pub fn push_file(&self,file:VFile) {
         use crate::interpreter::files::VFileBase;

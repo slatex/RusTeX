@@ -3,7 +3,6 @@ use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable, PrimitiveTeX
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::log;
-use crate::utils::TeXString;
 
 
 fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
@@ -69,7 +68,7 @@ pub static FI : PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"unless",
-    _apply: |rf,int| {
+    _apply: |_rf,int| {
         let cnd = int.next_token();
         match cnd.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
@@ -328,7 +327,7 @@ pub static IFCASE : Conditional = Conditional {
         let num = int.read_number()? as u8;
         if num == 0 {dotrue(int,cond,unless)} else {
             use PrimitiveTeXCommand::*;
-            let initifs = int.setcondition(cond,false);
+            int.setcondition(cond,false);
             let mut inifs = 0 as u8;
             let mut currnum = 1 as u8;
             //log!("false loop: {}",inifs);

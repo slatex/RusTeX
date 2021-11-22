@@ -1,6 +1,4 @@
-use std::rc::Rc;
-
-use crate::ontology::{Expansion,ExpansionRef};
+use crate::ontology::ExpansionRef;
 
 #[derive(Clone)]
 pub enum SourceReference {

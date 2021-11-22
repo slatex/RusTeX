@@ -208,6 +208,17 @@ impl std::ops::Add for Numeric {
         }
     }
 }
+
+impl std::ops::Sub for Numeric {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        use Numeric::*;
+        match (self,rhs) {
+            (Int(i),Int(j)) => Int(i-j),
+            _ => todo!("{}-{}",self,rhs)
+        }
+    }
+}
 impl std::fmt::Display for Numeric {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",self.as_string())

@@ -7,7 +7,6 @@ use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
-use std::str::from_utf8;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::Numeric;
 use crate::utils::{TeXError, TeXString,TeXStr};
@@ -39,12 +38,25 @@ impl PartialEq for PrimitiveExecutable {
     }
 }
 
-pub struct AssValue {
+pub struct IntAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>
 }
-impl PartialEq for AssValue {
+impl PartialEq for IntAssValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+use crate::fonts::Font;
+
+pub struct FontAssValue {
+    pub name: &'static str,
+    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
+    pub _getvalue: fn(int: &Interpreter) -> Result<Font,TeXError>
+}
+impl PartialEq for FontAssValue {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
@@ -124,7 +136,8 @@ pub enum AssignableValue {
     Skip(u8),
     MuSkip(u8),
     Toks(u8),
-    Int(&'static AssValue),
+    Int(&'static IntAssValue),
+    Font(&'static FontAssValue),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -138,6 +151,7 @@ impl AssignableValue {
         match self {
             Dim(_) | Register(_) | Skip(_) | Toks(_) | MuSkip(_) => None,
             Int(i) => Some(i.name.into()),
+            Font(f) => Some(f.name.into()),
             PrimReg(r) => Some(r.name.into()),
             PrimDim(d) => Some(d.name.into()),
             PrimSkip(d) => Some(d.name.into()),
@@ -174,7 +188,6 @@ impl HasNum {
 pub struct Expandable(pub (in crate) TeXCommand);
 
 use crate::TeXErr;
-use crate::references::SourceReference;
 
 impl Expandable {
     pub fn get_expansion(&self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
@@ -192,19 +205,18 @@ impl Expandable {
                 p.expand(&mut exp,int)?;
                 Ok(Some(exp))
             },
-            Def(d) => Ok(Some(self.doDef(tk,int,d)?)),
+            Def(d) => Ok(Some(self.do_def(tk, int, d)?)),
             _ => unreachable!()
         }
     }
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
-        use PrimitiveTeXCommand::*;
         match self.get_expansion(tk,int)? {
             Some(exp) => Ok(int.push_expansion(exp)),
             None => Ok(())
         }
     }
 
-    fn doDef(&self,tk:Token,int:&Interpreter,d:DefMacro) -> Result<Expansion,TeXError> {
+    fn do_def(&self, tk:Token, int:&Interpreter, d:DefMacro) -> Result<Expansion,TeXError> {
         log!("{}",d);
         let mut args : Vec<Vec<Token>> = Vec::new();
         let mut i = 0;
@@ -305,7 +317,7 @@ impl Expandable {
                         _ => {
                             i += 1;
                             let arg = next.char - 49;
-                            if (arg < 0 || arg >= d.sig.arity) {
+                            if arg >= d.sig.arity {
                                 TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
                             }
                             for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
@@ -331,7 +343,7 @@ impl Assignment {
     pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
         use crate::utils::u8toi16;
         use crate::interpreter::dimensions::dimtostr;
-        use crate::commands::primitives::GLOBALDEFS;;
+        use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 
         let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
@@ -348,6 +360,9 @@ impl Assignment {
                     log!("Assign register {} to {}",i,num);
                     int.change_state(StateChange::Register(u8toi16(i), num, global));
                     Ok(())
+                }
+                AssignableValue::Font(f) => {
+                    (f._assign)(rf,int,global)
                 }
                 AssignableValue::Dim(i) => {
                     int.read_eq();
@@ -625,7 +640,6 @@ impl fmt::Display for TeXCommand {
 impl TeXCommand {
     pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
         use PrimitiveTeXCommand::*;
-        use std::str::FromStr;
         match self.get_orig() {
             Char(c) => match c.catcode {
                 CategoryCode::Space => "blank space ".into(),
@@ -687,11 +701,11 @@ impl TeXCommand {
                 meaning
             }
             Int(ic) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + ic.name.into()
             },
             Primitive(p) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             }
             _ => todo!("{}",self)
@@ -715,7 +729,7 @@ impl TeXCommand {
     pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {
         use PrimitiveTeXCommand::*;
         match self.get_orig() {
-            Cond(c) => Ok(Expandable(self)),
+            Cond(_) => Ok(Expandable(self)),
             Ext(e) if e.expandable() => Ok(Expandable(self)),
             Primitive(p) if p.expandable => Ok(Expandable(self)),
             Def(d) if !d.protected => Ok(Expandable(self)),
@@ -725,10 +739,10 @@ impl TeXCommand {
     pub fn as_expandable_with_protected(self) -> Result<Expandable,TeXCommand> {
         use PrimitiveTeXCommand::*;
         match self.get_orig() {
-            Cond(c) => Ok(Expandable(self)),
+            Cond(_) => Ok(Expandable(self)),
             Ext(e) if e.expandable() => Ok(Expandable(self)),
             Primitive(p) if p.expandable => Ok(Expandable(self)),
-            Def(d) => Ok(Expandable(self)),
+            Def(_) => Ok(Expandable(self)),
             _ => Err(self)
         }
     }
@@ -746,18 +760,19 @@ impl TeXCommand {
                 AssignableValue::PrimMuSkip(_) => Ok(HasNum(self)),
                 AssignableValue::Toks(_) => Err(self),
                 AssignableValue::PrimToks(_) => Err(self),
+                AssignableValue::Font(_) => Err(self)
             },
             PrimitiveTeXCommand::Ext(ext) if ext.has_num() =>Ok(HasNum(self)),
-            PrimitiveTeXCommand::Int(i) => Ok(HasNum(self)),
-            PrimitiveTeXCommand::MathChar(u) => Ok(HasNum(self)),
-            PrimitiveTeXCommand::Char(u) => Ok(HasNum(self)),
+            PrimitiveTeXCommand::Int(_) => Ok(HasNum(self)),
+            PrimitiveTeXCommand::MathChar(_) => Ok(HasNum(self)),
+            PrimitiveTeXCommand::Char(_) => Ok(HasNum(self)),
             _ => Err(self)
         }
     }
     pub fn as_assignment(self) -> Result<Assignment,TeXCommand> {
         match self.get_orig() {
-            PrimitiveTeXCommand::Ass(a) => Ok(Assignment(self)),
-            PrimitiveTeXCommand::AV(av) => Ok(Assignment(self)),
+            PrimitiveTeXCommand::Ass(_) => Ok(Assignment(self)),
+            PrimitiveTeXCommand::AV(_) => Ok(Assignment(self)),
             PrimitiveTeXCommand::Ext(ext) if ext.assignable() => Ok(Assignment(self)),
             _ => Err(self)
         }

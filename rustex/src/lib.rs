@@ -5,8 +5,9 @@ pub mod utils;
 pub mod commands;
 pub mod catcodes;
 pub mod stomach;
+mod fonts;
 
-static LOG : bool = true;
+static LOG : bool = false;
 static STORE_IN_FILE : bool = true;
 static COPY_TOKENS_FULL : bool = true;
 static COPY_COMMANDS_FULL : bool = true;
@@ -53,7 +54,6 @@ macro_rules! FileEnd {
 #[macro_use]
 extern crate lazy_static;
 
-use std::borrow::Borrow;
 use crate::interpreter::Interpreter;
 use crate::ontology::Token;
 use crate::utils::TeXString;

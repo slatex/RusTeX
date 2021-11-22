@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
@@ -25,6 +24,9 @@ impl Hash for TeXStr {
     }
 }
 impl TeXStr {
+    pub fn to_string(&self) -> String {
+        display(self.iter())
+    }
     pub fn iter(&self) -> &[u8] {
         self.0.deref()
     }
@@ -324,7 +326,7 @@ use crate::ontology::Token;
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 
-fn getTop(tk : Token) -> Token {
+fn get_top(tk : Token) -> Token {
     let mut t = tk;
     loop {
         match *t.reference {
@@ -352,8 +354,8 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
                 },
                 _ => TeXString(vec!(tk.char)).to_string()
             } + " defined by " + &match &*cmd {
-                TeXCommand::Prim(p) => cmd.name().unwrap().to_string() + "\n",
-                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(getTop(rf.0.clone()),int)
+                TeXCommand::Prim(_) => cmd.name().unwrap().to_string() + "\n",
+                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(get_top(rf.0.clone()), int)
             } + &stacktrace(tk,int)
     }
 }
