@@ -1177,6 +1177,21 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
     }
 };
 
+pub static HYPHENCHAR: IntAssValue = IntAssValue {
+    name:"hyphenchar",
+    _assign: |rf,int,_global| {
+        let mut f = read_font(int)?;
+        int.read_eq();
+        let d = int.read_number()?;
+        f.hyphenchar = d as u8;
+        Ok(())
+    },
+    _getvalue: |int| {
+        let f = read_font(int)?;
+        Ok(Numeric::Int(f.hyphenchar as i32))
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -2337,12 +2352,6 @@ pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HYPHENCHAR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hyphenchar",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lpcode",
     expandable:true,
@@ -2499,6 +2508,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&HYPHENCHAR)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -2718,7 +2728,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&DIMEN),
     PrimitiveTeXCommand::Primitive(&FUTURELET),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
-    PrimitiveTeXCommand::Primitive(&HYPHENCHAR),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),
     PrimitiveTeXCommand::Primitive(&SETBOX),

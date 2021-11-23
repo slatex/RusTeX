@@ -228,12 +228,15 @@ pub struct Font {
     pub file:Rc<FontFile>,
     pub at:i32,
     pub dimen:HashMap<u8,i32>,
+    pub hyphenchar:u8
 }
 impl Font {
     pub fn new(file:Rc<FontFile>,at:i32) -> Font {
+        let hc = file.hyphenchar;
         Font {
             file,at,
-            dimen:HashMap::new()
+            dimen:HashMap::new(),
+            hyphenchar:hc
         }
     }
     pub fn set_dimen(&mut self,i : u8,vl : i32) {

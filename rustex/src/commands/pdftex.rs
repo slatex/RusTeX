@@ -1,8 +1,9 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand,PrimitiveTeXCommand};
 use crate::interpreter::tokenize;
 use crate::VERSION_INFO;
-use crate::log;
+use crate::{log,TeXErr};
 use crate::interpreter::dimensions::Numeric;
+use crate::commands::conditionals::{dotrue,dofalse};
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
@@ -45,6 +46,23 @@ pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
         };
         Ok(())
     }
+};
+
+pub static IFPDFABSNUM : Conditional = Conditional {
+    name:"ifpdfabsnum",
+    _apply: |int,cond,unless| {
+        let i1 = int.read_number()?;
+        let rel = int.read_keyword(vec!["<", "=", ">"])?;
+        let i2 = int.read_number()?;
+        let istrue = match rel {
+            Some(ref s) if s == "<" => i1.abs() < i2.abs(),
+            Some(ref s) if s == "=" => i1.abs() == i2.abs(),
+            Some(ref s) if s == ">" => i1.abs() > i2.abs(),
+            _ => TeXErr!((int,None),"Expected '<','=' or '>' in \\ifpdfabsnum")
+        };
+        log!("\\ifpdfabsnum {}{}{}: {}",i1,rel.as_ref().unwrap(),i2,istrue);
+        if istrue { dotrue(int, cond, unless) } else { dofalse(int, cond, unless) }
+    },
 };
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
@@ -98,13 +116,6 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
 };
 
 // TODO --------------------------------------------------------------------------------------------
-
-pub static IFPDFABSNUM : Conditional = Conditional {
-    name:"ifpdfabsnum",
-    _apply: |_int,_cond,_unless| {
-        todo!()
-    }
-};
 
 pub static IFPDFABSDIM : Conditional = Conditional {
     name:"ifpdfabsdim",

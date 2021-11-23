@@ -279,8 +279,8 @@ impl Expandable {
                                     CategoryCode::EndGroup => groups -=1,
                                     _ => ()
                                 }
-                                retarg.push(next.clone());
                                 if groups < 0 {TeXErr!((int,Some(next)),"Missing { somewhere!")}
+                                retarg.push(next);
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
                             }
                             int.assert_has_next()?;

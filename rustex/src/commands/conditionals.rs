@@ -5,7 +5,7 @@ use crate::catcodes::CategoryCode;
 use crate::log;
 
 
-fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+pub fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     if unless {
         dofalse(int,cond,false)
     } else {
@@ -48,7 +48,7 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
     FileEnd!(int)
 }
 
-fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+pub fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     if unless {
         dotrue(int,cond,false)
     } else {
