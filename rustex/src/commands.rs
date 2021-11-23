@@ -138,6 +138,7 @@ pub enum AssignableValue {
     Toks(u8),
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
+    FontRef(Font),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -156,7 +157,8 @@ impl AssignableValue {
             PrimDim(d) => Some(d.name.into()),
             PrimSkip(d) => Some(d.name.into()),
             PrimMuSkip(d) => Some(d.name.into()),
-            PrimToks(d) => Some(d.name.into())
+            PrimToks(d) => Some(d.name.into()),
+            FontRef(_) => None
         }
     }
 }
@@ -364,6 +366,7 @@ impl Assignment {
                 AssignableValue::Font(f) => {
                     (f._assign)(rf,int,global)
                 }
+                AssignableValue::FontRef(_) => todo!(),
                 AssignableValue::Dim(i) => {
                     int.read_eq();
                     log!("Assigning dimen {}",i);
@@ -760,7 +763,8 @@ impl TeXCommand {
                 AssignableValue::PrimMuSkip(_) => Ok(HasNum(self)),
                 AssignableValue::Toks(_) => Err(self),
                 AssignableValue::PrimToks(_) => Err(self),
-                AssignableValue::Font(_) => Err(self)
+                AssignableValue::Font(_) => Err(self),
+                AssignableValue::FontRef(_) => Err(self)
             },
             PrimitiveTeXCommand::Ext(ext) if ext.has_num() =>Ok(HasNum(self)),
             PrimitiveTeXCommand::Int(_) => Ok(HasNum(self)),

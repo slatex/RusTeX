@@ -1,5 +1,6 @@
+use std::borrow::BorrowMut;
 use std::ops::Deref;
-use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue};
+use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -54,6 +55,7 @@ pub static SFCODE : IntAssValue = IntAssValue {
 
 use crate::references::SourceReference;
 use chrono::{Datelike, Timelike};
+use crate::fonts::Font;
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -1131,12 +1133,44 @@ pub static FONT: FontAssValue = FontAssValue {
         int.read_eq();
         let mut name = int.read_string()?;
         if !name.ends_with(".tfm") {name += ".tfm"}
-        let at = match int.read_keyword(vec!("at","scaled"))? {
-            Some(_) /* if s == "at" TODO special treatment for scaled vs at? */ => Some((int.read_dimension()? as f32) / 65536.0),
-            None => None
-        };
         let ff = int.state_get_font(&name)?;
+        let at = match int.read_keyword(vec!("at","scaled"))? {
+            Some(s) if s == "at" => int.read_dimension()?,
+            Some(s) if s == "scaled" => ((ff.as_ref().size as f32) * match int.read_number_i(true)? {
+                Numeric::Float(f) => f,
+                Numeric::Dim(i) => (i as f32) / 65536.0,
+                _ => todo!()
+            }).round() as i32,
+            _ => ff.as_ref().size
+        };
+        let font = Font::new(ff,at);
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(TeXCommand::Prim(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)))),global));
+        Ok(())
+    },
+    _getvalue: |int| {
         todo!()
+    }
+};
+
+fn read_font(int : &Interpreter) -> Result<Font,TeXError> {
+    let cmd = int.read_command_token()?;
+    match int.get_command(cmd.cmdname())?.get_orig() {
+        PrimitiveTeXCommand::AV(AssignableValue::FontRef(mut f)) =>
+            Ok(f),
+        PrimitiveTeXCommand::AV((AssignableValue::Font(f))) => todo!(),
+        _ => TeXErr!((int, Some(cmd)),"Font expected!")
+    }
+}
+
+pub static FONTDIMEN: IntAssValue = IntAssValue {
+    name:"fontdimen",
+    _assign: |rf,int,_global| {
+        let i = int.read_number()? as u8;
+        let mut f = read_font(int)?;
+        int.read_eq();
+        let d = int.read_dimension()?;
+        f.set_dimen(i,d);
+        Ok(())
     },
     _getvalue: |int| {
         todo!()
@@ -2291,12 +2325,6 @@ pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static FONTDIMEN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"fontdimen",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static FUTURELET: PrimitiveExecutable = PrimitiveExecutable {
     name:"futurelet",
     expandable:true,
@@ -2470,6 +2498,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&ETEXVERSION),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -2687,7 +2716,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
     PrimitiveTeXCommand::Primitive(&DELCODE),
     PrimitiveTeXCommand::Primitive(&DIMEN),
-    PrimitiveTeXCommand::Primitive(&FONTDIMEN),
     PrimitiveTeXCommand::Primitive(&FUTURELET),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&HYPHENCHAR),
