@@ -353,9 +353,9 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
                     _ => "".to_string()
                 },
                 _ => TeXString(vec!(tk.char)).to_string()
-            } + " defined by " + &match &*cmd {
-                TeXCommand::Prim(_) => cmd.name().unwrap().to_string() + "\n",
-                TeXCommand::Ref(rf) => " at ".to_string() + &stacktrace(get_top(rf.0.clone()), int)
+            } + " defined by " + &match &cmd.rf {
+                None => cmd.name().unwrap().to_string() + "\n",
+                Some(rf) => " at ".to_string() + &stacktrace(get_top(rf.0.clone()), int)
             } + &stacktrace(tk,int)
     }
 }

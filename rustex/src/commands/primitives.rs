@@ -1,5 +1,7 @@
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::ops::Deref;
+use std::rc::Rc;
 use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
@@ -63,7 +65,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(&rf);
+        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(rf);
         int.change_state(StateChange::Cs(c.cmdname().clone(),Some(cmd),global));
         Ok(())
     }
@@ -93,7 +95,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(&rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -108,7 +110,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(&rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -123,7 +125,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(&rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -138,7 +140,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num as u8)).as_ref(&rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num as u8)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -153,7 +155,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(&rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -170,7 +172,7 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match int.get_command(&next.cmdname())?.get_orig() {
+                    match *int.get_command(&next.cmdname())?.orig {
                         PrimitiveTeXCommand::Ass(a) if *a == DEF => {
                             return do_def(rf,int,global,true,long,false)
                         }
@@ -204,7 +206,7 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match int.get_command(&next.cmdname())?.get_orig() {
+                    match *int.get_command(&next.cmdname())?.orig {
                         PrimitiveTeXCommand::Ass(a) if *a == DEF => {
                             return do_def(rf,int,global,protected,true,false)
                         }
@@ -287,7 +289,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         long,
         sig,
         ret
-    }).as_ref(&rf);
+    }).as_ref(rf);
     int.change_state(StateChange::Cs(command.cmdname().clone(),
                                      Some(dm),
         global));
@@ -302,10 +304,11 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_rf,int,_global| {
         int.expand_until(true)?;
         let next = int.read_command_token()?;
-        match int.get_command(&next.cmdname())?.as_assignment() {
-            Ok(a) => a.assign(next,int,true)?,
-            Err(_) => TeXErr!((int,Some(next.clone())),"Assignment expected after \\global; found: {}",next)
+        let cmd = int.get_command(&next.cmdname())?;
+        if !cmd.assignable() {
+            TeXErr!((int,Some(next.clone())),"Assignment expected after \\global; found: {}",next)
         }
+        cmd.assign(next,int,true)?;
         Ok(())
     }
 };
@@ -344,7 +347,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             CategoryCode::Escape | CategoryCode::Active => {
                 int.state_get_command(&def.cmdname()).map(|x| x.as_ref(rf.0))
             }
-            _ => Some(PrimitiveTeXCommand::Char(def).as_ref(&rf))
+            _ => Some(PrimitiveTeXCommand::Char(def).as_ref(rf))
         };
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),ch,global));
         Ok(())
@@ -470,7 +473,7 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     let cmd = int.read_command_token()?;
     int.read_keyword(vec!("by"))?;
-    let (index,num,val) : (i16,Numeric,Numeric) = match int.get_command(&cmd.cmdname())?.get_orig() {
+    let (index,num,val) : (i16,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) =>
             (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?),
         AV(AssignableValue::PrimReg(r)) =>
@@ -533,7 +536,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
         int.expand_until(false)?;
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
-        rf.2 = match int.get_command(&reg.cmdname())?.get_orig() {
+        rf.2 = match &*int.get_command(&reg.cmdname())?.orig {
             Int(ic) => {
                 let ret = (ic._getvalue)(int)?;
                 log!("\\the{} = {}",reg,ret);
@@ -541,8 +544,8 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
             AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-u8toi16(i.index)).to_string().into()),
-            AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(i)).to_string().into()),
-            AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(i)),
+            AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(*i)).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(*i)),
             AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
             p => todo!("{}",p)
         };
@@ -555,7 +558,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_,int| {
         let next = int.read_command_token()?;
-        match int.get_command(&next.cmdname())?.get_orig() {
+        match *int.get_command(&next.cmdname())?.orig {
             PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
                 (wi._apply)(int)?;
@@ -639,7 +642,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
                 arity: 0
             },
             ret: toks
-        }).as_ref(&rf);
+        }).as_ref(rf);
         int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
             Some(cmd),
             global));
@@ -704,22 +707,20 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                match int.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                    Ok(exp) => {
-                        match exp.get_expansion(next,int)? {
-                            Some(e) => rf.2 = e.2,
-                            None => ()
-                        }
-                        rf.2.insert(0,tmp);
-                        Ok(())
-                    },
-                    Err(_) => {
-                        rf.2.push(tmp);
-                        rf.2.push(next);
-                        Ok(())
+                let cmd = int.get_command(&next.cmdname())?;
+                if cmd.expandable(true) {
+                    match cmd.get_expansion(next, int)? {
+                        Some(e) => rf.2 = e.2,
+                        None => ()
                     }
+                    rf.2.insert(0, tmp);
+                    Ok(())
+                } else {
+                    rf.2.push(tmp);
+                    rf.2.push(next);
+                    Ok(())
                 }
-            },
+            }
             _ => {
                 rf.2.push(tmp);
                 rf.2.push(next);
@@ -742,7 +743,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
                     Some(p) => p.meaning(&int.state_catcodes())
                 }
             }
-            _ => PrimitiveTeXCommand::Char(next).as_ref(&rf.get_ref()).meaning(&int.state_catcodes())
+            _ => PrimitiveTeXCommand::Char(next).as_ref(rf.get_ref()).meaning(&int.state_catcodes())
         };
         rf.2 = crate::interpreter::string_to_tokens(string);
         Ok(())
@@ -774,7 +775,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let chartok = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(&rf);
+        let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(rf);
         int.change_state(StateChange::Cs(chartok.cmdname().clone(),Some(cmd),
             global));
         Ok(())
@@ -790,23 +791,15 @@ pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 let cmd = int.get_command(&next.cmdname())?;
-                match cmd.get_orig() {
+                match *cmd.orig {
                     PrimitiveTeXCommand::Primitive(ec) if *ec == ENDCSNAME => {
                         int.popcs()?
                     }
                     PrimitiveTeXCommand::Primitive(ec) if *ec == CSNAME => {
-                        cmd.as_expandable().ok().unwrap().expand(next,int)?;
+                        cmd.expand(next,int)?;
                     }
-                    _ if next.expand => match cmd.as_expandable_with_protected() {
-                        Ok(exp) => exp.expand(next, int)?,
-                        _ if next.catcode == CategoryCode::Escape => {
-                            if int.state_catcodes().escapechar != 255 {
-                                cmdname += int.state_catcodes().escapechar
-                            }
-                            cmdname += next.name()
-                        }
-                        _ => cmdname += next.char
-                    }
+                    _ if next.expand && cmd.expandable(true) =>
+                        cmd.expand(next,int)?,
                     _ if next.catcode == CategoryCode::Escape => {
                         if int.state_catcodes().escapechar != 255 {
                             cmdname += int.state_catcodes().escapechar
@@ -831,7 +824,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
         match int.state_get_command(&cmdname) {
             Some(_) => (),
             None => {
-                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(&rf.get_ref());
+                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.get_ref());
                 int.change_state(StateChange::Cs(cmdname,Some(cmd),false))
             }
         }
@@ -905,8 +898,11 @@ fn eatrelax(int : &Interpreter) {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                match int.state_get_command(&next.cmdname()).map(|x| x.get_orig()) {
-                    Some(PrimitiveTeXCommand::Primitive(r)) if *r == RELAX => (),
+                match int.state_get_command(&next.cmdname()).map(|x| x.orig) {
+                    Some(p)  => match &*p {
+                        PrimitiveTeXCommand::Primitive(r) if **r == RELAX => (),
+                        _ => int.requeue(next)
+                    }
                     _ => int.requeue(next)
                 }
             }
@@ -1144,7 +1140,7 @@ pub static FONT: FontAssValue = FontAssValue {
             _ => ff.as_ref().size
         };
         let font = Font::new(ff,at);
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(TeXCommand::Prim(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)))),global));
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(RefCell::new(font))).as_command()),global));
         Ok(())
     },
     _getvalue: |int| {
@@ -1152,13 +1148,14 @@ pub static FONT: FontAssValue = FontAssValue {
     }
 };
 
-fn read_font(int : &Interpreter) -> Result<Font,TeXError> {
-    let cmd = int.read_command_token()?;
-    match int.get_command(cmd.cmdname())?.get_orig() {
-        PrimitiveTeXCommand::AV(AssignableValue::FontRef(mut f)) =>
-            Ok(f),
+fn read_font<'a>(int : &Interpreter) -> Result<TeXCommand,TeXError> {
+    let tk = int.read_command_token()?;
+    let cmd = int.get_command(tk.cmdname())?;
+    match &*cmd.orig {
+        PrimitiveTeXCommand::AV(AssignableValue::FontRef(_)) =>
+            Ok(cmd),
         PrimitiveTeXCommand::AV((AssignableValue::Font(f))) => todo!(),
-        _ => TeXErr!((int, Some(cmd)),"Font expected!")
+        _ => TeXErr!((int, Some(tk)),"Font expected!")
     }
 }
 
@@ -1169,7 +1166,11 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
         let mut f = read_font(int)?;
         int.read_eq();
         let d = int.read_dimension()?;
-        f.set_dimen(i,d);
+        match &*f.orig {
+            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+                f.borrow_mut().set_dimen(i,d),
+            _ => unreachable!()
+        }
         Ok(())
     },
     _getvalue: |int| {
@@ -1183,12 +1184,20 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
         let mut f = read_font(int)?;
         int.read_eq();
         let d = int.read_number()?;
-        f.hyphenchar = d as u8;
+        match &*f.orig {
+            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+                f.borrow_mut().hyphenchar = d as u8,
+            _ => unreachable!()
+        }
         Ok(())
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        Ok(Numeric::Int(f.hyphenchar as i32))
+        match &*f.orig {
+            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+                Ok(Numeric::Int(f.borrow().hyphenchar as i32)),
+            _ => unreachable!()
+        }
     }
 };
 

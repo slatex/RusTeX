@@ -27,7 +27,7 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
                 match int.state_get_command(&next.cmdname()) {
                     None => {}
                     Some(p) => {
-                        match p.get_orig() {
+                        match *p.orig {
                             Primitive(x) if inifs == 0 && *x == FI => {
                                 int.popcondition();
                                 return Ok(())
@@ -73,7 +73,7 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
         match cnd.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 let cmd = int.get_command(&cnd.cmdname())?;
-                match cmd.get_orig() {
+                match *cmd.orig {
                     PrimitiveTeXCommand::Cond(c) => {
                         (c._apply)(int,int.pushcondition(),true)
                     }
@@ -131,18 +131,20 @@ pub static IFX : Conditional = Conditional {
         let istrue = match (tka.catcode,tkb.catcode) {
             //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
             (Active|Escape,Active|Escape) => {
-               match (int.state_get_command(&tka.cmdname()).map(|x| x.get_orig()),int.state_get_command(&tkb.cmdname()).map(|x| x.get_orig())) {
+                let cmd1 = int.state_get_command(&tka.cmdname());
+                let cmd2 = int.state_get_command(&tkb.cmdname());
+               match (cmd1,cmd2) {
                    (None,None) => true,
                    (None,_) => false,
                    (_,None) => false,
-                   (Some(cmd1),Some(cmd2)) => {
+                   (Some(c1),Some(c2)) => {
                        match (tka.expand,tkb.expand) {
-                           (true,true) | (false,false) => cmd1 == cmd2,
-                           (true,false) | (false,true) =>
-                               match (TeXCommand::Prim(cmd1).as_expandable_with_protected(),TeXCommand::Prim(cmd2).as_expandable_with_protected()) {
-                                   (Err(a),Err(b)) => a == b,
-                                   _ => false
-                               }
+                           (true,true) | (false,false) => c1 == c2,
+                           (true,false) | (false,true) => {
+                               if !c1.expandable(true) && !c2.expandable(true) {
+                                   c1 == c2
+                               } else {false}
+                           }
                        }
                    }
                }
@@ -198,17 +200,13 @@ fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
                     _ => unreachable!()
                 };
                 let p = int.get_command(&next.cmdname())?;
-                match p.get_orig() {
+                match *p.orig {
                     //PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk)),
                     PrimitiveTeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
                         return Ok(None)
                     }
-                    _ => match p.as_expandable_with_protected() {
-                        Ok(e) => {
-                            e.expand(next, int)?
-                        },
-                        Err(_) => return Ok(Some(next))
-                    }
+                    _ if p.expandable(true) => {p.expand(next, int)?;}
+                    _ => return Ok(Some(next))
                 }
             }
             _ => return Ok(Some(next))
@@ -294,18 +292,26 @@ pub static IFCAT : Conditional = Conditional {
         };
         let cc1 = match first.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                match int.state_get_command(&first.cmdname()).map(|x| x.get_orig()) {
-                    Some(PrimitiveTeXCommand::Char(tk)) => tk.catcode.toint(),
-                    _ => 255
+                let cmd = int.state_get_command(&first.cmdname());
+                match cmd {
+                    None => 255,
+                    Some(cmd) => match &*cmd.orig {
+                        PrimitiveTeXCommand::Char(tk) => tk.catcode.toint(),
+                        _ => 255
+                    }
                 }
             }
             o => o.toint()
         };
         let cc2 = match second.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                match int.state_get_command(&second.cmdname()).map(|x| x.get_orig()) {
-                    Some(PrimitiveTeXCommand::Char(tk)) => tk.catcode.toint(),
-                    _ => 255
+                let cmd = int.state_get_command(&first.cmdname());
+                match cmd {
+                    None => 255,
+                    Some(cmd) => match &*cmd.orig {
+                        PrimitiveTeXCommand::Char(tk) => tk.catcode.toint(),
+                        _ => 255
+                    }
                 }
             }
             o => o.toint()
@@ -338,7 +344,7 @@ pub static IFCASE : Conditional = Conditional {
                         match int.state_get_command(&next.cmdname()) {
                             None => {}
                             Some(p) => {
-                                match p.get_orig() {
+                                match *p.orig {
                                     Primitive(x) if inifs == 0 && *x == FI => {
                                         int.popcondition();
                                         return Ok(())

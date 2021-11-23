@@ -45,15 +45,15 @@ impl StackFrame {
         use crate::commands::pdftex::pdftex_commands;
         let mut cmds: HashMap<TeXStr,Option<TeXCommand>> = HashMap::new();
         for c in conditional_commands() {
-            let c = TeXCommand::Prim(c);
+            let c = c.as_command();
             cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         for c in tex_commands() {
-            let c = TeXCommand::Prim(c);
+            let c = c.as_command();
             cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         for c in pdftex_commands() {
-            let c = TeXCommand::Prim(c);
+            let c = c.as_command();
             cmds.insert(c.name().unwrap().clone(),Some(c));
         }
         let mut reg: HashMap<i16,i32> = HashMap::new();

@@ -16,16 +16,6 @@ impl Expansion {
 
 #[derive(Clone)]
 pub struct ExpansionRef(pub(crate) Token,pub(crate) Rc<TeXCommand>);
-/*
-impl Expansion {
-    pub fn dummy(tks : Vec<Token>) -> Expansion {
-        Expansion {
-            cs: Token::dummy(),
-            exp: tks
-        }
-    }
-}
- */
 
 #[derive(Clone)]
 pub struct Token {

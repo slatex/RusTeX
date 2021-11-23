@@ -1,3 +1,4 @@
+#[derive(PartialEq)]
 pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
 }
@@ -143,18 +144,15 @@ impl Interpreter<'_> {
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let mut p = self.get_command(&next.cmdname())?;
-                p = match p.as_assignment() {
-                    Ok(a) => return a.assign(next,self,false),
-                    Err(x) => x
-                };
-                p = match p.as_expandable_with_protected() {
-                    Ok(e) => return e.expand(next,self),
-                    Err(x) => x
-                };
-                match p.get_orig() {
-                    PrimitiveTeXCommand::Primitive(p) if *p == primitives::PAR && matches!(self.mode,TeXMode::Vertical) => Ok(()),
+                if p.assignable() {
+                    return p.assign(next,self,false)
+                } else if p.expandable(true) {
+                    return p.expand(next,self)
+                }
+                match &*p.orig {
+                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.mode == TeXMode::Vertical => Ok(()),
                     PrimitiveTeXCommand::Primitive(np) => {
-                        let mut exp = Expansion(next,Rc::new(p),vec!());
+                        let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
                         np.apply(&mut exp,self)?;
                         if !exp.2.is_empty() {
                             self.push_expansion(exp)

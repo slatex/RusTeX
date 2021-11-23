@@ -2,11 +2,13 @@ pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
 
+use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
+use std::ops::Deref;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::Numeric;
 use crate::utils::{TeXError, TeXString,TeXStr};
@@ -138,7 +140,7 @@ pub enum AssignableValue {
     Toks(u8),
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
-    FontRef(Font),
+    FontRef(RefCell<Font>),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -163,53 +165,20 @@ impl AssignableValue {
     }
 }
 
-pub struct HasNum(pub (in crate) TeXCommand);
-
+/*
 impl HasNum {
     pub(crate) fn get(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
-        use PrimitiveTeXCommand::*;
-        use AssignableValue::*;
-        use crate::utils::u8toi16;
-        match self.0.get_orig() {
-            AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(u8toi16(i)))),
-            AV(Register(i)) => Ok(Numeric::Int(int.state_register(u8toi16(i)))),
-            AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(u8toi16(i)))),
-            AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
-            PrimitiveTeXCommand::Int(i) => Ok((i._getvalue)(int)?),
-            AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-u8toi16(r.index)))),
-            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
-            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
-            Ext(r) => r.get_num(int),
-            Char(u) => Ok(Numeric::Int(u.char as i32)),
-            MathChar(u) => Ok(Numeric::Int(u as i32)),
-            _ => unreachable!("{}",self.0.get_orig())
-        }
     }
 }
 
-pub struct Expandable(pub (in crate) TeXCommand);
+ */
+
 
 use crate::TeXErr;
-
+/*
 impl Expandable {
     pub fn get_expansion(&self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
-        use PrimitiveTeXCommand::*;
-        log!("Expanding {}",tk);
-        match self.0.get_orig() {
-            Cond(c) => {c.expand(int)?; Ok(None)},
-            Primitive(p) => {
-                let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
-                (p._apply)(&mut exp,int)?;
-                Ok(Some(exp))
-            },
-            Ext(p) => {
-                let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
-                p.expand(&mut exp,int)?;
-                Ok(Some(exp))
-            },
-            Def(d) => Ok(Some(self.do_def(tk, int, d)?)),
-            _ => unreachable!()
-        }
+
     }
     pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
         match self.get_expansion(tk,int)? {
@@ -219,220 +188,21 @@ impl Expandable {
     }
 
     fn do_def(&self, tk:Token, int:&Interpreter, d:DefMacro) -> Result<Expansion,TeXError> {
-        log!("{}",d);
-        let mut args : Vec<Vec<Token>> = Vec::new();
-        let mut i = 0;
-        while i < d.sig.elems.len() {
-            match d.sig.elems.get(i).unwrap() {
-                ParamToken::Token(tk) => {
-                    int.assert_has_next()?;
-                    let next = int.next_token();
-                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})",tk,next,d) }
-                    i += 1;
-                }
-                ParamToken::Param(_,_) => {
-                    i +=1;
-                    match d.sig.elems.get(i) {
-                        None if d.sig.endswithbrace => {
-                            let mut retarg : Vec<Token> = vec!();
-                            loop {
-                                int.assert_has_next()?;
-                                let next = int.next_token();
-                                match next.catcode {
-                                    CategoryCode::BeginGroup => {
-                                        int.requeue(next);
-                                        break
-                                    }
-                                    _ => retarg.push(next)
-                                }
-                            }
-                            args.push(retarg)
-                        },
-                        None | Some(ParamToken::Param(_,_)) => {
-                            int.skip_ws();
-                            let next = int.read_argument()?;
-                            args.push(next);
-                        },
-                        Some(ParamToken::Token(tk)) => {
-                            let mut delim : Vec<Token> = vec!(tk.clone());
-                            i +=1;
-                            while i < d.sig.elems.len() {
-                                match d.sig.elems.get(i) {
-                                    Some(ParamToken::Token(t)) => {
-                                        delim.push(t.clone());
-                                        i += 1;
-                                    },
-                                    _ => break
-                                }
-                            }
-                            let mut retarg : Vec<Token> = vec!();
-                            let mut groups = 0;
-                            let mut totalgroups = 0;
-                            while int.has_next() {
-                                let next = int.next_token();
-                                match next.catcode {
-                                    CategoryCode::BeginGroup if groups == 0 => {
-                                        groups += 1;
-                                        totalgroups += 1;
-                                    }
-                                    CategoryCode::BeginGroup => groups += 1,
-                                    CategoryCode::EndGroup => groups -=1,
-                                    _ => ()
-                                }
-                                if groups < 0 {TeXErr!((int,Some(next)),"Missing { somewhere!")}
-                                retarg.push(next);
-                                if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
-                            }
-                            int.assert_has_next()?;
-                            for _ in 0..delim.len() { retarg.pop(); }
-                            if totalgroups == 1 &&
-                                match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
-                                match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
-                                retarg = Vec::from(retarg.get(1..retarg.len()-1).unwrap());
-                            }
-                            args.push(retarg)
-                        }
-                    }
-                }
-            }
-        }
-        if crate::LOG {
-            log!("    args:");
-            for (i, a) in args.iter().enumerate() {
-                log!("    {}:{}",i+1,TokenList(a));
-            }
-        }
-        let mut exp = Expansion(tk,Rc::new(self.0.clone()),vec!());
-        let rf = exp.get_ref();
-        let mut i = 0;
-        while i < d.ret.len() {
-            let tk = d.ret.get(i).unwrap();
-            match tk.catcode {
-                CategoryCode::Parameter => {
-                    i += 1;
-                    let next = d.ret.get(i).unwrap();
-                    match next.catcode {
-                        CategoryCode::Parameter => {
-                            i += 1;
-                            exp.2.push(tk.copied(rf.clone()))
-                        }
-                        _ => {
-                            i += 1;
-                            let arg = next.char - 49;
-                            if arg >= d.sig.arity {
-                                TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
-                            }
-                            for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
-                        }
-                    }
-                }
-                _ => {
-                    i += 1;
-                    exp.2.push(tk.copied(rf.clone()))
-                },
-            }
-        }
-        Ok(exp)
+
     }
 }
 
+ */
 
-pub struct Assignment(pub (in crate) TeXCommand);
+
 
 use crate::interpreter::state::StateChange;
-
+/*
 impl Assignment {
-    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
-        use crate::utils::u8toi16;
-        use crate::interpreter::dimensions::dimtostr;
-        use crate::commands::primitives::GLOBALDEFS;
-        use PrimitiveTeXCommand::*;
-
-        let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
-        let global = !(globals < 0) && ( globally || globals > 0 );
-        let rf = ExpansionRef(tk,Rc::new(self.0.clone()));
-
-        match self.0.get_orig() {
-            Ass(p) => (p._assign)(rf,int, global),
-            AV(av) => match av {
-                AssignableValue::Int(d) => (d._assign)(rf,int, global),
-                AssignableValue::Register(i) => {
-                    int.read_eq();
-                    let num = int.read_number()?;
-                    log!("Assign register {} to {}",i,num);
-                    int.change_state(StateChange::Register(u8toi16(i), num, global));
-                    Ok(())
-                }
-                AssignableValue::Font(f) => {
-                    (f._assign)(rf,int,global)
-                }
-                AssignableValue::FontRef(_) => todo!(),
-                AssignableValue::Dim(i) => {
-                    int.read_eq();
-                    log!("Assigning dimen {}",i);
-                    let num = int.read_dimension()?;
-                    log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.change_state(StateChange::Dimen(u8toi16(i), num, global));
-                    Ok(())
-                }
-                AssignableValue::Skip(i) => {
-                    int.read_eq();
-                    let num = int.read_skip()?;
-                    log!("Assign skip register {} to {}",i,num);
-                    int.change_state(StateChange::Skip(u8toi16(i), num, global));
-                    Ok(())
-                }
-                AssignableValue::MuSkip(i) => {
-                    int.read_eq();
-                    let num = int.read_muskip()?;
-                    log!("Assign muskip register {} to {}",i,num);
-                    int.change_state(StateChange::MuSkip(u8toi16(i), num, global));
-                    Ok(())
-                },
-                AssignableValue::PrimSkip(r) => {
-                    int.read_eq();
-                    let num = int.read_skip()?;
-                    log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Skip(-u8toi16(r.index), num, global));
-                    Ok(())
-                },
-                AssignableValue::PrimMuSkip(r) => {
-                    int.read_eq();
-                    let num = int.read_muskip()?;
-                    log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::MuSkip(-u8toi16(r.index), num, global));
-                    Ok(())
-                },
-                AssignableValue::Toks(i) => {
-                    let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(u8toi16(i), toks, global));
-                    Ok(())
-                },
-                AssignableValue::PrimToks(r) => {
-                    let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
-                    Ok(())
-                },
-                AssignableValue::PrimReg(r) => {
-                    int.read_eq();
-                    let num = int.read_number()?;
-                    log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Register(-u8toi16(r.index), num, global));
-                    Ok(())
-                },
-                AssignableValue::PrimDim(r) => {
-                    int.read_eq();
-                    let num = int.read_dimension()?;
-                    log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.change_state(StateChange::Dimen(-u8toi16(r.index), num, global));
-                    Ok(())
-                }
-            },
-            Ext(ext) => ext.assign(int, global),
-            _ => unreachable!()
-        }
-    }
+    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool)
 }
+
+ */
 
 
 pub trait ExternalCommand {
@@ -537,7 +307,6 @@ impl ProvidesWhatsit {
     }
 }
 
-#[derive(Clone)]
 pub enum PrimitiveTeXCommand {
     Primitive(&'static PrimitiveExecutable),
     AV(AssignableValue),
@@ -552,98 +321,21 @@ pub enum PrimitiveTeXCommand {
 }
 
 impl PrimitiveTeXCommand {
-    pub fn as_ref(self,rf:&ExpansionRef) -> TeXCommand {
-        if COPY_COMMANDS_FULL {
-            TeXCommand::Ref(ExpansionRef(rf.0.clone(),Rc::new(TeXCommand::Prim(self))))//(rf, Box::new(TeXCommand::Prim(self)))
-        } else {
-            TeXCommand::Prim(self)
+    pub fn as_ref(self,rf:ExpansionRef) -> TeXCommand {
+        TeXCommand {
+            orig: Rc::new(self),
+            rf:Some(rf)
         }
     }
-}
-
-#[derive(Clone)]
-pub enum TeXCommand {
-    Prim(PrimitiveTeXCommand),
-    Ref(ExpansionRef)
-}
-impl TeXCommand {
-    pub fn get_orig(&self) -> PrimitiveTeXCommand {
-        let mut curr = self;
-        loop {
-            match curr {
-                TeXCommand::Prim(p) => return p.clone(),
-                TeXCommand::Ref(c) => curr = &c.1
-            }
+    pub fn as_command(self) -> TeXCommand {
+        TeXCommand {
+            orig: Rc::new(self),
+            rf: None
         }
     }
-}
-impl PartialEq for TeXCommand {
-    fn eq(&self, other: &Self) -> bool {
-        self.get_orig() == other.get_orig()
-    }
-}
-
-impl PartialEq for PrimitiveTeXCommand {
-    fn eq(&self, other: &Self) -> bool {
-        use PrimitiveTeXCommand::*;
-        match (self,other) {
-            (Primitive(a),Primitive(b)) => a.name == b.name,
-            (AV(a),AV(b)) => a.name() == b.name(),
-            (Ext(a),Ext(b)) => a.name() == b.name(),
-            (Cond(a),Cond(b)) => a.name == b.name,
-            (Ass(a),Ass(b)) => a.name == b.name,
-            (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
-            (MathChar(a),MathChar(b)) => a==b,
-            (Def(a),Def(b)) => {
-                a.long == b.long &&
-                    a.protected == b.protected &&
-                    a.sig == b.sig &&
-                    a.ret.len() == b.ret.len() &&
-                    {
-                        for i in 0..a.ret.len() {
-                            if a.ret.get(i) != b.ret.get(i) {return false}
-                        }
-                        true
-                    }
-            }
-            _ => false
-        }
-    }
-}
-
-impl fmt::Display for PrimitiveTeXCommand {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use PrimitiveTeXCommand::*;
-        match self {
-            Primitive(p) =>
-                write!(f,"\\{}",p.name),
-            Cond(p) =>
-                write!(f,"\\{}",p.name),
-            Int(p) =>
-                write!(f,"\\{}",p.name),
-            Ext(p) =>
-                write!(f,"External \\{}",p.name()),
-            AV(av) => av.fmt(f),
-            Def(d) => std::fmt::Display::fmt(&d, f),
-            Whatsit(wi) => wi.fmt(f),
-            Ass(a) =>
-                write!(f,"\\{}",a.name),
-            Char(tk) => write!(f,"CHAR({})",tk),
-            MathChar(i) => write!(f,"MATHCHAR({})",i)
-        }
-    }
-}
-
-impl fmt::Display for TeXCommand {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f,"{}",self.get_orig())
-    }
-}
-
-impl TeXCommand {
     pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
         use PrimitiveTeXCommand::*;
-        match self.get_orig() {
+        match self {
             Char(c) => match c.catcode {
                 CategoryCode::Space => "blank space ".into(),
                 CategoryCode::Letter => {
@@ -716,7 +408,7 @@ impl TeXCommand {
     }
     pub fn name(&self) -> Option<TeXStr> {
         use PrimitiveTeXCommand::*;
-        match self.get_orig() {
+        match self {
             Char(_) => None,
             Ass(a) => Some(a.name.into()),
             Primitive(pr) => Some(pr.name.into()),
@@ -729,61 +421,393 @@ impl TeXCommand {
             MathChar(_) => None
         }
     }
-    pub fn as_expandable(self) -> Result<Expandable,TeXCommand> {
+    pub fn expandable(&self,allowprotected:bool) -> bool {
         use PrimitiveTeXCommand::*;
-        match self.get_orig() {
-            Cond(_) => Ok(Expandable(self)),
-            Ext(e) if e.expandable() => Ok(Expandable(self)),
-            Primitive(p) if p.expandable => Ok(Expandable(self)),
-            Def(d) if !d.protected => Ok(Expandable(self)),
-            _ => Err(self)
+        match self {
+            Cond(_) => true,
+            Ext(e) if e.expandable() => true,
+            Primitive(p) if p.expandable => true,
+            Def(d) if allowprotected || !d.protected => true,
+            _ => false
         }
     }
-    pub fn as_expandable_with_protected(self) -> Result<Expandable,TeXCommand> {
-        use PrimitiveTeXCommand::*;
-        match self.get_orig() {
-            Cond(_) => Ok(Expandable(self)),
-            Ext(e) if e.expandable() => Ok(Expandable(self)),
-            Primitive(p) if p.expandable => Ok(Expandable(self)),
-            Def(_) => Ok(Expandable(self)),
-            _ => Err(self)
-        }
-    }
-    pub fn as_hasnum(self) -> Result<HasNum,TeXCommand> {
-        match self.get_orig() {
+    pub fn has_num(&self) -> bool {
+        match self {
             PrimitiveTeXCommand::AV(ref av) => match av {
-                AssignableValue::Register(_) => Ok(HasNum(self)),
-                AssignableValue::Dim(_) => Ok(HasNum(self)),
-                AssignableValue::Skip(_) => Ok(HasNum(self)),
-                AssignableValue::MuSkip(_) => Ok(HasNum(self)),
-                AssignableValue::Int(_) => Ok(HasNum(self)),
-                AssignableValue::PrimDim(_) => Ok(HasNum(self)),
-                AssignableValue::PrimReg(_) => Ok(HasNum(self)),
-                AssignableValue::PrimSkip(_) => Ok(HasNum(self)),
-                AssignableValue::PrimMuSkip(_) => Ok(HasNum(self)),
-                AssignableValue::Toks(_) => Err(self),
-                AssignableValue::PrimToks(_) => Err(self),
-                AssignableValue::Font(_) => Err(self),
-                AssignableValue::FontRef(_) => Err(self)
+                AssignableValue::Register(_) => true,
+                AssignableValue::Dim(_) => true,
+                AssignableValue::Skip(_) => true,
+                AssignableValue::MuSkip(_) => true,
+                AssignableValue::Int(_) => true,
+                AssignableValue::PrimDim(_) => true,
+                AssignableValue::PrimReg(_) => true,
+                AssignableValue::PrimSkip(_) => true,
+                AssignableValue::PrimMuSkip(_) => true,
+                _ => false
             },
-            PrimitiveTeXCommand::Ext(ext) if ext.has_num() =>Ok(HasNum(self)),
-            PrimitiveTeXCommand::Int(_) => Ok(HasNum(self)),
-            PrimitiveTeXCommand::MathChar(_) => Ok(HasNum(self)),
-            PrimitiveTeXCommand::Char(_) => Ok(HasNum(self)),
-            _ => Err(self)
+            PrimitiveTeXCommand::Ext(ext) if ext.has_num() => true,
+            PrimitiveTeXCommand::Int(_) => true,
+            PrimitiveTeXCommand::MathChar(_) => true,
+            PrimitiveTeXCommand::Char(_) => true,
+            _ => false
         }
     }
-    pub fn as_assignment(self) -> Result<Assignment,TeXCommand> {
-        match self.get_orig() {
-            PrimitiveTeXCommand::Ass(_) => Ok(Assignment(self)),
-            PrimitiveTeXCommand::AV(_) => Ok(Assignment(self)),
-            PrimitiveTeXCommand::Ext(ext) if ext.assignable() => Ok(Assignment(self)),
-            _ => Err(self)
+    pub fn assignable(&self) -> bool {
+        match self {
+            PrimitiveTeXCommand::Ass(_) => true,
+            PrimitiveTeXCommand::AV(_) => true,
+            PrimitiveTeXCommand::Ext(ext) if ext.assignable() => true,
+            _ => false
         }
     }
+    pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
+        use PrimitiveTeXCommand::*;
+        use AssignableValue::*;
+        use crate::utils::u8toi16;
+        match self {
+            AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(u8toi16(*i)))),
+            AV(Register(i)) => Ok(Numeric::Int(int.state_register(u8toi16(*i)))),
+            AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(u8toi16(*i)))),
+            AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
+            PrimitiveTeXCommand::Int(i) => Ok((i._getvalue)(int)?),
+            AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-u8toi16(r.index)))),
+            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
+            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
+            Ext(r) => r.get_num(int),
+            Char(u) => Ok(Numeric::Int(u.char as i32)),
+            MathChar(u) => Ok(Numeric::Int(*u as i32)),
+            _ => unreachable!("{}",self)
+        }
+    }
+    pub fn get_expansion(&self,tk:Token,int:&Interpreter,cmd:Rc<TeXCommand>) -> Result<Option<Expansion>,TeXError> {
+        use PrimitiveTeXCommand::*;
+        log!("Expanding {}",tk);
+        match self {
+            Cond(c) => {c.expand(int)?; Ok(None)},
+            Primitive(p) => {
+                let mut exp = Expansion(tk,cmd,vec!());
+                (p._apply)(&mut exp,int)?;
+                Ok(Some(exp))
+            },
+            Ext(p) => {
+                let mut exp = Expansion(tk,cmd,vec!());
+                p.expand(&mut exp,int)?;
+                Ok(Some(exp))
+            },
+            Def(d) => Ok(Some(self.do_def(tk, int, d,cmd)?)),
+            _ => unreachable!()
+        }
+    }
+    pub fn expand(&self,tk:Token,int:&Interpreter,cmd:Rc<TeXCommand>) -> Result<(),TeXError> {
+        match self.get_expansion(tk,int,cmd)? {
+            Some(exp) => Ok(int.push_expansion(exp)),
+            None => Ok(())
+        }
+    }
+    fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
+        log!("{}",d);
+        let mut args : Vec<Vec<Token>> = Vec::new();
+        let mut i = 0;
+        while i < d.sig.elems.len() {
+            match d.sig.elems.get(i).unwrap() {
+                ParamToken::Token(tk) => {
+                    int.assert_has_next()?;
+                    let next = int.next_token();
+                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})",tk,next,d) }
+                    i += 1;
+                }
+                ParamToken::Param(_,_) => {
+                    i +=1;
+                    match d.sig.elems.get(i) {
+                        None if d.sig.endswithbrace => {
+                            let mut retarg : Vec<Token> = vec!();
+                            loop {
+                                int.assert_has_next()?;
+                                let next = int.next_token();
+                                match next.catcode {
+                                    CategoryCode::BeginGroup => {
+                                        int.requeue(next);
+                                        break
+                                    }
+                                    _ => retarg.push(next)
+                                }
+                            }
+                            args.push(retarg)
+                        },
+                        None | Some(ParamToken::Param(_,_)) => {
+                            int.skip_ws();
+                            let next = int.read_argument()?;
+                            args.push(next);
+                        },
+                        Some(ParamToken::Token(tk)) => {
+                            let mut delim : Vec<Token> = vec!(tk.clone());
+                            i +=1;
+                            while i < d.sig.elems.len() {
+                                match d.sig.elems.get(i) {
+                                    Some(ParamToken::Token(t)) => {
+                                        delim.push(t.clone());
+                                        i += 1;
+                                    },
+                                    _ => break
+                                }
+                            }
+                            let mut retarg : Vec<Token> = vec!();
+                            let mut groups = 0;
+                            let mut totalgroups = 0;
+                            while int.has_next() {
+                                let next = int.next_token();
+                                match next.catcode {
+                                    CategoryCode::BeginGroup if groups == 0 => {
+                                        groups += 1;
+                                        totalgroups += 1;
+                                    }
+                                    CategoryCode::BeginGroup => groups += 1,
+                                    CategoryCode::EndGroup => groups -=1,
+                                    _ => ()
+                                }
+                                if groups < 0 {TeXErr!((int,Some(next)),"Missing { somewhere!")}
+                                retarg.push(next);
+                                if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
+                            }
+                            int.assert_has_next()?;
+                            for _ in 0..delim.len() { retarg.pop(); }
+                            if totalgroups == 1 &&
+                                match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
+                                match retarg.last() {Some(tk) => tk.catcode == CategoryCode::EndGroup, _ => false} {
+                                retarg = Vec::from(retarg.get(1..retarg.len()-1).unwrap());
+                            }
+                            args.push(retarg)
+                        }
+                    }
+                }
+            }
+        }
+        if crate::LOG {
+            log!("    args:");
+            for (i, a) in args.iter().enumerate() {
+                log!("    {}:{}",i+1,TokenList(a));
+            }
+        }
+        let mut exp = Expansion(tk,cmd,vec!());
+        let rf = exp.get_ref();
+        let mut i = 0;
+        while i < d.ret.len() {
+            let tk = d.ret.get(i).unwrap();
+            match tk.catcode {
+                CategoryCode::Parameter => {
+                    i += 1;
+                    let next = d.ret.get(i).unwrap();
+                    match next.catcode {
+                        CategoryCode::Parameter => {
+                            i += 1;
+                            exp.2.push(tk.copied(rf.clone()))
+                        }
+                        _ => {
+                            i += 1;
+                            let arg = next.char - 49;
+                            if arg >= d.sig.arity {
+                                TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
+                            }
+                            for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
+                        }
+                    }
+                }
+                _ => {
+                    i += 1;
+                    exp.2.push(tk.copied(rf.clone()))
+                },
+            }
+        }
+        Ok(exp)
+    }
+    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Rc<TeXCommand>) -> Result<(),TeXError> {
+        use crate::utils::u8toi16;
+        use crate::interpreter::dimensions::dimtostr;
+        use crate::commands::primitives::GLOBALDEFS;
+        use PrimitiveTeXCommand::*;
+
+        let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
+        let global = !(globals < 0) && ( globally || globals > 0 );
+        let rf = ExpansionRef(tk,cmd);
+
+        match self {
+            Ass(p) => (p._assign)(rf,int, global),
+            AV(av) => match av {
+                AssignableValue::Int(d) => (d._assign)(rf,int, global),
+                AssignableValue::Register(i) => {
+                    int.read_eq();
+                    let num = int.read_number()?;
+                    log!("Assign register {} to {}",i,num);
+                    int.change_state(StateChange::Register(u8toi16(*i), num, global));
+                    Ok(())
+                }
+                AssignableValue::Font(f) => {
+                    (f._assign)(rf,int,global)
+                }
+                AssignableValue::FontRef(_) => todo!(),
+                AssignableValue::Dim(i) => {
+                    int.read_eq();
+                    log!("Assigning dimen {}",i);
+                    let num = int.read_dimension()?;
+                    log!("Assign dimen register {} to {}",i,dimtostr(num));
+                    int.change_state(StateChange::Dimen(u8toi16(*i), num, global));
+                    Ok(())
+                }
+                AssignableValue::Skip(i) => {
+                    int.read_eq();
+                    let num = int.read_skip()?;
+                    log!("Assign skip register {} to {}",i,num);
+                    int.change_state(StateChange::Skip(u8toi16(*i), num, global));
+                    Ok(())
+                }
+                AssignableValue::MuSkip(i) => {
+                    int.read_eq();
+                    let num = int.read_muskip()?;
+                    log!("Assign muskip register {} to {}",i,num);
+                    int.change_state(StateChange::MuSkip(u8toi16(*i), num, global));
+                    Ok(())
+                },
+                AssignableValue::PrimSkip(r) => {
+                    int.read_eq();
+                    let num = int.read_skip()?;
+                    log!("Assign {} to {}",r.name,num);
+                    int.change_state(StateChange::Skip(-u8toi16(r.index), num, global));
+                    Ok(())
+                },
+                AssignableValue::PrimMuSkip(r) => {
+                    int.read_eq();
+                    let num = int.read_muskip()?;
+                    log!("Assign {} to {}",r.name,num);
+                    int.change_state(StateChange::MuSkip(-u8toi16(r.index), num, global));
+                    Ok(())
+                },
+                AssignableValue::Toks(i) => {
+                    let toks = int.read_balanced_argument(false,false,false,true)?;
+                    int.change_state(StateChange::Tokens(u8toi16(*i), toks, global));
+                    Ok(())
+                },
+                AssignableValue::PrimToks(r) => {
+                    let toks = int.read_balanced_argument(false,false,false,true)?;
+                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
+                    Ok(())
+                },
+                AssignableValue::PrimReg(r) => {
+                    int.read_eq();
+                    let num = int.read_number()?;
+                    log!("Assign {} to {}",r.name,num);
+                    int.change_state(StateChange::Register(-u8toi16(r.index), num, global));
+                    Ok(())
+                },
+                AssignableValue::PrimDim(r) => {
+                    int.read_eq();
+                    let num = int.read_dimension()?;
+                    log!("Assign {} to {}",r.name,dimtostr(num));
+                    int.change_state(StateChange::Dimen(-u8toi16(r.index), num, global));
+                    Ok(())
+                }
+            },
+            Ext(ext) => ext.assign(int, global),
+            _ => unreachable!()
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct TeXCommand {
+    pub orig:Rc<PrimitiveTeXCommand>,
+    pub rf:Option<ExpansionRef>
+}
+
+impl PartialEq for TeXCommand {
+    fn eq(&self, other: &Self) -> bool {
+        *self.orig == *other.orig
+    }
+}
+
+impl PartialEq for PrimitiveTeXCommand {
+    fn eq(&self, other: &Self) -> bool {
+        use PrimitiveTeXCommand::*;
+        match (self,other) {
+            (Primitive(a),Primitive(b)) => a.name == b.name,
+            (AV(a),AV(b)) => a.name() == b.name(),
+            (Ext(a),Ext(b)) => a.name() == b.name(),
+            (Cond(a),Cond(b)) => a.name == b.name,
+            (Ass(a),Ass(b)) => a.name == b.name,
+            (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
+            (MathChar(a),MathChar(b)) => a==b,
+            (Def(a),Def(b)) => {
+                a.long == b.long &&
+                    a.protected == b.protected &&
+                    a.sig == b.sig &&
+                    a.ret.len() == b.ret.len() &&
+                    {
+                        for i in 0..a.ret.len() {
+                            if a.ret.get(i) != b.ret.get(i) {return false}
+                        }
+                        true
+                    }
+            }
+            _ => false
+        }
+    }
+}
+
+impl fmt::Display for PrimitiveTeXCommand {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use PrimitiveTeXCommand::*;
+        match self {
+            Primitive(p) =>
+                write!(f,"\\{}",p.name),
+            Cond(p) =>
+                write!(f,"\\{}",p.name),
+            Int(p) =>
+                write!(f,"\\{}",p.name),
+            Ext(p) =>
+                write!(f,"External \\{}",p.name()),
+            AV(av) => av.fmt(f),
+            Def(d) => std::fmt::Display::fmt(&d, f),
+            Whatsit(wi) => wi.fmt(f),
+            Ass(a) =>
+                write!(f,"\\{}",a.name),
+            Char(tk) => write!(f,"CHAR({})",tk),
+            MathChar(i) => write!(f,"MATHCHAR({})",i)
+        }
+    }
+}
+
+impl fmt::Display for TeXCommand {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f,"{}",*self.orig)
+    }
+}
+
+impl TeXCommand {
     pub fn as_ref(self,tk:Token) -> TeXCommand {
         if COPY_COMMANDS_FULL {
-            TeXCommand::Ref(ExpansionRef(tk,Rc::new(self)))
+            TeXCommand {
+                orig:Rc::clone(&self.orig),
+                rf:Some(ExpansionRef(tk,Rc::new(self)))
+            }
         } else { self }
+    }
+    pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
+        self.orig.meaning(catcodes)
+    }
+    pub fn name(&self) -> Option<TeXStr> {
+        self.orig.name()
+    }
+    pub fn expandable(&self,allowprotected:bool) -> bool {self.orig.expandable(allowprotected)}
+    pub fn has_num(&self) -> bool {self.orig.has_num()}
+    pub fn assignable(&self) -> bool {self.orig.assignable()}
+    pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> { self.orig.get_num(int) }
+    pub fn get_expansion(self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
+        let o = self.orig.clone();
+        o.get_expansion(tk,int,Rc::new(self))
+    }
+    pub fn expand(self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+        self.orig.clone().expand(tk,int,Rc::new(self))
+    }
+    pub fn assign(self,tk:Token,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
+        self.orig.clone().assign(tk,int,globally,Rc::new(self))
     }
 }

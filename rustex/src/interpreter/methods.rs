@@ -3,7 +3,7 @@ use crate::interpreter::Interpreter;
 use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{Expandable, TokReference,PrimitiveTeXCommand};
+use crate::commands::{TokReference,PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
 use crate::utils::u8toi16;
@@ -55,12 +55,12 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => break,
                 CategoryCode::Active | CategoryCode::Escape => {
-                     match self.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(e) => {e.expand(next,self)?;}
-                        Err(_) => {
-                            tokens.push(next);
-                            break;
-                        }
+                    let cmd = self.get_command(&next.cmdname())?;
+                    if (cmd.expandable(true)) {
+                        cmd.expand(next,self)?;
+                    } else {
+                        tokens.push(next);
+                        break
                     }
                 },
                 _ => {
@@ -122,9 +122,9 @@ impl Interpreter<'_> {
                     let p = self.state_get_command(&next.cmdname());
                     match p {
                         None =>{ cmd = Some(next); break }
-                        Some(p) => match p.get_orig() {
+                        Some(p) => match *p.orig {
                             PrimitiveTeXCommand::Cond(c) => { c.expand(self)?; },
-                            PrimitiveTeXCommand::Primitive(pr) if pr.expandable => Expandable(p).expand(next, self)?,
+                            PrimitiveTeXCommand::Primitive(pr) if pr.expandable => p.expand(next, self)?,
                             _ => { cmd = Some(next); break }
                         }
                     }
@@ -160,9 +160,9 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
                     match self.state_get_command(&next.cmdname()) {
-                        Some(cmd) => match cmd.get_orig() {
+                        Some(cmd) => match *cmd.orig {
                             PrimitiveTeXCommand::Primitive(x) if (the && *x == THE) || *x == UNEXPANDED => {
-                                match cmd.as_expandable().ok().unwrap().get_expansion(next,self)? {
+                                match cmd.get_expansion(next,self)? {
                                     Some(exp) => {
                                         //let rf = exp.get_ref();
                                         for tk in exp.2 {
@@ -179,10 +179,10 @@ impl Interpreter<'_> {
                                 }
                             }
                             _ => {
-                                let exp = if protect {cmd.as_expandable()} else {cmd.as_expandable_with_protected()};
-                                match exp {
-                                    Ok(e) => e.expand(next, self)?,
-                                    Err(_) => ret.push(next)
+                                if cmd.expandable(!protect) {
+                                    cmd.expand(next, self)?;
+                                } else {
+                                    ret.push(next);
                                 }
                             }
                         }
@@ -210,9 +210,11 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape => {
-                    match self.get_command(&next.cmdname())?.as_expandable_with_protected() {
-                        Ok(p) => p.expand(next,self)?,
-                        Err(p) => match p.get_orig() {
+                    let cmd = self.get_command(&next.cmdname())?;
+                    if cmd.expandable(true) {
+                        cmd.expand(next,self)?;
+                    } else {
+                        match &*cmd.orig {
                             PrimitiveTeXCommand::Char(tk) if eat_space && (tk.catcode == CategoryCode::Space || tk.catcode == CategoryCode::EOL) => return Ok(()),
                             _ => {
                                 log!("expand_until ended by {}",next);
@@ -271,27 +273,28 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex && !isoct => {
                     let p = self.get_command(&next.cmdname())?;
-                    match p.as_hasnum() {
-                        Ok(hn) => return Ok(if isnegative { hn.get(self)?.negate() } else { hn.get(self)? }),
-                        Err(p) => match p.as_expandable_with_protected() {
-                            Ok(e) => e.expand(next,self)?,
-                            Err(e) => match e.get_orig() {
-                                PrimitiveTeXCommand::Char(tk) => return Ok(Numeric::Int(if isnegative {-(tk.char as i32)} else {tk.char as i32})),
-                                _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
-                            }
+                    if p.has_num() {
+                        return Ok(if isnegative { p.get_num(self)?.negate() } else { p.get_num(self)? })
+                    } else if p.expandable(true) {
+                        p.expand(next,self)?;
+                    } else {
+                        match &*p.orig {
+                            PrimitiveTeXCommand::Char(tk) => return Ok(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 })),
+                            _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                         }
-                    };
+                    }
                 }
                 CategoryCode::Escape | CategoryCode::Active => {
                     let p = self.get_command(&next.cmdname())?;
-                    match p.as_expandable_with_protected() {
-                        Ok(e) => e.expand(next,self)?,
-                        Err(e) => match e.get_orig() {
+                    if p.expandable(true) {
+                        p.expand(next,self)?
+                    } else {
+                        match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space || tk.catcode == CategoryCode::EOL =>
-                                return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret),
+                                return self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret),
                             _ => {
                                 self.requeue(next);
-                                return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
+                                return self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret)
                             }
                         }
                     }
@@ -312,9 +315,11 @@ impl Interpreter<'_> {
                             return Ok(Numeric::Int(if isnegative { -num } else { num }))
                         }
                         CategoryCode::Escape => {
-                            match self.get_command(&next.cmdname())?.as_expandable() {
-                                Ok(e) => e.expand(next,self)?,
-                                Err(p) => match p.get_orig() {
+                            let cmd = self.get_command(&next.cmdname())?;
+                            if cmd.expandable(true) {
+                                cmd.expand(next,self)?;
+                            } else {
+                                match &*cmd.orig {
                                     PrimitiveTeXCommand::Char(c) => {
                                         self.expand_until(true)?;
                                         return Ok(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32}))
