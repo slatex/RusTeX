@@ -220,7 +220,7 @@ pub static IF : Conditional = Conditional {
     _apply: |int,cond,unless| {
         let first = get_if_token(cond,int)?;
         let second = get_if_token(cond,int)?;
-        if crate::LOG {
+        if unsafe{crate::LOG} {
             match (&first,&second) {
                 (Some(ref a),Some(ref b)) => log!("   {}=={}",a,b),
                 (None,Some(ref b)) => log!("   NONE=={}",b),

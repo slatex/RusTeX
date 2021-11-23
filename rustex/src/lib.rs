@@ -7,7 +7,7 @@ pub mod catcodes;
 pub mod stomach;
 mod fonts;
 
-static LOG : bool = false;
+static mut LOG : bool = false;
 static STORE_IN_FILE : bool = true;
 static COPY_TOKENS_FULL : bool = true;
 static COPY_COMMANDS_FULL : bool = true;
@@ -15,13 +15,13 @@ static COPY_COMMANDS_FULL : bool = true;
 #[macro_export]
 macro_rules! log {
     () => ();
-    ($arg:tt) => (if crate::LOG {println!($arg)});
-    ($head:tt,$($tl:expr),*) => (if crate::LOG {
+    ($arg:tt) => (unsafe{ if crate::LOG {println!($arg)} });
+    ($head:tt,$($tl:expr),*) => (unsafe { if crate::LOG {
         //println!($head,$($tl),*);
         let retstr = std::format!("{}",std::format_args!($head,$($tl),*));
         println!("{} {}",ansi_term::Colour::Red.bold().paint("Log:"),retstr);
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
-    })
+    }})
 }
 
 fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {

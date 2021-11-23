@@ -175,6 +175,9 @@ impl Interpreter<'_> {
     pub fn current_line(&self) -> String {
         self.mouths.borrow().current_line()
     }
+    pub fn line_no(&self) -> usize {
+        self.mouths.borrow().line_no()
+    }
 
     pub fn assert_has_next(&self) -> Result<(),TeXError> {
         if self.has_next() {Ok(())} else  {

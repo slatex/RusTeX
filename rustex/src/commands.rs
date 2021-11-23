@@ -2,6 +2,7 @@ pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
 
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::Interpreter;
@@ -10,7 +11,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
 use std::ops::Deref;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::interpreter::dimensions::Numeric;
+use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
 use crate::{COPY_COMMANDS_FULL, log};
 
@@ -165,45 +166,9 @@ impl AssignableValue {
     }
 }
 
-/*
-impl HasNum {
-    pub(crate) fn get(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
-    }
-}
-
- */
-
-
 use crate::TeXErr;
-/*
-impl Expandable {
-    pub fn get_expansion(&self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
-
-    }
-    pub fn expand(&self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
-        match self.get_expansion(tk,int)? {
-            Some(exp) => Ok(int.push_expansion(exp)),
-            None => Ok(())
-        }
-    }
-
-    fn do_def(&self, tk:Token, int:&Interpreter, d:DefMacro) -> Result<Expansion,TeXError> {
-
-    }
-}
-
- */
-
-
 
 use crate::interpreter::state::StateChange;
-/*
-impl Assignment {
-    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool)
-}
-
- */
-
 
 pub trait ExternalCommand {
     fn expandable(&self) -> bool;
@@ -403,6 +368,10 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             }
+            AV(AssignableValue::FontRef(f)) => TeXString::from("select font") + TeXString::from(f.borrow().file.name.clone()) + TeXString::from(match f.borrow().at {
+                Some(vl) => " at ".to_string() + &dimtostr(vl),
+                None => "".to_string()
+            }),
             _ => todo!("{}",self)
         }
     }
@@ -505,6 +474,13 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
+        /*if tk.name().to_string() == "cctab_new:N" {
+            unsafe {crate::LOG = true }
+        }
+        if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
+            println!("Here! {}",int.preview());
+            print!("")
+        }*/
         log!("{}",d);
         let mut args : Vec<Vec<Token>> = Vec::new();
         let mut i = 0;
@@ -582,7 +558,7 @@ impl PrimitiveTeXCommand {
                 }
             }
         }
-        if crate::LOG {
+        if unsafe{crate::LOG} {
             log!("    args:");
             for (i, a) in args.iter().enumerate() {
                 log!("    {}:{}",i+1,TokenList(a));

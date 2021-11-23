@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 use crate::references::SourceReference;
 use std::rc::Rc;
 use ansi_term::ANSIGenericString;
@@ -88,7 +89,7 @@ impl Token {
     pub fn copied(&self,er:ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
             Token::new(self.char,self.catcode,Some(self.name_opt.clone()),SourceReference::Exp(er),true)
-        } else { self.clone() }
+        } else { Token::new(self.char,self.catcode,Some(self.name_opt.clone()),self.reference.deref().clone(),true) }
     }
 }
 

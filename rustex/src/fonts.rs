@@ -1,6 +1,6 @@
 
 struct FInfoEntry {
-    char: u8,
+    char: u16,
     width_index: u8,
     height_index: u8,
     depth_index: u8,
@@ -30,18 +30,19 @@ impl FInfoEntry {
 }
 
 pub struct FontFile {
-    pub hyphenchar:u8,
-    pub skewchar:u8,
-    pub dimen:HashMap<u8,f32>,
+    pub hyphenchar:u16,
+    pub skewchar:u16,
+    pub dimen:HashMap<u16,f32>,
     pub size : i32,
     pub typestr : TeXStr,
-    pub widths:HashMap<u8,f32>,
-    pub heights: HashMap<u8,f32>,
-    pub depths: HashMap<u8,f32>,
-    pub ics:HashMap<u8,f32>,
-    pub lps:HashMap<u8,u8>,
-    pub rps: HashMap<u8,u8>,
-    pub ligs:HashMap<(u8,u8),u8>
+    pub widths:HashMap<u16,f32>,
+    pub heights: HashMap<u16,f32>,
+    pub depths: HashMap<u16,f32>,
+    pub ics:HashMap<u16,f32>,
+    pub lps:HashMap<u16,u8>,
+    pub rps: HashMap<u16,u8>,
+    pub ligs:HashMap<(u16,u16),u16>,
+    pub name:TeXStr
 }
 struct FontState {
     pub ret : Vec<u8>,
@@ -58,24 +59,25 @@ use std::borrow::BorrowMut;
 impl FontFile {
     pub fn new(pb : PathBuf) -> FontFile {
         use crate::interpreter::dimensions::pt;
+        let name : TeXStr = pb.file_stem().unwrap().to_str().unwrap().into();
         let mut state = FontState {
             ret:fs::read(pb).unwrap(),
             i:0
         };
         state.ret.reverse();
 
-        let mut hyphenchar : u8 = 45;
-        let mut skewchar : u8 = 255;
-        let mut dimen: HashMap<u8,f32> = HashMap::new();
+        let mut hyphenchar : u16 = 45;
+        let mut skewchar : u16 = 255;
+        let mut dimen: HashMap<u16,f32> = HashMap::new();
         let mut size: i32 = 65536;
         let mut typestr: TeXStr = TeXStr::new(&[]);
-        let mut widths:HashMap<u8,f32> = HashMap::new();
-        let mut heights: HashMap<u8,f32> = HashMap::new();
-        let mut depths: HashMap<u8,f32> = HashMap::new();
-        let mut ics:HashMap<u8,f32> = HashMap::new();
-        let mut lps:HashMap<u8,u8> = HashMap::new();
-        let mut rps: HashMap<u8,u8> = HashMap::new();
-        let mut ligs:HashMap<(u8,u8),u8> = HashMap::new();
+        let mut widths:HashMap<u16,f32> = HashMap::new();
+        let mut heights: HashMap<u16,f32> = HashMap::new();
+        let mut depths: HashMap<u16,f32> = HashMap::new();
+        let mut ics:HashMap<u16,f32> = HashMap::new();
+        let mut lps:HashMap<u16,u8> = HashMap::new();
+        let mut rps: HashMap<u16,u8> = HashMap::new();
+        let mut ligs:HashMap<(u16,u16),u16> = HashMap::new();
 
         fn read_int(s : &mut FontState) -> (u16,u16) {
             let (a,b,c,d) = s.pop();
@@ -95,7 +97,7 @@ impl FontFile {
                 s.pop();
             }
         };
-        fn read_fifo(s : &mut FontState,char:u8) -> FInfoEntry {
+        fn read_fifo(s : &mut FontState,char:u16) -> FInfoEntry {
             let (a,b,c,d) = s.pop();
             let width_index = 0x000000FF & a;
             let (height_index,depth_index) = {
@@ -149,7 +151,7 @@ impl FontFile {
             skip(state.borrow_mut(), ((lh as u8) + 6) - (i as u8));
         }
 
-        let finfo_table : Vec<FInfoEntry> = (bc..(ec+1)).map(|i| read_fifo(state.borrow_mut(),i as u8)).collect();
+        let finfo_table : Vec<FInfoEntry> = (bc..(ec+1)).map(|i| read_fifo(state.borrow_mut(),i)).collect();
         assert_eq!(state.i as u16,lh + 6 + (ec-bc+1));
 
         let widthls : Vec<f32> = (0..nw).map(|_| read_float(state.borrow_mut())).collect();
@@ -157,12 +159,12 @@ impl FontFile {
         let depthls: Vec<f32> = (0..nd).map(|_| read_float(state.borrow_mut())).collect();
         let italicls: Vec<f32> = (0..ni).map(|_| read_float(state.borrow_mut())).collect();
 
-        let mut ligatures : Vec<(bool,u8,bool,u8)> = vec!();
+        let mut ligatures : Vec<(bool,u16,bool,u16)> = vec!();
         for _ in (0..nl) {
             let (a,b,c,d) = state.pop();
             let stop = a >= 128;
             let tag = c >= 128;
-            ligatures.push((stop,b,tag,d))
+            ligatures.push((stop,b as u16,tag,d as u16))
         }
         skip(state.borrow_mut(),(nk + ne) as u8);
         {
@@ -211,7 +213,7 @@ impl FontFile {
         assert_eq!(state.i as u16,lf);
 
         FontFile {
-            hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs
+            hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name
         }
     }
 }
@@ -226,12 +228,12 @@ use crate::utils::TeXStr;
 #[derive(Clone)]
 pub struct Font {
     pub file:Rc<FontFile>,
-    pub at:i32,
-    pub dimen:HashMap<u8,i32>,
-    pub hyphenchar:u8
+    pub at:Option<i32>,
+    pub dimen:HashMap<u16,i32>,
+    pub hyphenchar:u16
 }
 impl Font {
-    pub fn new(file:Rc<FontFile>,at:i32) -> Font {
+    pub fn new(file:Rc<FontFile>,at:Option<i32>) -> Font {
         let hc = file.hyphenchar;
         Font {
             file,at,
@@ -239,14 +241,17 @@ impl Font {
             hyphenchar:hc
         }
     }
-    pub fn set_dimen(&mut self,i : u8,vl : i32) {
+    pub fn set_dimen(&mut self,i : u16,vl : i32) {
         self.dimen.insert(i,vl);
     }
-    pub fn get_dimen(&self,i:u8) -> i32 {
+    pub fn get_dimen(&self,i:u16) -> i32 {
         match self.dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
-                Some(f) => (f * (self.at as f32)).round() as i32,
+                Some(f) => (f * (match self.at {
+                    Some(a) => a as f32,
+                    None => self.file.size as f32
+                })).round() as i32,
                 None => 0
             }
         }

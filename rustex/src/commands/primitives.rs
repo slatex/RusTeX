@@ -1131,13 +1131,13 @@ pub static FONT: FontAssValue = FontAssValue {
         if !name.ends_with(".tfm") {name += ".tfm"}
         let ff = int.state_get_font(&name)?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
-            Some(s) if s == "at" => int.read_dimension()?,
-            Some(s) if s == "scaled" => ((ff.as_ref().size as f32) * match int.read_number_i(true)? {
+            Some(s) if s == "at" => Some(int.read_dimension()?),
+            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f32) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
                 Numeric::Dim(i) => (i as f32) / 65536.0,
                 _ => todo!()
-            }).round() as i32,
-            _ => ff.as_ref().size
+            }).round() as i32),
+            _ => None
         };
         let font = Font::new(ff,at);
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(RefCell::new(font))).as_command()),global));
@@ -1162,7 +1162,7 @@ fn read_font<'a>(int : &Interpreter) -> Result<TeXCommand,TeXError> {
 pub static FONTDIMEN: IntAssValue = IntAssValue {
     name:"fontdimen",
     _assign: |rf,int,_global| {
-        let i = int.read_number()? as u8;
+        let i = int.read_number()? as u16;
         let mut f = read_font(int)?;
         int.read_eq();
         let d = int.read_dimension()?;
@@ -1186,7 +1186,7 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
         let d = int.read_number()?;
         match &*f.orig {
             PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
-                f.borrow_mut().hyphenchar = d as u8,
+                f.borrow_mut().hyphenchar = d as u16,
             _ => unreachable!()
         }
         Ok(())
@@ -1199,6 +1199,22 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
             _ => unreachable!()
         }
     }
+};
+
+pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
+    name:"expanded",
+    expandable:true,
+    _apply:|rf,int| {
+        rf.2 = int.read_balanced_argument(true,true,false,true)?;
+        Ok(())
+    }
+};
+
+pub static INPUTLINENO: IntCommand = IntCommand {
+    _getvalue: |int| {
+        Ok(Numeric::Int(int.line_no() as i32))
+    },
+    name:"inputlineno",
 };
 
 // REGISTERS ---------------------------------------------------------------------------------------
@@ -1835,15 +1851,6 @@ pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
-    name:"expanded",
-    expandable:true,
-    _apply:|rf,int| {
-        rf.2 = int.read_balanced_argument(true,true,false,true)?;
-        Ok(())
-    }
-};
-
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontname",
     expandable:true,
@@ -1876,12 +1883,6 @@ pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static INPUTLINENO: PrimitiveExecutable = PrimitiveExecutable {
-    name:"inputlineno",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2507,6 +2508,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&DIMEXPR),
     PrimitiveTeXCommand::Int(&GLUEEXPR),
     PrimitiveTeXCommand::Int(&MUEXPR),
+    PrimitiveTeXCommand::Int(&INPUTLINENO),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
     PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
@@ -2653,7 +2655,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&FONTCHARDP),
     PrimitiveTeXCommand::Primitive(&FONTCHARIC),
     PrimitiveTeXCommand::Primitive(&IGNORESPACES),
-    PrimitiveTeXCommand::Primitive(&INPUTLINENO),
     PrimitiveTeXCommand::Primitive(&JOBNAME),
     PrimitiveTeXCommand::Primitive(&LOWERCASE),
     PrimitiveTeXCommand::Primitive(&MESSAGE),

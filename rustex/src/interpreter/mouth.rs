@@ -548,6 +548,23 @@ impl Mouths {
         self.buffer = Some(tk)
     }
 
+    pub fn line_no(&self) -> usize {
+        match self.mouths.iter().rev().find(|m| match m {
+            Mouth::File(_sm) => true,
+            _ => false
+        }) {
+            Some(Mouth::File(m)) => {
+                match &m.source {
+                    StringMouthSource::File(lf) => {
+                        m.line
+                    }
+                    _ => 0
+                }
+            }
+            _ => 0
+        }
+    }
+
     pub fn current_line(&self) -> String {
         match self.mouths.iter().rev().find(|m| match m {
             Mouth::File(_sm) => true,
