@@ -27,9 +27,9 @@ impl Mouth {
     pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment : bool) -> bool {
         match self {
             Mouth::Token(tm) => tm.has_next(nocomment),
-            Mouth::Str(sm) => sm.has_next(catcodes,nocomment),
-            Mouth::File(sm) => sm.has_next(catcodes,nocomment),
-            Mouth::FileLike(sm) => sm.has_next(catcodes,nocomment)
+            Mouth::Str(sm) => sm.has_next(catcodes,nocomment,false),
+            Mouth::File(sm) => sm.has_next(catcodes,nocomment,false),
+            Mouth::FileLike(sm) => sm.has_next(catcodes,nocomment,false)
         }
     }
     pub(crate) fn get_next(&mut self,catcodes:&CategoryCodeScheme) -> Token {
@@ -114,7 +114,7 @@ impl StringMouth {
         let currentline = self.line;
         let mut ret:Vec<Token> = vec!();
         let mut braces = 0;
-        while self.has_next(catcodes,nocomment) && (self.line == currentline || braces > 0) {
+        while self.has_next(catcodes,nocomment,false) && (self.line == currentline || braces > 0) {
             match self.pop_next(catcodes,nocomment) {
                 tk if tk.catcode == CategoryCode::BeginGroup => {
                     ret.push(tk);
@@ -217,7 +217,7 @@ impl StringMouth {
     }
 
     fn do_s(&mut self,catcodes:&CategoryCodeScheme) {
-        while self.has_next(catcodes,true) {
+        while self.has_next(catcodes,true,false) {
             let next = self.next_char(catcodes.endlinechar).unwrap();
             match catcodes.get_code(next.0) {
                 CategoryCode::Space | CategoryCode::EOL => {}
@@ -238,7 +238,7 @@ impl StringMouth {
         SourceReference::File(f.path.clone(),(line,pos),(self.line,self.pos))
     }
 
-    pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> bool {
+    pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
         match self.peekbuffer {
             Some(_) => true,
             None => {
@@ -252,7 +252,7 @@ impl StringMouth {
                                 self.do_s(catcodes);
                             }
                             _ => match catcodes.get_code(next.0) {
-                                CategoryCode::Ignored if STORE_IN_FILE => {
+                                CategoryCode::Ignored if !allowignore && STORE_IN_FILE => {
                                     let file = self.source.get_file();
                                     match file {
                                         Some(ltxf) => {
@@ -268,8 +268,8 @@ impl StringMouth {
                                         _ => {}
                                     }
                                 }
-                                CategoryCode::Ignored => {}
-                                CategoryCode::Comment => if nocomment {
+                                CategoryCode::Ignored if !allowignore => {}
+                                CategoryCode::Comment if !allowignore => if nocomment {
                                     let mut rest : Vec<u8> = (*self.string.as_ref().unwrap()).0[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
                                     rest.insert(0,next.0);
                                     match (STORE_IN_FILE, self.source.get_file()) {
@@ -315,7 +315,7 @@ impl StringMouth {
                                         self.pos += 1;
                                         let next = *string.0.get(self.pos).unwrap();
                                         self.pos += 1;
-                                        let maybenext = string.0.get(self.pos as usize);
+                                        let maybenext = string.0.get(self.pos);
                                         fn cond(i:u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
                                         if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
                                             self.pos += 1;
@@ -339,7 +339,7 @@ impl StringMouth {
         }
     }
     pub fn pop_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> Token {
-        if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
+        if !self.has_next(catcodes,true,false) {panic!("Mouth is empty")}
         if let Some(tk) = self.peekbuffer.take() { tk } else {
             let (char,l,p) = self.next_char(catcodes.endlinechar).unwrap();
             let ret = match catcodes.get_code(char) {
@@ -365,7 +365,7 @@ impl StringMouth {
                         }
                         _ => {
                             self.charbuffer = maybecomment;
-                            if !self.has_next(catcodes,true) {panic!("Mouth is empty")}
+                            if !self.has_next(catcodes,true,true) {panic!("Mouth is empty")}
                             let mut nc = self.next_char(catcodes.endlinechar).unwrap();
                             match catcodes.get_code(nc.0) {
                                 CategoryCode::Letter => {
@@ -400,7 +400,7 @@ impl StringMouth {
                     Token::new(32,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
-                    while self.has_next(catcodes,nocomment) {
+                    while self.has_next(catcodes,nocomment,false) {
                         let (n,l2,p2) = self.next_char(catcodes.endlinechar).unwrap();
                         if !matches!(catcodes.get_code(n),CategoryCode::EOL) {
                             self.charbuffer = Some((n,l2,p2));

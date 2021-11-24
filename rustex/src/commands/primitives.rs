@@ -276,6 +276,9 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
 
 fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
+    if command.name().to_string() == "__regex_prop_h:" {
+        println!("Here!")
+    }
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)

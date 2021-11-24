@@ -502,7 +502,7 @@ impl Interpreter<'_> {
         match self.state.borrow_mut().infiles.get_mut(&index) {
             None => TeXErr!((self,None),"No file open at index {}",index),
             Some(fm) => {
-                let ret = fm.has_next(&self.catcodes.borrow(),false);
+                let ret = fm.has_next(&self.catcodes.borrow(),false,false);
                 Ok(!ret)
             }
         }
