@@ -138,6 +138,7 @@ pub static IFX : Conditional = Conditional {
                    (None,_) => false,
                    (_,None) => false,
                    (Some(c1),Some(c2)) => {
+                       log!("     Compare:\n    {}\n    {}",c1.meaning(&int.state_catcodes()),c2.meaning(&int.state_catcodes()));
                        match (tka.expand,tkb.expand) {
                            (true,true) | (false,false) => c1 == c2,
                            (true,false) | (false,true) => {

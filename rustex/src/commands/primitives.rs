@@ -1174,7 +1174,14 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        todo!()
+        let i = int.read_number()? as u16;
+        let f = read_font(int)?;
+        match &*f.orig {
+            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+                Ok(Numeric::Dim(f.borrow().get_dimen(i))),
+            _ => unreachable!()
+        }
+
     }
 };
 

@@ -160,8 +160,8 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
                     match self.state_get_command(&next.cmdname()) {
-                        Some(cmd) => match *cmd.orig {
-                            PrimitiveTeXCommand::Primitive(x) if (the && *x == THE) || *x == UNEXPANDED => {
+                        Some(cmd) => match &*cmd.orig {
+                            PrimitiveTeXCommand::Primitive(x) if (the && **x == THE) || **x == UNEXPANDED => {
                                 match cmd.get_expansion(next,self)? {
                                     Some(exp) => {
                                         //let rf = exp.get_ref();
@@ -178,6 +178,7 @@ impl Interpreter<'_> {
                                     None => {}
                                 }
                             }
+                            PrimitiveTeXCommand::Char(tk) => ret.push(tk.clone()),
                             _ => {
                                 if cmd.expandable(!protect) {
                                     cmd.expand(next, self)?;

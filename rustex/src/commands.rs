@@ -300,7 +300,7 @@ impl PrimitiveTeXCommand {
     }
     pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
         use PrimitiveTeXCommand::*;
-        match self {
+        let ret = match self {
             Char(c) => match c.catcode {
                 CategoryCode::Space => "blank space ".into(),
                 CategoryCode::Letter => {
@@ -368,12 +368,16 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             }
-            AV(AssignableValue::FontRef(f)) => TeXString::from("select font") + TeXString::from(f.borrow().file.name.clone()) + TeXString::from(match f.borrow().at {
+            AV(AssignableValue::FontRef(f)) => TeXString::from("select font ") + TeXString::from(f.borrow().file.name.clone()) + TeXString::from(match f.borrow().at {
                 Some(vl) => " at ".to_string() + &dimtostr(vl),
                 None => "".to_string()
             }),
             _ => todo!("{}",self)
+        };
+        if unsafe{crate::LOG} {
+            print!("{}",ret)
         }
+        ret
     }
     pub fn name(&self) -> Option<TeXStr> {
         use PrimitiveTeXCommand::*;
@@ -474,10 +478,11 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "cctab_new:N" {
+        /* if tk.name().to_string() == "cctab_const:Nn" {
+            print!("");
             unsafe {crate::LOG = true }
-        }
-        if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
+        } */
+        /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")
         }*/
