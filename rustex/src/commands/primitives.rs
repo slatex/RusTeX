@@ -276,9 +276,6 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
 
 fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
-    if command.name().to_string() == "__regex_prop_h:" {
-        println!("Here!")
-    }
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
@@ -695,7 +692,7 @@ pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_cs,int| {
         int.assert_has_next()?;
         let next = int.next_token();
-        int.requeue(Token::new(next.char,next.catcode,Some(next.name().clone()),*next.reference,false));
+        int.requeue(next.deexpand());
         Ok(())
     }
 };

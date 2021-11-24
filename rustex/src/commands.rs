@@ -374,9 +374,6 @@ impl PrimitiveTeXCommand {
             }),
             _ => todo!("{}",self)
         };
-        if unsafe{crate::LOG} {
-            print!("{}",ret)
-        }
         ret
     }
     pub fn name(&self) -> Option<TeXStr> {

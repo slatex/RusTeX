@@ -329,10 +329,10 @@ use crate::interpreter::Interpreter;
 fn get_top(tk : Token) -> Token {
     let mut t = tk;
     loop {
-        match *t.reference {
+        match &*t.reference {
             SourceReference::File(_,_,_) => return t,
             SourceReference::None => return t,
-            SourceReference::Exp(ExpansionRef(nt,_)) => t = nt
+            SourceReference::Exp(ExpansionRef(nt,_)) => t = nt.clone()
         }
     }
 }
@@ -342,9 +342,9 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
         CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
         _ => TeXString(vec!(tk.char)).to_string()
     }) + " - " +
-    &match *tk.reference {
+    &match &*tk.reference {
         SourceReference::File(str,(sl,sp),(el,ep)) =>
-            str + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
+            str.to_owned() + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
         SourceReference::None => "".to_string(),
         SourceReference::Exp(ExpansionRef(tk,cmd)) =>
             "Expanded from ".to_string() + &match tk.catcode {
@@ -356,6 +356,6 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
             } + " defined by " + &match &cmd.rf {
                 None => cmd.name().unwrap().to_string() + "\n",
                 Some(rf) => " at ".to_string() + &stacktrace(get_top(rf.0.clone()), int)
-            } + &stacktrace(tk,int)
+            } + &stacktrace(tk.clone(),int)
     }
 }

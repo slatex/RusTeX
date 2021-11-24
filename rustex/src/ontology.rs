@@ -24,7 +24,7 @@ pub struct Token {
     pub catcode : CategoryCode,
     name_opt: TeXStr,
     cmdname : TeXStr,
-    pub reference: Box<SourceReference>,
+    pub reference: Rc<SourceReference>,
     pub(in crate) expand:bool
 }
 impl PartialEq for Token {
@@ -58,6 +58,17 @@ impl Display for Token {
     }
 }
 impl Token {
+    pub fn deexpand(self) -> Token {
+        Token {
+            char:self.char,
+            catcode:self.catcode,
+            name_opt: self.name_opt,
+            cmdname:self.cmdname,
+            reference: self.reference,
+            expand:false
+        }
+
+    }
     pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:SourceReference,expand:bool) -> Token {
         let name = match name_opt {
             Some(uv) => uv,
@@ -72,7 +83,7 @@ impl Token {
                 CategoryCode::Escape => name,
                 _ => TeXStr::new(&[])
             },
-            reference: Box::new(rf),
+            reference: Rc::new(rf),
             expand
         }
     }
