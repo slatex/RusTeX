@@ -6,6 +6,7 @@ use std::str::FromStr;
 use crate::commands::{TokReference,PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
+use crate::stomach::whatsits::Whatsit;
 use crate::utils::u8toi16;
 
 impl Interpreter<'_> {
@@ -153,7 +154,7 @@ impl Interpreter<'_> {
     #[inline(always)]
     pub fn read_token_list(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
-        let mut ingroups : i8 = 0;
+        let mut ingroups : u8 = 0;
         let mut ret : Vec<Token> = vec!();
         while self.has_next() {
             let next = self.next_token();
@@ -244,6 +245,30 @@ impl Interpreter<'_> {
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
         }
         self.read_token_list(expand, protect,the,allowunknowns)
+    }
+
+    pub fn read_whatsits(&self) -> Result<Vec<Whatsit>,TeXError> {
+        self.expand_until(false)?;
+        let next = self.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {}
+            CategoryCode::Escape | CategoryCode::Active => {
+                let cmd = self.get_command(&next.cmdname())?;
+                if cmd.has_whatsit() {
+                    todo!()
+                } else {
+                    TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+                }
+            }
+            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+        }
+        let mut ingroups : u8 = 0;
+        let mut ret : Vec<Whatsit> = vec!();
+        while self.has_next() {
+            let next = self.next_token();
+            todo!("{}",next)
+        }
+        FileEnd!(self)
     }
 
     // Numbers -------------------------------------------------------------------------------------

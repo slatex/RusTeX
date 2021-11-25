@@ -1224,6 +1224,14 @@ pub static INPUTLINENO: IntCommand = IntCommand {
     name:"inputlineno",
 };
 
+pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
+    name:"setbox",
+    _assign: |rf,int,global| {
+        let wi = int.read_whatsits()?;
+        todo!()
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -2381,12 +2389,6 @@ pub static RPCODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static SETBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"setbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MATHCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathcode",
     expandable:true,
@@ -2465,6 +2467,548 @@ pub static TOKS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
+
+pub static ABOVE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"above",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ABOVEWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"abovewithdelims",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ACCENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"accent",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ATOP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"atop",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ATOPWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"atopwithdelims",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"bigskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DELIMITER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"delimiter",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"discretionary",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"displaystyle",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LIMITS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"limits",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NOLIMITS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"nolimits",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DISPLAYLIMITS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"displaylimits",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"topmark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"firstmark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BOTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"botmark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITFIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitfirstmark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitbotmark",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"box",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static DP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"dp",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"halign",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hbox",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HFIL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hfil",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HFILL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hfill",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hfilneg",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HRULE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hrule",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HSS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hss",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static HT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"ht",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"indent",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"insert",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"italiccorr",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static KERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"kern",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LASTBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lastbox",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LASTSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lastskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LASTPENALTY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lastpenalty",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LASTKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lastkern",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static COPY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"copy",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LEADERS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"leaders",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static CLEADERS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"cleaders",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static XLEADERS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"xleaders",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LEFT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"left",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static LOWER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"lower",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHACCENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathaccent",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHCHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathchar",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathchoice",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHCLOSE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathclose",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHINNER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathinner",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHOP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathop",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHOPEN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathopen",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHORD: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathord",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHPUNCT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathpunct",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHREL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathrel",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MATHBIN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mathbin",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"medskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MIDDLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"middle",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mkern",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MOVELEFT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"moveleft",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MOVERIGHT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"moveright",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static MSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"mskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noalign",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noindent",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static OVER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"over",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static OVERLINE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"overline",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"overwithdelims",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static PENALTY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"penalty",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static RADICAL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"radical",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static RAISE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"raise",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static RIGHT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"right",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"smallskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNHBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unhbox",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNVBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unvbox",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNHCOPY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unhcopy",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNVCOPY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unvcopy",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNDERLINE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"underline",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unkern",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unpenalty",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vadjust",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VBOX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vbox",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VCENTER: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vcenter",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vskip",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VFIL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vfil",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VFILL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vfill",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vfilneg",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VRULE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vrule",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vsplit",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VSS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vss",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static VTOP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vtop",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static WD: PrimitiveExecutable = PrimitiveExecutable {
+    name:"wd",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
+
 // -------------------------------------------------------------------------------------------------
 
 pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
@@ -2493,6 +3037,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&DIVIDE),
     PrimitiveTeXCommand::Ass(&MULTIPLY),
     PrimitiveTeXCommand::Ass(&ADVANCE),
+    PrimitiveTeXCommand::Ass(&SETBOX),
     PrimitiveTeXCommand::AV(AssignableValue::Font(&FONT)),
     PrimitiveTeXCommand::Primitive(&INPUT),
     PrimitiveTeXCommand::Primitive(&BEGINGROUP),
@@ -2747,7 +3292,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),
-    PrimitiveTeXCommand::Primitive(&SETBOX),
     PrimitiveTeXCommand::Primitive(&MATHCODE),
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
@@ -2761,4 +3305,94 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SKIP),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
     PrimitiveTeXCommand::Primitive(&TOKS),
+    PrimitiveTeXCommand::Primitive(&ABOVE),
+    PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),
+    PrimitiveTeXCommand::Primitive(&ACCENT),
+    PrimitiveTeXCommand::Primitive(&ATOP),
+    PrimitiveTeXCommand::Primitive(&ATOPWITHDELIMS),
+    PrimitiveTeXCommand::Primitive(&BIGSKIP),
+    PrimitiveTeXCommand::Primitive(&DELIMITER),
+    PrimitiveTeXCommand::Primitive(&DISCRETIONARY),
+    PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
+    PrimitiveTeXCommand::Primitive(&LIMITS),
+    PrimitiveTeXCommand::Primitive(&NOLIMITS),
+    PrimitiveTeXCommand::Primitive(&DISPLAYLIMITS),
+    PrimitiveTeXCommand::Primitive(&MARK),
+    PrimitiveTeXCommand::Primitive(&TOPMARK),
+    PrimitiveTeXCommand::Primitive(&FIRSTMARK),
+    PrimitiveTeXCommand::Primitive(&BOTMARK),
+    PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
+    PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
+    PrimitiveTeXCommand::Primitive(&BOX),
+    PrimitiveTeXCommand::Primitive(&DP),
+    PrimitiveTeXCommand::Primitive(&HALIGN),
+    PrimitiveTeXCommand::Primitive(&HBOX),
+    PrimitiveTeXCommand::Primitive(&HFIL),
+    PrimitiveTeXCommand::Primitive(&HFILL),
+    PrimitiveTeXCommand::Primitive(&HFILNEG),
+    PrimitiveTeXCommand::Primitive(&HRULE),
+    PrimitiveTeXCommand::Primitive(&HSKIP),
+    PrimitiveTeXCommand::Primitive(&HSS),
+    PrimitiveTeXCommand::Primitive(&HT),
+    PrimitiveTeXCommand::Primitive(&INDENT),
+    PrimitiveTeXCommand::Primitive(&INSERT),
+    PrimitiveTeXCommand::Primitive(&ITALICCORR),
+    PrimitiveTeXCommand::Primitive(&KERN),
+    PrimitiveTeXCommand::Primitive(&LASTBOX),
+    PrimitiveTeXCommand::Primitive(&LASTSKIP),
+    PrimitiveTeXCommand::Primitive(&LASTPENALTY),
+    PrimitiveTeXCommand::Primitive(&LASTKERN),
+    PrimitiveTeXCommand::Primitive(&COPY),
+    PrimitiveTeXCommand::Primitive(&LEADERS),
+    PrimitiveTeXCommand::Primitive(&CLEADERS),
+    PrimitiveTeXCommand::Primitive(&XLEADERS),
+    PrimitiveTeXCommand::Primitive(&LEFT),
+    PrimitiveTeXCommand::Primitive(&LOWER),
+    PrimitiveTeXCommand::Primitive(&MATHACCENT),
+    PrimitiveTeXCommand::Primitive(&MATHCHAR),
+    PrimitiveTeXCommand::Primitive(&MATHCHOICE),
+    PrimitiveTeXCommand::Primitive(&MATHCLOSE),
+    PrimitiveTeXCommand::Primitive(&MATHINNER),
+    PrimitiveTeXCommand::Primitive(&MATHOP),
+    PrimitiveTeXCommand::Primitive(&MATHOPEN),
+    PrimitiveTeXCommand::Primitive(&MATHORD),
+    PrimitiveTeXCommand::Primitive(&MATHPUNCT),
+    PrimitiveTeXCommand::Primitive(&MATHREL),
+    PrimitiveTeXCommand::Primitive(&MATHBIN),
+    PrimitiveTeXCommand::Primitive(&MEDSKIP),
+    PrimitiveTeXCommand::Primitive(&MIDDLE),
+    PrimitiveTeXCommand::Primitive(&MKERN),
+    PrimitiveTeXCommand::Primitive(&MOVELEFT),
+    PrimitiveTeXCommand::Primitive(&MOVERIGHT),
+    PrimitiveTeXCommand::Primitive(&MSKIP),
+    PrimitiveTeXCommand::Primitive(&NOALIGN),
+    PrimitiveTeXCommand::Primitive(&NOINDENT),
+    PrimitiveTeXCommand::Primitive(&OVER),
+    PrimitiveTeXCommand::Primitive(&OVERLINE),
+    PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
+    PrimitiveTeXCommand::Primitive(&PENALTY),
+    PrimitiveTeXCommand::Primitive(&RADICAL),
+    PrimitiveTeXCommand::Primitive(&RAISE),
+    PrimitiveTeXCommand::Primitive(&RIGHT),
+    PrimitiveTeXCommand::Primitive(&SMALLSKIP),
+    PrimitiveTeXCommand::Primitive(&UNHBOX),
+    PrimitiveTeXCommand::Primitive(&UNVBOX),
+    PrimitiveTeXCommand::Primitive(&UNHCOPY),
+    PrimitiveTeXCommand::Primitive(&UNVCOPY),
+    PrimitiveTeXCommand::Primitive(&UNDERLINE),
+    PrimitiveTeXCommand::Primitive(&UNSKIP),
+    PrimitiveTeXCommand::Primitive(&UNKERN),
+    PrimitiveTeXCommand::Primitive(&UNPENALTY),
+    PrimitiveTeXCommand::Primitive(&VADJUST),
+    PrimitiveTeXCommand::Primitive(&VBOX),
+    PrimitiveTeXCommand::Primitive(&VCENTER),
+    PrimitiveTeXCommand::Primitive(&VSKIP),
+    PrimitiveTeXCommand::Primitive(&VFIL),
+    PrimitiveTeXCommand::Primitive(&VFILL),
+    PrimitiveTeXCommand::Primitive(&VFILNEG),
+    PrimitiveTeXCommand::Primitive(&VRULE),
+    PrimitiveTeXCommand::Primitive(&VSPLIT),
+    PrimitiveTeXCommand::Primitive(&VSS),
+    PrimitiveTeXCommand::Primitive(&VTOP),
+    PrimitiveTeXCommand::Primitive(&WD),
 ]}

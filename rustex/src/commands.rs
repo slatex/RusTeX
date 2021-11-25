@@ -174,6 +174,7 @@ pub trait ExternalCommand {
     fn expandable(&self) -> bool;
     fn assignable(&self) -> bool;
     fn has_num(&self) -> bool;
+    fn has_whatsit(&self) -> bool;
     fn name(&self) -> String;
     fn execute(&self,int : &Interpreter) -> Result<(),TeXError>;
     fn expand(&self,exp:&mut Expansion,int:&Interpreter) -> Result<(),TeXError>;
@@ -427,6 +428,13 @@ impl PrimitiveTeXCommand {
             PrimitiveTeXCommand::Ass(_) => true,
             PrimitiveTeXCommand::AV(_) => true,
             PrimitiveTeXCommand::Ext(ext) if ext.assignable() => true,
+            _ => false
+        }
+    }
+    pub fn has_whatsit(&self) -> bool {
+        match self {
+            PrimitiveTeXCommand::Whatsit(pw) => true,
+            PrimitiveTeXCommand::Ext(rc) => rc.has_whatsit(),
             _ => false
         }
     }
@@ -777,6 +785,7 @@ impl TeXCommand {
     pub fn expandable(&self,allowprotected:bool) -> bool {self.orig.expandable(allowprotected)}
     pub fn has_num(&self) -> bool {self.orig.has_num()}
     pub fn assignable(&self) -> bool {self.orig.assignable()}
+    pub fn has_whatsit(&self) -> bool {self.orig.has_whatsit()}
     pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> { self.orig.get_num(int) }
     pub fn get_expansion(self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
         let o = self.orig.clone();
