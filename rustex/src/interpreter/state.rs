@@ -2,20 +2,22 @@ use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, TeXMode};
 use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum GroupType {
     Token,
-    Begingroup
+    Begingroup,
+    Box(BoxMode)
 }
 impl Display for GroupType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",match self {
             GroupType::Token => "{",
-            GroupType::Begingroup => "\\begingroup"
+            GroupType::Begingroup => "\\begingroup",
+            GroupType::Box(_) => "\\box"
         })
     }
 }
@@ -35,7 +37,8 @@ struct StackFrame {
     pub(in crate::interpreter::state) tp : Option<GroupType>,
     pub(crate) sfcodes : HashMap<u8,i32>,
     pub(crate) lccodes : HashMap<u8,u8>,
-    pub(crate) uccodes : HashMap<u8,u8>
+    pub(crate) uccodes : HashMap<u8,u8>,
+    pub(crate) boxes: HashMap<i16,TeXBox>
 }
 
 impl StackFrame {
@@ -66,6 +69,7 @@ impl StackFrame {
         let sfcodes: HashMap<u8,i32> = HashMap::new();
         let lccodes: HashMap<u8,u8> = HashMap::new();
         let uccodes: HashMap<u8,u8> = HashMap::new();
+        let boxes: HashMap<i16,TeXBox> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -74,7 +78,7 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,muskips,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,
             tp:None
         }
     }
@@ -87,6 +91,7 @@ impl StackFrame {
         let sfcodes: HashMap<u8,i32> = HashMap::new();
         let lccodes: HashMap<u8,u8> = HashMap::new();
         let uccodes: HashMap<u8,u8> = HashMap::new();
+        let boxes: HashMap<i16,TeXBox> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -95,7 +100,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,muskips,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,
             tp:Some(tp)
         }
     }
@@ -112,7 +117,8 @@ pub struct State {
     pub(in crate) outfiles:HashMap<u8,VFile>,
     pub(in crate) infiles:HashMap<u8,StringMouth>,
     pub(in crate) incs : u8,
-    fontfiles: HashMap<TeXStr,Rc<FontFile>>
+    fontfiles: HashMap<TeXStr,Rc<FontFile>>,
+    pub(in crate) mode:TeXMode
 }
 
 #[repr(C)]
@@ -171,7 +177,8 @@ impl State {
             outfiles:HashMap::new(),
             infiles:HashMap::new(),
             incs:0,
-            fontfiles: fonts
+            fontfiles: fonts,
+            mode:TeXMode::Vertical
         }
     }
 
@@ -427,6 +434,16 @@ impl State {
                     self.stacks.last_mut().unwrap().uccodes.insert(i,u);
                 }
             }
+            StateChange::Box(index,value,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.boxes.remove(&index);
+                    }
+                    self.stacks.first_mut().unwrap().boxes.insert(index,value);
+                } else {
+                    self.stacks.last_mut().unwrap().boxes.insert(index,value);
+                }
+            }
             //_ => todo!()
         }
     }
@@ -480,6 +497,7 @@ use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
+use crate::stomach::whatsits::{BoxMode, TeXBox};
 
 impl Interpreter<'_> {
     pub fn file_read(&self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
@@ -656,6 +674,13 @@ impl Interpreter<'_> {
     pub fn state_get_font(&self,name:&str) -> Result<Rc<FontFile>,TeXError> {
         self.state.borrow_mut().get_font(self,name.into())
     }
+    pub fn get_mode(&self) -> TeXMode {
+        self.state.borrow().mode
+    }
+    pub fn set_mode(&self,tm:TeXMode) {
+        self.state.borrow_mut().mode = tm
+    }
+
 }
 
 pub enum StateChange {
@@ -671,5 +696,6 @@ pub enum StateChange {
     Sfcode(u8,i32,bool),
     Tokens(i16,Vec<Token>,bool),
     Lccode(u8,u8,bool),
-    Uccode(u8,u8,bool)
+    Uccode(u8,u8,bool),
+    Box(i16,TeXBox,bool)
 }

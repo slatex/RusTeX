@@ -181,6 +181,7 @@ impl std::ops::Div for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i/j),
+            (Int(i),Float(f)) => Int(((i as f32) / f).round() as i32),
             _ => todo!("{}/{}",self,rhs)
         }
     }

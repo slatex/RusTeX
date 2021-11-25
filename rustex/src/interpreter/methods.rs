@@ -1,12 +1,13 @@
 use crate::catcodes::CategoryCode;
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
 use crate::commands::{TokReference,PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
-use crate::stomach::whatsits::Whatsit;
+use crate::interpreter::state::GroupType;
+use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
 use crate::utils::u8toi16;
 
 impl Interpreter<'_> {
@@ -99,7 +100,15 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Escape | CategoryCode::Active => todo!(),
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let cmd = self.get_command(&next.cmdname())?;
+                    if (cmd.expandable(true)) {
+                        cmd.expand(next,self)?;
+                    } else {
+                        self.skip_ws();
+                        return Ok(from_utf8(ret.as_slice()).unwrap().to_owned())
+                    }
+                },
                 CategoryCode::Space | CategoryCode::EOL if !quoted => return Ok(from_utf8(ret.as_slice()).unwrap().to_owned()),
                 CategoryCode::BeginGroup if ret.is_empty() => todo!(),
                 _ if next.char == 34 && !quoted => quoted = true,
@@ -247,6 +256,50 @@ impl Interpreter<'_> {
         self.read_token_list(expand, protect,the,allowunknowns)
     }
 
+    // Boxes & Whatsits ----------------------------------------------------------------------------
+
+    pub fn read_whatsit_group(&self,bm : BoxMode) -> Result<Vec<Whatsit>,TeXError> {
+        self.expand_until(false)?;
+        let next = self.next_token();
+        match next.catcode {
+            CategoryCode::BeginGroup => {
+                self.requeue(next);
+                let _oldmode = self.get_mode();
+                self.set_mode(match bm {
+                    BoxMode::H => TeXMode::RestrictedHorizontal,
+                    BoxMode::V => TeXMode::InternalVertical,
+                    BoxMode::M => TeXMode::Math,
+                    BoxMode::DM => TeXMode::Displaymath,
+                    _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
+                });
+                self.new_group(GroupType::Box(bm));
+                let ret = self.read_whatsits()?;
+                self.pop_group(GroupType::Box(bm));
+                self.set_mode(_oldmode);
+                Ok(ret)
+            }
+            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+        }
+    }
+
+    pub fn read_box(&self) -> Result<TeXBox,TeXError> {
+        use crate::commands::ProvidesWhatsit;
+        self.expand_until(false)?;
+        let next = self.next_token();
+        match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                let cmd = self.get_command(next.cmdname())?;
+                match &*cmd.orig {
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(b)) => {
+                        (b._get)(&next,self)
+                    }
+                    _ => TeXErr!((self,Some(next)),"Expected box")
+                }
+            }
+            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+        }
+    }
+
     pub fn read_whatsits(&self) -> Result<Vec<Whatsit>,TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
@@ -266,7 +319,29 @@ impl Interpreter<'_> {
         let mut ret : Vec<Whatsit> = vec!();
         while self.has_next() {
             let next = self.next_token();
-            todo!("{}",next)
+            match next.catcode {
+                CategoryCode::Active | CategoryCode::Escape => {
+                    let cmd = self.get_command(&next.cmdname())?;
+                    match &*cmd.orig {
+                        PrimitiveTeXCommand::Char(tk) => todo!(),
+                        _ => {
+                            if cmd.expandable(true) {
+                                cmd.expand(next, self)?;
+                            } else {
+                                todo!()
+                            }
+                        }
+                    }
+                }
+                CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
+                CategoryCode::BeginGroup => {
+                    todo!()
+                }
+                CategoryCode::EndGroup => {
+                    todo!()
+                }
+                _ => todo!()
+            }
         }
         FileEnd!(self)
     }

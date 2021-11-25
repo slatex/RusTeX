@@ -123,11 +123,16 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::ExecutableWhatsit;
+use crate::stomach::whatsits::{ExecutableWhatsit, TeXBox};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
+}
+
+pub struct ProvidesBox {
+    pub name: &'static str,
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<TeXBox,TeXError>
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -261,6 +266,7 @@ impl Display for TokenList<'_> {
 
 #[derive(Clone)]
 pub enum ProvidesWhatsit {
+    Box(&'static ProvidesBox),
     Exec(&'static ProvidesExecutableWhatsit),
     Other
 }
@@ -268,6 +274,7 @@ impl ProvidesWhatsit {
     pub fn name(&self) -> Option<TeXStr> {
         match self {
             ProvidesWhatsit::Exec(e) => Some(e.name.into()),
+            ProvidesWhatsit::Box(b) => Some(b.name.into()),
             _ => todo!()
         }
     }

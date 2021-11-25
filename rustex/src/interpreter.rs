@@ -1,4 +1,5 @@
-#[derive(PartialEq)]
+
+#[derive(Copy,Clone,PartialEq)]
 pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
 }
@@ -55,10 +56,20 @@ pub struct Interpreter<'inner> {
     pub jobinfo:Jobinfo<'inner>,
     mouths:RefCell<Mouths>,
     filestore:RefCell<FileStore>,
-    mode:TeXMode,
     catcodes:RefCell<CategoryCodeScheme>
 }
 use crate::{TeXErr,FileEnd};
+
+#[macro_export]
+macro_rules! in_mode {
+    ($int:expr,$mode:expr,$code:expr) => (
+        let _oldmode = $int.get_mode();
+        $int.set_mode($mode);
+        let _ret = $code;
+        $int.set_mode(_oldmode);
+        _ret
+    )
+}
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
@@ -116,7 +127,6 @@ impl Interpreter<'_> {
             filestore:RefCell::new(FileStore {
                 files:HashMap::new()
             }),
-            mode:TeXMode::Vertical,
             catcodes:RefCell::new(catcodes)
         };
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
@@ -150,7 +160,7 @@ impl Interpreter<'_> {
                     return p.expand(next,self)
                 }
                 match &*p.orig {
-                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.mode == TeXMode::Vertical => Ok(()),
+                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.get_mode() == TeXMode::Vertical => Ok(()),
                     PrimitiveTeXCommand::Primitive(np) => {
                         let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
                         np.apply(&mut exp,self)?;
@@ -167,7 +177,7 @@ impl Interpreter<'_> {
             },
             CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
             CategoryCode::EndGroup => self.pop_group(GroupType::Token),
-            CategoryCode::Space | CategoryCode::EOL if matches!(self.mode,TeXMode::Vertical) => Ok(()),
+            CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical => Ok(()),
             _ => todo!("{}, {}",next,self.current_line())
         }
     }

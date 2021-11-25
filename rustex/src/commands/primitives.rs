@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand};
+use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -297,7 +297,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::Numeric;
-use crate::stomach::whatsits::ExecutableWhatsit;
+use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, TeXBox};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -883,10 +883,20 @@ pub static ETEXVERSION : IntCommand = IntCommand {
 
 fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
-    let first = (getnum)(int)?;
-    match int.read_keyword(vec!("-","+","*","/","(",")"))? {
+    let first = match int.read_keyword(vec!("("))? {
+        Some(_) => {
+            let ret = expr_loop(int, getnum)?;
+            match int.read_keyword(vec!(")"))? {
+                Some(_) => ret,
+                None => TeXErr!((int,None),"Expected ) in expression")
+            }
+        }
+        _ => (getnum)(int)?
+    };
+    match int.read_keyword(vec!("-","+","*","/"))? {
         Some(p) if p == "+" => Ok(first + expr_loop(int,getnum)?),
         Some(p) if p == "*" => Ok(first * int.read_number_i(true)?),
+        Some(p) if p == "/" => Ok(first / int.read_number_i(true)?),
         Some(p) if p == "-" => Ok(first - expr_loop(int,getnum)?),
         Some(o) => TeXErr!((int,None),"TODO: {}",o),
         None => Ok(first)
@@ -1227,8 +1237,31 @@ pub static INPUTLINENO: IntCommand = IntCommand {
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     name:"setbox",
     _assign: |rf,int,global| {
-        let wi = int.read_whatsits()?;
-        todo!()
+        let index = int.read_number()?;
+        int.read_eq();
+        let wi = match int.read_box()? {
+            wi if wi.children.is_empty() => TeXBox {
+                mode: BoxMode::Void,
+                children: vec![]
+            },
+            wi => wi
+        };
+        int.change_state(StateChange::Box(index as i16,wi,global));
+        Ok(())
+    }
+};
+
+use crate::in_mode;
+use crate::interpreter::TeXMode;
+
+pub static HBOX: ProvidesBox = ProvidesBox {
+    name:"hbox",
+    _get: |tk,int| {
+        let ret = int.read_whatsit_group(BoxMode::H)?;
+        Ok(TeXBox {
+            mode: BoxMode::H,
+            children: ret
+        })
     }
 };
 
@@ -2594,12 +2627,6 @@ pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HFIL: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfil",
     expandable:true,
@@ -3072,6 +3099,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&HYPHENCHAR)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -3326,7 +3354,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BOX),
     PrimitiveTeXCommand::Primitive(&DP),
     PrimitiveTeXCommand::Primitive(&HALIGN),
-    PrimitiveTeXCommand::Primitive(&HBOX),
     PrimitiveTeXCommand::Primitive(&HFIL),
     PrimitiveTeXCommand::Primitive(&HFILL),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
