@@ -885,6 +885,7 @@ fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXE
     int.skip_ws();
     let first = match int.read_keyword(vec!("("))? {
         Some(_) => {
+            unsafe {crate::LOG = true }
             let ret = expr_loop(int, getnum)?;
             match int.read_keyword(vec!(")"))? {
                 Some(_) => ret,
@@ -926,8 +927,10 @@ fn eatrelax(int : &Interpreter) {
 pub static NUMEXPR: IntCommand = IntCommand {
     name:"numexpr",
     _getvalue: |int| {
+        log!("\\numexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| i.read_number_i(false))?;
         eatrelax(int);
+        log!("\\numexpr: {}",ret);
         Ok(ret)
     }
 };
@@ -935,6 +938,7 @@ pub static NUMEXPR: IntCommand = IntCommand {
 pub static DIMEXPR: IntCommand = IntCommand {
     name:"dimexpr",
     _getvalue: |int| {
+        log!("\\dimexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
         eatrelax(int);
         log!("\\dimexpr: {}",ret);
@@ -945,6 +949,7 @@ pub static DIMEXPR: IntCommand = IntCommand {
 pub static GLUEEXPR: IntCommand = IntCommand {
     name:"glueexpr",
     _getvalue: |int| {
+        log!("\\glueexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
         eatrelax(int);
         log!("\\glueexpr: {}",ret);
@@ -955,6 +960,7 @@ pub static GLUEEXPR: IntCommand = IntCommand {
 pub static MUEXPR: IntCommand = IntCommand {
     name:"muexpr",
     _getvalue: |int| {
+        log!("\\muexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
         eatrelax(int);
         log!("\\muexpr: {}",ret);
@@ -1251,7 +1257,6 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-use crate::in_mode;
 use crate::interpreter::TeXMode;
 
 pub static HBOX: ProvidesBox = ProvidesBox {

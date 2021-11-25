@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
@@ -194,8 +195,13 @@ impl AddAssign<String> for TeXString {
     }
 }
 
+use kpathsea::Kpaths;
+thread_local! {
+    pub static kpaths : Kpaths = kpathsea::Kpaths::new().unwrap();
+}
 
 lazy_static! {
+    //pub static ref kpaths : Kpaths = kpathsea::Kpaths::new().unwrap();
     pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")
         .as_path().to_path_buf();
     pub static ref TEXMF1 : PathBuf = kpsewhich("article.sty",&PWD).expect("article.sty not found")
@@ -214,10 +220,17 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
     use std::{str,env};
     if s.starts_with("nul:") && cfg!(target_os = "windows") {
         Some(PathBuf::from(s))
+    } else if s.starts_with("nul:") {
+        Some(indir.to_path_buf().join(s))
     } else if s.is_empty() {
         None
     } else {
         env::set_current_dir(indir).expect("Could not switch to directory");
+        match kpaths.try_with(|x| x.find_file(s)).unwrap() {
+            Some(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s))),
+            None => Some(indir.to_path_buf().join(s))
+        }
+        /*
         let rs : Vec<u8> = Command::new("kpsewhich")
             .arg(s).output().expect("kpsewhich not found!")
             .stdout;
@@ -225,6 +238,7 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
             Ok(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s))),
             Err(_) => panic!("utils.rs 34")
         }
+         */
     }
 }
 

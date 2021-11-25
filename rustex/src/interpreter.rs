@@ -60,17 +60,6 @@ pub struct Interpreter<'inner> {
 }
 use crate::{TeXErr,FileEnd};
 
-#[macro_export]
-macro_rules! in_mode {
-    ($int:expr,$mode:expr,$code:expr) => (
-        let _oldmode = $int.get_mode();
-        $int.set_mode($mode);
-        let _ret = $code;
-        $int.set_mode(_oldmode);
-        _ret
-    )
-}
-
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
     tokenize(s,&OTHER_SCHEME)

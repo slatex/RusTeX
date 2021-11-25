@@ -380,6 +380,8 @@ impl PrimitiveTeXCommand {
                 Some(vl) => " at ".to_string() + &dimtostr(vl),
                 None => "".to_string()
             }),
+            AV(AssignableValue::Int(p)) => p.name.into(),
+            Cond(c) => c.name.into(),
             _ => todo!("{}",self)
         };
         ret
