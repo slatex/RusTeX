@@ -354,6 +354,28 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
+    name:"futurelet",
+    _assign: |rf,int,global| {
+        let newcmd = int.next_token();
+        match newcmd.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {}
+            _ => TeXErr!((int,Some(newcmd)),"Expected command after \\futurelet")
+        }
+        let first = int.next_token();
+        let second = int.next_token();
+        let p = match second.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                int.state_get_command(&second.cmdname()).map(|x| x.as_ref(rf.0))
+            }
+            _ => Some(PrimitiveTeXCommand::Char(second.clone()).as_command())
+        };
+        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),p,global));
+        int.push_tokens(vec!(first,second));
+        Ok(())
+    }
+};
+
 pub static NEWLINECHAR : IntAssValue = IntAssValue {
     name: "newlinechar",
     _assign: |_,int,global| {
@@ -378,7 +400,7 @@ pub static ENDLINECHAR : IntAssValue = IntAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
+        Ok(Numeric::Int(int.state_catcodes().endlinechar as i32))
     }
 };
 
@@ -547,6 +569,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(*i)).to_string().into()),
             AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(*i)),
             AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
+            Char(tk) => stt(tk.char.to_string().into()),
             p => todo!("{}",p)
         };
         Ok(())
@@ -2484,12 +2507,6 @@ pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static FUTURELET: PrimitiveExecutable = PrimitiveExecutable {
-    name:"futurelet",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
     name:"hyphenation",
     expandable:true,
@@ -3165,6 +3182,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
+    PrimitiveTeXCommand::Ass(&FUTURELET),
     PrimitiveTeXCommand::Int(&TIME),
     PrimitiveTeXCommand::Int(&YEAR),
     PrimitiveTeXCommand::Int(&MONTH),
@@ -3402,7 +3420,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
     PrimitiveTeXCommand::Primitive(&DELCODE),
     PrimitiveTeXCommand::Primitive(&DIMEN),
-    PrimitiveTeXCommand::Primitive(&FUTURELET),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),

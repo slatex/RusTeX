@@ -492,7 +492,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /* if tk.name().to_string() == "__fp_parse_one_other:NN" {
+        /* if tk.name().to_string() == "ExplSyntaxOff" {
             print!("");
             unsafe {crate::LOG = true }
         } */
@@ -730,6 +730,7 @@ impl PartialEq for PrimitiveTeXCommand {
             (Ass(a),Ass(b)) => a.name == b.name,
             (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
             (MathChar(a),MathChar(b)) => a==b,
+            (Char(tk),Char(tkb)) => tk.char == tkb.char && tk.catcode == tkb.catcode,
             (Def(a),Def(b)) => {
                 a.long == b.long &&
                     a.protected == b.protected &&

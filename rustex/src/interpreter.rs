@@ -167,7 +167,7 @@ impl Interpreter<'_> {
             CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
             CategoryCode::EndGroup => self.pop_group(GroupType::Token),
             CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical => Ok(()),
-            _ => todo!("{}, {}",next,self.current_line())
+            _ => todo!("{}, {} >>{}",next,self.current_line(),self.preview())
         }
     }
 

@@ -153,6 +153,10 @@ impl StringMouth {
             vec![string]
         } else {
             let mut ret = string.split(newlinechar);
+            /*match ret.last() {
+                Some(s) if s.is_empty() => { ret.pop(); }
+                _ => (),
+            }*/
             ret.reverse();
             ret
         };
@@ -170,6 +174,7 @@ impl StringMouth {
         }
     }
     fn do_line(&mut self,endlinechar:u8) -> bool {
+        self.atendofline =  None;
         if self.allstrings.is_empty() { false } else {
             match endlinechar {
                 u8::MAX => {},
@@ -540,7 +545,10 @@ impl Mouths {
         }
     }
     pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
-        if self.buffer.is_some() { todo!() }
+        if self.buffer.is_some() {
+            let buf = self.buffer.take().unwrap();
+            self.push_tokens(vec!(buf))
+        }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
 
