@@ -15,7 +15,7 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
 pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdftexrevision",
     expandable:true,
-    _apply:|_tk,_int| {
+    _apply:|rf,_int| {
         rf.2 = crate::interpreter::string_to_tokens(VERSION_INFO.pdftexrevision.clone());
         Ok(())
     }
