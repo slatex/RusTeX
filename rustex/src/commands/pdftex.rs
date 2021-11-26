@@ -12,6 +12,16 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
     name: "pdftexversion"
 };
 
+pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdftexrevision",
+    expandable:true,
+    _apply:|_tk,_int| {
+        rf.2 = crate::interpreter::string_to_tokens(VERSION_INFO.pdftexrevision.clone());
+        Ok(())
+    }
+};
+
+
 pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstrcmp",
     expandable:true,
@@ -337,12 +347,6 @@ pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmdfivesum",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdftexrevision",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

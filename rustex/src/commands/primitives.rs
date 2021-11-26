@@ -881,11 +881,90 @@ pub static ETEXVERSION : IntCommand = IntCommand {
     name: "eTeXversion"
 };
 
+fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>,cont:Option<(Box<dyn Fn(Numeric) -> Numeric>,u8)>) -> Result<Numeric,TeXError> {
+    int.skip_ws();
+    let mut first = match int.read_keyword(vec!("("))? {
+        Some(_) => {
+            let ret = expr_loop(int, getnum,None)?;
+            match int.read_keyword(vec!(")"))? {
+                Some(_) => ret,
+                None => TeXErr!((int,None),"Expected ) in expression")
+            }
+        }
+        _ => (getnum)(int)?
+    };
+    match int.read_keyword(vec!("-","+","*","/"))? {
+        Some(p) if p == "+" => {
+            first = match cont {
+                Some((f,_)) => (f.deref())(first),
+                _ => first
+            };
+            let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first + x});
+            expr_loop(int,getnum,Some((ncont,1 as u8)))
+        }
+        Some(p) if p == "-" => {
+            match cont {
+                Some((f,i)) if i >= 2 => {
+                    first = (f.deref())(first);
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first - x});
+                    expr_loop(int,getnum,Some((ncont,2 as u8)))
+                }
+                Some((f,i)) => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {(f.deref())(first - x)});
+                    expr_loop(int,getnum,Some((ncont,i as u8)))
+                }
+                None => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first - x});
+                    expr_loop(int,getnum,Some((ncont,2)))
+                }
+            }
+        }
+        Some(p) if p == "*" => {
+            match cont {
+                Some((f,i)) if i >= 3 => {
+                    first = (f.deref())(first);
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first * x});
+                    expr_loop(int,getnum,Some((ncont,3 as u8)))
+                }
+                Some((f,i)) => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {(f.deref())(first * x)});
+                    expr_loop(int,getnum,Some((ncont,i as u8)))
+                }
+                None => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first * x});
+                    expr_loop(int,getnum,Some((ncont,3)))
+                }
+            }
+        }
+        Some(p) if p == "/" => {
+            match cont {
+                Some((f,i)) => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {(f.deref())(first / x)});
+                    expr_loop(int,getnum,Some((ncont,i as u8)))
+                }
+                None => {
+                    let ncont : Box<dyn Fn(Numeric) -> Numeric> = Box::new(move |x:Numeric| {first / x});
+                    expr_loop(int,getnum,Some((ncont,3)))
+                }
+            }
+        }
+        //Some(p) if p == "/" => {} //Ok(first / int.read_number_i(true)?),
+        //Some(p) if p == "*" => {} //Ok(first * int.read_number_i(true)?),
+        _ => match cont {
+            Some((f,_)) => {
+                Ok((f.deref())(first))
+            }
+            None => Ok(first)
+        } //Ok(first)
+    }
+
+}
+
+/*
 fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
     let first = match int.read_keyword(vec!("("))? {
         Some(_) => {
-            unsafe {crate::LOG = true }
             let ret = expr_loop(int, getnum)?;
             match int.read_keyword(vec!(")"))? {
                 Some(_) => ret,
@@ -903,6 +982,8 @@ fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXE
         None => Ok(first)
     }
 }
+
+ */
 
 fn eatrelax(int : &Interpreter) {
     if int.has_next() {
@@ -928,7 +1009,7 @@ pub static NUMEXPR: IntCommand = IntCommand {
     name:"numexpr",
     _getvalue: |int| {
         log!("\\numexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| i.read_number_i(false))?;
+        let ret =expr_loop(int,|i| i.read_number_i(false),None)?;
         eatrelax(int);
         log!("\\numexpr: {}",ret);
         Ok(ret)
@@ -939,7 +1020,7 @@ pub static DIMEXPR: IntCommand = IntCommand {
     name:"dimexpr",
     _getvalue: |int| {
         log!("\\dimexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
+        let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)),None)?;
         eatrelax(int);
         log!("\\dimexpr: {}",ret);
         Ok(ret)
@@ -950,7 +1031,7 @@ pub static GLUEEXPR: IntCommand = IntCommand {
     name:"glueexpr",
     _getvalue: |int| {
         log!("\\glueexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
+        let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)),None)?;
         eatrelax(int);
         log!("\\glueexpr: {}",ret);
         Ok(ret)
@@ -961,7 +1042,7 @@ pub static MUEXPR: IntCommand = IntCommand {
     name:"muexpr",
     _getvalue: |int| {
         log!("\\muexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
+        let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)),None)?;
         eatrelax(int);
         log!("\\muexpr: {}",ret);
         Ok(ret)

@@ -22,4 +22,5 @@ ansi_term = "0.12.1"
 backtrace = "0.3"
 chrono = "0.4"
 #libc = "0.2.0"
-kpathsea = "0.2.2"
+#kpathsea = "0.2.2"
+kpathsea = { path = "../kpathsea" }

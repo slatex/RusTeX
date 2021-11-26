@@ -492,7 +492,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /* if tk.name().to_string() == "cctab_const:Nn" {
+        /* if tk.name().to_string() == "__fp_parse_one_other:NN" {
             print!("");
             unsafe {crate::LOG = true }
         } */

@@ -180,7 +180,7 @@ impl std::ops::Div for Numeric {
     fn div(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
-            (Int(i),Int(j)) => Int(i/j),
+            (Int(i),Int(j)) => Int(((i as f32)/(j as f32)).round() as i32),
             (Int(i),Float(f)) => Int(((i as f32) / f).round() as i32),
             _ => todo!("{}/{}",self,rhs)
         }

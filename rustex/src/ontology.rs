@@ -77,12 +77,12 @@ impl Token {
         Token {
             char,
             catcode,
-            name_opt: name.clone(),
             cmdname: match catcode {
                 CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
-                CategoryCode::Escape => name,
+                CategoryCode::Escape => name.clone(),
                 _ => TeXStr::new(&[])
             },
+            name_opt: name,
             reference: Rc::new(rf),
             expand
         }
@@ -99,8 +99,25 @@ impl Token {
     }
     pub fn copied(&self,er:ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
-            Token::new(self.char,self.catcode,Some(self.name_opt.clone()),SourceReference::Exp(er),true)
-        } else { Token::new(self.char,self.catcode,Some(self.name_opt.clone()),self.reference.deref().clone(),true) }
+            Token {
+                char:self.char,
+                catcode:self.catcode,
+                cmdname:self.cmdname.clone(),
+                name_opt:self.name_opt.clone(),
+                reference:Rc::new(SourceReference::Exp(er)),
+                expand:true
+            }
+            //Token::new(self.char,self.catcode,Some(self.name_opt.clone()),SourceReference::Exp(er),true)
+        } else {
+            Token {
+                char:self.char,
+                catcode:self.catcode,
+                cmdname:self.cmdname.clone(),
+                name_opt:self.name_opt.clone(),
+                reference:self.reference.clone(),
+                expand:true
+            }
+        }
     }
 }
 
