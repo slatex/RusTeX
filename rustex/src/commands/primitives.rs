@@ -1,7 +1,5 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::Deref;
-use std::rc::Rc;
 use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
@@ -169,6 +167,7 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |rf,int,global| {
         let mut long = false;
         while int.has_next() {
+            int.expand_until(false);
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
@@ -203,6 +202,7 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |rf,int,global| {
         let mut protected = false;
         while int.has_next() {
+            int.expand_until(false);
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
@@ -280,6 +280,13 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
+    /*if command.name().to_string() == "l__iow_line_part_tl" {
+        println!("Here! {} >>{}",int.current_line(),int.preview());
+        if int.line_no() >= 2704 {
+            //unsafe {crate::LOG = true}
+            print!("")
+        }
+    }*/
     let sig = read_sig(int)?;
     //let arity = sig.arity;
     let ret = int.read_token_list(edef,true,edef,false)?;
@@ -337,8 +344,8 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     name:"let",
     _assign: |rf,int,global| {
         let cmd = int.next_token();
-        if !matches!(cmd.catcode,CategoryCode::Escape) && !matches!(cmd.catcode,CategoryCode::Active) {
-            TeXErr!((int,Some(cmd.clone())),"Control sequence or active character expected; found {}",cmd)
+        if cmd.catcode != CategoryCode::Escape && cmd.catcode != CategoryCode::Active {
+            TeXErr!((int,Some(cmd.clone())),"Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
         }
         int.read_eq();
         let def = int.next_token();
@@ -1244,7 +1251,7 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static FONT: FontAssValue = FontAssValue {
     name:"font",
-    _assign: |rf,int,global| {
+    _assign: |_rf,int,global| {
         let cmd = int.read_command_token()?;
         int.read_eq();
         let mut name = int.read_string()?;
@@ -1263,7 +1270,7 @@ pub static FONT: FontAssValue = FontAssValue {
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(RefCell::new(font))).as_command()),global));
         Ok(())
     },
-    _getvalue: |int| {
+    _getvalue: |_int| {
         todo!()
     }
 };
@@ -1274,16 +1281,16 @@ fn read_font<'a>(int : &Interpreter) -> Result<TeXCommand,TeXError> {
     match &*cmd.orig {
         PrimitiveTeXCommand::AV(AssignableValue::FontRef(_)) =>
             Ok(cmd),
-        PrimitiveTeXCommand::AV((AssignableValue::Font(f))) => todo!(),
+        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => todo!(),
         _ => TeXErr!((int, Some(tk)),"Font expected!")
     }
 }
 
 pub static FONTDIMEN: IntAssValue = IntAssValue {
     name:"fontdimen",
-    _assign: |rf,int,_global| {
+    _assign: |_rf,int,_global| {
         let i = int.read_number()? as u16;
-        let mut f = read_font(int)?;
+        let f = read_font(int)?;
         int.read_eq();
         let d = int.read_dimension()?;
         match &*f.orig {
@@ -1307,8 +1314,8 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
 
 pub static HYPHENCHAR: IntAssValue = IntAssValue {
     name:"hyphenchar",
-    _assign: |rf,int,_global| {
-        let mut f = read_font(int)?;
+    _assign: |_rf,int,_global| {
+        let f = read_font(int)?;
         int.read_eq();
         let d = int.read_number()?;
         match &*f.orig {
@@ -1346,7 +1353,7 @@ pub static INPUTLINENO: IntCommand = IntCommand {
 
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     name:"setbox",
-    _assign: |rf,int,global| {
+    _assign: |_rf,int,global| {
         let index = int.read_number()?;
         int.read_eq();
         let wi = match int.read_box()? {
@@ -1361,11 +1368,9 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-use crate::interpreter::TeXMode;
-
 pub static HBOX: ProvidesBox = ProvidesBox {
     name:"hbox",
-    _get: |tk,int| {
+    _get: |_tk,int| {
         let ret = int.read_whatsit_group(BoxMode::H)?;
         Ok(TeXBox {
             mode: BoxMode::H,

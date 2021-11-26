@@ -447,10 +447,8 @@ pub fn default_pdf_latex_state() -> State {
 
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
 use std::str::from_utf8_unchecked;
-use kpathsea::Kpaths;
-use crate::fonts::{Font, FontFile};
+use crate::fonts::FontFile;
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;

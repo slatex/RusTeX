@@ -58,7 +58,7 @@ impl Interpreter<'_> {
                 CategoryCode::Space | CategoryCode::EOL => break,
                 CategoryCode::Active | CategoryCode::Escape => {
                     let cmd = self.get_command(&next.cmdname())?;
-                    if (cmd.expandable(true)) {
+                    if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
                         tokens.push(next);
@@ -102,7 +102,7 @@ impl Interpreter<'_> {
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
                     let cmd = self.get_command(&next.cmdname())?;
-                    if (cmd.expandable(true)) {
+                    if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
                         self.skip_ws();
@@ -188,7 +188,7 @@ impl Interpreter<'_> {
                                     None => {}
                                 }
                             }
-                            PrimitiveTeXCommand::Char(tk) => ret.push(tk.clone()),
+                            //PrimitiveTeXCommand::Char(tk) => ret.push(tk.clone()),
                             _ => {
                                 if cmd.expandable(!protect) {
                                     cmd.expand(next, self)?;
@@ -323,7 +323,7 @@ impl Interpreter<'_> {
                 CategoryCode::Active | CategoryCode::Escape => {
                     let cmd = self.get_command(&next.cmdname())?;
                     match &*cmd.orig {
-                        PrimitiveTeXCommand::Char(tk) => todo!(),
+                        PrimitiveTeXCommand::Char(_) => todo!(),
                         _ => {
                             if cmd.expandable(true) {
                                 cmd.expand(next, self)?;

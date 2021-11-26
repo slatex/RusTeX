@@ -58,7 +58,6 @@ use std::fs;
 use std::borrow::BorrowMut;
 impl FontFile {
     pub fn new(pb : PathBuf) -> FontFile {
-        use crate::interpreter::dimensions::pt;
         let name : TeXStr = pb.file_stem().unwrap().to_str().unwrap().into();
         let mut state = FontState {
             ret:fs::read(pb).unwrap(),
@@ -84,24 +83,24 @@ impl FontFile {
             let i1 = ((a as u16) << 8) | (b as u16);
             let i2 = ((c as u16) << 8) | (d as u16);
             (i1,i2)
-        };
+        }
         fn read_float(s : &mut FontState) -> f32 {
             let (a,b,c,d) = s.pop();
             let int = ((a as i32) << 24) | ((b as i32) << 16) |
                 ((c as i32) << 8) | (d as i32);
             let f = ((int & 0x7fffffff) as f32) / ((1 << 20) as f32);
             if int < 0 {-f} else {f}
-        };
+        }
         fn skip(s : &mut FontState, len:u8) {
             for _ in 0..len {
                 s.pop();
             }
-        };
+        }
         fn read_fifo(s : &mut FontState,char:u16) -> FInfoEntry {
             let (a,b,c,d) = s.pop();
             let width_index = 0x000000FF & a;
             let (height_index,depth_index) = {
-                let byte = (0x000000FF & b);
+                let byte = 0x000000FF & b;
                 let second = byte % 16;
                 let first = (byte - second) / 16;
                 (first,second)
@@ -117,7 +116,7 @@ impl FontFile {
             FInfoEntry {
                 char,width_index,height_index,depth_index,char_ic_index,tag_field,remainder
             }
-        };
+        }
 
         let (lf,lh) = read_int(state.borrow_mut());
         let (bc,ec) = read_int(state.borrow_mut());
@@ -160,7 +159,7 @@ impl FontFile {
         let italicls: Vec<f32> = (0..ni).map(|_| read_float(state.borrow_mut())).collect();
 
         let mut ligatures : Vec<(bool,u16,bool,u16)> = vec!();
-        for _ in (0..nl) {
+        for _ in 0..nl {
             let (a,b,c,d) = state.pop();
             let stop = a >= 128;
             let tag = c >= 128;
@@ -176,7 +175,7 @@ impl FontFile {
         } else {
             dimen.insert(1,0.0);
         }
-        for i in 2..(np+1) {
+        for _ in 2..(np+1) {
             dimen.insert(1,read_float(state.borrow_mut()));
         }
 
@@ -221,8 +220,6 @@ impl FontFile {
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::Interpreter;
-use crate::interpreter::state::StateChange;
 use crate::utils::TeXStr;
 
 #[derive(Clone)]

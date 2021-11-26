@@ -21,5 +21,5 @@ pub struct ExecutableWhatsit {
     pub _apply : Box<dyn FnOnce(&Interpreter) -> Result<(),TeXError>>
 }
 impl PartialEq for ExecutableWhatsit {
-    fn eq(&self, other: &Self) -> bool { false }
+    fn eq(&self, _: &Self) -> bool { false }
 }

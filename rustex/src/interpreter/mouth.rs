@@ -488,7 +488,7 @@ impl Mouths {
                                     return Ok(false)
                                 }
                                 Mouth::File(fm) if STORE_IN_FILE => {
-                                    print!(")\n");
+                                    print!(")");
                                     let lastfile = self.mouths.iter_mut().rev().find(|x| match x {
                                         Mouth::File(_) => true,
                                         _ => false
@@ -563,7 +563,7 @@ impl Mouths {
         }) {
             Some(Mouth::File(m)) => {
                 match &m.source {
-                    StringMouthSource::File(lf) => {
+                    StringMouthSource::File(_) => {
                         m.line
                     }
                     _ => 0

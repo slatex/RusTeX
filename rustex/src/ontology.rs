@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 use crate::references::SourceReference;
 use std::rc::Rc;
 use ansi_term::ANSIGenericString;

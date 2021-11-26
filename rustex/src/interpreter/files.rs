@@ -1,6 +1,5 @@
-use std::borrow::BorrowMut;
 use std::path::{PathBuf, Path};
-use crate::utils::{TeXError, TEXMF1, TEXMF2, TeXStr};
+use crate::utils::{TEXMF1, TEXMF2};
 use std::fs;
 use crate::utils::TeXString;
 
@@ -26,7 +25,6 @@ pub(in crate::interpreter) struct FileStore {
 }
 
 use std::cell::RefMut;
-use std::str::from_utf8;
 
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {

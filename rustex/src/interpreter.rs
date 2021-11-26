@@ -101,7 +101,6 @@ impl Interpreter<'_> {
     }
 
     pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
-        use crate::utils::kpsewhich;
         match self.kpsewhich(filename) {
             None =>TeXErr!((self,None),"File {} not found",filename),
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
@@ -142,7 +141,7 @@ impl Interpreter<'_> {
         let next = self.next_token();
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
-                let mut p = self.get_command(&next.cmdname())?;
+                let p = self.get_command(&next.cmdname())?;
                 if p.assignable() {
                     return p.assign(next,self,false)
                 } else if p.expandable(true) {
@@ -160,6 +159,10 @@ impl Interpreter<'_> {
                     },
                     PrimitiveTeXCommand::Ext(exec) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),
+                    PrimitiveTeXCommand::Char(tk) => {
+                        self.requeue(tk.clone());
+                        Ok(())
+                    },
                     _ => todo!("{}",next)
 
                 }

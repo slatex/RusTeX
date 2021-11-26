@@ -2,14 +2,12 @@ pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
 
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::Interpreter;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
-use std::ops::Deref;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
@@ -319,6 +317,10 @@ impl PrimitiveTeXCommand {
                     let s : TeXString = "the character ".into();
                     s + c.char.into()
                 },
+                CategoryCode::BeginGroup => {
+                    let s : TeXString = "end-group character ".into();
+                    s + c.char.into()
+                }
                 _ => todo!("{}",self)
             }
             Def(d) => {
@@ -442,7 +444,7 @@ impl PrimitiveTeXCommand {
     }
     pub fn has_whatsit(&self) -> bool {
         match self {
-            PrimitiveTeXCommand::Whatsit(pw) => true,
+            PrimitiveTeXCommand::Whatsit(_) => true,
             PrimitiveTeXCommand::Ext(rc) => rc.has_whatsit(),
             _ => false
         }
@@ -492,7 +494,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /* if tk.name().to_string() == "ExplSyntaxOff" {
+         /* if tk.name().to_string() == "NewDocumentCommand" && int.line_no() >= 2704 {
             print!("");
             unsafe {crate::LOG = true }
         } */
@@ -617,7 +619,6 @@ impl PrimitiveTeXCommand {
     }
     pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Rc<TeXCommand>) -> Result<(),TeXError> {
         use crate::utils::u8toi16;
-        use crate::interpreter::dimensions::dimtostr;
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 

@@ -1,5 +1,5 @@
 use crate::interpreter::Interpreter;
-use crate::commands::{TeXCommand, Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
+use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::log;
@@ -201,12 +201,12 @@ fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
                     _ => unreachable!()
                 };
                 let p = int.get_command(&next.cmdname())?;
-                match *p.orig {
-                    //PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk)),
-                    PrimitiveTeXCommand::Primitive(e) if (*e == ELSE || *e == FI) && currcond => {
+                match &*p.orig {
+                    PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk.clone())),
+                    PrimitiveTeXCommand::Primitive(e) if (**e == ELSE || **e == FI) && currcond => {
                         return Ok(None)
                     }
-                    _ if p.expandable(true) => {p.expand(next, int)?;}
+                    _ if p.expandable(true) && next.expand => {p.expand(next, int)?;}
                     _ => return Ok(Some(next))
                 }
             }

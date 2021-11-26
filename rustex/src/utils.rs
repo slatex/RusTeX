@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
@@ -216,8 +215,9 @@ lazy_static! {
 }
 
 pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
-    use std::process::Command;
-    use std::{str,env};
+    //use std::process::Command;
+    //use std::{str,env};
+    use std::env;
     if s.starts_with("nul:") && cfg!(target_os = "windows") {
         Some(PathBuf::from(s))
     } else if s.starts_with("nul:") {
