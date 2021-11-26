@@ -1168,14 +1168,17 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|exp,int| {
         let tkl = int.read_balanced_argument(false,false,false,true)?;
         for t in tkl {
-            exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
             match t.catcode {
+                CategoryCode::Space | CategoryCode::EOL => exp.2.push(Token::new(t.char,CategoryCode::Space,None,SourceReference::None,false)),
                 CategoryCode::Escape => {
+                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
                     for t in t.name().iter() {
                         exp.2.push(Token::new(*t,CategoryCode::Other,None,SourceReference::None,false));
                     }
                 }
-                _ => ()
+                _ => {
+                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
+                }
             }
         }
         log!("\\detokenize: {}",TokenList(&exp.2));

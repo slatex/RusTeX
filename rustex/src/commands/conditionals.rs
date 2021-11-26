@@ -373,8 +373,17 @@ pub static IFCASE : Conditional = Conditional {
 
 pub static IFDIM : Conditional = Conditional {
     name:"ifdim",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let dim1 = int.read_dimension()?;
+        let rel = int.read_keyword(vec!("<","=",">"))?;
+        let dim2 = int.read_dimension()?;
+        let istrue = match rel {
+            Some(s) if s == "<" => dim1 < dim2,
+            Some(s) if s == "=" => dim1 == dim2,
+            Some(s) if s == ">" => dim1 > dim2,
+            _ => TeXErr!((int,None),"Expected <,= or > after \\ifdim")
+        };
+        if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 

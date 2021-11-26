@@ -494,15 +494,18 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /* if tk.name().to_string() == "NewDocumentCommand" && int.line_no() >= 2704 {
+         /*if tk.name().to_string() == "NewHook" {
             print!("");
             unsafe {crate::LOG = true }
-        } */
+        }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")
         }*/
         log!("{}",d);
+        if unsafe{crate::LOG} {
+            log!("    >>{}",int.preview())
+        }
         let mut args : Vec<Vec<Token>> = Vec::new();
         let mut i = 0;
         while i < d.sig.elems.len() {
@@ -562,7 +565,9 @@ impl PrimitiveTeXCommand {
                                     CategoryCode::EndGroup => groups -=1,
                                     _ => ()
                                 }
-                                if groups < 0 {TeXErr!((int,Some(next)),"Missing { somewhere!")}
+                                if groups < 0 {
+                                    TeXErr!((int,Some(next)),"Missing { somewhere!")
+                                }
                                 retarg.push(next);
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
                             }
@@ -678,11 +683,13 @@ impl PrimitiveTeXCommand {
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
+                    int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
                     int.change_state(StateChange::Tokens(u8toi16(*i), toks, global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
+                    int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
                     int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
                     Ok(())
