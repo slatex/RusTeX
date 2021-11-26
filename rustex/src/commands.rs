@@ -494,7 +494,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /*if tk.name().to_string() == "NewHook" {
+         /*if tk.name().to_string() == "rem@pt" {
             print!("");
             unsafe {crate::LOG = true }
         }*/
@@ -630,8 +630,10 @@ impl PrimitiveTeXCommand {
         let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
         let global = !(globals < 0) && ( globally || globals > 0 );
         let rf = ExpansionRef(tk,cmd);
-
         match self {
+            Ass(p) if **p == crate::commands::primitives::SETBOX => {
+                return (p._assign)(rf,int, global)
+            }
             Ass(p) => (p._assign)(rf,int, global),
             AV(av) => match av {
                 AssignableValue::Int(d) => (d._assign)(rf,int, global),
@@ -711,7 +713,9 @@ impl PrimitiveTeXCommand {
             },
             Ext(ext) => ext.assign(int, global),
             _ => unreachable!()
-        }
+        }?;
+        int.insert_afterassignment();
+        Ok(())
     }
 }
 

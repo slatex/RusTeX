@@ -303,7 +303,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     Ok(())
 }
 
-use crate::interpreter::dimensions::Numeric;
+use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, TeXBox};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
@@ -577,6 +577,8 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(*i)),
             AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
             Char(tk) => stt(tk.char.to_string().into()),
+            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(u8toi16(*i))).into()),
+            AV(AssignableValue::Skip(i)) => stt(int.state_skip(u8toi16(*i)).to_string().into()),
             p => todo!("{}",p)
         };
         Ok(())
@@ -1379,6 +1381,15 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             mode: BoxMode::H,
             children: ret
         })
+    }
+};
+
+pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"afterassignment",
+    expandable:false,
+    _apply:|_tk,int| {
+        int.state_set_afterassignment(int.next_token());
+        Ok(())
     }
 };
 
@@ -2487,12 +2498,6 @@ pub static RIGHTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"tagcode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"afterassignment",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

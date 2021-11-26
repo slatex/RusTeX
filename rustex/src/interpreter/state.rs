@@ -67,8 +67,12 @@ impl StackFrame {
         let muskips: HashMap<i16,MuSkip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
-        let lccodes: HashMap<u8,u8> = HashMap::new();
-        let uccodes: HashMap<u8,u8> = HashMap::new();
+        let mut lccodes: HashMap<u8,u8> = HashMap::new();
+        let mut uccodes: HashMap<u8,u8> = HashMap::new();
+        for i in 97..123 {
+            uccodes.insert(i,i-32);
+            lccodes.insert(i-32,i);
+        }
         let boxes: HashMap<i16,TeXBox> = HashMap::new();
         StackFrame {
             //parent: None,
@@ -89,8 +93,12 @@ impl StackFrame {
         let muskips: HashMap<i16,MuSkip> = HashMap::new();
         let toks: HashMap<i16,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
-        let lccodes: HashMap<u8,u8> = HashMap::new();
-        let uccodes: HashMap<u8,u8> = HashMap::new();
+        let mut lccodes: HashMap<u8,u8> = HashMap::new();
+        let mut uccodes: HashMap<u8,u8> = HashMap::new();
+        for i in 97..123 {
+            uccodes.insert(i,i-32);
+            lccodes.insert(i-32,i);
+        }
         let boxes: HashMap<i16,TeXBox> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
@@ -119,7 +127,7 @@ pub struct State {
     pub(in crate) incs : u8,
     fontfiles: HashMap<TeXStr,Rc<FontFile>>,
     pub(in crate) mode:TeXMode,
-    //pub(in crate) kpaths: Kpaths
+    pub(in crate) afterassignment : Option<Token>
 }
 
 // sudo apt install libkpathsea-dev
@@ -135,7 +143,7 @@ impl State {
             incs:0,
             fontfiles: fonts,
             mode:TeXMode::Vertical,
-            //kpaths:kpathsea::Kpaths::new().unwrap()
+            afterassignment:None
         }
     }
 
@@ -636,7 +644,15 @@ impl Interpreter<'_> {
     pub fn set_mode(&self,tm:TeXMode) {
         self.state.borrow_mut().mode = tm
     }
-
+    pub fn state_set_afterassignment(&self,tk:Token) {
+        self.state.borrow_mut().afterassignment = Some(tk)
+    }
+    pub fn insert_afterassignment(&self) {
+        match self.state.borrow_mut().afterassignment.take() {
+            Some(tk) => self.push_tokens(vec!(tk)),
+            _ => ()
+        }
+    }
 }
 
 pub enum StateChange {

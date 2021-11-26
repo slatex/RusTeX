@@ -158,7 +158,12 @@ impl Numeric {
     }
 }
 pub fn dimtostr(dim:i32) -> String {
-    ((dim as f32) / 65536.0).to_string() + "pt"
+    let val = ((dim as f32) / 65536.0);
+    if val.floor() == val {
+        val.to_string() + ".0pt"
+    } else {
+        val.to_string() + "pt"
+    }
 }
 pub fn mudimtostr(dim:i32) -> String {
     ((dim as f32) / 65536.0).to_string() + "mu"
