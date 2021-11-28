@@ -200,14 +200,17 @@ fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
                     Some((i, _)) => i == cond,
                     _ => unreachable!()
                 };
-                let p = int.get_command(&next.cmdname())?;
-                match &*p.orig {
-                    PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk.clone())),
-                    PrimitiveTeXCommand::Primitive(e) if (**e == ELSE || **e == FI) && currcond => {
-                        return Ok(None)
+                let p = int.state_get_command(&next.cmdname());
+                match p {
+                    Some(p) => match &*p.orig {
+                        PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk.clone())),
+                        PrimitiveTeXCommand::Primitive(e) if (**e == ELSE || **e == FI) && currcond => {
+                            return Ok(None)
+                        }
+                        _ if p.expandable(true) && next.expand => {p.expand(next, int)?;}
+                        _ => return Ok(Some(next))
                     }
-                    _ if p.expandable(true) && next.expand => {p.expand(next, int)?;}
-                    _ => return Ok(Some(next))
+                    None => return Ok(Some(next))
                 }
             }
             _ => return Ok(Some(next))

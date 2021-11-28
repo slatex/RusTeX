@@ -38,6 +38,8 @@ struct StackFrame {
     pub(crate) sfcodes : HashMap<u8,i32>,
     pub(crate) lccodes : HashMap<u8,u8>,
     pub(crate) uccodes : HashMap<u8,u8>,
+    pub(crate) mathcodes : HashMap<u8,i32>,
+    pub(crate) delcodes : HashMap<u8,i32>,
     pub(crate) boxes: HashMap<i16,TeXBox>
 }
 
@@ -74,6 +76,8 @@ impl StackFrame {
             lccodes.insert(i-32,i);
         }
         let boxes: HashMap<i16,TeXBox> = HashMap::new();
+        let mathcodes : HashMap<u8,i32> = HashMap::new();
+        let delcodes : HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -82,7 +86,7 @@ impl StackFrame {
             endlinechar:13,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
             tp:None
         }
     }
@@ -100,6 +104,8 @@ impl StackFrame {
             lccodes.insert(i-32,i);
         }
         let boxes: HashMap<i16,TeXBox> = HashMap::new();
+        let mathcodes : HashMap<u8,i32> = HashMap::new();
+        let delcodes : HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -108,7 +114,7 @@ impl StackFrame {
             endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,
-            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,
+            skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
             tp:Some(tp)
         }
     }
@@ -228,6 +234,26 @@ impl State {
             }
         }
         i
+    }
+
+    pub (in crate::interpreter::state) fn mathcode(&self,i:u8) -> i32 {
+        for sf in self.stacks.iter().rev() {
+            match sf.mathcodes.get(&i) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        0
+    }
+
+    pub (in crate::interpreter::state) fn delcode(&self,i:u8) -> i32 {
+        for sf in self.stacks.iter().rev() {
+            match sf.delcodes.get(&i) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        0
     }
 
     pub fn get_skip(&self, index:i16) -> Skip {
@@ -369,6 +395,24 @@ impl State {
                     }
                 } else {
                     self.stacks.last_mut().unwrap().sfcodes.insert(char,value);
+                }
+            }
+            StateChange::Mathcode(char,value,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.mathcodes.insert(char,value);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().mathcodes.insert(char,value);
+                }
+            }
+            StateChange::Delcode(char,value,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.delcodes.insert(char,value);
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().delcodes.insert(char,value);
                 }
             }
             StateChange::Tokens(i,tks,global) => {
@@ -537,7 +581,11 @@ impl Interpreter<'_> {
                 std::io::stdout().flush();
                 Ok(())
             }
-            i if !self.state.borrow().outfiles.contains_key(&i) => todo!("{}",i),
+            i if !self.state.borrow().outfiles.contains_key(&i) => {
+                println!("{}",Black.on(Blue).paint(s.to_utf8()));
+                std::io::stdout().flush();
+                Ok(())
+            }
              _ => {
                  let mut state = self.state.borrow_mut();
                  match state.outfiles.get_mut(&index) {
@@ -638,6 +686,12 @@ impl Interpreter<'_> {
     pub fn state_get_font(&self,name:&str) -> Result<Rc<FontFile>,TeXError> {
         self.state.borrow_mut().get_font(self,name.into())
     }
+    pub fn state_get_mathcode(&self,i:u8) -> i32 {
+        self.state.borrow().mathcode(i)
+    }
+    pub fn state_get_delcode(&self,i:u8) -> i32 {
+        self.state.borrow().delcode(i)
+    }
     pub fn get_mode(&self) -> TeXMode {
         self.state.borrow().mode
     }
@@ -669,5 +723,7 @@ pub enum StateChange {
     Tokens(i16,Vec<Token>,bool),
     Lccode(u8,u8,bool),
     Uccode(u8,u8,bool),
-    Box(i16,TeXBox,bool)
+    Box(i16,TeXBox,bool),
+    Mathcode(u8,i32,bool),
+    Delcode(u8,i32,bool),
 }

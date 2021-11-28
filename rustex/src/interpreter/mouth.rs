@@ -589,6 +589,18 @@ impl Mouths {
             _ => "".to_string()
         }
     }
+    pub fn end_input(&mut self) {
+        loop {
+            match self.mouths.last() {
+                Some(Mouth::File(_)) => {
+                    self.mouths.pop();
+                    return ()
+                }
+                Some(m) => {self.mouths.pop();}
+                _ => panic!("Mouth empty!")
+            }
+        }
+    }
     pub fn preview(&self) -> TeXString {
         let mut ret : TeXString = "".into();
         for s in self.mouths.iter().rev() {
@@ -658,6 +670,9 @@ impl Interpreter<'_> {
 
     fn eof_token(&self) -> Token {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
+    }
+    pub fn end_input(&self) {
+        self.mouths.borrow_mut().end_input()
     }
 }
 

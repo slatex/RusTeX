@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::ops::Deref;
-use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox};
+use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -576,6 +576,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(*i)).to_string().into()),
             AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(*i)),
             AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
+            AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(u8toi16(*i))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip(u8toi16(*i)).to_string().into()),
@@ -1393,6 +1394,108 @@ pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endinput",
+    expandable:true,
+    _apply:|_tk,int| {
+        int.end_input();
+        Ok(())
+    }
+};
+
+pub static TOKS: TokAssValue = TokAssValue {
+    name:"toks",
+    _assign: |_rf,int,global| {
+        let num = int.read_number()? as i16;
+        int.read_eq();
+        let r = int.read_balanced_argument(false,false,false,true)?;
+        int.change_state(StateChange::Tokens(num,r,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let num = int.read_number()? as i16;
+        Ok(int.state_tokens(num))
+    }
+};
+
+pub static MATHCODE: IntAssValue = IntAssValue {
+    name:"mathcode",
+    _getvalue: |int| {Ok(Numeric::Int(int.state_get_mathcode( int.read_number()? as u8)))},
+    _assign: |rf,int,global| {
+        let i = int.read_number()? as u8;
+        int.read_eq();
+        let v = int.read_number()?;
+        int.change_state(StateChange::Mathcode(i,v,global));
+        Ok(())
+    }
+};
+
+pub static DELCODE: IntAssValue = IntAssValue {
+    name:"delcode",
+    _getvalue: |int| {Ok(Numeric::Int(int.state_get_delcode( int.read_number()? as u8)))},
+    _assign: |rf,int,global| {
+        let i = int.read_number()? as u8;
+        int.read_eq();
+        let v = int.read_number()?;
+        int.change_state(StateChange::Delcode(i,v,global));
+        Ok(())
+    }
+};
+
+pub static MATHCLOSE: MathWhatsit = MathWhatsit {
+    name:"mathclose",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHBIN: MathWhatsit = MathWhatsit {
+    name:"mathbin",
+    _get: |tk,int| {todo!()}
+};
+pub static MATHINNER: MathWhatsit = MathWhatsit {
+    name:"mathinner",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHOP: MathWhatsit = MathWhatsit {
+    name:"mathop",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHOPEN: MathWhatsit = MathWhatsit {
+    name:"mathopen",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHORD: MathWhatsit = MathWhatsit {
+    name:"mathord",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHPUNCT: MathWhatsit = MathWhatsit {
+    name:"mathpunct",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHREL: MathWhatsit = MathWhatsit {
+    name:"mathrel",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHACCENT: MathWhatsit = MathWhatsit {
+    name:"mathaccent",
+    _get: |tk,int| {todo!()}
+};
+
+pub static RADICAL: MathWhatsit = MathWhatsit {
+    name:"radical",
+    _get: |tk,int| {todo!()}
+};
+
+pub static DELIMITER: MathWhatsit = MathWhatsit {
+    name:"delimiter",
+    _get: |tk,int| {todo!()}
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -1906,6 +2009,25 @@ pub static BIGSKIPAMOUNT : SkipReference = SkipReference {
     index:23
 };
 
+// -------------------------
+
+pub static THINMUSKIP : MuSkipReference = MuSkipReference {
+    name: "thinmuskip",
+    index:5
+};
+
+pub static MEDMUSKIP : MuSkipReference = MuSkipReference {
+    name: "medmuskip",
+    index:6
+};
+
+pub static THICKMUSKIP : MuSkipReference = MuSkipReference {
+    name: "thickmuskip",
+    index:7
+};
+
+
+
 // Tokens ------------------------------------------------------------------------------------------
 
 pub static EVERYJOB : TokReference = TokReference {
@@ -2005,12 +2127,6 @@ pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"dump",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"endinput",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2508,12 +2624,6 @@ pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DELCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"delcode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"dimen",
     expandable:true,
@@ -2534,12 +2644,6 @@ pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static RPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"rpcode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathcode",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2610,13 +2714,6 @@ pub static TEXTFONT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TOKS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"toks",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-
 pub static ABOVE: PrimitiveExecutable = PrimitiveExecutable {
     name:"above",
     expandable:true,
@@ -2649,12 +2746,6 @@ pub static ATOPWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"bigskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static DELIMITER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"delimiter",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2869,12 +2960,6 @@ pub static LOWER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MATHACCENT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathaccent",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MATHCHAR: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathchar",
     expandable:true,
@@ -2883,54 +2968,6 @@ pub static MATHCHAR: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathchoice",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHCLOSE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathclose",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHINNER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathinner",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHOP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathop",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHOPEN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathopen",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHORD: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathord",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHPUNCT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathpunct",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHREL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathrel",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MATHBIN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathbin",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3003,12 +3040,6 @@ pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"penalty",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static RADICAL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"radical",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3196,6 +3227,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
     PrimitiveTeXCommand::Ass(&FUTURELET),
+    PrimitiveTeXCommand::AV(AssignableValue::Tok(&TOKS)),
     PrimitiveTeXCommand::Int(&TIME),
     PrimitiveTeXCommand::Int(&YEAR),
     PrimitiveTeXCommand::Int(&MONTH),
@@ -3205,6 +3237,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&GLUEEXPR),
     PrimitiveTeXCommand::Int(&MUEXPR),
     PrimitiveTeXCommand::Int(&INPUTLINENO),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
     PrimitiveTeXCommand::Primitive(&EXPANDAFTER),
@@ -3216,7 +3249,19 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&HYPHENCHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHBIN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHINNER)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHOP)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHOPEN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHORD)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHPUNCT)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHREL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHACCENT)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&RADICAL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&DELIMITER)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -3317,6 +3362,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&SPACESKIP)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&XSPACESKIP)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&BIGSKIPAMOUNT)),
+
+    PrimitiveTeXCommand::AV(AssignableValue::PrimMuSkip(&THINMUSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimMuSkip(&MEDMUSKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimMuSkip(&THICKMUSKIP)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYJOB)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&EVERYPAR)),
@@ -3431,12 +3480,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&TAGCODE),
     PrimitiveTeXCommand::Primitive(&AFTERASSIGNMENT),
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
-    PrimitiveTeXCommand::Primitive(&DELCODE),
     PrimitiveTeXCommand::Primitive(&DIMEN),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),
-    PrimitiveTeXCommand::Primitive(&MATHCODE),
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
@@ -3448,14 +3495,12 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SKEWCHAR),
     PrimitiveTeXCommand::Primitive(&SKIP),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
-    PrimitiveTeXCommand::Primitive(&TOKS),
     PrimitiveTeXCommand::Primitive(&ABOVE),
     PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&ACCENT),
     PrimitiveTeXCommand::Primitive(&ATOP),
     PrimitiveTeXCommand::Primitive(&ATOPWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&BIGSKIP),
-    PrimitiveTeXCommand::Primitive(&DELIMITER),
     PrimitiveTeXCommand::Primitive(&DISCRETIONARY),
     PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
     PrimitiveTeXCommand::Primitive(&LIMITS),
@@ -3491,17 +3536,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),
     PrimitiveTeXCommand::Primitive(&LOWER),
-    PrimitiveTeXCommand::Primitive(&MATHACCENT),
     PrimitiveTeXCommand::Primitive(&MATHCHAR),
     PrimitiveTeXCommand::Primitive(&MATHCHOICE),
-    PrimitiveTeXCommand::Primitive(&MATHCLOSE),
-    PrimitiveTeXCommand::Primitive(&MATHINNER),
-    PrimitiveTeXCommand::Primitive(&MATHOP),
-    PrimitiveTeXCommand::Primitive(&MATHOPEN),
-    PrimitiveTeXCommand::Primitive(&MATHORD),
-    PrimitiveTeXCommand::Primitive(&MATHPUNCT),
-    PrimitiveTeXCommand::Primitive(&MATHREL),
-    PrimitiveTeXCommand::Primitive(&MATHBIN),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&MIDDLE),
     PrimitiveTeXCommand::Primitive(&MKERN),
@@ -3514,7 +3550,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&OVERLINE),
     PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&PENALTY),
-    PrimitiveTeXCommand::Primitive(&RADICAL),
     PrimitiveTeXCommand::Primitive(&RAISE),
     PrimitiveTeXCommand::Primitive(&RIGHT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),

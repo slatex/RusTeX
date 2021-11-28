@@ -63,6 +63,17 @@ impl PartialEq for FontAssValue {
     }
 }
 
+pub struct TokAssValue {
+    pub name: &'static str,
+    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
+    pub _getvalue: fn(int: &Interpreter) -> Result<Vec<Token>,TeXError>
+}
+impl PartialEq for TokAssValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 pub struct IntCommand {
     pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>,
     pub name : &'static str
@@ -121,7 +132,7 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, TeXBox};
+use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, TeXBox};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -131,6 +142,11 @@ pub struct ProvidesExecutableWhatsit {
 pub struct ProvidesBox {
     pub name: &'static str,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<TeXBox,TeXError>
+}
+
+pub struct MathWhatsit {
+    pub name: &'static str,
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathWI,TeXError>
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -144,6 +160,7 @@ pub enum AssignableValue {
     Toks(u8),
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
+    Tok(&'static TokAssValue),
     FontRef(RefCell<Font>),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
@@ -159,6 +176,7 @@ impl AssignableValue {
             Dim(_) | Register(_) | Skip(_) | Toks(_) | MuSkip(_) => None,
             Int(i) => Some(i.name.into()),
             Font(f) => Some(f.name.into()),
+            Tok(r) => Some(r.name.into()),
             PrimReg(r) => Some(r.name.into()),
             PrimDim(d) => Some(d.name.into()),
             PrimSkip(d) => Some(d.name.into()),
@@ -266,6 +284,7 @@ impl Display for TokenList<'_> {
 pub enum ProvidesWhatsit {
     Box(&'static ProvidesBox),
     Exec(&'static ProvidesExecutableWhatsit),
+    Math(&'static MathWhatsit),
     Other
 }
 impl ProvidesWhatsit {
@@ -273,6 +292,7 @@ impl ProvidesWhatsit {
         match self {
             ProvidesWhatsit::Exec(e) => Some(e.name.into()),
             ProvidesWhatsit::Box(b) => Some(b.name.into()),
+            ProvidesWhatsit::Math(b) => Some(b.name.into()),
             _ => todo!()
         }
     }
@@ -384,6 +404,7 @@ impl PrimitiveTeXCommand {
             }),
             AV(AssignableValue::Int(p)) => p.name.into(),
             Cond(c) => c.name.into(),
+            Whatsit(ProvidesWhatsit::Math(m)) => m.name.into(),
             _ => todo!("{}",self)
         };
         ret
@@ -647,6 +668,7 @@ impl PrimitiveTeXCommand {
                 AssignableValue::Font(f) => {
                     (f._assign)(rf,int,global)
                 }
+                AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(_) => todo!(),
                 AssignableValue::Dim(i) => {
                     int.read_eq();
