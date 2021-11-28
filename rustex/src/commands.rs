@@ -161,7 +161,7 @@ pub enum AssignableValue {
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
-    FontRef(RefCell<Font>),
+    FontRef(Rc<Font>),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -398,7 +398,7 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             }
-            AV(AssignableValue::FontRef(f)) => TeXString::from("select font ") + TeXString::from(f.borrow().file.name.clone()) + TeXString::from(match f.borrow().at {
+            AV(AssignableValue::FontRef(f)) => TeXString::from("select font ") + TeXString::from(f.file.name.clone()) + TeXString::from(match f.at {
                 Some(vl) => " at ".to_string() + &dimtostr(vl),
                 None => "".to_string()
             }),
@@ -669,7 +669,10 @@ impl PrimitiveTeXCommand {
                     (f._assign)(rf,int,global)
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
-                AssignableValue::FontRef(_) => todo!(),
+                AssignableValue::FontRef(f) => {
+                    int.change_state(StateChange::Font(f.clone(),global));
+                    Ok(())
+                },
                 AssignableValue::Dim(i) => {
                     int.read_eq();
                     log!("Assigning dimen {}",i);

@@ -56,6 +56,8 @@ impl FontState {
 }
 use std::fs;
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
+
 impl FontFile {
     pub fn new(pb : PathBuf) -> FontFile {
         let name : TeXStr = pb.file_stem().unwrap().to_str().unwrap().into();
@@ -222,27 +224,32 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use crate::utils::TeXStr;
 
-#[derive(Clone)]
-pub struct Font {
-    pub file:Rc<FontFile>,
-    pub at:Option<i32>,
+pub struct FontInner {
     pub dimen:HashMap<u16,i32>,
     pub hyphenchar:u16
 }
+
+pub struct Font {
+    pub file:Rc<FontFile>,
+    pub at:Option<i32>,
+    pub inner: RefCell<FontInner>
+}
 impl Font {
-    pub fn new(file:Rc<FontFile>,at:Option<i32>) -> Font {
+    pub fn new(file:Rc<FontFile>,at:Option<i32>) -> Rc<Font> {
         let hc = file.hyphenchar;
-        Font {
+        Rc::new(Font {
             file,at,
-            dimen:HashMap::new(),
-            hyphenchar:hc
-        }
+            inner:RefCell::new(FontInner {
+                dimen:HashMap::new(),
+                hyphenchar:hc
+            })
+        })
     }
-    pub fn set_dimen(&mut self,i : u16,vl : i32) {
-        self.dimen.insert(i,vl);
+    pub fn set_dimen(&self,i : u16,vl : i32) {
+        self.inner.borrow_mut().dimen.insert(i,vl);
     }
     pub fn get_dimen(&self,i:u16) -> i32 {
-        match self.dimen.get(&i) {
+        match self.inner.borrow().dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
                 Some(f) => (f * (match self.at {
@@ -253,4 +260,29 @@ impl Font {
             }
         }
     }
+}
+
+thread_local! {
+    pub static Nullfontfile : Rc<FontFile> = Rc::new(FontFile {
+        hyphenchar : 45,
+        skewchar : 255,
+        dimen : HashMap::new(),
+        size : 65536,
+        typestr : TeXStr::new(&[]),
+        widths : HashMap::new(),
+        heights : HashMap::new(),
+        depths : HashMap::new(),
+        ics : HashMap::new(),
+        lps : HashMap::new(),
+        rps : HashMap::new(),
+        ligs : HashMap::new(),
+        name : TeXStr::new("Nullfont".as_bytes())
+    });
+    pub static Nullfont : Rc<Font> = Rc::new(Font {
+            file:Nullfontfile.try_with(|x| x.clone()).unwrap(),at:Some(0),
+            inner:RefCell::new(FontInner {
+                dimen:HashMap::new(),
+                hyphenchar:45
+            })
+    });
 }

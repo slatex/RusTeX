@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::ops::Deref;
+use std::rc::Rc;
 use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
@@ -1273,7 +1274,7 @@ pub static FONT: FontAssValue = FontAssValue {
             _ => None
         };
         let font = Font::new(ff,at);
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(RefCell::new(font))).as_command()),global));
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global));
         Ok(())
     },
     _getvalue: |_int| {
@@ -1281,13 +1282,13 @@ pub static FONT: FontAssValue = FontAssValue {
     }
 };
 
-fn read_font<'a>(int : &Interpreter) -> Result<TeXCommand,TeXError> {
+fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     let tk = int.read_command_token()?;
     let cmd = int.get_command(tk.cmdname())?;
     match &*cmd.orig {
-        PrimitiveTeXCommand::AV(AssignableValue::FontRef(_)) =>
-            Ok(cmd),
-        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => todo!(),
+        PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+            Ok(f.clone()),
+        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
         _ => TeXErr!((int, Some(tk)),"Font expected!")
     }
 }
@@ -1299,22 +1300,13 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
         let f = read_font(int)?;
         int.read_eq();
         let d = int.read_dimension()?;
-        match &*f.orig {
-            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
-                f.borrow_mut().set_dimen(i,d),
-            _ => unreachable!()
-        }
+        f.set_dimen(i,d);
         Ok(())
     },
     _getvalue: |int| {
         let i = int.read_number()? as u16;
         let f = read_font(int)?;
-        match &*f.orig {
-            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
-                Ok(Numeric::Dim(f.borrow().get_dimen(i))),
-            _ => unreachable!()
-        }
-
+        Ok(Numeric::Dim(f.get_dimen(i)))
     }
 };
 
@@ -1324,20 +1316,13 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
         let f = read_font(int)?;
         int.read_eq();
         let d = int.read_number()?;
-        match &*f.orig {
-            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
-                f.borrow_mut().hyphenchar = d as u16,
-            _ => unreachable!()
-        }
+        f.inner.borrow_mut().hyphenchar = d as u16;
         Ok(())
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        match &*f.orig {
-            PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
-                Ok(Numeric::Int(f.borrow().hyphenchar as i32)),
-            _ => unreachable!()
-        }
+        let x = f.inner.borrow().hyphenchar as i32;
+        Ok(Numeric::Int(x))
     }
 };
 

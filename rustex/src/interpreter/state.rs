@@ -40,7 +40,8 @@ struct StackFrame {
     pub(crate) uccodes : HashMap<u8,u8>,
     pub(crate) mathcodes : HashMap<u8,i32>,
     pub(crate) delcodes : HashMap<u8,i32>,
-    pub(crate) boxes: HashMap<i16,TeXBox>
+    pub(crate) boxes: HashMap<i16,TeXBox>,
+    pub(crate) currfont : Rc<Font>
 }
 
 impl StackFrame {
@@ -87,7 +88,8 @@ impl StackFrame {
             registers:reg,
             dimensions:dims,
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
-            tp:None
+            tp:None,
+            currfont:Nullfont.try_with(|x| x.clone()).unwrap()
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
@@ -115,7 +117,7 @@ impl StackFrame {
             registers:reg,
             dimensions:dims,
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
-            tp:Some(tp)
+            tp:Some(tp),currfont:parent.currfont.clone()
         }
     }
 }
@@ -149,7 +151,7 @@ impl State {
             incs:0,
             fontfiles: fonts,
             mode:TeXMode::Vertical,
-            afterassignment:None
+            afterassignment:None,
         }
     }
 
@@ -289,6 +291,15 @@ impl State {
     }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
+            StateChange::Font(f,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.currfont = f.clone()
+                    }
+                } else {
+                    self.stacks.last_mut().unwrap().currfont = f
+                }
+            }
             StateChange::Register(index,value,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
@@ -500,7 +511,7 @@ pub fn default_pdf_latex_state() -> State {
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
 use std::str::from_utf8_unchecked;
-use crate::fonts::FontFile;
+use crate::fonts::{Font, FontFile, Nullfont};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
@@ -707,6 +718,9 @@ impl Interpreter<'_> {
             _ => ()
         }
     }
+    pub fn get_font(&self) -> Rc<Font> {
+        self.state.borrow().stacks.last().unwrap().currfont.clone()
+    }
 }
 
 pub enum StateChange {
@@ -726,4 +740,5 @@ pub enum StateChange {
     Box(i16,TeXBox,bool),
     Mathcode(u8,i32,bool),
     Delcode(u8,i32,bool),
+    Font(Rc<Font>,bool)
 }
