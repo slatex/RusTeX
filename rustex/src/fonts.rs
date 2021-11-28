@@ -226,7 +226,8 @@ use crate::utils::TeXStr;
 
 pub struct FontInner {
     pub dimen:HashMap<u16,i32>,
-    pub hyphenchar:u16
+    pub hyphenchar:u16,
+    pub skewchar:u16
 }
 
 pub struct Font {
@@ -237,11 +238,13 @@ pub struct Font {
 impl Font {
     pub fn new(file:Rc<FontFile>,at:Option<i32>) -> Rc<Font> {
         let hc = file.hyphenchar;
+        let sc = file.skewchar;
         Rc::new(Font {
             file,at,
             inner:RefCell::new(FontInner {
                 dimen:HashMap::new(),
-                hyphenchar:hc
+                hyphenchar:hc,
+                skewchar:sc
             })
         })
     }
@@ -282,7 +285,8 @@ thread_local! {
             file:Nullfontfile.try_with(|x| x.clone()).unwrap(),at:Some(0),
             inner:RefCell::new(FontInner {
                 dimen:HashMap::new(),
-                hyphenchar:45
+                hyphenchar:45,
+                skewchar:255
             })
     });
 }

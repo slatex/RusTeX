@@ -1326,6 +1326,22 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
     }
 };
 
+pub static SKEWCHAR: IntAssValue = IntAssValue {
+    name:"skewchar",
+    _assign: |_rf,int,_global| {
+        let f = read_font(int)?;
+        int.read_eq();
+        let d = int.read_number()?;
+        f.inner.borrow_mut().skewchar = d as u16;
+        Ok(())
+    },
+    _getvalue: |int| {
+        let f = read_font(int)?;
+        let x = f.inner.borrow().skewchar as i32;
+        Ok(Numeric::Int(x))
+    }
+};
+
 pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
     expandable:true,
@@ -2681,12 +2697,6 @@ pub static SCRIPTSCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static SKEWCHAR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"skewchar",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"skip",
     expandable:true,
@@ -3234,6 +3244,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&HYPHENCHAR)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&SKEWCHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
@@ -3477,7 +3488,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&READLINE),
     PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
     PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
-    PrimitiveTeXCommand::Primitive(&SKEWCHAR),
     PrimitiveTeXCommand::Primitive(&SKIP),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
     PrimitiveTeXCommand::Primitive(&ABOVE),
