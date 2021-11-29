@@ -16,5 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install kpathsea
+      run: sudo apt install libkpathsea-dev
     - name: Build
       run: cd rustex && cargo build --verbose
