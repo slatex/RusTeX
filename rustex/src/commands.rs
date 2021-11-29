@@ -515,9 +515,10 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /*if tk.name().to_string() == "rem@pt" {
-            print!("");
-            unsafe {crate::LOG = true }
+         /*if tk.name().to_string() == "@set@curr@file@aux" {
+             println!("  >>{}",int.preview());
+             print!("")
+            //unsafe {crate::LOG = true }
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
@@ -631,7 +632,7 @@ impl PrimitiveTeXCommand {
                             if arg >= d.sig.arity {
                                 TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
                             }
-                            for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.clone()) }
+                            for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.cloned()) }
                         }
                     }
                 }

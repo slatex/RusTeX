@@ -96,6 +96,16 @@ impl Token {
     pub fn dummy() -> Token {
         Token::new(0,CategoryCode::Escape,Some("relax".into()),SourceReference::None,false)
     }
+    pub fn cloned(&self) -> Token {
+        Token {
+            char:self.char,
+            catcode:self.catcode,
+            cmdname:self.cmdname.clone(),
+            name_opt:self.name_opt.clone(),
+            reference:self.reference.clone(),
+            expand:true
+        }
+    }
     pub fn copied(&self,er:ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
             Token {

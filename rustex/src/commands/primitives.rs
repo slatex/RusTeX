@@ -56,7 +56,7 @@ pub static SFCODE : IntAssValue = IntAssValue {
 
 use crate::references::SourceReference;
 use chrono::{Datelike, Timelike};
-use crate::fonts::Font;
+use crate::fonts::{Font, Nullfont};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -85,6 +85,42 @@ pub static COUNT : IntAssValue = IntAssValue {
         let num = int.state_register(u8toi16(index));
         log!("\\count {} = {}",index,num);
         Ok(Numeric::Int(num))
+    }
+};
+
+pub static DIMEN : IntAssValue = IntAssValue {
+    name: "dimen",
+    _assign: |_,int,global| {
+        let index = u8toi16(int.read_number()? as u8);
+        int.read_eq();
+        let val = int.read_dimension()?;
+        log!("\\dimen sets {} to {}",index,val);
+        int.change_state(StateChange::Dimen(index,val,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let index = int.read_number()? as u8;
+        let dim = int.state_dimension(u8toi16(index));
+        log!("\\dimen {} = {}",index,dim);
+        Ok(Numeric::Dim(dim))
+    }
+};
+
+pub static SKIP : IntAssValue = IntAssValue {
+    name: "skip",
+    _assign: |_,int,global| {
+        let index = u8toi16(int.read_number()? as u8);
+        int.read_eq();
+        let val = int.read_skip()?;
+        log!("\\skip sets {} to {}",index,val);
+        int.change_state(StateChange::Skip(index,val,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let index = int.read_number()? as u8;
+        let dim = int.state_skip(u8toi16(index));
+        log!("\\skip {} = {}",index,dim);
+        Ok(Numeric::Skip(dim))
     }
 };
 
@@ -281,12 +317,9 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
-    /*if command.name().to_string() == "l__iow_line_part_tl" {
+    /*if command.name().to_string() == "@curr@file" {
         println!("Here! {} >>{}",int.current_line(),int.preview());
-        if int.line_no() >= 2704 {
-            //unsafe {crate::LOG = true}
-            print!("")
-        }
+        print!("")
     }*/
     let sig = read_sig(int)?;
     //let arity = sig.arity;
@@ -846,6 +879,7 @@ pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
             _ => cmdname += next.char
         }
     }
+    log!("\\csname return: {}",cmdname);
     return Ok(cmdname)
 }
 
@@ -1289,6 +1323,8 @@ fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
         PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
             Ok(f.clone()),
         PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
+        PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
+        Ok(Nullfont.try_with(|x| x.clone()).unwrap()),
         _ => TeXErr!((int, Some(tk)),"Font expected!")
     }
 }
@@ -1346,7 +1382,7 @@ pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"expanded",
     expandable:true,
     _apply:|rf,int| {
-        rf.2 = int.read_balanced_argument(true,true,false,true)?;
+        rf.2 = int.read_balanced_argument(true,true,false,true)?.iter().map(|x| x.cloned()).collect();
         Ok(())
     }
 };
@@ -1439,6 +1475,14 @@ pub static DELCODE: IntAssValue = IntAssValue {
         int.read_eq();
         let v = int.read_number()?;
         int.change_state(StateChange::Delcode(i,v,global));
+        Ok(())
+    }
+};
+
+pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
+    name:"nullfont",
+    _assign: |_,int,global| {
+        int.change_state(StateChange::Font(Nullfont.try_with(|x| x.clone()).unwrap(),global));
         Ok(())
     }
 };
@@ -2093,7 +2137,7 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
 pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"batchmode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,int| {todo!("{} >>{}",int.current_line(),int.preview())}
 };
 
 pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
@@ -2182,12 +2226,6 @@ pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"jobname",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static NULLFONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"nullfont",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2625,12 +2663,6 @@ pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DIMEN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"dimen",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
     name:"hyphenation",
     expandable:true,
@@ -2693,12 +2725,6 @@ pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SCRIPTSCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptfont",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"skip",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3189,6 +3215,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&ENDLINECHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&ESCAPECHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&COUNT)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&DIMEN)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&SKIP)),
     PrimitiveTeXCommand::Ass(&CHARDEF),
     PrimitiveTeXCommand::Ass(&COUNTDEF),
     PrimitiveTeXCommand::Ass(&DIMENDEF),
@@ -3220,6 +3248,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLOSEIN),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     PrimitiveTeXCommand::Ass(&READ),
+    PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
     PrimitiveTeXCommand::Ass(&FUTURELET),
     PrimitiveTeXCommand::AV(AssignableValue::Tok(&TOKS)),
@@ -3400,7 +3429,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&JOBNAME),
     PrimitiveTeXCommand::Primitive(&LOWERCASE),
     PrimitiveTeXCommand::Primitive(&MESSAGE),
-    PrimitiveTeXCommand::Primitive(&NULLFONT),
     PrimitiveTeXCommand::Primitive(&SCANTOKENS),
     PrimitiveTeXCommand::Primitive(&SHIPOUT),
     PrimitiveTeXCommand::Primitive(&STRING),
@@ -3476,7 +3504,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&TAGCODE),
     PrimitiveTeXCommand::Primitive(&AFTERASSIGNMENT),
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
-    PrimitiveTeXCommand::Primitive(&DIMEN),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&LPCODE),
     PrimitiveTeXCommand::Primitive(&RPCODE),
@@ -3488,7 +3515,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&READLINE),
     PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
     PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
-    PrimitiveTeXCommand::Primitive(&SKIP),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
     PrimitiveTeXCommand::Primitive(&ABOVE),
     PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),

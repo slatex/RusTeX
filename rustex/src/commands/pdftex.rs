@@ -47,6 +47,9 @@ pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|rf,int| {
         let strtks = int.read_balanced_argument(true,false,false,true)?;
         let str = int.tokens_to_string(strtks);
+        /*if str.to_string() == "hyphen.cfg" {
+            unsafe { crate::LOG = true };
+        }*/
         let file = int.get_file(&str.to_utf8())?;
         match file.string {
             None => (),

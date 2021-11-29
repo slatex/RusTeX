@@ -546,9 +546,9 @@ impl Interpreter<'_> {
     }
     pub fn file_openin(&self,index:u8,file:VFile) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
-        if state.infiles.contains_key(&index) {
+        /*if state.infiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
-        }
+        }*/
         let mouth = StringMouth::new_from_file(&self.catcodes.borrow(),&file);
         self.filestore.borrow_mut().files.insert(file.id.clone(),file);
         state.infiles.insert(index,mouth);
@@ -566,9 +566,9 @@ impl Interpreter<'_> {
     }
     pub fn file_openout(&self,index:u8,file:VFile) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
-        if state.outfiles.contains_key(&index) {
+        /*if state.outfiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
-        }
+        }*/
         state.outfiles.insert(index,file);
         Ok(())
     }
