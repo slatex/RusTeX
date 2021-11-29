@@ -1,3 +1,5 @@
+use rustex::catcodes::CategoryCode;
+
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
