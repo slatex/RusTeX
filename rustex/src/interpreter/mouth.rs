@@ -438,7 +438,10 @@ impl StringMouth {
         next
     }
     fn preview(&self) -> TeXString {
-        let mut rest : Vec<u8> = (*self.string.as_ref().unwrap().0)[self.pos..].to_vec();
+        let mut rest : Vec<u8> = match self.string.as_ref() {
+            Some(r) => r.0[self.pos..].to_vec(),
+            _ => vec!()
+        }; //(*self.string.as_ref().unwrap().0)[self.pos..].to_vec();
         for s in self.allstrings.iter().rev() {
             for c in &s.0 {
                 rest.push(*c)

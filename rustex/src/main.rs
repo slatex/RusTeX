@@ -11,6 +11,7 @@ fn do_latexltx() {
 fn do_thesis() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
+    unsafe{ rustex::LOG = true };
     Interpreter::do_file_with_state(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"),state);
 }
 /*
@@ -49,7 +50,7 @@ fn main() {
     //"bla bla\n bla bla".as_bytes().iter_mut().multipeek()
     // https://doc.rust-lang.org/book/ch15-04-rc.html
 
-    //do_latexltx()
-    do_thesis()
+    do_latexltx()
+    //do_thesis()
 
 }

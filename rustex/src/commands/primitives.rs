@@ -536,14 +536,18 @@ use crate::utils::u8toi16;
 fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     let cmd = int.read_command_token()?;
-    int.read_keyword(vec!("by"))?;
     let (index,num,val) : (i16,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
-        AV(AssignableValue::Register(i)) =>
-            (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?),
-        AV(AssignableValue::PrimReg(r)) =>
-            (-u8toi16(r.index),Numeric::Int(int.state_register(-u8toi16(r.index))),int.read_number_i(false)?),
+        AV(AssignableValue::Register(i)) => {
+            int.read_keyword(vec!("by"))?;
+            (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?)
+        }
+        AV(AssignableValue::PrimReg(r)) => {
+            int.read_keyword(vec!("by"))?;
+            (-u8toi16(r.index), Numeric::Int(int.state_register(-u8toi16(r.index))), int.read_number_i(false)?)
+        }
         AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = u8toi16(int.read_number()? as u8);
+            int.read_keyword(vec!("by"))?;
             (i,Numeric::Int(int.state_register(i)),int.read_number_i(false)?)
         }
         _ => todo!()
