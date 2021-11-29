@@ -392,8 +392,8 @@ pub static IFDIM : Conditional = Conditional {
 
 pub static IFMMODE : Conditional = Conditional {
     name:"ifmmode",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,_cond,_unless| {
+        TeXErr!((int,None),"Not yet implemented {} >>{}",int.current_line(),int.preview())
     }
 };
 

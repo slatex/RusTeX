@@ -105,7 +105,7 @@ impl Interpreter<'_> {
                     if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
-                        self.skip_ws();
+                        self.requeue(next);
                         return Ok(from_utf8(ret.as_slice()).unwrap().to_owned())
                     }
                 },

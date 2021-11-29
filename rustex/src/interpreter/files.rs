@@ -38,7 +38,7 @@ impl VFile {
         match opt {
             Some(vf) => vf,
             _ => {
-                if simplename == "<texmf>/LANGUAGE.DAT" {
+                /*if simplename == "<texmf>/LANGUAGE.DAT" {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Some(LANGUAGE_DAT.into()),
@@ -50,7 +50,7 @@ impl VFile {
                         string:Some(UNICODEDATA_TXT.into()),
                         id:simplename
                     }
-                } else {
+                } else */ {
                     VFile {
                         source:VFileBase::Real(fp.to_path_buf()),
                         string:if fp.exists() {fs::read(fp).ok().map(|x| x.into())} else {Some("".into())},

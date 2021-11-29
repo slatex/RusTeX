@@ -12,6 +12,13 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
     name: "pdftexversion"
 };
 
+pub static PDFSHELLESCAPE: IntCommand = IntCommand {
+    name:"pdfshellescape",
+    _getvalue:|_int| {
+        Ok(Numeric::Int(2))
+    }
+};
+
 pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdftexrevision",
     expandable:true,
@@ -312,12 +319,6 @@ pub static PDFSETMATRIX: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFSHELLESCAPE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfshellescape",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFSTARTLINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstartlink",
     expandable:true,
@@ -364,6 +365,7 @@ pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
 
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&PDFTEXVERSION),
+    PrimitiveTeXCommand::Int(&PDFSHELLESCAPE),
 
     PrimitiveTeXCommand::Cond(&IFPDFABSNUM),
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),
@@ -411,7 +413,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFLASTXPOS),
     PrimitiveTeXCommand::Primitive(&PDFLASTYPOS),
     PrimitiveTeXCommand::Primitive(&PDFSETMATRIX),
-    PrimitiveTeXCommand::Primitive(&PDFSHELLESCAPE),
     PrimitiveTeXCommand::Primitive(&PDFSTARTLINK),
     PrimitiveTeXCommand::Primitive(&PDFENDLINK),
     PrimitiveTeXCommand::Primitive(&PDFXFORM),

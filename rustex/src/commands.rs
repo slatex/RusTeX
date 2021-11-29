@@ -515,7 +515,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /*if tk.name().to_string() == "@set@curr@file@aux" {
+         /*if tk.name().to_string() == "input" {
              println!("  >>{}",int.preview());
              print!("")
             //unsafe {crate::LOG = true }

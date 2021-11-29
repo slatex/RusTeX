@@ -1,9 +1,17 @@
-use rustex::catcodes::CategoryCode;
+use std::path::Path;
+use rustex::interpreter::Interpreter;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
-    println!("Success! \\o/ {}",state.get_command(&"eTeXversion".into()).expect(""))
+    state.get_command(&"eTeXversion".into()).expect("");
+    println!("\n\nSuccess! \\o/")
+}
+
+fn do_thesis() {
+    use rustex::interpreter::state::default_pdf_latex_state;
+    let state = default_pdf_latex_state();
+    Interpreter::do_file_with_state(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"),state);
 }
 /*
 fn do_test() {
@@ -41,8 +49,7 @@ fn main() {
     //"bla bla\n bla bla".as_bytes().iter_mut().multipeek()
     // https://doc.rust-lang.org/book/ch15-04-rc.html
 
-    //let now = Local::now();
-    do_latexltx()
-
+    //do_latexltx()
+    do_thesis()
 
 }

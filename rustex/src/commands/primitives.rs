@@ -188,6 +188,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"toksdef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.clone())),global));
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(rf);
