@@ -13,7 +13,7 @@ pub enum VFileBase {
 pub struct VFile {
     pub source:VFileBase,
     pub(in crate) string: Option<TeXString>,
-    pub(in crate::interpreter) id : String
+    pub(in crate) id : String
 }
 
 extern crate pathdiff;

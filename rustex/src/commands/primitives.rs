@@ -1487,6 +1487,16 @@ pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
+pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"jobname",
+    expandable:true,
+    _apply:|rf,int| {
+        let jobname = int.jobinfo.path.file_stem().unwrap().to_str().unwrap();
+        rf.2 = crate::interpreter::string_to_tokens(jobname.into());
+        Ok(())
+    }
+};
+
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
     _get: |tk,int| {todo!()}
@@ -2220,12 +2230,6 @@ pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
-    name:"jobname",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
