@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-18.04
     environment: production
     steps:
+    - uses: actions/checkout@v2
     - name: Install kpathsea
       run: sudo apt install libkpathsea-dev
     - name: Deploy
