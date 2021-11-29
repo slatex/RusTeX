@@ -27,3 +27,8 @@ jobs:
       run: sudo apt install libkpathsea-dev
     - name: Deploy
       run: cd rustex && cargo build --release --target x86_64-unknown-linux-gnu
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: packaged
+        path: ./rustex/target/x86_64-unknown-linux-gnu/release
