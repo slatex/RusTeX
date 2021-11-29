@@ -1,7 +1,7 @@
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
-    println!("{}",state.get_command(&"etexversion".into()).expect(""))
+    println!("Success! \\o/ {}",state.get_command(&"eTeXversion".into()).expect(""))
 }
 /*
 fn do_test() {

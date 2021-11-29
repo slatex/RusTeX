@@ -1497,6 +1497,68 @@ pub static JOBNAME: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PATTERNS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"patterns",
+    expandable:false,
+    _apply:|_tk,int| {
+        int.read_argument();
+        Ok(())
+        // TODO ?
+    }
+};
+
+pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
+    name:"hyphenation",
+    expandable:false,
+    _apply:|_tk,int| {
+        int.read_argument();
+        Ok(())
+        // TODO ?
+    }
+};
+
+pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
+    name:"ignorespaces",
+    expandable:false,
+    _apply:|_tk,int| {
+        while int.has_next() {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Space | CategoryCode::EOL => (),
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = int.state_get_command(next.cmdname());
+                    match p {
+                        Some(p) if p.expandable(true) => {
+                            p.expand(next,int)?;
+                        }
+                        _ => {
+                            int.requeue(next);
+                            return Ok(())
+                        }
+                    }
+                }
+                _ => {
+                    int.requeue(next);
+                    return Ok(())
+                }
+            }
+        }
+        Ok(())
+    }
+};
+
+pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"errorstopmode",
+    expandable:false,
+    _apply:|_tk,_int| { Ok(()) }
+};
+
+pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"dump",
+    expandable:true,
+    _apply:|_tk,_int| { Ok(()) }
+};
+
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
     _get: |tk,int| {todo!()}
@@ -1694,7 +1756,7 @@ pub static LEFTHYPHENMIN : RegisterReference = RegisterReference {
 };
 
 pub static RIGHTHYPHENMIN : RegisterReference = RegisterReference {
-    name: "righhyphenmin",
+    name: "righthyphenmin",
     index:33
 };
 
@@ -2180,20 +2242,8 @@ pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"dump",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
     name:"eqno",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ERRORSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"errorstopmode",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2224,12 +2274,6 @@ pub static FONTCHARDP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontcharic",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
-    name:"end",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -2667,12 +2711,6 @@ pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hyphenation",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lpcode",
     expandable:true,
@@ -2705,12 +2743,6 @@ pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PATTERNS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"patterns",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
