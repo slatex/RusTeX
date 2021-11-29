@@ -24,5 +24,5 @@ jobs:
     steps:
     - name: Install kpathsea
       run: sudo apt install libkpathsea-dev
-    -name: Deploy
+    - name: Deploy
       run: cd rustex && cargo build --release --target x86_64-unknown-linux-gnu
