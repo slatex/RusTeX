@@ -225,18 +225,18 @@ use std::rc::Rc;
 use crate::utils::TeXStr;
 
 pub struct FontInner {
-    pub dimen:HashMap<u16,i32>,
+    pub dimen:HashMap<u16,i64>,
     pub hyphenchar:u16,
     pub skewchar:u16
 }
 
 pub struct Font {
     pub file:Rc<FontFile>,
-    pub at:Option<i32>,
+    pub at:Option<i64>,
     pub inner: RefCell<FontInner>
 }
 impl Font {
-    pub fn new(file:Rc<FontFile>,at:Option<i32>) -> Rc<Font> {
+    pub fn new(file:Rc<FontFile>,at:Option<i64>) -> Rc<Font> {
         let hc = file.hyphenchar;
         let sc = file.skewchar;
         Rc::new(Font {
@@ -248,17 +248,17 @@ impl Font {
             })
         })
     }
-    pub fn set_dimen(&self,i : u16,vl : i32) {
+    pub fn set_dimen(&self,i : u16,vl : i64) {
         self.inner.borrow_mut().dimen.insert(i,vl);
     }
-    pub fn get_dimen(&self,i:u16) -> i32 {
+    pub fn get_dimen(&self,i:u16) -> i64 {
         match self.inner.borrow().dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
-                Some(f) => (f * (match self.at {
-                    Some(a) => a as f32,
-                    None => self.file.size as f32
-                })).round() as i32,
+                Some(f) => ((*f as f64) * (match self.at {
+                    Some(a) => a as f64,
+                    None => self.file.size as f64
+                })).round() as i64,
                 None => 0
             }
         }

@@ -35,7 +35,7 @@ pub static CATCODE : IntAssValue = IntAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()?;
-        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32))
+        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i64))
     }
 };
 
@@ -432,7 +432,7 @@ pub static NEWLINECHAR : IntAssValue = IntAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
+        Ok(Numeric::Int(int.state_catcodes().newlinechar as i64))
     }
 };
 
@@ -446,7 +446,7 @@ pub static ENDLINECHAR : IntAssValue = IntAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().endlinechar as i32))
+        Ok(Numeric::Int(int.state_catcodes().endlinechar as i64))
     }
 };
 
@@ -460,7 +460,7 @@ pub static ESCAPECHAR: IntAssValue = IntAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().escapechar as i32))
+        Ok(Numeric::Int(int.state_catcodes().escapechar as i64))
     }
 };
 
@@ -500,7 +500,7 @@ pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
 pub static TIME : IntCommand = IntCommand {
     _getvalue: |int| {
         let time = int.jobinfo.time;
-        Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i32))
+        Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i64))
     },
     name: "time"
 };
@@ -508,21 +508,21 @@ pub static TIME : IntCommand = IntCommand {
 pub static YEAR : IntCommand = IntCommand {
     name:"year",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.year()))
+        Ok(Numeric::Int(int.jobinfo.time.year() as i64))
     }
 };
 
 pub static MONTH : IntCommand = IntCommand {
     name:"month",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.month() as i32))
+        Ok(Numeric::Int(int.jobinfo.time.month() as i64))
     }
 };
 
 pub static DAY : IntCommand = IntCommand {
     name:"day",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.day() as i32))
+        Ok(Numeric::Int(int.jobinfo.time.day() as i64))
     }
 };
 
@@ -1273,7 +1273,7 @@ pub static LCCODE: IntAssValue = IntAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_lccode(char) as i32))
+        Ok(Numeric::Int(int.state_lccode(char) as i64))
     }
 };
 
@@ -1288,7 +1288,7 @@ pub static UCCODE: IntAssValue = IntAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_uccode(char) as i32))
+        Ok(Numeric::Int(int.state_uccode(char) as i64))
     }
 };
 
@@ -1338,11 +1338,11 @@ pub static FONT: FontAssValue = FontAssValue {
         let ff = int.state_get_font(&name)?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
-            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f32) * match int.read_number_i(true)? {
+            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f64) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
-                Numeric::Dim(i) => (i as f32) / 65536.0,
+                Numeric::Dim(i) => (i as f64) / 65536.0,
                 _ => todo!()
-            }).round() as i32),
+            }).round() as i64),
             _ => None
         };
         let font = Font::new(ff,at);
@@ -1395,7 +1395,7 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().hyphenchar as i32;
+        let x = f.inner.borrow().hyphenchar as i64;
         Ok(Numeric::Int(x))
     }
 };
@@ -1411,7 +1411,7 @@ pub static SKEWCHAR: IntAssValue = IntAssValue {
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().skewchar as i32;
+        let x = f.inner.borrow().skewchar as i64;
         Ok(Numeric::Int(x))
     }
 };
@@ -1427,7 +1427,7 @@ pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static INPUTLINENO: IntCommand = IntCommand {
     _getvalue: |int| {
-        Ok(Numeric::Int(int.line_no() as i32))
+        Ok(Numeric::Int(int.line_no() as i64))
     },
     name:"inputlineno",
 };
@@ -1600,9 +1600,9 @@ pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
 pub static VRULE: SimpleWhatsit = SimpleWhatsit {
     name:"vrule",
     _get: |tk,int| {
-        let mut height : Option<i32> = None;
-        let mut width : Option<i32> = None;
-        let mut depth : Option<i32> = None;
+        let mut height : Option<i64> = None;
+        let mut width : Option<i64> = None;
+        let mut depth : Option<i64> = None;
         loop {
             match int.read_keyword(vec!("height","width","depth"))? {
                 Some(s) if s == "height" => height = Some(int.read_dimension()?),

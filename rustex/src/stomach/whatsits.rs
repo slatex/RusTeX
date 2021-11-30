@@ -35,7 +35,7 @@ pub enum WIGroup {
 #[derive(Clone)]
 pub enum SimpleWI {
     //                                  height       width      depth
-    VRule(Option<SourceFileReference>,Option<i32>,Option<i32>,Option<i32>)
+    VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>)
 }
 
 

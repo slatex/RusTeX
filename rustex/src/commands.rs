@@ -499,8 +499,8 @@ impl PrimitiveTeXCommand {
             AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
             AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
             Ext(r) => r.get_num(int),
-            Char(u) => Ok(Numeric::Int(u.char as i32)),
-            MathChar(u) => Ok(Numeric::Int(*u as i32)),
+            Char(u) => Ok(Numeric::Int(u.char as i64)),
+            MathChar(u) => Ok(Numeric::Int(*u as i64)),
             _ => unreachable!("{}",self)
         }
     }

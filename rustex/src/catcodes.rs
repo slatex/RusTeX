@@ -43,7 +43,7 @@ impl std::fmt::Display for CategoryCode {
 }
 
 impl CategoryCode {
-    pub fn fromint(int : i32) -> CategoryCode {
+    pub fn fromint(int : i64) -> CategoryCode {
         use CategoryCode::*;
         match int {
             0 => Escape,
