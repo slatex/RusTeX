@@ -139,7 +139,11 @@ impl StringMouth {
         ret
     }
     pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&VFile) -> StringMouth {
-        let ltxf = LaTeXFile::new(file.id.clone());
+        use crate::interpreter::files::VFileBase;
+        let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
+            VFileBase::Real(p) => p.clone(),
+            _ => todo!()
+        });
         let string = file.string.as_ref().expect("This shouldn't happen").clone();
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
@@ -240,7 +244,7 @@ impl StringMouth {
         }
     }
     fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> SourceReference {
-        SourceReference::File(f.path.clone(),(line,pos),(self.line,self.pos))
+        SourceReference::File(f.path.as_ref().unwrap().clone(),(line,pos),(self.line,self.pos))
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
@@ -262,7 +266,7 @@ impl StringMouth {
                                     match file {
                                         Some(ltxf) => {
                                             let nrf = SourceReference::File(
-                                                ltxf.path.clone(),
+                                                ltxf.path.as_ref().unwrap().clone(),
                                                 (next.1,next.2),
                                                 (self.line,self.pos)
                                             );
@@ -282,7 +286,7 @@ impl StringMouth {
                                             let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
                                             let end = txt.len();
                                             self.pos += end;
-                                            let nrf = SourceReference::File(ltxf.path.clone(),
+                                            let nrf = SourceReference::File(ltxf.path.as_ref().unwrap().clone(),
                                                 (next.1,next.2), (self.line,self.pos)
                                             );
                                             let tk = Comment {
@@ -584,7 +588,7 @@ impl Mouths {
             Some(Mouth::File(m)) => {
                 match &m.source {
                     StringMouthSource::File(lf) => {
-                        lf.path.clone() + " (" + m.line.to_string().as_str() + ", " + m.pos.to_string().as_str() + ")"
+                        lf.path.as_ref().unwrap().to_string() + " (" + m.line.to_string().as_str() + ", " + m.pos.to_string().as_str() + ")"
                     }
                     _ => "".to_string()
                 }
@@ -627,8 +631,8 @@ impl Interpreter<'_> {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
             print!("\n{}", match file.source {
-                VFileBase::Real(ref pb) => "(".to_string() + pb.to_str().unwrap(),
-                _ => "(".to_string() + &file.id
+                VFileBase::Real(ref pb) => "(".to_string() + &pb.to_string(),
+                _ => "(".to_string() + &file.id.to_string()
             });
         }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);

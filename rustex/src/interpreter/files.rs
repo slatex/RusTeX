@@ -1,11 +1,11 @@
 use std::path::{PathBuf, Path};
-use crate::utils::{TEXMF1, TEXMF2};
+use crate::utils::{TEXMF1, TEXMF2, TeXStr};
 use std::fs;
 use crate::utils::TeXString;
 
 #[derive(Clone)]
 pub enum VFileBase {
-    Real(PathBuf),
+    Real(TeXStr),
     Virtual
 }
 
@@ -13,7 +13,7 @@ pub enum VFileBase {
 pub struct VFile {
     pub source:VFileBase,
     pub(in crate) string: Option<TeXString>,
-    pub(in crate) id : String
+    pub(in crate) id : TeXStr
 }
 
 extern crate pathdiff;
@@ -21,7 +21,7 @@ extern crate pathdiff;
 use std::collections::HashMap;
 
 pub(in crate::interpreter) struct FileStore {
-    pub files: HashMap<String,VFile>
+    pub files: HashMap<TeXStr,VFile>
 }
 
 use std::cell::RefMut;
@@ -29,12 +29,12 @@ use std::cell::RefMut;
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
-        let simplename = if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
+        let simplename : TeXStr = (if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else {
             pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_ascii_uppercase()
-        };
-        let opt = filestore.files.remove(simplename.as_str());
+        }).as_str().into();
+        let opt = filestore.files.remove(&simplename);
         match opt {
             Some(vf) => vf,
             _ => {
@@ -52,7 +52,7 @@ impl VFile {
                     }
                 } else */ {
                     VFile {
-                        source:VFileBase::Real(fp.to_path_buf()),
+                        source:VFileBase::Real(fp.to_str().unwrap().into()),
                         string:if fp.exists() {fs::read(fp).ok().map(|x| x.into())} else {Some("".into())},
                         id:simplename
                     }

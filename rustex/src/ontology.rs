@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
 use crate::references::SourceReference;
 use std::rc::Rc;
 use ansi_term::ANSIGenericString;
@@ -132,13 +133,15 @@ impl Token {
 
 #[derive(Clone)]
 pub struct LaTeXFile {
-    pub path: String,
+    pub id: TeXStr,
+    pub path: Option<TeXStr>,
     ch : Vec<LaTeXObject>
 }
 impl LaTeXFile {
-    pub(crate) fn new(fp : String) -> LaTeXFile {
+    pub(crate) fn new(fp : TeXStr, path:TeXStr) -> LaTeXFile {
         LaTeXFile {
-            path:fp,
+            id:fp,
+            path:Some(path),
             ch : Vec::new()
         }
     }

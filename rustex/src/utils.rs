@@ -358,7 +358,7 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) 
     }) + " - " +
     &match &*tk.reference {
         SourceReference::File(str,(sl,sp),(el,ep)) =>
-            str.to_owned() + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
+            str.to_string() + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
         SourceReference::None => "".to_string(),
         SourceReference::Exp(ExpansionRef(tk,cmd)) =>
             {
