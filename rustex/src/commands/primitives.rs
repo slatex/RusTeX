@@ -556,11 +556,11 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (u8toi16(i),Numeric::Int(int.state_dimension(u8toi16(i))),Numeric::Dim(int.read_dimension()?))
+            (u8toi16(i),Numeric::Dim(int.state_dimension(u8toi16(i))),Numeric::Dim(int.read_dimension()?))
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-u8toi16(r.index), Numeric::Int(int.state_register(-u8toi16(r.index))), Numeric::Dim(int.read_dimension()?))
+            (-u8toi16(r.index), Numeric::Dim(int.state_register(-u8toi16(r.index))), Numeric::Dim(int.read_dimension()?))
         }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
@@ -574,6 +574,10 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match (num,div) {
             (Numeric::Int(num),Numeric::Int(div)) => StateChange::Register(index,num/ div,global),
+            (Numeric::Dim(_),Numeric::Dim(_)) => StateChange::Dimen(index,match (num / div) {
+                Numeric::Dim(i) => i,
+                _ => unreachable!()
+            },global),
             _ => todo!()
         };
         int.change_state(ch);

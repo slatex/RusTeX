@@ -198,6 +198,7 @@ impl std::ops::Div for Numeric {
         match (self,rhs) {
             (Int(i),Int(j)) => Int(((i as f32)/(j as f32)).round() as i32),
             (Int(i),Float(f)) => Int(((i as f32) / f).round() as i32),
+            (Dim(i),Dim(f)) => Dim(((i as f32) / (f as f32 / 65536.0)).round() as i32),
             _ => todo!("{}/{}",self,rhs)
         }
     }
