@@ -160,9 +160,6 @@ pub static IFX : Conditional = Conditional {
 
 pub static IFNUM : Conditional = Conditional {
     _apply: |int,cond,unless| {
-        if unsafe {crate::LOG} {
-            print!("")
-        }
         let i1 = int.read_number()?;
         let rel = int.read_keyword(vec!["<","=",">"])?;
         let i2 = int.read_number()?;

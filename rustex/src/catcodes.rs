@@ -93,69 +93,68 @@ use std::fmt::Formatter;
 
 #[derive(Clone)]
 pub struct CategoryCodeScheme {
-    pub (in crate) catcodes : HashMap<u8,CategoryCode>,// = HashMap::new();
+    pub (in crate) catcodes : [CategoryCode;256],// = HashMap::new();
     pub endlinechar: u8,
     pub newlinechar: u8,
     pub escapechar: u8
 }
 impl CategoryCodeScheme {
     pub fn get_code(&self,c : u8) -> CategoryCode {
-        match self.catcodes.get(&c) {
-            None => CategoryCode::Other,
-            Some(cc) => *cc
-        }
+        *self.catcodes.get(c as usize).unwrap()
     }
 }
 
 use CategoryCode::*;
 
 lazy_static! {
-    pub static ref OTHER_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
-        catcodes:{
-            let mut map : HashMap<u8,CategoryCode> = HashMap::new();
-            map.insert(32,Space);
-            map
-        },
-        newlinechar:10,
-        endlinechar:13,
-        escapechar:255
+    pub static ref OTHER_SCHEME : CategoryCodeScheme = {
+        let mut catcodes = [CategoryCode::Other;256];
+        catcodes[32] = CategoryCode::Space;
+        CategoryCodeScheme {
+            catcodes,
+            newlinechar:10,
+            endlinechar:13,
+            escapechar:255
+        }
     };
-    pub static ref STARTING_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
-        catcodes:{
-            let mut map : HashMap<u8,CategoryCode> = HashMap::new();
-            map.insert(92,Escape);
-            map.insert(32,Space);
-            map.insert(13,EOL);
-            for i in 65..91 { map.insert(i,Letter); }
-            for i in 97..123 { map.insert(i,Letter); }
-            map.insert(37,Comment);
-            map
-        },
-        newlinechar:10,
-        endlinechar:13,
-        escapechar:92
+    pub static ref STARTING_SCHEME : CategoryCodeScheme = {
+        let mut catcodes = [CategoryCode::Other;256];
+        catcodes[92] = CategoryCode::Escape;
+        catcodes[32] = CategoryCode::Space;
+        catcodes[13] = CategoryCode::EOL;
+        catcodes[37] = CategoryCode::Comment;
+        for i in 65..91 { catcodes[i] = CategoryCode::Letter}
+        for i in 97..123 { catcodes[i] = CategoryCode::Letter}
+
+        CategoryCodeScheme {
+            catcodes,
+            newlinechar:10,
+            endlinechar:13,
+            escapechar:92
+        }
     };
-    pub static ref DEFAULT_SCHEME : CategoryCodeScheme = CategoryCodeScheme {
-        catcodes:{
-            let mut map : HashMap<u8,CategoryCode> = HashMap::new();
-            map.insert(92,Escape);
-            map.insert(123,BeginGroup);
-            map.insert(125,EndGroup);
-            map.insert(36,MathShift);
-            map.insert(38,AlignmentTab);
-            map.insert(35,Parameter);
-            map.insert(94,Superscript);
-            map.insert(95,Subscript);
-            map.insert(32,Space);
-            map.insert(13,EOL);
-            for i in 65..90 { map.insert(i,Letter); }
-            for i in 97..122 { map.insert(i,Letter); }
-            map.insert(126,Active);
-            map.insert(37,Comment);
-            map
-        },
-        newlinechar:10,
-        endlinechar:13,
-        escapechar:92
+    pub static ref DEFAULT_SCHEME : CategoryCodeScheme = {
+        let mut catcodes = [CategoryCode::Other;256];
+        catcodes[123] = CategoryCode::BeginGroup;
+        catcodes[125] = CategoryCode::EndGroup;
+        catcodes[36] = CategoryCode::MathShift;
+        catcodes[38] = CategoryCode::AlignmentTab;
+        catcodes[35] = CategoryCode::Parameter;
+        catcodes[94] = CategoryCode::Superscript;
+        catcodes[95] = CategoryCode::Subscript;
+        catcodes[126] = CategoryCode::Active;
+        catcodes[92] = CategoryCode::Escape;
+        catcodes[32] = CategoryCode::Space;
+        catcodes[13] = CategoryCode::EOL;
+        catcodes[37] = CategoryCode::Comment;
+        for i in 65..91 { catcodes[i] = CategoryCode::Letter}
+        for i in 97..123 { catcodes[i] = CategoryCode::Letter}
+
+        CategoryCodeScheme {
+            catcodes,
+            newlinechar:10,
+            endlinechar:13,
+            escapechar:92
+        }
     };
 }

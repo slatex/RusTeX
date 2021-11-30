@@ -292,6 +292,10 @@ impl State {
         }
         vec!()
     }
+    pub fn close(mut self,int:Interpreter) -> State {
+        self.stacks.last_mut().unwrap().catcodes = int.catcodes.borrow().clone();
+        self
+    }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
             StateChange::Font(f,global) => {
@@ -358,23 +362,10 @@ impl State {
                 }
             }
             StateChange::Cat(char,catcode,global) => {
-                match catcode {
-                    CategoryCode::Other => {
-                        int.catcodes.borrow_mut().catcodes.remove(&char);
-                        if global {
-                            for s in self.stacks.iter_mut() {
-                                s.catcodes.catcodes.remove(&char);
-                            }
-                        }
-
-                    }
-                    _ => {
-                        int.catcodes.borrow_mut().catcodes.insert(char, catcode);
-                        if global {
-                            for s in self.stacks.iter_mut() {
-                                s.catcodes.catcodes.insert(char, catcode);
-                            }
-                        }
+                int.catcodes.borrow_mut().catcodes[char as usize] = catcode;
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.catcodes.catcodes[char as usize] = catcode;
                     }
                 }
             }

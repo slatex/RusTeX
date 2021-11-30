@@ -148,7 +148,8 @@ impl Interpreter<'_> {
                 Err(s) => s.throw()
             }
         }
-        let ret = int.state.borrow().clone(); ret
+        let ret = int.state.borrow().clone();
+        ret.close(int)
     }
 
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {

@@ -471,7 +471,7 @@ use crate::STORE_IN_FILE;
 
 pub (in crate::interpreter) struct Mouths {
     mouths: Vec<Mouth>,
-    buffer: Option<Token>
+    buffer: Option<Token>,
 }
 
 impl Mouths {
@@ -556,9 +556,6 @@ impl Mouths {
         }
     }
     pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
-        if file.id.to_string().contains("MICROTYPE-PDFTEX") {
-            unsafe {crate::LOG = true}
-        }
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
