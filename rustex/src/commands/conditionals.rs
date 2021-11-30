@@ -9,7 +9,7 @@ pub fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     if unless {
         dofalse(int,cond,false)
     } else {
-        int.setcondition(cond,true);
+        int.setcondition(cond,true)?;
         Ok(())
     }
 }
@@ -52,7 +52,7 @@ pub fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
     if unless {
         dotrue(int,cond,false)
     } else {
-        let inifs = int.setcondition(cond,false);
+        let inifs = int.setcondition(cond,false)?;
         false_loop(int,inifs,true)
     }
 }
@@ -160,6 +160,9 @@ pub static IFX : Conditional = Conditional {
 
 pub static IFNUM : Conditional = Conditional {
     _apply: |int,cond,unless| {
+        if unsafe {crate::LOG} {
+            print!("")
+        }
         let i1 = int.read_number()?;
         let rel = int.read_keyword(vec!["<","=",">"])?;
         let i2 = int.read_number()?;
@@ -337,7 +340,7 @@ pub static IFCASE : Conditional = Conditional {
         let num = int.read_number()? as u8;
         if num == 0 {dotrue(int,cond,unless)} else {
             use PrimitiveTeXCommand::*;
-            int.setcondition(cond,false);
+            int.setcondition(cond,false)?;
             let mut inifs = 0 as u8;
             let mut currnum = 1 as u8;
             //log!("false loop: {}",inifs);

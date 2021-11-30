@@ -556,6 +556,9 @@ impl Mouths {
         }
     }
     pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
+        if file.id.to_string().contains("MICROTYPE-PDFTEX") {
+            unsafe {crate::LOG = true}
+        }
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))

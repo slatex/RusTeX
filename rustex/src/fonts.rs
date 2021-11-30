@@ -233,14 +233,15 @@ pub struct FontInner {
 pub struct Font {
     pub file:Rc<FontFile>,
     pub at:Option<i64>,
-    pub inner: RefCell<FontInner>
+    pub inner: RefCell<FontInner>,
+    pub name:TeXStr
 }
 impl Font {
-    pub fn new(file:Rc<FontFile>,at:Option<i64>) -> Rc<Font> {
+    pub fn new(file:Rc<FontFile>,at:Option<i64>,name:TeXStr) -> Rc<Font> {
         let hc = file.hyphenchar;
         let sc = file.skewchar;
         Rc::new(Font {
-            file,at,
+            file,at,name,
             inner:RefCell::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:hc,
@@ -287,6 +288,6 @@ thread_local! {
                 dimen:HashMap::new(),
                 hyphenchar:45,
                 skewchar:255
-            })
+            }),name:"nullfont".into()
     });
 }

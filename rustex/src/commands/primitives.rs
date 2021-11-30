@@ -641,7 +641,9 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             Char(tk) => stt(tk.char.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(u8toi16(*i))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip(u8toi16(*i)).to_string().into()),
-            AV(AssignableValue::FontRef(_,n)) => vec!(Token::new(0,CategoryCode::Escape,Some(n.clone()),SourceReference::None,true)),
+            AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
+            AV(AssignableValue::Font(f)) if **f == FONT =>
+                vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
             p => todo!("{}",p)
         };
         Ok(())
@@ -1347,8 +1349,8 @@ pub static FONT: FontAssValue = FontAssValue {
             }).round() as i64),
             _ => None
         };
-        let font = Font::new(ff,at);
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font,cmd.cmdname().clone().into())).as_command()),global));
+        let font = Font::new(ff,at,cmd.cmdname().clone());
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global));
         Ok(())
     },
     _getvalue: |_int| {
@@ -1360,7 +1362,7 @@ fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     let tk = int.read_command_token()?;
     let cmd = int.get_command(tk.cmdname())?;
     match &*cmd.orig {
-        PrimitiveTeXCommand::AV(AssignableValue::FontRef(f,_)) =>
+        PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
             Ok(f.clone()),
         PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>

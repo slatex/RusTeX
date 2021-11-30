@@ -670,11 +670,14 @@ impl Interpreter<'_> {
         state.conditions.push(None);
         (state.conditions.len() - 1) as u8
     }
-    pub fn setcondition(&self,c : u8,val : bool) -> u8 {
+    pub fn setcondition(&self,c : u8,val : bool) -> Result<u8,TeXError> {
         let conds = &mut self.state.borrow_mut().conditions;
+        if c as usize >= conds.len() {
+            TeXErr!((self,None),"This should not happen!")
+        }
         conds.remove(c as usize);
         conds.insert(c as usize,Some(val));
-        (conds.len() as u8) - 1 - c
+        Ok((conds.len() as u8) - 1 - c)
     }
     pub fn popcondition(&self) {
         self.state.borrow_mut().conditions.pop();
@@ -682,7 +685,7 @@ impl Interpreter<'_> {
     pub fn getcondition(&self) -> Option<(u8,Option<bool>)> {
         let conds = &self.state.borrow().conditions;
         match conds.last() {
-            Some(p) => Some((conds.len() as u8,*p)),
+            Some(p) => Some((conds.len() as u8 - 1,*p)),
             None => None
         }
     }
