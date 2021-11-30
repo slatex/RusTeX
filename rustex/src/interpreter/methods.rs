@@ -278,8 +278,8 @@ impl Interpreter<'_> {
                     _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
                 });
                 self.new_group(GroupType::Box(bm));
-                let ret = self.read_whatsits()?;
-                self.pop_group(GroupType::Box(bm));
+                self.read_whatsits()?;
+                let ret = self.get_whatsit_group(GroupType::Box(bm))?;
                 self.set_mode(_oldmode);
                 Ok(ret)
             }
@@ -305,7 +305,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_whatsits(&self) -> Result<Vec<Whatsit>,TeXError> {
+    pub fn read_whatsits(&self) -> Result<(),TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         match next.catcode {
@@ -321,7 +321,7 @@ impl Interpreter<'_> {
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
         }
         let mut ingroups : u8 = 0;
-        let mut ret : Vec<Whatsit> = vec!();
+        //let mut ret : Vec<Whatsit> = vec!();
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -329,6 +329,7 @@ impl Interpreter<'_> {
                     let cmd = self.get_command(&next.cmdname())?;
                     match &*cmd.orig {
                         PrimitiveTeXCommand::Char(_) => todo!(),
+                        PrimitiveTeXCommand::Whatsit(pw) => self.stomach.borrow_mut().add(pw.get(&next,self)?),
                         _ => {
                             if cmd.expandable(true) {
                                 cmd.expand(next, self)?;
@@ -338,7 +339,7 @@ impl Interpreter<'_> {
                         }
                     }
                 }
-                CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
+                CategoryCode::EndGroup if ingroups == 0 => return Ok(()),
                 CategoryCode::BeginGroup => {
                     todo!()
                 }

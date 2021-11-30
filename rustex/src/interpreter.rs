@@ -4,6 +4,7 @@ pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
 }
 
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use crate::ontology::{Expansion, Token};
@@ -34,13 +35,13 @@ pub fn tokenize(s : TeXString,cats: &CategoryCodeScheme) -> Vec<Token> {
 
 use chrono::{DateTime,Local};
 
-pub struct Jobinfo<'a> {
-    pub path : &'a Path,
+pub struct Jobinfo {
+    pub path : PathBuf,
     pub time: DateTime<Local>
 }
 
-impl Jobinfo<'_> {
-    pub fn new(p : &Path) -> Jobinfo {
+impl Jobinfo {
+    pub fn new(p : PathBuf) -> Jobinfo {
         Jobinfo {
             path:p,
             time:Local::now()
@@ -51,12 +52,13 @@ impl Jobinfo<'_> {
     }
 }
 
-pub struct Interpreter<'inner> {
+pub struct Interpreter<'a> {
     state:RefCell<State>,
-    pub jobinfo:Jobinfo<'inner>,
+    pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
     filestore:RefCell<FileStore>,
-    catcodes:RefCell<CategoryCodeScheme>
+    catcodes:RefCell<CategoryCodeScheme>,
+    stomach:RefCell<&'a mut dyn Stomach>
 }
 use crate::{TeXErr,FileEnd};
 
@@ -78,6 +80,8 @@ pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
     }
     ret.into()
 }
+
+use crate::stomach::{EmptyStomach, Stomach};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:Vec<Token>) -> TeXString {
@@ -106,17 +110,35 @@ impl Interpreter<'_> {
             Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
         }
     }
-    pub fn do_file_with_state(p : &Path, s : State) -> State {
+    pub fn with_state(s : State,stomach: &mut dyn Stomach) -> Interpreter {
         let catcodes = s.catcodes().clone();
-        let int = Interpreter {
+        Interpreter {
             state:RefCell::new(s),
-            jobinfo:Jobinfo::new(p),
+            jobinfo:Jobinfo::new(PathBuf::new()),
             mouths:RefCell::new(Mouths::new()),
             filestore:RefCell::new(FileStore {
                 files:HashMap::new()
             }),
-            catcodes:RefCell::new(catcodes)
-        };
+            catcodes:RefCell::new(catcodes),
+            stomach:RefCell::new(stomach)
+        }
+    }
+    pub fn do_file(&mut self,p:&Path) {
+        self.jobinfo = Jobinfo::new(p.to_path_buf());
+        let vf:VFile  = VFile::new(p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut());
+        self.push_file(vf);
+        self.insert_every(&crate::commands::primitives::EVERYJOB);
+        while self.has_next() {
+            match self.do_top() {
+                Ok(_) => {},
+                Err(s) => s.throw()
+            }
+        }
+    }
+    pub fn do_file_with_state(p : &Path, s : State) -> State {
+        let mut stomach = EmptyStomach::new();
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut());
+        int.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
         int.push_file(vf);
         int.insert_every(&crate::commands::primitives::EVERYJOB);
@@ -179,7 +201,7 @@ impl Interpreter<'_> {
         self.mouths.borrow().current_line()
     }
     pub fn line_no(&self) -> usize {
-        self.mouths.borrow().line_no()
+        self.mouths.borrow().line_no().0
     }
 
     pub fn assert_has_next(&self) -> Result<(),TeXError> {

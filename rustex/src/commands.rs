@@ -132,7 +132,7 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, TeXBox};
+use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, SimpleWI, TeXBox, Whatsit};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -147,6 +147,11 @@ pub struct ProvidesBox {
 pub struct MathWhatsit {
     pub name: &'static str,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathWI,TeXError>
+}
+
+pub struct SimpleWhatsit {
+    pub name: &'static str,
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<SimpleWI,TeXError>
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -285,7 +290,7 @@ pub enum ProvidesWhatsit {
     Box(&'static ProvidesBox),
     Exec(&'static ProvidesExecutableWhatsit),
     Math(&'static MathWhatsit),
-    Other
+    Simple(&'static SimpleWhatsit),
 }
 impl ProvidesWhatsit {
     pub fn name(&self) -> Option<TeXStr> {
@@ -293,7 +298,17 @@ impl ProvidesWhatsit {
             ProvidesWhatsit::Exec(e) => Some(e.name.into()),
             ProvidesWhatsit::Box(b) => Some(b.name.into()),
             ProvidesWhatsit::Math(b) => Some(b.name.into()),
+            ProvidesWhatsit::Simple(b) => Some(b.name.into()),
             _ => todo!()
+        }
+    }
+    pub fn get(&self,tk:&Token,int:&Interpreter) -> Result<Whatsit,TeXError> {
+        use ProvidesWhatsit::*;
+        match self {
+            Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
+            Exec(e) => Ok(Whatsit::Exec(Rc::new((e._get)(tk,int)?))),
+            Math(m) => todo!(),
+            Simple(s) => Ok(Whatsit::Simple((s._get)(tk,int)?))
         }
     }
 }

@@ -10,6 +10,7 @@ pub enum SourceReference {
 
 #[derive(Clone)]
 pub struct SourceFileReference {
-    file:TeXStr,
-
+    pub file:TeXStr,
+    pub start:(usize,usize),
+    pub end:(usize,usize)
 }

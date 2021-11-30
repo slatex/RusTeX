@@ -1,5 +1,8 @@
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
+use rustex::stomach::EmptyStomach;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
@@ -12,7 +15,9 @@ fn do_thesis() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
     //unsafe{ rustex::LOG = true };
-    Interpreter::do_file_with_state(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"),state);
+    let mut stomach = EmptyStomach::new();
+    let mut int = Interpreter::with_state(state,stomach.borrow_mut());
+    int.do_file(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"));
 }
 /*
 fn do_test() {

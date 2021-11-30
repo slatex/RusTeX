@@ -519,7 +519,7 @@ use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
-use crate::stomach::whatsits::{BoxMode, TeXBox};
+use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
 
 impl Interpreter<'_> {
     pub fn file_read(&self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
@@ -623,7 +623,8 @@ impl Interpreter<'_> {
     }
     pub fn new_group(&self,tp:GroupType) {
         log!("Push: {}",tp);
-        self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp)
+        self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp);
+        self.stomach.borrow_mut().new_group()
     }
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
@@ -634,7 +635,19 @@ impl Interpreter<'_> {
         scc.endlinechar = cc.endlinechar;
         scc.newlinechar = cc.newlinechar;
         scc.escapechar = cc.escapechar;
+        self.stomach.borrow_mut().close_group(self);
         Ok(())
+    }
+    pub fn get_whatsit_group(&self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
+        log!("Pop: {}",tp);
+        let mut state = self.state.borrow_mut();
+        let cc = state.pop(self,tp)?;
+        let mut scc = self.catcodes.borrow_mut();
+        scc.catcodes = cc.catcodes.clone();
+        scc.endlinechar = cc.endlinechar;
+        scc.newlinechar = cc.newlinechar;
+        scc.escapechar = cc.escapechar;
+        self.stomach.borrow_mut().pop_group(self)
     }
 
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {

@@ -5,7 +5,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::references::SourceReference;
+use crate::references::{SourceFileReference, SourceReference};
 use crate::utils::{TeXStr, TeXString};
 
 pub enum Mouth {
@@ -563,7 +563,7 @@ impl Mouths {
         self.buffer = Some(tk)
     }
 
-    pub fn line_no(&self) -> usize {
+    pub fn line_no(&self) -> (usize,usize) {
         match self.mouths.iter().rev().find(|m| match m {
             Mouth::File(_sm) => true,
             _ => false
@@ -571,12 +571,12 @@ impl Mouths {
             Some(Mouth::File(m)) => {
                 match &m.source {
                     StringMouthSource::File(_) => {
-                        m.line
+                        (m.line,m.pos)
                     }
-                    _ => 0
+                    _ => (0,0)
                 }
             }
-            _ => 0
+            _ => (0,0)
         }
     }
 
@@ -680,6 +680,22 @@ impl Interpreter<'_> {
     }
     pub fn end_input(&self) {
         self.mouths.borrow_mut().end_input()
+    }
+    pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
+        match &*tk.reference {
+            SourceReference::File(f,s,e) => {
+                let end = self.mouths.borrow().line_no();
+                Some(SourceFileReference {
+                    file: f.clone(),
+                    start: s.clone(),
+                    end: end
+                })
+            }
+            SourceReference::Exp(er) => {
+                self.update_reference(&er.0)
+            }
+            _ => None
+        }
     }
 }
 

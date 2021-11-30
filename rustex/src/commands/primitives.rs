@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference};
+use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::Interpreter;
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -54,7 +54,7 @@ pub static SFCODE : IntAssValue = IntAssValue {
     }
 };
 
-use crate::references::SourceReference;
+use crate::references::{SourceFileReference, SourceReference};
 use chrono::{Datelike, Timelike};
 use crate::fonts::{Font, Nullfont};
 
@@ -343,7 +343,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric};
-use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, TeXBox};
+use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, SimpleWI, TeXBox};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -554,6 +554,14 @@ fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
             int.read_keyword(vec!("by"))?;
             (i,Numeric::Int(int.state_register(i)),int.read_number_i(false)?)
         }
+        AV(AssignableValue::Dim(i)) => {
+            int.read_keyword(vec!("by"))?;
+            (u8toi16(i),Numeric::Int(int.state_dimension(u8toi16(i))),Numeric::Dim(int.read_dimension()?))
+        }
+        AV(AssignableValue::PrimDim(r)) => {
+            int.read_keyword(vec!("by"))?;
+            (-u8toi16(r.index), Numeric::Int(int.state_register(-u8toi16(r.index))), Numeric::Dim(int.read_dimension()?))
+        }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
     };
@@ -592,6 +600,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
         log!("\\advance sets {} to {}",index,num+sum);
         let ch = match (num,sum) {
             (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
+            (Numeric::Dim(num),Numeric::Dim(sum)) => StateChange::Dimen(index,num + sum,global),
             _ => todo!()
         };
         int.change_state(ch);
@@ -1578,6 +1587,25 @@ pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"dump",
     expandable:true,
     _apply:|_tk,_int| { Ok(()) }
+};
+
+pub static VRULE: SimpleWhatsit = SimpleWhatsit {
+    name:"vrule",
+    _get: |tk,int| {
+        let mut height : Option<i32> = None;
+        let mut width : Option<i32> = None;
+        let mut depth : Option<i32> = None;
+        loop {
+            match int.read_keyword(vec!("height","width","depth"))? {
+                Some(s) if s == "height" => height = Some(int.read_dimension()?),
+                Some(s) if s == "width" => width = Some(int.read_dimension()?),
+                Some(s) if s == "depth" => depth = Some(int.read_dimension()?),
+                _ => break
+            }
+        }
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::VRule(rf,height,width,depth))
+    }
 };
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
@@ -3230,12 +3258,6 @@ pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static VRULE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vrule",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"vsplit",
     expandable:true,
@@ -3304,6 +3326,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&CLOSEOUT)),
     PrimitiveTeXCommand::Primitive(&CLOSEIN),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
@@ -3646,7 +3669,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&VFIL),
     PrimitiveTeXCommand::Primitive(&VFILL),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
-    PrimitiveTeXCommand::Primitive(&VRULE),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
     PrimitiveTeXCommand::Primitive(&VSS),
     PrimitiveTeXCommand::Primitive(&VTOP),
