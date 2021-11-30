@@ -6,7 +6,7 @@ use std::str::FromStr;
 use crate::commands::{TokReference,PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
-use crate::interpreter::state::GroupType;
+use crate::interpreter::state::{GroupType, StateChange};
 use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
 use crate::utils::u8toi16;
 
@@ -254,6 +254,11 @@ impl Interpreter<'_> {
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
         }
         self.read_token_list(expand, protect,the,allowunknowns)
+    }
+
+    pub fn set_relax(&self,cmd:&Token) {
+        use crate::commands::primitives::RELAX;
+        self.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false));
     }
 
     // Boxes & Whatsits ----------------------------------------------------------------------------

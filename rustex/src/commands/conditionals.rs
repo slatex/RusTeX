@@ -295,7 +295,7 @@ pub static IFCAT : Conditional = Conditional {
             None => return dofalse(int,cond,unless)
         };
         let cc1 = match first.catcode {
-            CategoryCode::Escape | CategoryCode::Active => {
+            CategoryCode::Escape => {
                 let cmd = int.state_get_command(&first.cmdname());
                 match cmd {
                     None => 255,
@@ -308,7 +308,7 @@ pub static IFCAT : Conditional = Conditional {
             o => o.toint()
         };
         let cc2 = match second.catcode {
-            CategoryCode::Escape | CategoryCode::Active => {
+            CategoryCode::Escape => {
                 let cmd = int.state_get_command(&first.cmdname());
                 match cmd {
                     None => 255,

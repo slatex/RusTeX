@@ -128,6 +128,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"countdef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
+        int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(rf);
@@ -143,6 +144,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"dimendef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
+        int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(rf);
@@ -158,6 +160,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"skipdef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
+        int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(rf);
@@ -173,6 +176,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"muskipdef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
+        int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num as u8)).as_ref(rf);
@@ -188,7 +192,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"toksdef",
     _assign: |rf,int,global| {
         let cmd = int.read_command_token()?;
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.clone())),global));
+        int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()?;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(rf);
@@ -1214,9 +1218,21 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
             match t.catcode {
                 CategoryCode::Space | CategoryCode::EOL => exp.2.push(Token::new(t.char,CategoryCode::Space,None,SourceReference::None,false)),
                 CategoryCode::Escape => {
-                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
+                    let esc = int.state_catcodes().escapechar;
+                    if esc != 255 {
+                        exp.2.push(Token::new(esc, CategoryCode::Other, None, SourceReference::None, false));
+                    }
                     for t in t.name().iter() {
                         exp.2.push(Token::new(*t,CategoryCode::Other,None,SourceReference::None,false));
+                    }
+                    if t.name().len() == 1 {
+                        let c = t.name().iter().get(0).unwrap();
+                        match int.state_catcodes().get_code(*c) {
+                            CategoryCode::Letter => {}
+                            _ => exp.2.push(Token::new(32,CategoryCode::Space,None,SourceReference::None,false))
+                        }
+                    } else {
+                        exp.2.push(Token::new(32,CategoryCode::Space,None,SourceReference::None,false))
                     }
                 }
                 _ => {
@@ -1451,7 +1467,7 @@ pub static TOKS: TokAssValue = TokAssValue {
         let num = int.read_number()? as i16;
         int.read_eq();
         let r = int.read_balanced_argument(false,false,false,true)?;
-        int.change_state(StateChange::Tokens(num,r,global));
+        int.change_state(StateChange::Tokens(num,r.iter().map(|x| x.cloned()).collect(),global));
         Ok(())
     },
     _getvalue: |int| {

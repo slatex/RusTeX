@@ -11,7 +11,7 @@ fn do_latexltx() {
 fn do_thesis() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
-    unsafe{ rustex::LOG = true };
+    //unsafe{ rustex::LOG = true };
     Interpreter::do_file_with_state(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"),state);
 }
 /*

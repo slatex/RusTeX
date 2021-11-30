@@ -515,11 +515,11 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /*if tk.name().to_string() == "input" {
+         /*if tk.name().to_string() == "documentclass" {
              println!("  >>{}",int.preview());
-             print!("")
-            //unsafe {crate::LOG = true }
-        }*/
+             print!("");
+            unsafe {crate::LOG = true }
+        } */
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")
@@ -713,13 +713,13 @@ impl PrimitiveTeXCommand {
                 AssignableValue::Toks(i) => {
                     int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(u8toi16(*i), toks, global));
+                    int.change_state(StateChange::Tokens(u8toi16(*i), toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
                     int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks, global));
+                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },
                 AssignableValue::PrimReg(r) => {
