@@ -1,4 +1,4 @@
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, TeXMode};
 use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
@@ -392,22 +392,34 @@ pub static IFDIM : Conditional = Conditional {
 
 pub static IFMMODE : Conditional = Conditional {
     name:"ifmmode",
-    _apply: |int,_cond,_unless| {
-        TeXErr!((int,None),"Not yet implemented {} >>{}",int.current_line(),int.preview())
+    _apply: |int,cond,unless| {
+        if int.get_mode() == TeXMode::Math || int.get_mode() == TeXMode::Displaymath {
+            dotrue(int,cond,unless)
+        } else {
+            dofalse(int,cond,unless)
+        }
     }
 };
 
 pub static IFVMODE : Conditional = Conditional {
     name:"ifvmode",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        if int.get_mode() == TeXMode::Vertical || int.get_mode() == TeXMode::InternalVertical {
+            dotrue(int,cond,unless)
+        } else {
+            dofalse(int,cond,unless)
+        }
     }
 };
 
 pub static IFHMODE : Conditional = Conditional {
     name:"ifhmode",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        if int.get_mode() == TeXMode::Horizontal || int.get_mode() == TeXMode::RestrictedHorizontal {
+            dotrue(int,cond,unless)
+        } else {
+            dofalse(int,cond,unless)
+        }
     }
 };
 

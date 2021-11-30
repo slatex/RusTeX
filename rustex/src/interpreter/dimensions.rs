@@ -158,7 +158,7 @@ impl Numeric {
     }
 }
 pub fn dimtostr(dim:i32) -> String {
-    let val = ((dim as f32) / 65536.0);
+    let val = round(dim);
     if val.floor() == val {
         val.to_string() + ".0pt"
     } else {
@@ -166,7 +166,18 @@ pub fn dimtostr(dim:i32) -> String {
     }
 }
 pub fn mudimtostr(dim:i32) -> String {
-    ((dim as f32) / 65536.0).to_string() + "mu"
+    round(dim).to_string() + "mu"
+}
+pub fn round(input : i32) -> f32 {
+    let mut i = 1.0 as f32;
+    loop {
+        let rounded = (((input as f32) / 65536.0) * i).round() / i;
+        if ((rounded * 65536.0).round() as i32) == input {
+            return rounded
+        } else {
+            i = i * 10.0;
+        }
+    }
 }
 impl Numeric {
     fn as_string(&self) -> String {

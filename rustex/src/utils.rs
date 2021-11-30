@@ -335,7 +335,7 @@ impl std::error::Error for TeXError {
 
 use crate::references::SourceReference;
 use crate::ontology::ExpansionRef;
-use crate::catcodes::CategoryCode;
+use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::Token;
 use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
@@ -351,7 +351,7 @@ fn get_top(tk : Token) -> Token {
     }
 }
 
-pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
+pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) -> String {
     (match tk.catcode {
         CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
         _ => TeXString(vec!(tk.char)).to_string()
@@ -362,17 +362,23 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter) -> String {
         SourceReference::None => "".to_string(),
         SourceReference::Exp(ExpansionRef(tk,cmd)) =>
             {
-                let catcodes = int.state_catcodes().clone();
+                let next = stacktrace(tk.clone(), int,catcodes);
                 "Expanded from ".to_string() + &match tk.catcode {
-                    CategoryCode::Escape => "\\".to_string() + &tk.name().to_string() + " " + &match int.state_get_command(&tk.cmdname()) {
-                        Some(o) => o.meaning(&catcodes).to_string(),
-                        _ => "".to_string()
+                    CategoryCode::Escape => {
+                        let cmd = int.state_get_command(&tk.cmdname());
+                        "\\".to_string() + &tk.name().to_string() + " " + &match cmd {
+                            Some(o) => o.meaning(&catcodes).to_string(),
+                            _ => "".to_string()
+                        }
                     },
                     _ => TeXString(vec!(tk.char)).to_string()
                 } + " defined by " + &match &cmd.rf {
                     None => cmd.name().unwrap().to_string() + "\n",
-                    Some(rf) => " at ".to_string() + &stacktrace(get_top(rf.0.clone()), int)
-                } + &stacktrace(tk.clone(), int)
+                    Some(rf) => {
+                        let st = stacktrace(get_top(rf.0.clone()), int,catcodes);
+                        " at ".to_string() + &st
+                    }
+                } + &next
             }
     }
 }

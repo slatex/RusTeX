@@ -166,7 +166,10 @@ impl State {
                         self.fontfiles.insert(name,Rc::clone(&f));
                         Ok(f)
                     }
-                    _ => TeXErr!((int,None),"Font file {} not found",name)
+                    _ => {
+                        println!("Here! {}", int.current_line());
+                        TeXErr!((int,None),"Font file {} not found",name)
+                    }
                 }
             }
         }
