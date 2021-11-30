@@ -270,14 +270,20 @@ impl Interpreter<'_> {
             CategoryCode::BeginGroup => {
                 self.requeue(next);
                 let _oldmode = self.get_mode();
+                self.new_group(GroupType::Box(bm));
                 self.set_mode(match bm {
-                    BoxMode::H => TeXMode::RestrictedHorizontal,
-                    BoxMode::V => TeXMode::InternalVertical,
+                    BoxMode::H => {
+                        self.insert_every(&crate::commands::primitives::EVERYHBOX);
+                        TeXMode::RestrictedHorizontal
+                    },
+                    BoxMode::V => {
+                        self.insert_every(&crate::commands::primitives::EVERYVBOX);
+                        TeXMode::InternalVertical
+                    },
                     BoxMode::M => TeXMode::Math,
                     BoxMode::DM => TeXMode::Displaymath,
                     _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
                 });
-                self.new_group(GroupType::Box(bm));
                 self.read_whatsits()?;
                 let ret = self.get_whatsit_group(GroupType::Box(bm))?;
                 self.set_mode(_oldmode);

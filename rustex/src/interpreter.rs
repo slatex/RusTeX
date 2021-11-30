@@ -185,6 +185,10 @@ impl Interpreter<'_> {
                         self.requeue(tk.clone());
                         Ok(())
                     },
+                    PrimitiveTeXCommand::Whatsit(w) if w.allowed_in(self.get_mode()) => {
+                        let next = w.get(&next,self)?;
+                        Ok(self.stomach.borrow_mut().add(next))
+                    },
                     _ => todo!("{}",next)
 
                 }

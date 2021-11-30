@@ -545,9 +545,13 @@ impl Mouths {
         }
     }
     pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Token>) {
-        if self.buffer.is_some() { todo!() }
-        if !tks.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(tks));
+        let mut ntks = tks;
+        match self.buffer.take() {
+            Some(t) => ntks.push(t),
+            _ => ()
+        }
+        if !ntks.is_empty() {
+            let nm = Mouth::Token(TokenMouth::new(ntks));
             self.mouths.push(nm)
         }
     }

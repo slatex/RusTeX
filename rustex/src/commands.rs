@@ -4,7 +4,7 @@ pub mod conditionals;
 
 use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, TeXMode};
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
@@ -151,6 +151,7 @@ pub struct MathWhatsit {
 
 pub struct SimpleWhatsit {
     pub name: &'static str,
+    pub modes: fn(TeXMode) -> bool,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<SimpleWI,TeXError>
 }
 
@@ -166,7 +167,7 @@ pub enum AssignableValue {
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
-    FontRef(Rc<Font>),
+    FontRef(Rc<Font>,TeXStr),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -187,7 +188,7 @@ impl AssignableValue {
             PrimSkip(d) => Some(d.name.into()),
             PrimMuSkip(d) => Some(d.name.into()),
             PrimToks(d) => Some(d.name.into()),
-            FontRef(_) => None
+            FontRef(_,_) => None
         }
     }
 }
@@ -293,6 +294,17 @@ pub enum ProvidesWhatsit {
     Simple(&'static SimpleWhatsit),
 }
 impl ProvidesWhatsit {
+    pub fn allowed_in(&self,mode:TeXMode) -> bool {
+        use ProvidesWhatsit::*;
+        match (mode,self) {
+            (_,Box(_)) => true,
+            (_,Exec(_)) => true,
+            (TeXMode::Math,Math(_)) => true,
+            (TeXMode::Displaymath,Math(_)) => true,
+            (_,Math(_)) => false,
+            (m,Simple(s))=> (s.modes)(m)
+        }
+    }
     pub fn name(&self) -> Option<TeXStr> {
         match self {
             ProvidesWhatsit::Exec(e) => Some(e.name.into()),
@@ -413,7 +425,7 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             }
-            AV(AssignableValue::FontRef(f)) => TeXString::from("select font ") + TeXString::from(f.file.name.clone()) + TeXString::from(match f.at {
+            AV(AssignableValue::FontRef(f,_)) => TeXString::from("select font ") + TeXString::from(f.file.name.clone()) + TeXString::from(match f.at {
                 Some(vl) => " at ".to_string() + &dimtostr(vl),
                 None => "".to_string()
             }),
@@ -685,7 +697,7 @@ impl PrimitiveTeXCommand {
                     (f._assign)(rf,int,global)
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
-                AssignableValue::FontRef(f) => {
+                AssignableValue::FontRef(f,_) => {
                     int.change_state(StateChange::Font(f.clone(),global));
                     Ok(())
                 },

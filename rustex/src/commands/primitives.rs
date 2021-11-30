@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{GroupType, StateChange};
@@ -56,6 +56,7 @@ pub static SFCODE : IntAssValue = IntAssValue {
 
 use crate::references::{SourceFileReference, SourceReference};
 use chrono::{Datelike, Timelike};
+use crate::commands::AssignableValue::FontRef;
 use crate::fonts::{Font, Nullfont};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -640,6 +641,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             Char(tk) => stt(tk.char.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(u8toi16(*i))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip(u8toi16(*i)).to_string().into()),
+            AV(AssignableValue::FontRef(_,n)) => vec!(Token::new(0,CategoryCode::Escape,Some(n.clone()),SourceReference::None,true)),
             p => todo!("{}",p)
         };
         Ok(())
@@ -1346,7 +1348,7 @@ pub static FONT: FontAssValue = FontAssValue {
             _ => None
         };
         let font = Font::new(ff,at);
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global));
+        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font,cmd.cmdname().clone().into())).as_command()),global));
         Ok(())
     },
     _getvalue: |_int| {
@@ -1358,7 +1360,7 @@ fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     let tk = int.read_command_token()?;
     let cmd = int.get_command(tk.cmdname())?;
     match &*cmd.orig {
-        PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
+        PrimitiveTeXCommand::AV(AssignableValue::FontRef(f,_)) =>
             Ok(f.clone()),
         PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
@@ -1455,6 +1457,17 @@ pub static HBOX: ProvidesBox = ProvidesBox {
         let ret = int.read_whatsit_group(BoxMode::H)?;
         Ok(TeXBox {
             mode: BoxMode::H,
+            children: ret
+        })
+    }
+};
+
+pub static VBOX: ProvidesBox = ProvidesBox {
+    name:"vbox",
+    _get: |_tk,int| {
+        let ret = int.read_whatsit_group(BoxMode::V)?;
+        Ok(TeXBox {
+            mode: BoxMode::V,
             children: ret
         })
     }
@@ -1599,6 +1612,10 @@ pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static VRULE: SimpleWhatsit = SimpleWhatsit {
     name:"vrule",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
     _get: |tk,int| {
         let mut height : Option<i64> = None;
         let mut width : Option<i64> = None;
@@ -1615,6 +1632,37 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
         Ok(SimpleWI::VRule(rf,height,width,depth))
     }
 };
+
+pub static VFIL: SimpleWhatsit = SimpleWhatsit {
+    name:"vfil",
+    modes:|m| match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::VFil(int.update_reference(tk)))
+    }
+};
+
+pub static VFILL: SimpleWhatsit = SimpleWhatsit {
+    name:"vfill",
+    modes:|m| match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::VFill(int.update_reference(tk)))
+    }
+};
+
+pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
+    name:"penalty",
+    modes:|_| true,
+    _get: |tk,int| {
+        Ok(SimpleWI::Penalty(int.read_number()?))
+    }
+};
+
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
@@ -3152,12 +3200,6 @@ pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PENALTY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"penalty",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static RAISE: PrimitiveExecutable = PrimitiveExecutable {
     name:"raise",
     expandable:true,
@@ -3230,12 +3272,6 @@ pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static VBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static VCENTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"vcenter",
     expandable:true,
@@ -3244,18 +3280,6 @@ pub static VCENTER: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static VSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"vskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VFIL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vfil",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VFILL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vfill",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3335,6 +3359,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLOSEIN),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFIL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFILL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
@@ -3364,6 +3391,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&SKEWCHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHBIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHINNER)),
@@ -3658,7 +3686,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&OVER),
     PrimitiveTeXCommand::Primitive(&OVERLINE),
     PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
-    PrimitiveTeXCommand::Primitive(&PENALTY),
     PrimitiveTeXCommand::Primitive(&RAISE),
     PrimitiveTeXCommand::Primitive(&RIGHT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),
@@ -3671,11 +3698,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&UNKERN),
     PrimitiveTeXCommand::Primitive(&UNPENALTY),
     PrimitiveTeXCommand::Primitive(&VADJUST),
-    PrimitiveTeXCommand::Primitive(&VBOX),
     PrimitiveTeXCommand::Primitive(&VCENTER),
     PrimitiveTeXCommand::Primitive(&VSKIP),
-    PrimitiveTeXCommand::Primitive(&VFIL),
-    PrimitiveTeXCommand::Primitive(&VFILL),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
     PrimitiveTeXCommand::Primitive(&VSS),
