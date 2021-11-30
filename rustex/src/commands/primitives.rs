@@ -591,6 +591,10 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
         log!("\\multiply sets {} to {}",index,num*fac);
         let ch = match (num,fac) {
             (Numeric::Int(num),Numeric::Int(fac)) => StateChange::Register(index,num * fac, global),
+            (Numeric::Dim(_),Numeric::Dim(_)) => StateChange::Dimen(index,match (num * fac) {
+                Numeric::Dim(i) => i,
+                _ => unreachable!()
+            },global),
             _ => todo!()
         };
         int.change_state(ch);

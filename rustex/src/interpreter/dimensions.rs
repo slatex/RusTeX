@@ -212,6 +212,7 @@ impl std::ops::Mul for Numeric {
             (Int(i),Float(j)) => Int(((i as f32)*j).round() as i32),
             (Float(i),Int(j)) => Float(i*(j as f32)),
             (Float(i),Float(j)) => Float(i*j),
+            (Dim(i),Dim(f)) => Dim(((i as f32) * (f as f32 / 65536.0)).round() as i32),
             _ => todo!("{}*{}",self,rhs)
         }
     }
