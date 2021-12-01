@@ -88,10 +88,11 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
-    _apply: |_,int| {
+    _apply: |rf,int| {
         match int.getcondition() {
             None => TeXErr!((int,None),"extra \\or"),
             Some((_,None)) => {
+                int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
             }
             Some((_,_)) => {
@@ -106,10 +107,11 @@ pub static OR: PrimitiveExecutable = PrimitiveExecutable {
 use crate::TeXErr;
 
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_,int| {
+    _apply: |rf,int| {
         match int.getcondition() {
             None => TeXErr!((int,None),"extra \\else"),
             Some((_,None)) => {
+                int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
             }
             Some((_,_)) => {

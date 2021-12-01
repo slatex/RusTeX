@@ -3,7 +3,7 @@ use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{TokReference,PrimitiveTeXCommand};
+use crate::commands::{TokReference, PrimitiveTeXCommand, TokenList};
 use crate::{TeXErr,FileEnd,log};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
 use crate::interpreter::state::{GroupType, StateChange};
@@ -16,7 +16,9 @@ impl Interpreter<'_> {
 
     pub fn insert_every(&self,tr:&TokReference) {
         let i = -u8toi16(tr.index);
-        self.push_tokens(self.state_tokens(i))
+        let insert = self.state_tokens(i);
+        //println!("Every: {}",TokenList(&insert));
+        self.push_tokens(insert)
     }
 
     pub fn skip_ws(&self) {

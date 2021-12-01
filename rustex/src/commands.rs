@@ -273,7 +273,7 @@ impl Display for ParamList<'_> {
     }
 }
 
-pub struct TokenList<'a>(&'a Vec<Token>);
+pub struct TokenList<'a>(pub &'a Vec<Token>);
 impl Display for TokenList<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for e in self.0 {
@@ -365,6 +365,10 @@ impl PrimitiveTeXCommand {
                     s + c.char.into()
                 },
                 CategoryCode::BeginGroup => {
+                    let s : TeXString = "begin-group character ".into();
+                    s + c.char.into()
+                }
+                CategoryCode::EndGroup => {
                     let s : TeXString = "end-group character ".into();
                     s + c.char.into()
                 }
@@ -430,8 +434,10 @@ impl PrimitiveTeXCommand {
                 None => "".to_string()
             }),
             AV(AssignableValue::Int(p)) => p.name.into(),
+            AV(AssignableValue::PrimReg(p)) => p.name.into(),
             Cond(c) => c.name.into(),
             Whatsit(ProvidesWhatsit::Math(m)) => m.name.into(),
+            Ass(p) => p.name.into(),
             _ => todo!("{}",self)
         };
         ret
@@ -542,11 +548,11 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-         /* if tk.name().to_string() == "normalsize" {
-             println!("  >>{}",int.preview());
+        /*if tk.name().to_string() == "definecolorset" {
+             println!("Here {}  >>{}",int.current_line(),int.preview());
              print!("");
-            unsafe {crate::LOG = true }
-        } */
+             unsafe {crate::LOG = true }
+        }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")

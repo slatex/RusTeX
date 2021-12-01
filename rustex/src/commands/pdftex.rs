@@ -1,9 +1,11 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand,PrimitiveTeXCommand};
 use crate::interpreter::tokenize;
-use crate::VERSION_INFO;
+use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::interpreter::dimensions::Numeric;
 use crate::commands::conditionals::{dotrue,dofalse};
+use crate::interpreter::state::StateChange;
+use crate::utils::TeXStr;
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
@@ -83,6 +85,63 @@ pub static IFPDFABSNUM : Conditional = Conditional {
         log!("\\ifpdfabsnum {}{}{}: {}",i1,rel.as_ref().unwrap(),i2,istrue);
         if istrue { dotrue(int, cond, unless) } else { dofalse(int, cond, unless) }
     },
+};
+
+pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfmatch",
+    expandable:true,
+    _apply:|rf,int| {
+        use regex::Regex;
+        let icase = match int.read_keyword(vec!("icase"))? {
+            Some(_) => true, _ => false
+        };
+        let limit = match int.read_keyword(vec!("subcount"))? {
+            Some(_) => int.read_number()?,
+            _ => -1
+        };
+        let mut pattern_string = int.tokens_to_string(int.read_argument()?).to_string();
+        let target = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).to_string();
+        if icase {
+            pattern_string = "(?i)".to_string() + &pattern_string
+        }
+        match Regex::new(pattern_string.as_ref()) {
+            Ok(reg) => {
+                let mut matches : Vec<(String,usize,usize,Vec<Option<(String,usize,usize)>>)> = vec!();
+                for cap in reg.captures_iter(target.as_str()) {
+                    matches.push((
+                        cap.get(0).unwrap().as_str().to_string(),
+                        cap.get(0).unwrap().start(),
+                        cap.get(0).unwrap().end(),
+                        cap.iter().skip(1).map(|x| x.map(|x| (x.as_str().to_string(),x.start(),x.end()))).collect()
+                    ))
+                }
+                if matches.is_empty() {
+                    int.change_state(StateChange::Pdfmatches(vec!()));
+                    rf.2 = tokenize("0".into(),&int.state_catcodes());
+                    Ok(())
+                } else {
+                    matches.reverse();
+                    let mut rets : Vec<TeXStr> = vec!();
+                    let (m,start,end,groups) = matches.pop().unwrap();
+                    rets.push((start.to_string() + "->" + &m).as_str().into());
+                    for group in groups {
+                        match group {
+                            None => rets.push("-1->".into()),
+                            Some((st,s,e)) => rets.push((s.to_string() + "->" + &st).as_str().into())
+                        }
+                    }
+                    int.change_state(StateChange::Pdfmatches(rets));
+                    rf.2 = tokenize("1".into(),&int.state_catcodes());
+                    Ok(())
+                }
+            }
+            Err(_) => {
+                int.change_state(StateChange::Pdfmatches(vec!()));
+                rf.2 = tokenize("-1".into(),&int.state_catcodes());
+                Ok(())
+            }
+        }
+    }
 };
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
@@ -243,12 +302,6 @@ pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFLITERAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfliteral",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfmatch",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

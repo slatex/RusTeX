@@ -135,7 +135,8 @@ pub struct State {
     pub(in crate) incs : u8,
     fontfiles: HashMap<TeXStr,Rc<FontFile>>,
     pub(in crate) mode:TeXMode,
-    pub(in crate) afterassignment : Option<Token>
+    pub(in crate) afterassignment : Option<Token>,
+    pub(in crate) pdfmatches : Vec<TeXStr>
 }
 
 // sudo apt install libkpathsea-dev
@@ -152,6 +153,7 @@ impl State {
             fontfiles: fonts,
             mode:TeXMode::Vertical,
             afterassignment:None,
+            pdfmatches : vec!()
         }
     }
 
@@ -458,6 +460,7 @@ impl State {
                     self.stacks.last_mut().unwrap().boxes.insert(index,value);
                 }
             }
+            StateChange::Pdfmatches(vec) => self.pdfmatches = vec
             //_ => todo!()
         }
     }
@@ -746,5 +749,6 @@ pub enum StateChange {
     Box(i16,TeXBox,bool),
     Mathcode(u8,i64,bool),
     Delcode(u8,i64,bool),
-    Font(Rc<Font>,bool)
+    Font(Rc<Font>,bool),
+    Pdfmatches(Vec<TeXStr>)
 }

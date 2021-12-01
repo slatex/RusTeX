@@ -323,8 +323,9 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
-    /*if command.name().to_string() == "@curr@file" {
+    /*if command.name().to_string() == "@@clr" {
         println!("Here! {} >>{}",int.current_line(),int.preview());
+        unsafe {crate::LOG = true }
         print!("")
     }*/
     let sig = read_sig(int)?;
@@ -1479,7 +1480,8 @@ pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"afterassignment",
     expandable:false,
     _apply:|_tk,int| {
-        int.state_set_afterassignment(int.next_token());
+        let next = int.next_token();
+        int.state_set_afterassignment(next);
         Ok(())
     }
 };

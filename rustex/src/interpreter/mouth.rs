@@ -329,10 +329,8 @@ impl StringMouth {
                                         if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
                                             self.pos += 1;
                                             self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,*maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
-                                        } else if next < 64 {
-                                            panic!("next<64 in line {}, column {}",self.line,self.pos)
-                                        }  else if next < 128 {
-                                            self.charbuffer = Some((next-64,startl,startpos))
+                                        } else if next < 128 {
+                                            self.charbuffer = Some(((((next as i16) -64) as u8),startl,startpos))
                                         }
                                             else { panic!("Invalid character after ^^") }
                                     } else {
