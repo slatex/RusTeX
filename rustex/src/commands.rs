@@ -39,12 +39,12 @@ impl PartialEq for PrimitiveExecutable {
     }
 }
 
-pub struct IntAssValue {
+pub struct NumAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>
 }
-impl PartialEq for IntAssValue {
+impl PartialEq for NumAssValue {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
@@ -164,7 +164,7 @@ pub enum AssignableValue {
     Skip(u16),
     MuSkip(u16),
     Toks(u16),
-    Int(&'static IntAssValue),
+    Int(&'static NumAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
     FontRef(Rc<Font>),
@@ -433,11 +433,34 @@ impl PrimitiveTeXCommand {
                 Some(vl) => " at ".to_string() + &dimtostr(vl),
                 None => "".to_string()
             }),
-            AV(AssignableValue::Int(p)) => p.name.into(),
-            AV(AssignableValue::PrimReg(p)) => p.name.into(),
-            Cond(c) => c.name.into(),
-            Whatsit(ProvidesWhatsit::Math(m)) => m.name.into(),
-            Ass(p) => p.name.into(),
+            AV(AssignableValue::Int(p)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
+            AV(AssignableValue::Dim(i)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + "dimen".into() + i.to_string().into()
+            },
+            AV(AssignableValue::Register(i)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + "count".into() + i.to_string().into()
+            },
+            AV(AssignableValue::PrimReg(p)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
+            Cond(c) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + c.name.into()
+            },
+            Whatsit(ProvidesWhatsit::Math(m)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + m.name.into()
+            },
+            Ass(p) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
             MathChar(i) => {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret += "mathchar\"".to_owned() + &format!("{:X}", i);
@@ -553,7 +576,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "newwrite" {
+        /*if tk.name().to_string() == "pgfsetshapeaspect" {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              print!("");
              //unsafe {crate::LOG = true }

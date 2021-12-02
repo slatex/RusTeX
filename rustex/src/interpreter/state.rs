@@ -146,7 +146,8 @@ pub struct State {
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
-    pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>
+    pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
+    pub(in crate) pdfobjs: HashMap<u16,TeXStr>
 }
 
 // sudo apt install libkpathsea-dev
@@ -164,6 +165,7 @@ impl State {
             mode:TeXMode::Vertical,
             afterassignment:None,
             pdfmatches : vec!(),
+            pdfobjs : HashMap::new(),
             pdfcolorstacks: vec!(vec!())
         }
     }
@@ -567,10 +569,10 @@ impl Interpreter<'_> {
     pub fn file_closein(&self,index:u8) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         match state.infiles.remove(&index) {
-            None => TeXErr!((self,None),"No file open at index {}",index),
             Some(f) => {
                 f.source.pop_file().unwrap();
             }
+            None => ()//TeXErr!((self,None),"No file open at index {}",index),
         }
         Ok(())
     }
@@ -631,7 +633,7 @@ impl Interpreter<'_> {
     pub fn new_group(&self,tp:GroupType) {
         log!("Push: {}",tp);
         self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp);
-        self.stomach.borrow_mut().new_group()
+        self.stomach.borrow_mut().new_group();
     }
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
@@ -761,6 +763,10 @@ impl Interpreter<'_> {
         let stack = &mut self.state.borrow_mut().pdfcolorstacks;
         let len = stack.len();
         stack.get_mut(len - 1 - i).unwrap().push(color);
+    }
+    pub fn state_set_pdfobj(&self,i:u16,obj:TeXStr) {
+        let objs = &mut self.state.borrow_mut().pdfobjs;
+        objs.insert(i,obj);
     }
 }
 

@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
+use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -24,7 +24,7 @@ pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
         Ok(())
     }
 };
-pub static CATCODE : IntAssValue = IntAssValue {
+pub static CATCODE : NumAssValue = NumAssValue {
     name: "catcode",
     _assign: |_rf,int,global| {
         let num = int.read_number()? as u8;
@@ -39,7 +39,7 @@ pub static CATCODE : IntAssValue = IntAssValue {
     }
 };
 
-pub static SFCODE : IntAssValue = IntAssValue {
+pub static SFCODE : NumAssValue = NumAssValue {
     name:"sfcode",
     _assign: |_rf,int,global| {
         let char = int.read_number()? as u8;
@@ -71,7 +71,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static COUNT : IntAssValue = IntAssValue {
+pub static COUNT : NumAssValue = NumAssValue {
     name: "count",
     _assign: |_,int,global| {
         let index = int.read_number()? as u16;
@@ -89,7 +89,7 @@ pub static COUNT : IntAssValue = IntAssValue {
     }
 };
 
-pub static DIMEN : IntAssValue = IntAssValue {
+pub static DIMEN : NumAssValue = NumAssValue {
     name: "dimen",
     _assign: |_,int,global| {
         let index = int.read_number()? as u16;
@@ -107,7 +107,7 @@ pub static DIMEN : IntAssValue = IntAssValue {
     }
 };
 
-pub static SKIP : IntAssValue = IntAssValue {
+pub static SKIP : NumAssValue = NumAssValue {
     name: "skip",
     _assign: |_,int,global| {
         let index = int.read_number()? as u16;
@@ -207,8 +207,9 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
     name:"protected",
-    _assign: |rf,int,global| {
+    _assign: |rf,int,iglobal| {
         let mut long = false;
+        let mut global = iglobal;
         while int.has_next() {
             int.expand_until(false);
             let next = int.next_token();
@@ -230,6 +231,9 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == LONG => {
                             long = true;
                         }
+                        PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
+                            global = true;
+                        }
                         _ => TeXErr!((int,Some(next.clone())),"Expected \\def or \\edef or \\long after \\protected: {}",next)
                     }
                 }
@@ -242,8 +246,9 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
 
 pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
     name:"long",
-    _assign: |rf,int,global| {
+    _assign: |rf,int,iglobal| {
         let mut protected = false;
+        let mut global = iglobal;
         while int.has_next() {
             int.expand_until(false);
             let next = int.next_token();
@@ -264,6 +269,9 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
+                        }
+                        PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
+                            global = true;
                         }
                         _ => TeXErr!((int,Some(next)),"Expected \\def or \\edef or \\protected after \\long")
                     }
@@ -345,7 +353,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric};
-use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, SimpleWI, TeXBox};
+use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -424,7 +432,7 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
     }
 };
 
-pub static NEWLINECHAR : IntAssValue = IntAssValue {
+pub static NEWLINECHAR : NumAssValue = NumAssValue {
     name: "newlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -438,7 +446,7 @@ pub static NEWLINECHAR : IntAssValue = IntAssValue {
     }
 };
 
-pub static ENDLINECHAR : IntAssValue = IntAssValue {
+pub static ENDLINECHAR : NumAssValue = NumAssValue {
     name: "endlinechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -452,7 +460,7 @@ pub static ENDLINECHAR : IntAssValue = IntAssValue {
     }
 };
 
-pub static ESCAPECHAR: IntAssValue = IntAssValue {
+pub static ESCAPECHAR: NumAssValue = NumAssValue {
     name:"escapechar",
     _assign: |_,int,global| {
         int.read_eq();
@@ -539,7 +547,7 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
 };
 
 use crate::utils::u8toi16;
-fn get_inrv(int:&Interpreter) -> Result<(i32,Numeric,Numeric),TeXError> {
+fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     let cmd = int.read_command_token()?;
     let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
@@ -558,11 +566,11 @@ fn get_inrv(int:&Interpreter) -> Result<(i32,Numeric,Numeric),TeXError> {
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Dim(int.state_dimension(i as i32)),Numeric::Dim(int.read_dimension()?))
+            (i as i32,Numeric::Dim(int.state_dimension(i as i32)), if withint {int.read_number_i(true)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))), Numeric::Dim(int.read_dimension()?))
+            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))),if withint {int.read_number_i(true)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
@@ -572,11 +580,14 @@ fn get_inrv(int:&Interpreter) -> Result<(i32,Numeric,Numeric),TeXError> {
 pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     name: "divide",
     _assign: |_,int,global| {
-        let (index,num,div) = get_inrv(int)?;
+        let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
-        let ch = match (num,div) {
-            (Numeric::Int(num),Numeric::Int(div)) => StateChange::Register(index,num/ div,global),
-            (Numeric::Dim(_),Numeric::Dim(_)) => StateChange::Dimen(index,match (num / div) {
+        let ch = match num {
+            Numeric::Int(_) => StateChange::Register(index,match (num / div) {
+                Numeric::Int(i) => i,
+                _ => unreachable!()
+            },global),
+            Numeric::Dim(_) => StateChange::Dimen(index,match (num / div) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
@@ -589,11 +600,14 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
 pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     name: "multiply",
     _assign: |_,int,global| {
-        let (index,num,fac) = get_inrv(int)?;
+        let (index,num,fac) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
-        let ch = match (num,fac) {
-            (Numeric::Int(num),Numeric::Int(fac)) => StateChange::Register(index,num * fac, global),
-            (Numeric::Dim(_),Numeric::Dim(_)) => StateChange::Dimen(index,match (num * fac) {
+        let ch = match num {
+            Numeric::Int(_) => StateChange::Register(index,match (num * fac) {
+                Numeric::Int(i) => i,
+                _ => unreachable!()
+            }, global),
+            Numeric::Dim(_) => StateChange::Dimen(index,match (num * fac) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
@@ -606,7 +620,7 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
 pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     name: "advance",
     _assign: |_,int,global| {
-        let (index,num,sum) = get_inrv(int)?;
+        let (index,num,sum) = get_inrv(int,false)?;
         log!("\\advance sets {} to {}",index,num+sum);
         let ch = match (num,sum) {
             (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
@@ -1267,7 +1281,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub static LCCODE: IntAssValue = IntAssValue {
+pub static LCCODE: NumAssValue = NumAssValue {
     name:"lccode",
     _assign: |_,int,global| {
         let num1 = int.read_number()? as u8;
@@ -1282,7 +1296,7 @@ pub static LCCODE: IntAssValue = IntAssValue {
     }
 };
 
-pub static UCCODE: IntAssValue = IntAssValue {
+pub static UCCODE: NumAssValue = NumAssValue {
     name: "uccode",
     _assign: |_, int, global| {
         let num1 = int.read_number()? as u8;
@@ -1372,7 +1386,7 @@ fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     }
 }
 
-pub static FONTDIMEN: IntAssValue = IntAssValue {
+pub static FONTDIMEN: NumAssValue = NumAssValue {
     name:"fontdimen",
     _assign: |_rf,int,_global| {
         let i = int.read_number()? as u16;
@@ -1389,7 +1403,7 @@ pub static FONTDIMEN: IntAssValue = IntAssValue {
     }
 };
 
-pub static HYPHENCHAR: IntAssValue = IntAssValue {
+pub static HYPHENCHAR: NumAssValue = NumAssValue {
     name:"hyphenchar",
     _assign: |_rf,int,_global| {
         let f = read_font(int)?;
@@ -1405,7 +1419,7 @@ pub static HYPHENCHAR: IntAssValue = IntAssValue {
     }
 };
 
-pub static SKEWCHAR: IntAssValue = IntAssValue {
+pub static SKEWCHAR: NumAssValue = NumAssValue {
     name:"skewchar",
     _assign: |_rf,int,_global| {
         let f = read_font(int)?;
@@ -1442,13 +1456,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_rf,int,global| {
         let index = int.read_number()? as u16;
         int.read_eq();
-        let wi = match int.read_box()? {
-            wi if wi.children.is_empty() => TeXBox {
-                mode: BoxMode::Void,
-                children: vec![]
-            },
-            wi => wi
-        };
+        let wi = int.read_box()?;
         int.change_state(StateChange::Box(index as i32,wi,global));
         Ok(())
     }
@@ -1457,22 +1465,43 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
 pub static HBOX: ProvidesBox = ProvidesBox {
     name:"hbox",
     _get: |_tk,int| {
+        let (spread,width) = match int.read_keyword(vec!("to","spread"))? {
+            Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
+            Some(s) if s == "spread" => (int.read_dimension()?,None),
+            _ => (0 as i64,None)
+        };
         let ret = int.read_whatsit_group(BoxMode::H)?;
-        Ok(TeXBox {
-            mode: BoxMode::H,
-            children: ret
-        })
+        if ret.is_empty() {Ok(TeXBox::Void)} else {
+            Ok(TeXBox::H(HBox {
+                children: ret,
+                spread,
+                _width: width,
+                _height: None,
+                _depth: None
+            }))
+        }
     }
 };
 
 pub static VBOX: ProvidesBox = ProvidesBox {
     name:"vbox",
     _get: |_tk,int| {
+        let (spread,height) = match int.read_keyword(vec!("to","spread"))? {
+            Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
+            Some(s) if s == "spread" => (int.read_dimension()?,None),
+            _ => (0 as i64,None)
+        };
         let ret = int.read_whatsit_group(BoxMode::V)?;
-        Ok(TeXBox {
-            mode: BoxMode::V,
-            children: ret
-        })
+        if ret.is_empty() {Ok(TeXBox::Void)} else {
+            Ok(TeXBox::V(VBox {
+                children: ret,
+                center:false,
+                spread,
+                _width: None,
+                _height: height,
+                _depth: None
+            }))
+        }
     }
 };
 
@@ -1510,7 +1539,7 @@ pub static TOKS: TokAssValue = TokAssValue {
     }
 };
 
-pub static MATHCODE: IntAssValue = IntAssValue {
+pub static MATHCODE: NumAssValue = NumAssValue {
     name:"mathcode",
     _getvalue: |int| {Ok(Numeric::Int(int.state_get_mathcode( int.read_number()? as u8)))},
     _assign: |rf,int,global| {
@@ -1522,7 +1551,7 @@ pub static MATHCODE: IntAssValue = IntAssValue {
     }
 };
 
-pub static DELCODE: IntAssValue = IntAssValue {
+pub static DELCODE: NumAssValue = NumAssValue {
     name:"delcode",
     _getvalue: |int| {Ok(Numeric::Int(int.state_get_delcode( int.read_number()? as u8)))},
     _assign: |rf,int,global| {
@@ -1701,6 +1730,36 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_,int| {
         int.change_state(StateChange::Fontstyle(FontStyle::Scriptscript));
         Ok(())
+    }
+};
+
+pub static WD: NumAssValue = NumAssValue {
+    name:"wd",
+    _assign: |rf,int,global| {
+        todo!()
+    },
+    _getvalue: |int| {
+        todo!()
+    }
+};
+
+pub static HT: NumAssValue = NumAssValue {
+    name:"ht",
+    _assign: |rf,int,global| {
+        todo!()
+    },
+    _getvalue: |int| {
+        todo!()
+    }
+};
+
+pub static DP: NumAssValue = NumAssValue {
+    name:"dp",
+    _assign: |rf,int,global| {
+        todo!()
+    },
+    _getvalue: |int| {
+        todo!()
     }
 };
 
@@ -2810,7 +2869,6 @@ pub static TRACINGIFS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-
 pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"efcode",
     expandable:true,
@@ -3015,12 +3073,6 @@ pub static BOX: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"dp",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"halign",
     expandable:true,
@@ -3059,12 +3111,6 @@ pub static HSKIP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static HSS: PrimitiveExecutable = PrimitiveExecutable {
     name:"hss",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static HT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"ht",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3321,12 +3367,6 @@ pub static VTOP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static WD: PrimitiveExecutable = PrimitiveExecutable {
-    name:"wd",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 
 // -------------------------------------------------------------------------------------------------
 
@@ -3341,6 +3381,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&COUNT)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DIMEN)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&SKIP)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&HT)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&WD)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&DP)),
     PrimitiveTeXCommand::Ass(&CHARDEF),
     PrimitiveTeXCommand::Ass(&COUNTDEF),
     PrimitiveTeXCommand::Ass(&DIMENDEF),
@@ -3666,7 +3709,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
     PrimitiveTeXCommand::Primitive(&BOX),
-    PrimitiveTeXCommand::Primitive(&DP),
     PrimitiveTeXCommand::Primitive(&HALIGN),
     PrimitiveTeXCommand::Primitive(&HFIL),
     PrimitiveTeXCommand::Primitive(&HFILL),
@@ -3674,7 +3716,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&HRULE),
     PrimitiveTeXCommand::Primitive(&HSKIP),
     PrimitiveTeXCommand::Primitive(&HSS),
-    PrimitiveTeXCommand::Primitive(&HT),
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
@@ -3717,5 +3758,4 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&VSPLIT),
     PrimitiveTeXCommand::Primitive(&VSS),
     PrimitiveTeXCommand::Primitive(&VTOP),
-    PrimitiveTeXCommand::Primitive(&WD),
 ]}

@@ -1,4 +1,4 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand,PrimitiveTeXCommand};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
@@ -167,19 +167,31 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfobj",
+    expandable:false,
+    _apply:|rf,int| {
+        match int.read_keyword(vec!("reserveobjnum","useobjnum","stream"))? {
+            Some(s) if s == "reserveobjnum" => {
+                let num = int.state_register(-(PDFLASTOBJ.index as i32));
+                int.change_state(StateChange::Register(-(PDFLASTOBJ.index as i32),num+1,true));
+                Ok(())
+            }
+            Some(s) if s == "useobjnum" => {
+                let index = int.read_number()?;
+                let str = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                int.state_set_pdfobj(index as u16,str.into());
+                Ok(())
+            }
+            Some(_) => todo!(),
+            _ => TeXErr!((int,None),"Expected \"reserveobjnum\",\"useobjnum\" or \"stream\" after \\pdfobj")
+        }
+    }
+};
+
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
     index:35
-};
-
-pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
-    name: "pdfpageheight",
-    index:17
-};
-
-pub static PDFPAGEWIDTH : DimenReference = DimenReference {
-    name: "pdfpagewidth",
-    index:17
 };
 
 pub static PDFMINORVERSION : RegisterReference = RegisterReference {
@@ -207,6 +219,96 @@ pub static PDFPKRESOLUTION : RegisterReference = RegisterReference {
     index:40
 };
 
+// -----------------
+
+pub static PDFLASTOBJ : RegisterReference = RegisterReference {
+    name: "pdflastobj",
+    index:43
+};
+
+pub static PDFLASTXFORM : RegisterReference = RegisterReference {
+    name: "pdflastxform",
+    index:44
+};
+
+// ----
+
+pub static PDFLASTANNOT : RegisterReference = RegisterReference {
+    name: "pdflastannot",
+    index:48
+};
+
+pub static PDFLASTLINK : RegisterReference = RegisterReference {
+    name: "pdflastlink",
+    index:49
+};
+
+pub static PDFSUPPRESSWARNINGDUPDEST : RegisterReference = RegisterReference {
+    name: "pdfsuppresswarningdupdest",
+    index:50
+};
+
+pub static PDFPROTRUDECHARS : RegisterReference = RegisterReference {
+    name: "pdfprotrudechars",
+    index:51
+};
+
+pub static PDFADJUSTSPACING : RegisterReference = RegisterReference {
+    name: "pdfadjustspacing",
+    index:52
+};
+
+// ------------------
+
+
+pub static PDFLASTXIMAGE : RegisterReference = RegisterReference {
+    name: "pdflastximage",
+    index:60
+};
+
+// -------------
+
+
+pub static PDFDRAFTMODE : RegisterReference = RegisterReference {
+    name: "pdfdraftmode",
+    index:73
+};
+
+pub static PDFGENTOUNICODE : RegisterReference = RegisterReference {
+    name: "pdfgentounicode",
+    index:74
+};
+
+// -------------------------------------------------------------------------------------------------
+
+pub static PDFLINKMARGIN : DimenReference = DimenReference {
+    name: "pdflinkmargin",
+    index:23
+};
+
+pub static PDFDESTMARGIN : DimenReference = DimenReference {
+    name: "pdfdestmargin",
+    index:24
+};
+
+// ------------
+
+pub static PDFPXDIMEN : DimenReference = DimenReference {
+    name: "pdfpxdimen",
+    index:68
+};
+
+
+pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
+    name: "pdfpageheight",
+    index:17
+};
+
+pub static PDFPAGEWIDTH : DimenReference = DimenReference {
+    name: "pdfpagewidth",
+    index:18
+};
+
 pub static PDFHORIGIN : DimenReference = DimenReference {
     name: "pdfhorigin",
     index:19
@@ -216,6 +318,14 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
     name: "pdfvorigin",
     index:20
 };
+
+// -------------------------------------------------------------------------------------------------
+
+pub static PDFPAGERESOURCES: TokReference = TokReference {
+    name:"pdfpageresources",
+    index:15
+};
+
 
 // TODO --------------------------------------------------------------------------------------------
 
@@ -329,12 +439,6 @@ pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfobj",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfoutline",
     expandable:true,
@@ -431,6 +535,58 @@ pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
+/*
+  val pdfcreationdate = new PrimitiveCommandProcessor("pdfcreationdate") {}
+  val pdfendthread = new PrimitiveCommandProcessor("pdfendthread") {}
+  val pdffontattr = new PrimitiveCommandProcessor("pdffontattr") {}
+  val pdffontname = new PrimitiveCommandProcessor("pdffontname") {}
+  val pdffontobjnum = new PrimitiveCommandProcessor("pdffontobjnum") {}
+  val pdfgamma = new PrimitiveCommandProcessor("pdfgamma") {}
+  val pdfimageapplygamma = new PrimitiveCommandProcessor("pdfimageapplygamma") {}
+  val pdfimagegamma = new PrimitiveCommandProcessor("pdfimagegamma") {}
+  val pdfimagehicolor = new PrimitiveCommandProcessor("pdfimagehicolor") {}
+  val pdfimageresolution = new PrimitiveCommandProcessor("pdfimageresolution") {}
+  val pdfincludechars = new PrimitiveCommandProcessor("pdfincludechars") {}
+  val pdfinclusioncopyfonts = new PrimitiveCommandProcessor("pdfinclusioncopyfonts") {}
+  val pdfinclusionerrorlevel = new PrimitiveCommandProcessor("pdfinclusionerrorlevel") {}
+  val pdflastximagecolordepth = new PrimitiveCommandProcessor("pdflastximagecolordepth") {}
+  val pdflastximagepages = new PrimitiveCommandProcessor("pdflastximagepages") {}
+  val pdfnames = new PrimitiveCommandProcessor("pdfnames") {}
+  val pdfpagesattr = new PrimitiveCommandProcessor("pdfpagesattr") {}
+  val pdfpagebox = new PrimitiveCommandProcessor("pdfpagebox") {}
+  val pdfpageref = new PrimitiveCommandProcessor("pdfpageref") {}
+  val pdfrefobj = new PrimitiveCommandProcessor("pdfrefobj") {}
+  val pdfretval = new PrimitiveCommandProcessor("pdfretval") {}
+  val pdfstartthread = new PrimitiveCommandProcessor("pdfstartthread") {}
+  val pdfsuppressptexinfo = new PrimitiveCommandProcessor("pdfsuppressptexinfo") {}
+  val pdfthread = new PrimitiveCommandProcessor("pdfthread") {}
+  val pdfthreadmargin = new PrimitiveCommandProcessor("pdfthreadmargin") {}
+  val pdftrailer = new PrimitiveCommandProcessor("pdftrailer") {}
+  val pdfuniqueresname = new PrimitiveCommandProcessor("pdfuniqueresname") {}
+  val pdfxformname = new PrimitiveCommandProcessor("pdfxformname") {}
+  val pdfximagebbox = new PrimitiveCommandProcessor("pdfximagebbox") {}
+  val pdfcopyfont = new PrimitiveCommandProcessor("pdfcopyfont") {}
+  val pdfeachlinedepth = new PrimitiveCommandProcessor("pdfeachlinedepth") {}
+  val pdfeachlineheight = new PrimitiveCommandProcessor("pdfeachlineheight") {}
+  val pdfelapsedtime = new PrimitiveCommandProcessor("pdfelapsedtime") {}
+  val pdffirstlineheight = new PrimitiveCommandProcessor("pdffirstlineheight") {}
+  val pdfignoreddimen = new PrimitiveCommandProcessor("pdfignoreddimen") {}
+  val pdfinsertht = new PrimitiveCommandProcessor("pdfinsertht") {}
+  val pdflastlinedepth = new PrimitiveCommandProcessor("pdflastlinedepth") {}
+  val pdfmapfile = new PrimitiveCommandProcessor("pdfmapfile") {}
+  val pdfmapline = new PrimitiveCommandProcessor("pdfmapline") {}
+  val pdfnoligatures = new PrimitiveCommandProcessor("pdfnoligatures") {}
+  val pdfnormaldeviate = new PrimitiveCommandProcessor("pdfnormaldeviate") {}
+  val pdfpkmode = new PrimitiveCommandProcessor("pdfpkmode") {}
+  val pdfprimitive = new PrimitiveCommandProcessor("pdfprimitive") {}
+  val pdfrandomseed = new PrimitiveCommandProcessor("pdfrandomseed") {}
+  val pdfresettimer = new PrimitiveCommandProcessor("pdfresettimer") {}
+  val pdfsetrandomseed = new PrimitiveCommandProcessor("pdfsetrandomseed") {}
+  val pdftracingfonts = new PrimitiveCommandProcessor("pdftracingfonts") {}
+  val pdfuniformdeviate = new PrimitiveCommandProcessor("pdfuniformdeviate") {}
+  val pdftexbanner = new PrimitiveCommandProcessor("pdftexbanner") {}
+ */
+
 // -------------------------------------------------------------------------------------------------
 
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
@@ -442,15 +598,31 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Cond(&IFPDFPRIMITIVE),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEHEIGHT)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEWIDTH)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOBJCOMPRESSLEVEL)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFCOMPRESSLEVEL)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFDECIMALDIGITS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFPKRESOLUTION)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTOBJ)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTXFORM)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTANNOT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTLINK)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFSUPPRESSWARNINGDUPDEST)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFPROTRUDECHARS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFADJUSTSPACING)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTXIMAGE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFDRAFTMODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFGENTOUNICODE)),
+
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFLINKMARGIN)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFDESTMARGIN)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFPXDIMEN)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEHEIGHT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFPAGEWIDTH)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFHORIGIN)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PDFVORIGIN)),
+
+    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(&PDFPAGERESOURCES)),
 
     // TODO ----------------------------------------------------------------------------------------
 

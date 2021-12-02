@@ -7,9 +7,27 @@ use crate::references::SourceFileReference;
 pub enum BoxMode { H,V,M,DM,Void }
 
 #[derive(Clone)]
-pub struct TeXBox {
-    pub mode:BoxMode,
-    pub children:Vec<Whatsit>
+pub struct HBox {
+    pub children:Vec<Whatsit>,
+    pub spread:i64,
+    pub _width:Option<i64>,
+    pub _height:Option<i64>,
+    pub _depth:Option<i64>
+}
+
+#[derive(Clone)]
+pub struct VBox {
+    pub children:Vec<Whatsit>,
+    pub center:bool,
+    pub spread:i64,
+    pub _width:Option<i64>,
+    pub _height:Option<i64>,
+    pub _depth:Option<i64>
+}
+
+#[derive(Clone)]
+pub enum TeXBox {
+    Void,H(HBox),V(VBox)
 }
 
 #[derive(Clone)]

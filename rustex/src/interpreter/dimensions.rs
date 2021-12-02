@@ -199,6 +199,8 @@ impl std::ops::Div for Numeric {
             (Int(i),Int(j)) => Int(((i as f64)/(j as f64)).round() as i64),
             (Int(i),Float(f)) => Int(((i as f64) / f).round() as i64),
             (Dim(i),Dim(f)) => Dim(((i as f64) / (f as f64 / 65536.0)).round() as i64),
+            (Dim(i),Skip(f)) => Dim(((i as f64) / (f.base as f64 / 65536.0)).round() as i64),
+            (Dim(i),Int(f)) => Dim(((i as f64) / (f as f64)).round() as i64),
             _ => todo!("{}/{}",self,rhs)
         }
     }
@@ -213,6 +215,7 @@ impl std::ops::Mul for Numeric {
             (Float(i),Int(j)) => Float(i*(j as f64)),
             (Float(i),Float(j)) => Float(i*j),
             (Dim(i),Dim(f)) => Dim(((i as f64) * (f as f64 / 65536.0)).round() as i64),
+            (Dim(i),Skip(f)) => Dim(((i as f64) * (f.base as f64 / 65536.0)).round() as i64),
             _ => todo!("{}*{}",self,rhs)
         }
     }

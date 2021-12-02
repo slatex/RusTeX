@@ -337,7 +337,10 @@ impl Interpreter<'_> {
                     let cmd = self.get_command(&next.cmdname())?;
                     match &*cmd.orig {
                         PrimitiveTeXCommand::Char(_) => todo!(),
-                        PrimitiveTeXCommand::Whatsit(pw) => self.stomach.borrow_mut().add(pw.get(&next,self)?),
+                        PrimitiveTeXCommand::Whatsit(pw) => {
+                            let ret = pw.get(&next,self)?;
+                            self.stomach.borrow_mut().add(ret)
+                        },
                         _ => {
                             if cmd.expandable(true) {
                                 cmd.expand(next, self)?;
@@ -485,6 +488,9 @@ impl Interpreter<'_> {
             Some(s) if s == "in" => Ok(SkipDim::Pt(self.make_true(inch(f),istrue))),
             Some(s) if s == "sp" => Ok(SkipDim::Pt(self.make_true(f,istrue))),
             Some(s) if s == "pt" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
+            Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
+            Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(f,istrue))),
+            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f64 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f64 * f,istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
