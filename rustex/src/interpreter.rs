@@ -1,7 +1,7 @@
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum TeXMode {
-    Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath, Script, ScriptScript
+    Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath
 }
 
 use std::borrow::BorrowMut;

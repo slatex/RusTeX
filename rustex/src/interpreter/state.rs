@@ -7,6 +7,11 @@ use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
 
 #[derive(Copy,Clone,PartialEq)]
+pub enum FontStyle {
+    Text,Script,Scriptscript
+}
+
+#[derive(Copy,Clone,PartialEq)]
 pub enum GroupType {
     Token,
     Begingroup,
@@ -29,19 +34,21 @@ struct StackFrame {
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<TeXStr,Option<TeXCommand>>,
-    pub(crate) registers: HashMap<i16,i64>,
-    pub(crate) dimensions: HashMap<i16,i64>,
-    pub(crate) skips : HashMap<i16,Skip>,
-    pub(crate) muskips : HashMap<i16,MuSkip>,
-    pub(crate) toks : HashMap<i16,Vec<Token>>,
+    pub(crate) registers: HashMap<i32,i64>,
+    pub(crate) dimensions: HashMap<i32,i64>,
+    pub(crate) skips : HashMap<i32,Skip>,
+    pub(crate) muskips : HashMap<i32,MuSkip>,
+    pub(crate) toks : HashMap<i32,Vec<Token>>,
     pub(in crate::interpreter::state) tp : Option<GroupType>,
     pub(crate) sfcodes : HashMap<u8,i64>,
     pub(crate) lccodes : HashMap<u8,u8>,
     pub(crate) uccodes : HashMap<u8,u8>,
     pub(crate) mathcodes : HashMap<u8,i64>,
     pub(crate) delcodes : HashMap<u8,i64>,
-    pub(crate) boxes: HashMap<i16,TeXBox>,
-    pub(crate) currfont : Rc<Font>
+    pub(crate) boxes: HashMap<i32,TeXBox>,
+    pub(crate) currfont : Rc<Font>,
+    pub(crate) aftergroups : Vec<Token>,
+    pub(crate) fontstyle : FontStyle
 }
 
 impl StackFrame {
@@ -62,13 +69,13 @@ impl StackFrame {
             let c = c.as_command();
             cmds.insert(c.name().unwrap().clone(),Some(c));
         }
-        let mut reg: HashMap<i16,i64> = HashMap::new();
-        reg.insert(-crate::utils::u8toi16(crate::commands::primitives::MAG.index),1000);
+        let mut reg: HashMap<i32,i64> = HashMap::new();
+        reg.insert(-(crate::commands::primitives::MAG.index as i32),1000);
 
-        let dims: HashMap<i16,i64> = HashMap::new();
-        let skips: HashMap<i16,Skip> = HashMap::new();
-        let muskips: HashMap<i16,MuSkip> = HashMap::new();
-        let toks: HashMap<i16,Vec<Token>> = HashMap::new();
+        let dims: HashMap<i32,i64> = HashMap::new();
+        let skips: HashMap<i32,Skip> = HashMap::new();
+        let muskips: HashMap<i32,MuSkip> = HashMap::new();
+        let toks: HashMap<i32,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i64> = HashMap::new();
         let mut lccodes: HashMap<u8,u8> = HashMap::new();
         let mut uccodes: HashMap<u8,u8> = HashMap::new();
@@ -76,7 +83,7 @@ impl StackFrame {
             uccodes.insert(i,i-32);
             lccodes.insert(i-32,i);
         }
-        let boxes: HashMap<i16,TeXBox> = HashMap::new();
+        let boxes: HashMap<i32,TeXBox> = HashMap::new();
         let mathcodes : HashMap<u8,i64> = HashMap::new();
         let delcodes : HashMap<u8,i64> = HashMap::new();
         StackFrame {
@@ -88,16 +95,17 @@ impl StackFrame {
             registers:reg,
             dimensions:dims,
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
-            tp:None,
-            currfont:Nullfont.try_with(|x| x.clone()).unwrap()
+            tp:None,aftergroups:vec!(),
+            currfont:Nullfont.try_with(|x| x.clone()).unwrap(),
+            fontstyle:FontStyle::Text
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
-        let reg: HashMap<i16,i64> = HashMap::new();
-        let dims: HashMap<i16,i64> = HashMap::new();
-        let skips: HashMap<i16,Skip> = HashMap::new();
-        let muskips: HashMap<i16,MuSkip> = HashMap::new();
-        let toks: HashMap<i16,Vec<Token>> = HashMap::new();
+        let reg: HashMap<i32,i64> = HashMap::new();
+        let dims: HashMap<i32,i64> = HashMap::new();
+        let skips: HashMap<i32,Skip> = HashMap::new();
+        let muskips: HashMap<i32,MuSkip> = HashMap::new();
+        let toks: HashMap<i32,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i64> = HashMap::new();
         let mut lccodes: HashMap<u8,u8> = HashMap::new();
         let mut uccodes: HashMap<u8,u8> = HashMap::new();
@@ -105,7 +113,7 @@ impl StackFrame {
             uccodes.insert(i,i-32);
             lccodes.insert(i-32,i);
         }
-        let boxes: HashMap<i16,TeXBox> = HashMap::new();
+        let boxes: HashMap<i32,TeXBox> = HashMap::new();
         let mathcodes : HashMap<u8,i64> = HashMap::new();
         let delcodes : HashMap<u8,i64> = HashMap::new();
         StackFrame {
@@ -115,9 +123,10 @@ impl StackFrame {
             newlinechar: parent.newlinechar,
             endlinechar: parent.newlinechar,
             registers:reg,
-            dimensions:dims,
+            dimensions:dims,aftergroups:vec!(),
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
-            tp:Some(tp),currfont:parent.currfont.clone()
+            tp:Some(tp),currfont:parent.currfont.clone(),
+            fontstyle:parent.fontstyle
         }
     }
 }
@@ -136,7 +145,8 @@ pub struct State {
     fontfiles: HashMap<TeXStr,Rc<FontFile>>,
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
-    pub(in crate) pdfmatches : Vec<TeXStr>
+    pub(in crate) pdfmatches : Vec<TeXStr>,
+    pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>
 }
 
 // sudo apt install libkpathsea-dev
@@ -153,7 +163,8 @@ impl State {
             fontfiles: fonts,
             mode:TeXMode::Vertical,
             afterassignment:None,
-            pdfmatches : vec!()
+            pdfmatches : vec!(),
+            pdfcolorstacks: vec!(vec!())
         }
     }
 
@@ -195,7 +206,7 @@ impl State {
         }
         None
     }
-    pub fn get_register(&self, index:i16) -> i64 {
+    pub fn get_register(&self, index:i32) -> i64 {
         for sf in self.stacks.iter().rev() {
             match sf.registers.get(&index) {
                 Some(r) => return *r,
@@ -213,7 +224,7 @@ impl State {
         }
         0
     }
-    pub fn get_dimension(&self, index:i16) -> i64 {
+    pub fn get_dimension(&self, index:i32) -> i64 {
         for sf in self.stacks.iter().rev() {
             match sf.dimensions.get(&index) {
                 Some(r) => return *r,
@@ -263,7 +274,7 @@ impl State {
         0
     }
 
-    pub fn get_skip(&self, index:i16) -> Skip {
+    pub fn get_skip(&self, index:i32) -> Skip {
         for sf in self.stacks.iter().rev() {
             match sf.skips.get(&index) {
                 Some(r) => return *r,
@@ -285,7 +296,7 @@ impl State {
     pub fn newlinechar(&self) -> u8 {
         self.stacks.last().expect("Stack frames empty").newlinechar
     }
-    pub fn tokens(&self,index:i16) -> Vec<Token> {
+    pub fn tokens(&self,index:i32) -> Vec<Token> {
         for sf in self.stacks.iter().rev() {
             match sf.toks.get(&index) {
                 Some(r) => return r.clone(),
@@ -300,6 +311,8 @@ impl State {
     }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
+            StateChange::Fontstyle(fs) => self.stacks.last_mut().unwrap().fontstyle = fs,
+            StateChange::Aftergroup(tk) => self.stacks.last_mut().unwrap().aftergroups.push(tk),
             StateChange::Font(f,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
@@ -471,13 +484,13 @@ impl State {
         let sf = StackFrame::new(self.stacks.last().unwrap(),tp);
         self.stacks.push(sf)
     }
-    pub (in crate::interpreter::state) fn pop(&mut self,int:&Interpreter,_tp : GroupType) -> Result<&CategoryCodeScheme,TeXError> {
+    pub (in crate::interpreter::state) fn pop(&mut self,int:&Interpreter,_tp : GroupType) -> Result<(&CategoryCodeScheme,Vec<Token>),TeXError> {
         if self.stacks.len() < 2 { TeXErr!((int,None),"No group here to end!")}
         match self.stacks.pop() {
             Some(sf) => match sf.tp {
                 None => TeXErr!((int,None),"No group here to end!"),
                 Some(ltp) if !matches!(ltp,_tp) => TeXErr!((int,None),"Group opened by {} ended by {}",ltp,_tp),
-                _ => Ok(&self.stacks.last().unwrap().catcodes)
+                _ => Ok((&self.stacks.last().unwrap().catcodes,sf.aftergroups))
             }
             None => TeXErr!((int,None),"No group here to end!")
         }
@@ -623,7 +636,8 @@ impl Interpreter<'_> {
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
         let mut state = self.state.borrow_mut();
-        let cc = state.pop(self,tp)?;
+        let (cc,ag) = state.pop(self,tp)?;
+        self.push_tokens(ag);
         let mut scc = self.catcodes.borrow_mut();
         scc.catcodes = cc.catcodes.clone();
         scc.endlinechar = cc.endlinechar;
@@ -635,7 +649,8 @@ impl Interpreter<'_> {
     pub fn get_whatsit_group(&self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
         log!("Pop: {}",tp);
         let mut state = self.state.borrow_mut();
-        let cc = state.pop(self,tp)?;
+        let (cc,ag) = state.pop(self,tp)?;
+        self.push_tokens(ag);
         let mut scc = self.catcodes.borrow_mut();
         scc.catcodes = cc.catcodes.clone();
         scc.endlinechar = cc.endlinechar;
@@ -647,15 +662,15 @@ impl Interpreter<'_> {
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
         self.catcodes.borrow()
     }
-    pub fn state_register(&self,i:i16) -> i64 { self.state.borrow().get_register(i) }
-    pub fn state_dimension(&self,i:i16) -> i64 {
+    pub fn state_register(&self,i:i32) -> i64 { self.state.borrow().get_register(i) }
+    pub fn state_dimension(&self,i:i32) -> i64 {
         self.state.borrow().get_dimension(i)
     }
-    pub fn state_skip(&self,i:i16) -> Skip {
+    pub fn state_skip(&self,i:i32) -> Skip {
         self.state.borrow().get_skip(i)
     }
     pub fn state_sfcode(&self,i:u8) -> i64 { self.state.borrow().get_sfcode(i) }
-    pub fn state_tokens(&self,i:i16) -> Vec<Token> { self.state.borrow().tokens(i)}
+    pub fn state_tokens(&self,i:i32) -> Vec<Token> { self.state.borrow().tokens(i)}
     pub fn state_lccode(&self,i:u8) -> u8 { self.state.borrow().lccode(i) }
     pub fn state_uccode(&self,i:u8) -> u8 { self.state.borrow().uccode(i) }
 
@@ -730,25 +745,44 @@ impl Interpreter<'_> {
     pub fn get_font(&self) -> Rc<Font> {
         self.state.borrow().stacks.last().unwrap().currfont.clone()
     }
+    pub fn state_color_pop(&self,i:usize) {
+        let stack = &mut self.state.borrow_mut().pdfcolorstacks;
+        let len = stack.len();
+        stack.get_mut(len - 1 - i).unwrap().pop();
+    }
+    pub fn state_color_set(&self,i:usize,color:TeXStr) {
+        let stack = &mut self.state.borrow_mut().pdfcolorstacks;
+        let len = stack.len();
+        let cs = stack.get_mut(len - 1 - i).unwrap();
+        cs.pop();
+        cs.push(color);
+    }
+    pub fn state_color_push(&self,i:usize,color:TeXStr) {
+        let stack = &mut self.state.borrow_mut().pdfcolorstacks;
+        let len = stack.len();
+        stack.get_mut(len - 1 - i).unwrap().push(color);
+    }
 }
 
 pub enum StateChange {
-    Register(i16,i64,bool),
-    Dimen(i16,i64,bool),
-    Skip(i16,Skip,bool),
-    MuSkip(i16,MuSkip,bool),
+    Register(i32,i64,bool),
+    Dimen(i32,i64,bool),
+    Skip(i32,Skip,bool),
+    MuSkip(i32,MuSkip,bool),
     Cs(TeXStr,Option<TeXCommand>,bool),
     Cat(u8,CategoryCode,bool),
     Newline(u8,bool),
     Endline(u8,bool),
     Escapechar(u8,bool),
     Sfcode(u8,i64,bool),
-    Tokens(i16,Vec<Token>,bool),
+    Tokens(i32,Vec<Token>,bool),
     Lccode(u8,u8,bool),
     Uccode(u8,u8,bool),
-    Box(i16,TeXBox,bool),
+    Box(i32,TeXBox,bool),
     Mathcode(u8,i64,bool),
     Delcode(u8,i64,bool),
     Font(Rc<Font>,bool),
-    Pdfmatches(Vec<TeXStr>)
+    Pdfmatches(Vec<TeXStr>),
+    Aftergroup(Token),
+    Fontstyle(FontStyle)
 }

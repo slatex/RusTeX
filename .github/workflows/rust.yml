@@ -31,4 +31,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: packaged
-        path: ./rustex/target/x86_64-unknown-linux-gnu/release
+        path: |
+          ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.rlib
+          ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.so
+          ./rustex/target/x86_64-unknown-linux-gnu/release/rustex

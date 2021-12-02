@@ -5,7 +5,7 @@ use crate::commands::{RegisterReference, AssignableValue, IntAssValue, DefMacro,
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{GroupType, StateChange};
+use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
@@ -74,16 +74,16 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
 pub static COUNT : IntAssValue = IntAssValue {
     name: "count",
     _assign: |_,int,global| {
-        let index = u8toi16(int.read_number()? as u8);
+        let index = int.read_number()? as u16;
         int.read_eq();
         let val = int.read_number()?;
         log!("\\count sets {} to {}",index,val);
-        int.change_state(StateChange::Register(index,val,global));
+        int.change_state(StateChange::Register(index as i32,val,global));
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()? as u8;
-        let num = int.state_register(u8toi16(index));
+        let index = int.read_number()? as i32;
+        let num = int.state_register(index);
         log!("\\count {} = {}",index,num);
         Ok(Numeric::Int(num))
     }
@@ -92,16 +92,16 @@ pub static COUNT : IntAssValue = IntAssValue {
 pub static DIMEN : IntAssValue = IntAssValue {
     name: "dimen",
     _assign: |_,int,global| {
-        let index = u8toi16(int.read_number()? as u8);
+        let index = int.read_number()? as u16;
         int.read_eq();
         let val = int.read_dimension()?;
         log!("\\dimen sets {} to {}",index,val);
-        int.change_state(StateChange::Dimen(index,val,global));
+        int.change_state(StateChange::Dimen(index as i32,val,global));
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()? as u8;
-        let dim = int.state_dimension(u8toi16(index));
+        let index = int.read_number()? as u16;
+        let dim = int.state_dimension(index as i32);
         log!("\\dimen {} = {}",index,dim);
         Ok(Numeric::Dim(dim))
     }
@@ -110,16 +110,16 @@ pub static DIMEN : IntAssValue = IntAssValue {
 pub static SKIP : IntAssValue = IntAssValue {
     name: "skip",
     _assign: |_,int,global| {
-        let index = u8toi16(int.read_number()? as u8);
+        let index = int.read_number()? as u16;
         int.read_eq();
         let val = int.read_skip()?;
         log!("\\skip sets {} to {}",index,val);
-        int.change_state(StateChange::Skip(index,val,global));
+        int.change_state(StateChange::Skip(index as i32,val,global));
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()? as u8;
-        let dim = int.state_skip(u8toi16(index));
+        let index = int.read_number()? as u16;
+        let dim = int.state_skip(index as i32);
         log!("\\skip {} = {}",index,dim);
         Ok(Numeric::Skip(dim))
     }
@@ -131,8 +131,8 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
-        let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num as u8)).as_ref(rf);
+        let num = int.read_number()? as u16;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -147,8 +147,8 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
-        let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num as u8)).as_ref(rf);
+        let num = int.read_number()? as u16;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -163,8 +163,8 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
-        let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num as u8)).as_ref(rf);
+        let num = int.read_number()? as u16;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -179,8 +179,8 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
-        let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num as u8)).as_ref(rf);
+        let num = int.read_number()? as u16;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -195,8 +195,8 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
-        let num = int.read_number()?;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num as u8)).as_ref(rf);
+        let num = int.read_number()? as u16;
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_ref(rf);
 
         int.change_state(StateChange::Cs(cmd.cmdname().clone(),
                                          Some(command),
@@ -539,30 +539,30 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
 };
 
 use crate::utils::u8toi16;
-fn get_inrv(int:&Interpreter) -> Result<(i16,Numeric,Numeric),TeXError> {
+fn get_inrv(int:&Interpreter) -> Result<(i32,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     let cmd = int.read_command_token()?;
-    let (index,num,val) : (i16,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
+    let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) => {
             int.read_keyword(vec!("by"))?;
-            (u8toi16(i),Numeric::Int(int.state_register(u8toi16(i))),int.read_number_i(false)?)
+            ((i as i32),Numeric::Int(int.state_register((i as i32))),int.read_number_i(false)?)
         }
         AV(AssignableValue::PrimReg(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-u8toi16(r.index), Numeric::Int(int.state_register(-u8toi16(r.index))), int.read_number_i(false)?)
+            (-(r.index as i32), Numeric::Int(int.state_register(-(r.index as i32))), int.read_number_i(false)?)
         }
         AV(AssignableValue::Int(c)) if *c == COUNT => {
-            let i = u8toi16(int.read_number()? as u8);
+            let i = int.read_number()? as u16;
             int.read_keyword(vec!("by"))?;
-            (i,Numeric::Int(int.state_register(i)),int.read_number_i(false)?)
+            (i as i32,Numeric::Int(int.state_register(i as i32)),int.read_number_i(false)?)
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (u8toi16(i),Numeric::Dim(int.state_dimension(u8toi16(i))),Numeric::Dim(int.read_dimension()?))
+            (i as i32,Numeric::Dim(int.state_dimension(i as i32)),Numeric::Dim(int.read_dimension()?))
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-u8toi16(r.index), Numeric::Dim(int.state_register(-u8toi16(r.index))), Numeric::Dim(int.read_dimension()?))
+            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))), Numeric::Dim(int.read_dimension()?))
         }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
@@ -634,14 +634,14 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 stt(ret.to_string().into())
             },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
-            AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-u8toi16(i.index)).to_string().into()),
-            AV(AssignableValue::Register(i)) => stt(int.state_register(u8toi16(*i)).to_string().into()),
-            AV(AssignableValue::Toks(i)) => int.state_tokens(u8toi16(*i)),
-            AV(AssignableValue::PrimToks(r)) => int.state_tokens(-u8toi16(r.index)),
+            AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-(i.index as i32)).to_string().into()),
+            AV(AssignableValue::Register(i)) => stt(int.state_register(*i as i32).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state_tokens(*i as i32),
+            AV(AssignableValue::PrimToks(r)) => int.state_tokens(-(r.index as i32)),
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
-            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(u8toi16(*i))).into()),
-            AV(AssignableValue::Skip(i)) => stt(int.state_skip(u8toi16(*i)).to_string().into()),
+            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension((*i as i32))).into()),
+            AV(AssignableValue::Skip(i)) => stt(int.state_skip((*i as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
@@ -952,7 +952,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(ret);
-        let mut eh = int.state_tokens(-u8toi16(ERRHELP.index));
+        let mut eh = int.state_tokens(-(ERRHELP.index as i32));
         let rethelp = if !eh.is_empty() {
             eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
             eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
@@ -970,7 +970,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
         rf.2 = crate::interpreter::string_to_tokens(VERSION_INFO.etexrevision.clone());
         Ok(())
     },
-    name: "etexrevision"
+    name: "eTeXrevision"
 };
 
 pub static ETEXVERSION : IntCommand = IntCommand {
@@ -1440,7 +1440,7 @@ pub static INPUTLINENO: IntCommand = IntCommand {
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     name:"setbox",
     _assign: |_rf,int,global| {
-        let index = int.read_number()?;
+        let index = int.read_number()? as u16;
         int.read_eq();
         let wi = match int.read_box()? {
             wi if wi.children.is_empty() => TeXBox {
@@ -1449,7 +1449,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
             },
             wi => wi
         };
-        int.change_state(StateChange::Box(index as i16,wi,global));
+        int.change_state(StateChange::Box(index as i32,wi,global));
         Ok(())
     }
 };
@@ -1498,15 +1498,15 @@ pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
 pub static TOKS: TokAssValue = TokAssValue {
     name:"toks",
     _assign: |_rf,int,global| {
-        let num = int.read_number()? as i16;
+        let num = int.read_number()? as u16;
         int.read_eq();
         let r = int.read_balanced_argument(false,false,false,true)?;
-        int.change_state(StateChange::Tokens(num,r.iter().map(|x| x.cloned()).collect(),global));
+        int.change_state(StateChange::Tokens(num as i32,r.iter().map(|x| x.cloned()).collect(),global));
         Ok(())
     },
     _getvalue: |int| {
-        let num = int.read_number()? as i16;
-        Ok(int.state_tokens(num))
+        let num = int.read_number()? as u16;
+        Ok(int.state_tokens(num as i32))
     }
 };
 
@@ -1667,6 +1667,42 @@ pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"aftergroup",
+    expandable:false,
+    _apply:|_,int| {
+        let next = int.next_token();
+        int.change_state(StateChange::Aftergroup(next));
+        Ok(())
+    }
+};
+
+pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"textstyle",
+    expandable:false,
+    _apply:|_,int| {
+        int.change_state(StateChange::Fontstyle(FontStyle::Text));
+        Ok(())
+    }
+};
+
+pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptstyle",
+    expandable:false,
+    _apply:|_,int| {
+        int.change_state(StateChange::Fontstyle(FontStyle::Script));
+        Ok(())
+    }
+};
+
+pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scriptscriptstyle",
+    expandable:false,
+    _apply:|_,int| {
+        int.change_state(StateChange::Fontstyle(FontStyle::Scriptscript));
+        Ok(())
+    }
+};
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
@@ -1719,6 +1755,21 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
 
 pub static DELIMITER: MathWhatsit = MathWhatsit {
     name:"delimiter",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MATHCHAR: MathWhatsit = MathWhatsit {
+    name:"mathchar",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MIDDLE: MathWhatsit = MathWhatsit {
+    name:"middle",
+    _get: |tk,int| {todo!()}
+};
+
+pub static MKERN: MathWhatsit = MathWhatsit {
+    name:"mkern",
     _get: |tk,int| {todo!()}
 };
 
@@ -2399,24 +2450,6 @@ pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"textstyle",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scriptstyle",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scriptscriptstyle",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"special",
     expandable:true,
@@ -2814,12 +2847,6 @@ pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"aftergroup",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lpcode",
     expandable:true,
@@ -3126,12 +3153,6 @@ pub static LOWER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MATHCHAR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathchar",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathchoice",
     expandable:true,
@@ -3140,18 +3161,6 @@ pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"medskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MIDDLE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"middle",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MKERN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mkern",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3407,6 +3416,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHACCENT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&RADICAL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&DELIMITER)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCHAR)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MIDDLE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MKERN)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -3677,11 +3689,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),
     PrimitiveTeXCommand::Primitive(&LOWER),
-    PrimitiveTeXCommand::Primitive(&MATHCHAR),
     PrimitiveTeXCommand::Primitive(&MATHCHOICE),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
-    PrimitiveTeXCommand::Primitive(&MIDDLE),
-    PrimitiveTeXCommand::Primitive(&MKERN),
     PrimitiveTeXCommand::Primitive(&MOVELEFT),
     PrimitiveTeXCommand::Primitive(&MOVERIGHT),
     PrimitiveTeXCommand::Primitive(&MSKIP),

@@ -624,7 +624,7 @@ impl Mouths {
 
 impl Interpreter<'_> {
     pub fn preview(&self) -> TeXString {
-        match self.mouths.borrow().preview().0.get(0..1000) {
+        match self.mouths.borrow().preview().0.get(0..10000) {
             Some(s) => TeXString(s.to_vec()),
             None => "".into()
         }

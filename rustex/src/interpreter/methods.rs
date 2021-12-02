@@ -15,7 +15,7 @@ impl Interpreter<'_> {
     // General -------------------------------------------------------------------------------------
 
     pub fn insert_every(&self,tr:&TokReference) {
-        let i = -u8toi16(tr.index);
+        let i = -(tr.index as i32);
         let insert = self.state_tokens(i);
         //println!("Every: {}",TokenList(&insert));
         self.push_tokens(insert)
@@ -498,7 +498,7 @@ impl Interpreter<'_> {
     fn make_true(&self,f : f64,istrue:bool) -> i64 {
         use crate::commands::primitives::MAG;
         if istrue {
-            let mag = (self.state_register(-u8toi16(MAG.index)) as f64) / 1000.0;
+            let mag = (self.state_register(-(MAG.index as i32)) as f64) / 1000.0;
             (f * mag).round() as i64
         } else {f.round() as i64}
     }

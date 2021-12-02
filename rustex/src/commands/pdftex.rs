@@ -144,6 +144,29 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfcolorstack",
+    expandable:false,
+    _apply:|tk,int| {
+        let num = int.read_number()?;
+        let prestring = int.read_keyword(vec!("push", "pop", "set", "current"))?;
+        match prestring {
+            Some(s) if s == "pop" => int.state_color_pop(num as usize),
+            Some(s) if s == "set" => {
+                let color = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                int.state_color_set(num as usize,color.into())
+            }
+            Some(s) if s == "push" => {
+                let color = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                int.state_color_push(num as usize,color.into())
+            }
+            Some(s) if s == "current" => todo!(),
+            _ => TeXErr!((int,None),"Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")
+        }
+        Ok(())
+    }
+};
+
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
     index:35
@@ -236,12 +259,6 @@ pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcolorstackinit",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfcolorstack",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

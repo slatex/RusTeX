@@ -159,11 +159,11 @@ pub struct SimpleWhatsit {
 
 #[derive(Clone)]
 pub enum AssignableValue {
-    Dim(u8),
-    Register(u8),
-    Skip(u8),
-    MuSkip(u8),
-    Toks(u8),
+    Dim(u16),
+    Register(u16),
+    Skip(u16),
+    MuSkip(u16),
+    Toks(u16),
     Int(&'static IntAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
@@ -438,6 +438,11 @@ impl PrimitiveTeXCommand {
             Cond(c) => c.name.into(),
             Whatsit(ProvidesWhatsit::Math(m)) => m.name.into(),
             Ass(p) => p.name.into(),
+            MathChar(i) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret += "mathchar\"".to_owned() + &format!("{:X}", i);
+                ret
+            }
             _ => todo!("{}",self)
         };
         ret
@@ -508,14 +513,14 @@ impl PrimitiveTeXCommand {
         use AssignableValue::*;
         use crate::utils::u8toi16;
         match self {
-            AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(u8toi16(*i)))),
-            AV(Register(i)) => Ok(Numeric::Int(int.state_register(u8toi16(*i)))),
-            AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(u8toi16(*i)))),
+            AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(*i as i32))),
+            AV(Register(i)) => Ok(Numeric::Int(int.state_register(*i as i32))),
+            AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(*i as i32))),
             AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
             PrimitiveTeXCommand::Int(i) => Ok((i._getvalue)(int)?),
-            AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-u8toi16(r.index)))),
-            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-u8toi16(r.index)))),
-            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-u8toi16(r.index)))),
+            AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-(r.index as i32)))),
+            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-(r.index as i32)))),
+            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-(r.index as i32)))),
             Ext(r) => r.get_num(int),
             Char(u) => Ok(Numeric::Int(u.char as i64)),
             MathChar(u) => Ok(Numeric::Int(*u as i64)),
@@ -548,10 +553,10 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "definecolorset" {
+        /*if tk.name().to_string() == "newwrite" {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              print!("");
-             unsafe {crate::LOG = true }
+             //unsafe {crate::LOG = true }
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
@@ -568,7 +573,9 @@ impl PrimitiveTeXCommand {
                 ParamToken::Token(tk) => {
                     int.assert_has_next()?;
                     let next = int.next_token();
-                    if *tk != next { TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})",tk,next,d) }
+                    if *tk != next {
+                        TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})\n{}  >>{}",tk,next,d,int.current_line(),int.preview())
+                    }
                     i += 1;
                 }
                 ParamToken::Param(_,_) => {
@@ -682,7 +689,7 @@ impl PrimitiveTeXCommand {
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 
-        let globals = int.state_register(-u8toi16(GLOBALDEFS.index));
+        let globals = int.state_register(-(GLOBALDEFS.index as i32));
         let global = !(globals < 0) && ( globally || globals > 0 );
         let rf = ExpansionRef(tk,cmd);
         match self {
@@ -696,7 +703,7 @@ impl PrimitiveTeXCommand {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
-                    int.change_state(StateChange::Register(u8toi16(*i), num, global));
+                    int.change_state(StateChange::Register(*i as i32, num, global));
                     Ok(())
                 }
                 AssignableValue::Font(f) => {
@@ -712,61 +719,61 @@ impl PrimitiveTeXCommand {
                     log!("Assigning dimen {}",i);
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.change_state(StateChange::Dimen(u8toi16(*i), num, global));
+                    int.change_state(StateChange::Dimen(*i as i32, num, global));
                     Ok(())
                 }
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign skip register {} to {}",i,num);
-                    int.change_state(StateChange::Skip(u8toi16(*i), num, global));
+                    int.change_state(StateChange::Skip(*i as i32, num, global));
                     Ok(())
                 }
                 AssignableValue::MuSkip(i) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign muskip register {} to {}",i,num);
-                    int.change_state(StateChange::MuSkip(u8toi16(*i), num, global));
+                    int.change_state(StateChange::MuSkip(*i as i32, num, global));
                     Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Skip(-u8toi16(r.index), num, global));
+                    int.change_state(StateChange::Skip(-(r.index as i32), num, global));
                     Ok(())
                 },
                 AssignableValue::PrimMuSkip(r) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::MuSkip(-u8toi16(r.index), num, global));
+                    int.change_state(StateChange::MuSkip(-(r.index as i32), num, global));
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
                     int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(u8toi16(*i), toks.iter().map(|x| x.cloned()).collect(), global));
+                    int.change_state(StateChange::Tokens(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
                     int.read_eq();
                     let toks = int.read_balanced_argument(false,false,false,true)?;
-                    int.change_state(StateChange::Tokens(-u8toi16(r.index), toks.iter().map(|x| x.cloned()).collect(), global));
+                    int.change_state(StateChange::Tokens(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Register(-u8toi16(r.index), num, global));
+                    int.change_state(StateChange::Register(-(r.index as i32), num, global));
                     Ok(())
                 },
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.change_state(StateChange::Dimen(-u8toi16(r.index), num, global));
+                    int.change_state(StateChange::Dimen(-(r.index as i32), num, global));
                     Ok(())
                 }
             },

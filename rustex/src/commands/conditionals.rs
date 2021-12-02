@@ -58,9 +58,18 @@ pub fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 }
 
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_,int| {
-        int.popcondition();
-        Ok(())
+    _apply: |rf,int| {
+        match int.getcondition() {
+            None => TeXErr!((int,None),"extra \\fi"),
+            Some((_,None)) => {
+                int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
+                Ok(())
+            }
+            Some((_,_)) => {
+                int.popcondition();
+                Ok(())
+            }
+        }
     },
     expandable: true,
     name: "fi"
@@ -124,12 +133,29 @@ pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     name: "else"
 };
 
+pub fn getChar(tk:Token,int:&Interpreter) -> Token {
+    match tk.catcode {
+        CategoryCode::Active | CategoryCode::Escape => {
+            match int.state_get_command(tk.cmdname()) {
+                Some(p) => match &*p.orig {
+                    PrimitiveTeXCommand::Char(t) => {
+                        getChar(t.clone(),int)
+                    },
+                    _ => tk
+                }
+                _ => tk
+            }
+        }
+        _ => tk
+    }
+}
+
 pub static IFX : Conditional = Conditional {
     name:"ifx",
     _apply: |int,cond,unless| {
         use CategoryCode::*;
-        let tka = int.next_token();
-        let tkb = int.next_token();
+        let tka = getChar(int.next_token(),int);
+        let tkb = getChar(int.next_token(),int);
         let istrue = match (tka.catcode,tkb.catcode) {
             //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
             (Active|Escape,Active|Escape) => {
@@ -152,7 +178,7 @@ pub static IFX : Conditional = Conditional {
                    }
                }
             }
-            (_a,_b) if matches!(_a,_b) => tka.char == tkb.char,
+            (a,b) if a == b => tka.char == tkb.char,
             _ => false
         };
         log!("\\ifx {}{}: {}",tka,tkb,istrue);
