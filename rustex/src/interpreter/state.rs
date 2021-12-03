@@ -147,7 +147,8 @@ pub struct State {
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
-    pub(in crate) pdfobjs: HashMap<u16,TeXStr>
+    pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
+    pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>
 }
 
 // sudo apt install libkpathsea-dev
@@ -166,7 +167,8 @@ impl State {
             afterassignment:None,
             pdfmatches : vec!(),
             pdfobjs : HashMap::new(),
-            pdfcolorstacks: vec!(vec!())
+            pdfcolorstacks: vec!(vec!()),
+            pdfxforms:vec!()
         }
     }
 
@@ -528,6 +530,7 @@ use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
+use crate::references::SourceFileReference;
 use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
 
 impl Interpreter<'_> {
@@ -767,6 +770,21 @@ impl Interpreter<'_> {
     pub fn state_set_pdfobj(&self,i:u16,obj:TeXStr) {
         let objs = &mut self.state.borrow_mut().pdfobjs;
         objs.insert(i,obj);
+    }
+    pub fn state_get_box(&self,i:i32) -> TeXBox {
+        match self.state.borrow_mut().stacks.last_mut().unwrap().boxes.remove(&i) {
+            Some(b) => b,
+            None => TeXBox::Void
+        }
+    }
+    pub fn state_copy_box(&self,i:i32) -> TeXBox {
+        match self.state.borrow().stacks.last().unwrap().boxes.get(&i) {
+            Some(b) => b.clone(),
+            None => TeXBox::Void
+        }
+    }
+    pub fn state_set_pdfxform(&self,attr:Option<TeXStr>,resources:Option<TeXStr>,content:TeXBox,rf:Option<SourceFileReference>) {
+        self.state.borrow_mut().pdfxforms.push((attr,resources,content,rf))
     }
 }
 

@@ -1,11 +1,33 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::interpreter::dimensions::Numeric;
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::utils::TeXStr;
+use crate::stomach::whatsits::SimpleWI;
+use crate::utils::{TeXError, TeXStr};
+
+pub fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    let ret = match int.read_keyword(vec!("attr"))? {
+        Some(_) => {
+            int.skip_ws();
+            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+        },
+        None => None
+    };
+    Ok(ret)
+}
+pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    let ret = match int.read_keyword(vec!("resources"))? {
+        Some(_) => {
+            int.skip_ws();
+            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+        },
+        None => None
+    };
+    Ok(ret)
+}
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
@@ -186,6 +208,32 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => todo!(),
             _ => TeXErr!((int,None),"Expected \"reserveobjnum\",\"useobjnum\" or \"stream\" after \\pdfobj")
         }
+    }
+};
+
+pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfxform",
+    expandable:false,
+    _apply:|tk,int| {
+        let attr = read_attrspec(int)?;
+        let resources = read_resource_spec(int)?;
+        let ind = int.read_number()?;
+        let bx = int.state_get_box(ind as i32);
+        let lastform = int.state_register(-(PDFLASTXFORM.index as i32));
+        int.change_state(StateChange::Register(-(PDFLASTXFORM.index as i32),lastform + 1,true));
+        int.state_set_pdfxform(attr,resources,bx,int.update_reference(&tk.0));
+        Ok(())
+    }
+};
+
+pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfliteral",
+    modes: |x| {true},
+    _get: |tk, int| {
+        int.read_keyword(vec!("direct","page"));
+        let str : TeXStr = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into();
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::PdfLiteral(str,rf))
     }
 };
 
@@ -427,12 +475,6 @@ pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFLITERAL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfliteral",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastmatch",
     expandable:true,
@@ -501,12 +543,6 @@ pub static PDFSTARTLINK: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFENDLINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfendlink",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfxform",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -597,6 +633,9 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),
     PrimitiveTeXCommand::Cond(&IFPDFPRIMITIVE),
 
+    PrimitiveTeXCommand::Primitive(&PDFOBJ),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFLITERAL)),
+
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOBJCOMPRESSLEVEL)),
@@ -642,10 +681,8 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFGLYPHTOUNICODE),
     PrimitiveTeXCommand::Primitive(&PDFUNESCAPEHEX),
     PrimitiveTeXCommand::Primitive(&PDFINFO),
-    PrimitiveTeXCommand::Primitive(&PDFLITERAL),
     PrimitiveTeXCommand::Primitive(&PDFMATCH),
     PrimitiveTeXCommand::Primitive(&PDFLASTMATCH),
-    PrimitiveTeXCommand::Primitive(&PDFOBJ),
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),
     PrimitiveTeXCommand::Primitive(&PDFPAGEATTR),
     PrimitiveTeXCommand::Primitive(&PDFREFXFORM),

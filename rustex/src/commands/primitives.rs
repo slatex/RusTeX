@@ -669,11 +669,16 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     name:"immediate",
     expandable:false,
     _apply:|_,int| {
+        use crate::commands::pdftex::*;
         let next = int.read_command_token()?;
         match *int.get_command(&next.cmdname())?.orig {
             PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
                 (wi._apply)(int)?;
+                Ok(())
+            }
+            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM => {
+                int.requeue(next);
                 Ok(())
             }
             _ => todo!()
@@ -1685,6 +1690,28 @@ pub static VFILL: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(SimpleWI::VFill(int.update_reference(tk)))
+    }
+};
+
+pub static HFIL: SimpleWhatsit = SimpleWhatsit {
+    name:"hfil",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::HFil(int.update_reference(tk)))
+    }
+};
+
+pub static HFILL: SimpleWhatsit = SimpleWhatsit {
+    name:"hfill",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::HFill(int.update_reference(tk)))
     }
 };
 
@@ -3079,18 +3106,6 @@ pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HFIL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hfil",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static HFILL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hfill",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
     expandable:true,
@@ -3417,6 +3432,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFILL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFIL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -3710,8 +3727,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
     PrimitiveTeXCommand::Primitive(&BOX),
     PrimitiveTeXCommand::Primitive(&HALIGN),
-    PrimitiveTeXCommand::Primitive(&HFIL),
-    PrimitiveTeXCommand::Primitive(&HFILL),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
     PrimitiveTeXCommand::Primitive(&HRULE),
     PrimitiveTeXCommand::Primitive(&HSKIP),

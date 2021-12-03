@@ -56,7 +56,10 @@ pub enum SimpleWI {
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
     VFil(Option<SourceFileReference>),
     VFill(Option<SourceFileReference>),
+    HFil(Option<SourceFileReference>),
+    HFill(Option<SourceFileReference>),
     Penalty(i64),
+    PdfLiteral(TeXStr,Option<SourceFileReference>)
 }
 
 
