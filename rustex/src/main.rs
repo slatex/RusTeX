@@ -55,7 +55,7 @@ fn main() {
     //"bla bla\n bla bla".as_bytes().iter_mut().multipeek()
     // https://doc.rust-lang.org/book/ch15-04-rc.html
 
-    //do_latexltx()
-    do_thesis()
+    do_latexltx()
+    //do_thesis()
 
 }
