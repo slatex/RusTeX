@@ -129,7 +129,8 @@ impl Interpreter<'_> {
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         while self.has_next() {
-            match self.do_top() {
+            let next = self.next_token();
+            match self.do_top(next) {
                 Ok(_) => {},
                 Err(s) => s.throw()
             }
@@ -143,7 +144,8 @@ impl Interpreter<'_> {
         int.push_file(vf);
         int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
-            match int.do_top() {
+            let next = int.next_token();
+            match int.do_top(next) {
                 Ok(_) => {},
                 Err(s) => s.throw()
             }
@@ -155,13 +157,18 @@ impl Interpreter<'_> {
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
+            None if s.len() == 1 => {
+                let char = *s.iter().first().unwrap();
+                let catcode = self.catcodes.borrow().get_code(char);
+                let tk = Token::new(char,catcode,None,SourceReference::None,true);
+                Ok(PrimitiveTeXCommand::Char(tk).as_command())
+            }
             None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)
         }
     }
 
-    pub fn do_top(&self) -> Result<(),TeXError> {
+    pub fn do_top(&self,next:Token) -> Result<(),TeXError> {
         use crate::commands::primitives;
-        let next = self.next_token();
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let p = self.get_command(&next.cmdname())?;

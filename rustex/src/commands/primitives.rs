@@ -309,12 +309,15 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                         })
                     }
                     _ => {
+                        if (inext.char < 48) {
+                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                        }
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
                             currarg += 1
                         } else {
-                            TeXErr!((int,Some(next.clone())),"Expected argument {}; got:{}",currarg,next)
+                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
                         }
                     }
                 }
@@ -655,11 +658,15 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension((*i as i32))).into()),
+            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension((-(r.index as i32)))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip((*i as i32)).to_string().into()),
+            AV(AssignableValue::PrimSkip(r)) => stt(int.state_skip(-(r.index as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
-            p => todo!("{}",p)
+            p => {
+                todo!("{}",p)
+            }
         };
         Ok(())
     }
@@ -669,11 +676,16 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     name:"immediate",
     expandable:false,
     _apply:|_,int| {
+        use crate::commands::pdftex::*;
         let next = int.read_command_token()?;
         match *int.get_command(&next.cmdname())?.orig {
             PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
                 (wi._apply)(int)?;
+                Ok(())
+            }
+            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM => {
+                int.requeue(next);
                 Ok(())
             }
             _ => todo!()
@@ -1688,6 +1700,28 @@ pub static VFILL: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static HFIL: SimpleWhatsit = SimpleWhatsit {
+    name:"hfil",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::HFil(int.update_reference(tk)))
+    }
+};
+
+pub static HFILL: SimpleWhatsit = SimpleWhatsit {
+    name:"hfill",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(SimpleWI::HFill(int.update_reference(tk)))
+    }
+};
+
 pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
     name:"penalty",
     modes:|_| true,
@@ -1733,13 +1767,25 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scantokens",
+    expandable:false,
+    _apply:|tk,int| {
+        let tks = int.read_balanced_argument(false,false,false,true)?;
+        let str = int.tokens_to_string(tks);
+        int.push_string(tk.clone(),str);
+        Ok(())
+    }
+};
+
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
     _assign: |rf,int,global| {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).width()))
     }
 };
 
@@ -1749,7 +1795,8 @@ pub static HT: NumAssValue = NumAssValue {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).height()))
     }
 };
 
@@ -1759,7 +1806,8 @@ pub static DP: NumAssValue = NumAssValue {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).depth()))
     }
 };
 
@@ -2497,12 +2545,6 @@ pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scantokens",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
     expandable:true,
@@ -3079,18 +3121,6 @@ pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HFIL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hfil",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static HFILL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hfill",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
     expandable:true,
@@ -3417,6 +3447,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFILL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFIL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -3710,8 +3742,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
     PrimitiveTeXCommand::Primitive(&BOX),
     PrimitiveTeXCommand::Primitive(&HALIGN),
-    PrimitiveTeXCommand::Primitive(&HFIL),
-    PrimitiveTeXCommand::Primitive(&HFILL),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
     PrimitiveTeXCommand::Primitive(&HRULE),
     PrimitiveTeXCommand::Primitive(&HSKIP),

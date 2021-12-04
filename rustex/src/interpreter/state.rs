@@ -147,7 +147,8 @@ pub struct State {
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
-    pub(in crate) pdfobjs: HashMap<u16,TeXStr>
+    pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
+    pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>
 }
 
 // sudo apt install libkpathsea-dev
@@ -166,7 +167,8 @@ impl State {
             afterassignment:None,
             pdfmatches : vec!(),
             pdfobjs : HashMap::new(),
-            pdfcolorstacks: vec!(vec!())
+            pdfcolorstacks: vec!(vec!()),
+            pdfxforms:vec!()
         }
     }
 
@@ -450,19 +452,35 @@ impl State {
             StateChange::Lccode(i,u,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.lccodes.insert(i,u);
+                        if u == 0 {
+                            s.lccodes.remove(&i);
+                        } else {
+                            s.lccodes.insert(i, u);
+                        }
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().lccodes.insert(i,u);
+                    if u == 0 {
+                        self.stacks.last_mut().unwrap().lccodes.remove(&i);
+                    } else {
+                        self.stacks.last_mut().unwrap().lccodes.insert(i, u);
+                    }
                 }
             }
             StateChange::Uccode(i,u,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.uccodes.insert(i,u);
+                        if u == 0 {
+                            s.uccodes.remove(&i);
+                        } else {
+                            s.uccodes.insert(i, u);
+                        }
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().uccodes.insert(i,u);
+                    if u == 0 {
+                        self.stacks.last_mut().unwrap().uccodes.remove(&i);
+                    } else {
+                        self.stacks.last_mut().unwrap().uccodes.insert(i, u);
+                    }
                 }
             }
             StateChange::Box(index,value,global) => {
@@ -528,7 +546,8 @@ use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
-use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
+use crate::references::SourceFileReference;
+use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit};
 
 impl Interpreter<'_> {
     pub fn file_read(&self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
@@ -762,11 +781,39 @@ impl Interpreter<'_> {
     pub fn state_color_push(&self,i:usize,color:TeXStr) {
         let stack = &mut self.state.borrow_mut().pdfcolorstacks;
         let len = stack.len();
-        stack.get_mut(len - 1 - i).unwrap().push(color);
+        stack.get_mut(i).unwrap().push(color);
+    }
+    pub fn state_color_push_stack(&self) -> usize {
+        let stack = &mut self.state.borrow_mut().pdfcolorstacks;
+        stack.push(vec!());
+        stack.len() - 1
     }
     pub fn state_set_pdfobj(&self,i:u16,obj:TeXStr) {
         let objs = &mut self.state.borrow_mut().pdfobjs;
         objs.insert(i,obj);
+    }
+    pub fn state_get_box(&self,i:i32) -> TeXBox {
+        match self.state.borrow_mut().stacks.last_mut().unwrap().boxes.remove(&i) {
+            Some(b) => b,
+            None => TeXBox::Void
+        }
+    }
+    pub fn state_copy_box(&self,i:i32) -> TeXBox {
+        match self.state.borrow().stacks.last().unwrap().boxes.get(&i) {
+            Some(b) => b.clone(),
+            None => TeXBox::Void
+        }
+    }
+    pub fn state_set_pdfxform(&self,attr:Option<TeXStr>,resources:Option<TeXStr>,content:TeXBox,rf:Option<SourceFileReference>) {
+        self.state.borrow_mut().pdfxforms.push((attr,resources,content,rf))
+    }
+    pub fn state_get_pdfxform(&self,index:usize) -> Result<SimpleWI,TeXError> {
+        let state = self.state.borrow();
+        match state.pdfxforms.get(state.pdfxforms.len() - index) {
+            None => TeXErr!((self,None),"No \\pdfxform at index {}",index),
+            Some((a,b,c,d)) =>
+                Ok(SimpleWI::Pdfxform(a.clone(),b.clone(),c.clone(),d.clone()))
+        }
     }
 }
 

@@ -560,6 +560,13 @@ impl Mouths {
         }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
+    pub(in crate::interpreter::mouth) fn push_string(&mut self,catcodes:&CategoryCodeScheme,exp:Expansion,string : TeXString) {
+        if self.buffer.is_some() {
+            let buf = self.buffer.take().unwrap();
+            self.push_tokens(vec!(buf))
+        }
+        self.mouths.push(Mouth::Str(StringMouth::new(catcodes.newlinechar,exp,string)))
+    }
 
     pub(in crate::interpreter) fn requeue(&mut self, tk : Token) {
         self.buffer = Some(tk)
@@ -639,6 +646,9 @@ impl Interpreter<'_> {
         }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
         self.filestore.borrow_mut().files.insert(file.id.clone(),file);
+    }
+    pub fn push_string(&self,exp:Expansion,str:TeXString) {
+        self.mouths.borrow_mut().push_string(&self.state_catcodes(),exp,str)
     }
     pub fn push_expansion(&self,exp:Expansion) {
         self.mouths.borrow_mut().push_expansion(exp)

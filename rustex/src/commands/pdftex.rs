@@ -1,17 +1,47 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::interpreter::dimensions::Numeric;
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::utils::TeXStr;
+use crate::stomach::whatsits::SimpleWI;
+use crate::utils::{TeXError, TeXStr};
+
+pub fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    let ret = match int.read_keyword(vec!("attr"))? {
+        Some(_) => {
+            int.skip_ws();
+            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+        },
+        None => None
+    };
+    Ok(ret)
+}
+pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    let ret = match int.read_keyword(vec!("resources"))? {
+        Some(_) => {
+            int.skip_ws();
+            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+        },
+        None => None
+    };
+    Ok(ret)
+}
 
 pub static PDFTEXVERSION : IntCommand = IntCommand {
     _getvalue: |_int| {
         Ok(Numeric::Int(VERSION_INFO.pdftexversion.to_string().parse().unwrap()))
     },
     name: "pdftexversion"
+};
+
+pub static PDFMAJORVERSION: IntCommand = IntCommand {
+    name:"pdfmajorversion",
+    _getvalue: |_int| {
+        use std::str::from_utf8;
+        Ok(Numeric::Int(from_utf8(&[*VERSION_INFO.pdftexversion.to_utf8().as_bytes().first().unwrap()]).unwrap().parse::<i64>().unwrap()))// texversion.to_string().parse().unwrap()))
+    },
 };
 
 pub static PDFSHELLESCAPE: IntCommand = IntCommand {
@@ -167,6 +197,25 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfcolorstackinit",
+    expandable:true,
+    _apply:|tk,int| {
+        let num = int.state_color_push_stack();
+        match int.read_keyword(vec!("page","direct"))? {
+            Some(s) if s == "direct" => {
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let str = int.tokens_to_string(tks);
+                int.state_color_push(num,str.into());
+            }
+            Some(_) => todo!(),
+            None => TeXErr!((int,None),"Expected \"page\" or \"direct\" after \\pdfcolorstackinit")
+        }
+        tk.2 = crate::interpreter::string_to_tokens(num.to_string().into());
+        Ok(())
+    }
+};
+
 pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfobj",
     expandable:false,
@@ -186,6 +235,41 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => todo!(),
             _ => TeXErr!((int,None),"Expected \"reserveobjnum\",\"useobjnum\" or \"stream\" after \\pdfobj")
         }
+    }
+};
+
+pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfxform",
+    expandable:false,
+    _apply:|tk,int| {
+        let attr = read_attrspec(int)?;
+        let resources = read_resource_spec(int)?;
+        let ind = int.read_number()?;
+        let bx = int.state_get_box(ind as i32);
+        let lastform = int.state_register(-(PDFLASTXFORM.index as i32));
+        int.change_state(StateChange::Register(-(PDFLASTXFORM.index as i32),lastform + 1,true));
+        int.state_set_pdfxform(attr,resources,bx,int.update_reference(&tk.0));
+        Ok(())
+    }
+};
+
+pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfrefxform",
+    modes: |_| {true},
+    _get: |tk,int| {
+        let num = int.read_number()?;
+        int.state_get_pdfxform(num as usize)
+    }
+};
+
+pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfliteral",
+    modes: |x| {true},
+    _get: |tk, int| {
+        int.read_keyword(vec!("direct","page"));
+        let str : TeXStr = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into();
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::PdfLiteral(str,rf))
     }
 };
 
@@ -367,12 +451,6 @@ pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfcolorstackinit",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFDEST: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfdest",
     expandable:true,
@@ -427,12 +505,6 @@ pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFLITERAL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfliteral",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastmatch",
     expandable:true,
@@ -447,12 +519,6 @@ pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfpageattr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFREFXFORM: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfrefxform",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -505,12 +571,6 @@ pub static PDFENDLINK: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfxform",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfximage",
     expandable:true,
@@ -525,12 +585,6 @@ pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmdfivesum",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfmajorversion",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -592,10 +646,15 @@ pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&PDFTEXVERSION),
     PrimitiveTeXCommand::Int(&PDFSHELLESCAPE),
+    PrimitiveTeXCommand::Int(&PDFMAJORVERSION),
 
     PrimitiveTeXCommand::Cond(&IFPDFABSNUM),
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),
     PrimitiveTeXCommand::Cond(&IFPDFPRIMITIVE),
+
+    PrimitiveTeXCommand::Primitive(&PDFOBJ),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFLITERAL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXFORM)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
@@ -642,13 +701,10 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFGLYPHTOUNICODE),
     PrimitiveTeXCommand::Primitive(&PDFUNESCAPEHEX),
     PrimitiveTeXCommand::Primitive(&PDFINFO),
-    PrimitiveTeXCommand::Primitive(&PDFLITERAL),
     PrimitiveTeXCommand::Primitive(&PDFMATCH),
     PrimitiveTeXCommand::Primitive(&PDFLASTMATCH),
-    PrimitiveTeXCommand::Primitive(&PDFOBJ),
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),
     PrimitiveTeXCommand::Primitive(&PDFPAGEATTR),
-    PrimitiveTeXCommand::Primitive(&PDFREFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFRESTORE),
     PrimitiveTeXCommand::Primitive(&PDFSAVE),
     PrimitiveTeXCommand::Primitive(&PDFSAVEPOS),
@@ -663,5 +719,4 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),
-    PrimitiveTeXCommand::Primitive(&PDFMAJORVERSION),
 ]}
