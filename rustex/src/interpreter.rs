@@ -157,6 +157,12 @@ impl Interpreter<'_> {
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
+            None if s.len() == 1 => {
+                let char = *s.iter().first().unwrap();
+                let catcode = self.catcodes.borrow().get_code(char);
+                let tk = Token::new(char,catcode,None,SourceReference::None,true);
+                Ok(PrimitiveTeXCommand::Char(tk).as_command())
+            }
             None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)
         }
     }

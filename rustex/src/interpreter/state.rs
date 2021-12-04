@@ -531,7 +531,7 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
+use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit};
 
 impl Interpreter<'_> {
     pub fn file_read(&self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
@@ -765,7 +765,12 @@ impl Interpreter<'_> {
     pub fn state_color_push(&self,i:usize,color:TeXStr) {
         let stack = &mut self.state.borrow_mut().pdfcolorstacks;
         let len = stack.len();
-        stack.get_mut(len - 1 - i).unwrap().push(color);
+        stack.get_mut(i).unwrap().push(color);
+    }
+    pub fn state_color_push_stack(&self) -> usize {
+        let stack = &mut self.state.borrow_mut().pdfcolorstacks;
+        stack.push(vec!());
+        stack.len() - 1
     }
     pub fn state_set_pdfobj(&self,i:u16,obj:TeXStr) {
         let objs = &mut self.state.borrow_mut().pdfobjs;
@@ -785,6 +790,14 @@ impl Interpreter<'_> {
     }
     pub fn state_set_pdfxform(&self,attr:Option<TeXStr>,resources:Option<TeXStr>,content:TeXBox,rf:Option<SourceFileReference>) {
         self.state.borrow_mut().pdfxforms.push((attr,resources,content,rf))
+    }
+    pub fn state_get_pdfxform(&self,index:usize) -> Result<SimpleWI,TeXError> {
+        let state = self.state.borrow();
+        match state.pdfxforms.get(state.pdfxforms.len() - index) {
+            None => TeXErr!((self,None),"No \\pdfxform at index {}",index),
+            Some((a,b,c,d)) =>
+                Ok(SimpleWI::Pdfxform(a.clone(),b.clone(),c.clone(),d.clone()))
+        }
     }
 }
 

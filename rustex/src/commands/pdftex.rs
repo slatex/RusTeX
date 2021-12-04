@@ -36,6 +36,14 @@ pub static PDFTEXVERSION : IntCommand = IntCommand {
     name: "pdftexversion"
 };
 
+pub static PDFMAJORVERSION: IntCommand = IntCommand {
+    name:"pdfmajorversion",
+    _getvalue: |_int| {
+        use std::str::from_utf8;
+        Ok(Numeric::Int(from_utf8(&[*VERSION_INFO.pdftexversion.to_utf8().as_bytes().first().unwrap()]).unwrap().parse::<i64>().unwrap()))// texversion.to_string().parse().unwrap()))
+    },
+};
+
 pub static PDFSHELLESCAPE: IntCommand = IntCommand {
     name:"pdfshellescape",
     _getvalue:|_int| {
@@ -189,6 +197,25 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfcolorstackinit",
+    expandable:true,
+    _apply:|tk,int| {
+        let num = int.state_color_push_stack();
+        match int.read_keyword(vec!("page","direct"))? {
+            Some(s) if s == "direct" => {
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let str = int.tokens_to_string(tks);
+                int.state_color_push(num,str.into());
+            }
+            Some(_) => todo!(),
+            None => TeXErr!((int,None),"Expected \"page\" or \"direct\" after \\pdfcolorstackinit")
+        }
+        tk.2 = crate::interpreter::string_to_tokens(num.to_string().into());
+        Ok(())
+    }
+};
+
 pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfobj",
     expandable:false,
@@ -223,6 +250,15 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
         int.change_state(StateChange::Register(-(PDFLASTXFORM.index as i32),lastform + 1,true));
         int.state_set_pdfxform(attr,resources,bx,int.update_reference(&tk.0));
         Ok(())
+    }
+};
+
+pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfrefxform",
+    modes: |_| {true},
+    _get: |tk,int| {
+        let num = int.read_number()?;
+        int.state_get_pdfxform(num as usize)
     }
 };
 
@@ -415,12 +451,6 @@ pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfcolorstackinit",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFDEST: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfdest",
     expandable:true,
@@ -493,12 +523,6 @@ pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFREFXFORM: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfrefxform",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFRESTORE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfrestore",
     expandable:true,
@@ -565,12 +589,6 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfmajorversion",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 /*
   val pdfcreationdate = new PrimitiveCommandProcessor("pdfcreationdate") {}
   val pdfendthread = new PrimitiveCommandProcessor("pdfendthread") {}
@@ -628,6 +646,7 @@ pub static PDFMAJORVERSION: PrimitiveExecutable = PrimitiveExecutable {
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Int(&PDFTEXVERSION),
     PrimitiveTeXCommand::Int(&PDFSHELLESCAPE),
+    PrimitiveTeXCommand::Int(&PDFMAJORVERSION),
 
     PrimitiveTeXCommand::Cond(&IFPDFABSNUM),
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),
@@ -635,6 +654,7 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
 
     PrimitiveTeXCommand::Primitive(&PDFOBJ),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFLITERAL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXFORM)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
@@ -685,7 +705,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFLASTMATCH),
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),
     PrimitiveTeXCommand::Primitive(&PDFPAGEATTR),
-    PrimitiveTeXCommand::Primitive(&PDFREFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFRESTORE),
     PrimitiveTeXCommand::Primitive(&PDFSAVE),
     PrimitiveTeXCommand::Primitive(&PDFSAVEPOS),
@@ -700,5 +719,4 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),
-    PrimitiveTeXCommand::Primitive(&PDFMAJORVERSION),
 ]}

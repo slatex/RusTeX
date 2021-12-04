@@ -655,11 +655,15 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension((*i as i32))).into()),
+            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension((-(r.index as i32)))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip((*i as i32)).to_string().into()),
+            AV(AssignableValue::PrimSkip(r)) => stt(int.state_skip(-(r.index as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
-            p => todo!("{}",p)
+            p => {
+                todo!("{}",p)
+            }
         };
         Ok(())
     }
@@ -1760,13 +1764,25 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"scantokens",
+    expandable:false,
+    _apply:|tk,int| {
+        let tks = int.read_balanced_argument(false,false,false,true)?;
+        let str = int.tokens_to_string(tks);
+        int.push_string(tk.clone(),str);
+        Ok(())
+    }
+};
+
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
     _assign: |rf,int,global| {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).width()))
     }
 };
 
@@ -1776,7 +1792,8 @@ pub static HT: NumAssValue = NumAssValue {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).height()))
     }
 };
 
@@ -1786,7 +1803,8 @@ pub static DP: NumAssValue = NumAssValue {
         todo!()
     },
     _getvalue: |int| {
-        todo!()
+        let index = int.read_number()?;
+        Ok(Numeric::Dim(int.state_copy_box(index as i32).depth()))
     }
 };
 
@@ -2520,12 +2538,6 @@ pub static FONTCHARDP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontcharic",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scantokens",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
