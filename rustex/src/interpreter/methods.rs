@@ -333,31 +333,18 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = self.get_command(&next.cmdname())?;
-                    match &*cmd.orig {
-                        PrimitiveTeXCommand::Char(_) => todo!(),
-                        PrimitiveTeXCommand::Whatsit(pw) => {
-                            let ret = pw.get(&next,self)?;
-                            self.stomach.borrow_mut().add(ret)
-                        },
-                        _ => {
-                            if cmd.expandable(true) {
-                                cmd.expand(next, self)?;
-                            } else {
-                                todo!()
-                            }
-                        }
-                    }
-                }
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(()),
                 CategoryCode::BeginGroup => {
-                    todo!()
+                    ingroups += 1;
+                    self.new_group(GroupType::Token);
                 }
                 CategoryCode::EndGroup => {
-                    todo!()
+                    ingroups -= 1;
+                    self.pop_group(GroupType::Token)?;
                 }
-                _ => todo!()
+                _ => {
+                    self.do_top(next)?
+                }
             }
         }
         FileEnd!(self)

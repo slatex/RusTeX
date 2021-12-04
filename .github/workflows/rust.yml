@@ -17,7 +17,11 @@ jobs:
     - name: Install kpathsea
       run: sudo apt install libkpathsea-dev
     - name: Build
-      run: cd rustex && cargo build --verbose
+      run: cd rustex && cargo build --release --target x86_64-unknown-linux-gnu
+    - name: Install texlive
+      run: sudo apt install texlive
+    - name: Test latex.ltx
+      run: cd rustex/target/x86_64-unknown-linux-gnu/release && ./rustex
   deployment:
     runs-on: ubuntu-18.04
     environment: production
