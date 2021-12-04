@@ -309,12 +309,15 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                         })
                     }
                     _ => {
+                        if (inext.char < 48) {
+                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                        }
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
                             currarg += 1
                         } else {
-                            TeXErr!((int,Some(next.clone())),"Expected argument {}; got:{}",currarg,next)
+                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
                         }
                     }
                 }

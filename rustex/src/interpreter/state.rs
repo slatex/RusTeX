@@ -452,19 +452,35 @@ impl State {
             StateChange::Lccode(i,u,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.lccodes.insert(i,u);
+                        if u == 0 {
+                            s.lccodes.remove(&i);
+                        } else {
+                            s.lccodes.insert(i, u);
+                        }
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().lccodes.insert(i,u);
+                    if u == 0 {
+                        self.stacks.last_mut().unwrap().lccodes.remove(&i);
+                    } else {
+                        self.stacks.last_mut().unwrap().lccodes.insert(i, u);
+                    }
                 }
             }
             StateChange::Uccode(i,u,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.uccodes.insert(i,u);
+                        if u == 0 {
+                            s.uccodes.remove(&i);
+                        } else {
+                            s.uccodes.insert(i, u);
+                        }
                     }
                 } else {
-                    self.stacks.last_mut().unwrap().uccodes.insert(i,u);
+                    if u == 0 {
+                        self.stacks.last_mut().unwrap().uccodes.remove(&i);
+                    } else {
+                        self.stacks.last_mut().unwrap().uccodes.insert(i, u);
+                    }
                 }
             }
             StateChange::Box(index,value,global) => {
