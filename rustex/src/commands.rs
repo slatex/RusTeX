@@ -576,10 +576,11 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "pgfsetshapeaspect" {
+        /*if tk.name().to_string() == "str_const:Nx" && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31587") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
+             //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
-             //unsafe {crate::LOG = true }
+             unsafe {crate::LOG = true }
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
@@ -624,8 +625,8 @@ impl PrimitiveTeXCommand {
                             let next = int.read_argument()?;
                             args.push(next);
                         },
-                        Some(ParamToken::Token(tk)) => {
-                            let mut delim : Vec<Token> = vec!(tk.clone());
+                        Some(ParamToken::Token(itk)) => {
+                            let mut delim : Vec<Token> = vec!(itk.clone());
                             i +=1;
                             while i < d.sig.elems.len() {
                                 match d.sig.elems.get(i) {
@@ -651,7 +652,7 @@ impl PrimitiveTeXCommand {
                                     _ => ()
                                 }
                                 if groups < 0 {
-                                    TeXErr!((int,Some(next)),"Missing { somewhere!")
+                                    TeXErr!((int,Some(next)),"Missing begin group token somewhere: {}\nsofar: {}\nin: {}:{}",TokenList(&delim),TokenList(&retarg),tk.name(),d)
                                 }
                                 retarg.push(next);
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}

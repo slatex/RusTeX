@@ -54,8 +54,10 @@ fn main() {
     //println!("{}, {}, {}, {}, {}",VERSION_INFO.texversion(),VERSION_INFO.etexversion(),VERSION_INFO.etexrevision(),VERSION_INFO.pdftexversion(),VERSION_INFO.pdftexrevision());
     //"bla bla\n bla bla".as_bytes().iter_mut().multipeek()
     // https://doc.rust-lang.org/book/ch15-04-rc.html
+    //let pwd = std::env::current_dir().expect("No current directory!");
 
-    do_latexltx()
-    //do_thesis()
+    //println!("PWD: {}",pwd.as_path().to_str().unwrap());
+    //do_latexltx()
+    do_thesis()
 
 }

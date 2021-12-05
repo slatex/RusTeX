@@ -223,7 +223,10 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = self.get_command(&next.cmdname())?;
+                    let cmd = match self.state_get_command(&next.cmdname()) {
+                        None => return Ok(()),
+                        Some(p) => p
+                    };
                     if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {

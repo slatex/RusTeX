@@ -569,11 +569,11 @@ fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXEr
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Dim(int.state_dimension(i as i32)), if withint {int.read_number_i(true)?} else {Numeric::Dim(int.read_dimension()?)})
+            (i as i32,Numeric::Dim(int.state_dimension(i as i32)), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))),if withint {int.read_number_i(true)?} else {Numeric::Dim(int.read_dimension()?)})
+            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         _ => todo!()
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
@@ -586,11 +586,8 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match num {
-            Numeric::Int(_) => StateChange::Register(index,match (num / div) {
-                Numeric::Int(i) => i,
-                _ => unreachable!()
-            },global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match (num / div) {
+            Numeric::Int(i) => StateChange::Register(index,i / div.get_i64(),global),
+            Numeric::Dim(_) => StateChange::Dimen(index,match (num / div.as_int()) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
@@ -606,11 +603,11 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,fac) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
         let ch = match num {
-            Numeric::Int(_) => StateChange::Register(index,match (num * fac) {
+            Numeric::Int(_) => StateChange::Register(index,match (num * fac.as_int()) {
                 Numeric::Int(i) => i,
                 _ => unreachable!()
             }, global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match (num * fac) {
+            Numeric::Dim(_) => StateChange::Dimen(index,match (num * fac.as_int()) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
@@ -657,6 +654,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::PrimToks(r)) => int.state_tokens(-(r.index as i32)),
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
+            MathChar(i) => stt(i.to_string().into()),
             AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension((*i as i32))).into()),
             AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension((-(r.index as i32)))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state_skip((*i as i32)).to_string().into()),
@@ -831,7 +829,14 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                let cmd = int.get_command(&next.cmdname())?;
+                let cmd = match int.state_get_command(&next.cmdname()) {
+                    None => {
+                        rf.2.push(tmp);
+                        rf.2.push(next);
+                        return Ok(())
+                    }
+                    Some(p) => p
+                };
                 if cmd.expandable(true) {
                     match cmd.get_expansion(next, int)? {
                         Some(e) => rf.2 = e.2,
@@ -972,6 +977,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_,int| {
         use ansi_term::Colour::*;
+        println!("Error: {}",int.preview());
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")

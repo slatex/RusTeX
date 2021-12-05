@@ -190,6 +190,26 @@ impl Numeric {
             MuSkip(ms) => ms.to_string()
         }
     }
+    pub fn as_int(&self) -> Numeric {
+        use Numeric::*;
+        match self {
+            Int(_) => self.clone(),
+            Dim(i) => Int(*i),
+            Float(f) => Int(f.round() as i64),
+            Skip(sk) => Int(sk.base),
+            MuSkip(ms) => Int(ms.base)
+        }
+    }
+    pub fn get_i64(&self) -> i64 {
+        use Numeric::*;
+        match self {
+            Int(i) => *i,
+            Dim(i) => *i,
+            Float(f) => f.round() as i64,
+            Skip(sk) => sk.base,
+            MuSkip(ms) => ms.base
+        }
+    }
 }
 impl std::ops::Div for Numeric {
     type Output = Self;
@@ -216,6 +236,7 @@ impl std::ops::Mul for Numeric {
             (Float(i),Float(j)) => Float(i*j),
             (Dim(i),Dim(f)) => Dim(((i as f64) * (f as f64 / 65536.0)).round() as i64),
             (Dim(i),Skip(f)) => Dim(((i as f64) * (f.base as f64 / 65536.0)).round() as i64),
+            (Dim(i),Int(f)) => Dim(i * f),
             _ => todo!("{}*{}",self,rhs)
         }
     }
