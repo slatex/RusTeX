@@ -510,7 +510,7 @@ impl Mouths {
                                     return Err(EOF {})
                                 }
                                 Mouth::File(_) | Mouth::FileLike(_) => {
-                                    print!(")\n");
+                                    print!(")");
                                     return Err(EOF {})
                                 }
                                 _ => {}
@@ -610,6 +610,7 @@ impl Mouths {
             match self.mouths.last() {
                 Some(Mouth::File(_)) => {
                     self.mouths.pop();
+                    print!(")");
                     return ()
                 }
                 Some(m) => {self.mouths.pop();}

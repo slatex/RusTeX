@@ -29,6 +29,10 @@ pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     Ok(ret)
 }
 
+pub fn read_action_spec(int:&Interpreter) {
+    todo!()
+}
+
 pub static PDFTEXVERSION : NumericCommand = NumericCommand {
     _getvalue: |_int| {
         Ok(Numeric::Int(VERSION_INFO.pdftexversion.to_string().parse().unwrap()))
@@ -296,6 +300,21 @@ pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfoutline",
+    expandable:true,
+    _apply:|rf,int| {
+        let attr = read_attrspec(int)?;
+        let action = read_action_spec(int);
+        let num = match int.read_keyword(vec!("count")) {
+            Some(_) => int.read_number()?,
+            _ => 0
+        };
+        int.read_balanced_argument(true,false,false,true)?;
+        Ok(())
+    }
+};
+
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
     index:35
@@ -453,7 +472,10 @@ pub static IFPDFPRIMITIVE : Conditional = Conditional {
 pub static PDFESCAPESTRING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapestring",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|rf,int| {
+        rf.2 = int.read_balanced_argument(true,false,false,true)?;
+        Ok(())
+    }
 };
 
 pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
@@ -518,12 +540,6 @@ pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastmatch",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfoutline",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

@@ -203,7 +203,7 @@ impl Interpreter<'_> {
                         let next = w.get(&next,self)?;
                         Ok(self.stomach.borrow_mut().add(next))
                     },
-                    _ => todo!("{}",next)
+                    _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
 
                 }
             },

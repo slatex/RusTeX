@@ -1561,6 +1561,22 @@ pub static VBOX: ProvidesBox = ProvidesBox {
     }
 };
 
+pub static COPY: ProvidesBox = ProvidesBox {
+    name:"copy",
+    _get: |_tk,int| {
+        let ind = int.read_number()?;
+        Ok(int.state_copy_box(ind as i32))
+    }
+};
+
+pub static BOX: ProvidesBox = ProvidesBox {
+    name:"box",
+    _get: |_tk,int| {
+        let ind = int.read_number()?;
+        Ok(int.state_get_box(ind as i32))
+    }
+};
+
 pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"afterassignment",
     expandable:false,
@@ -1799,6 +1815,16 @@ pub static RAISE: SimpleWhatsit = SimpleWhatsit {
         let bx = int.read_box()?;
         let rf = int.update_reference(tk);
         Ok(SimpleWI::Raise(dim,bx,rf))
+    }
+};
+
+pub static KERN: SimpleWhatsit = SimpleWhatsit {
+    name:"kern",
+    modes:|m| { true },
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::Kern(dim,rf))
     }
 };
 
@@ -3181,12 +3207,6 @@ pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static BOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"box",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"halign",
     expandable:true,
@@ -3235,12 +3255,6 @@ pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static KERN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"kern",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static LASTBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastbox",
     expandable:true,
@@ -3261,12 +3275,6 @@ pub static LASTPENALTY: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static LASTKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastkern",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static COPY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"copy",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3512,6 +3520,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LOWER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&KERN)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
@@ -3548,6 +3557,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&COPY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHBIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHINNER)),
@@ -3802,7 +3813,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BOTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
-    PrimitiveTeXCommand::Primitive(&BOX),
     PrimitiveTeXCommand::Primitive(&HALIGN),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
     PrimitiveTeXCommand::Primitive(&HRULE),
@@ -3811,12 +3821,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
-    PrimitiveTeXCommand::Primitive(&KERN),
     PrimitiveTeXCommand::Primitive(&LASTBOX),
     PrimitiveTeXCommand::Primitive(&LASTSKIP),
     PrimitiveTeXCommand::Primitive(&LASTPENALTY),
     PrimitiveTeXCommand::Primitive(&LASTKERN),
-    PrimitiveTeXCommand::Primitive(&COPY),
     PrimitiveTeXCommand::Primitive(&LEADERS),
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
