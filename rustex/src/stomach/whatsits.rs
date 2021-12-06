@@ -127,7 +127,8 @@ pub enum SimpleWI {
     Penalty(i64),
     PdfLiteral(TeXStr,Option<SourceFileReference>),
     //          attr            resource
-    Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)
+    Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
+    Raise(i64,TeXBox,Option<SourceFileReference>)
 }
 impl SimpleWI {
     pub fn width(&self) -> i64 { todo!( )}

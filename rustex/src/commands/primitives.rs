@@ -1425,6 +1425,40 @@ pub static FONTDIMEN: NumAssValue = NumAssValue {
     }
 };
 
+pub static LPCODE: NumAssValue = NumAssValue {
+    name:"lpcode",
+    _assign: |_rf,int,_global| {
+        let f = read_font(int)?;
+        let i = int.read_number()? as u16;
+        int.read_eq();
+        let d = int.read_number()? as u8;
+        f.set_lp(i,d);
+        Ok(())
+    },
+    _getvalue: |int| {
+        let f = read_font(int)?;
+        let i = int.read_number()? as u16;
+        Ok(Numeric::Int(f.get_lp(i)))
+    }
+};
+
+pub static RPCODE: NumAssValue = NumAssValue {
+    name:"rpcode",
+    _assign: |_rf,int,_global| {
+        let f = read_font(int)?;
+        let i = int.read_number()? as u16;
+        int.read_eq();
+        let d = int.read_number()? as u8;
+        f.set_rp(i,d);
+        Ok(())
+    },
+    _getvalue: |int| {
+        let f = read_font(int)?;
+        let i = int.read_number()? as u16;
+        Ok(Numeric::Int(f.get_rp(i)))
+    }
+};
+
 pub static HYPHENCHAR: NumAssValue = NumAssValue {
     name:"hyphenchar",
     _assign: |_rf,int,_global| {
@@ -1737,6 +1771,34 @@ pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
     modes:|_| true,
     _get: |tk,int| {
         Ok(SimpleWI::Penalty(int.read_number()?))
+    }
+};
+
+pub static LOWER: SimpleWhatsit = SimpleWhatsit {
+    name:"lower",
+    modes:|m| {match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        let bx = int.read_box()?;
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::Raise(-dim,bx,rf))
+    }
+};
+
+pub static RAISE: SimpleWhatsit = SimpleWhatsit {
+    name:"raise",
+    modes:|m| {match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        let bx = int.read_box()?;
+        let rf = int.update_reference(tk);
+        Ok(SimpleWI::Raise(dim,bx,rf))
     }
 };
 
@@ -2969,18 +3031,6 @@ pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static LPCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lpcode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static RPCODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"rpcode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"muskip",
     expandable:true,
@@ -3245,12 +3295,6 @@ pub static LEFT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static LOWER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lower",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mathchoice",
     expandable:true,
@@ -3307,12 +3351,6 @@ pub static OVERLINE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
     name:"overwithdelims",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static RAISE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"raise",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3472,6 +3510,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LOWER)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
@@ -3501,6 +3541,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&LPCODE)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&RPCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&HYPHENCHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&SKEWCHAR)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
@@ -3734,8 +3776,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&AFTERASSIGNMENT),
     PrimitiveTeXCommand::Primitive(&AFTERGROUP),
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
-    PrimitiveTeXCommand::Primitive(&LPCODE),
-    PrimitiveTeXCommand::Primitive(&RPCODE),
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
@@ -3781,7 +3821,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),
-    PrimitiveTeXCommand::Primitive(&LOWER),
     PrimitiveTeXCommand::Primitive(&MATHCHOICE),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&MOVELEFT),
@@ -3792,7 +3831,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&OVER),
     PrimitiveTeXCommand::Primitive(&OVERLINE),
     PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
-    PrimitiveTeXCommand::Primitive(&RAISE),
     PrimitiveTeXCommand::Primitive(&RIGHT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),
     PrimitiveTeXCommand::Primitive(&UNHBOX),

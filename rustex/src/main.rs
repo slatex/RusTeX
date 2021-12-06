@@ -62,7 +62,7 @@ fn main() {
     //let test2 : TeXString = test.as_bytes().into();
     //println!("{}",rustex::HYPHEN_CFG);
     //println!("{}\n\n{}",test,test2);
-    do_latexltx()
-    //do_thesis()
+    //do_latexltx()
+    do_thesis()
 
 }

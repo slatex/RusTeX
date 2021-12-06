@@ -284,6 +284,18 @@ pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdffontexpand",
+    expandable:false,
+    _apply:|_,int| {
+        crate::commands::primitives::read_font(int)?;
+        // stretch             shrink           step
+        int.read_number();int.read_number();int.read_number();
+        int.read_keyword(vec!("autoexpand"));
+        Ok(())
+    }
+};
+
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
     index:35
@@ -482,12 +494,6 @@ pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdffontexpand",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

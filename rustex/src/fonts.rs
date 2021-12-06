@@ -227,7 +227,9 @@ use crate::utils::TeXStr;
 pub struct FontInner {
     pub dimen:HashMap<u16,i64>,
     pub hyphenchar:u16,
-    pub skewchar:u16
+    pub skewchar:u16,
+    pub lps:HashMap<u16,u8>,
+    pub rps:HashMap<u16,u8>,
 }
 
 pub struct Font {
@@ -251,7 +253,9 @@ impl Font {
             inner:RefCell::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:hc,
-                skewchar:sc
+                skewchar:sc,
+                lps:HashMap::new(),
+                rps:HashMap::new()
             })
         })
     }
@@ -294,6 +298,30 @@ impl Font {
             Some(f) => ((self.get_at() as f64) * (*f as f64)).round() as i64
         }
     }
+    pub fn get_lp(&self,i:u16) -> i64 {
+        match self.inner.borrow().lps.get(&i) {
+            None => match self.file.lps.get(&i) {
+                None => 0,
+                Some(u) => *u as i64
+            },
+            Some(u) => *u as i64
+        }
+    }
+    pub fn get_rp(&self,i:u16) -> i64 {
+        match self.inner.borrow().rps.get(&i) {
+            None => match self.file.rps.get(&i) {
+                None => 0,
+                Some(u) => *u as i64
+            },
+            Some(u) => *u as i64
+        }
+    }
+    pub fn set_lp(&self,i:u16,v:u8) {
+        self.inner.borrow_mut().lps.insert(i,v);
+    }
+    pub fn set_rp(&self,i:u16,v:u8) {
+        self.inner.borrow_mut().rps.insert(i,v);
+    }
 }
 
 thread_local! {
@@ -317,7 +345,7 @@ thread_local! {
             inner:RefCell::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:45,
-                skewchar:255
+                skewchar:255,lps:HashMap::new(),rps:HashMap::new()
             }),name:"nullfont".into()
     });
 }
