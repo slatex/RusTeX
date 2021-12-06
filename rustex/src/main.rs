@@ -57,7 +57,7 @@ fn main() {
     //let pwd = std::env::current_dir().expect("No current directory!");
 
     //println!("PWD: {}",pwd.as_path().to_str().unwrap());
-    //do_latexltx()
-    do_thesis()
+    do_latexltx()
+    //do_thesis()
 
 }
