@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
 use rustex::stomach::EmptyStomach;
+use rustex::utils::TeXString;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
@@ -57,6 +58,10 @@ fn main() {
     //let pwd = std::env::current_dir().expect("No current directory!");
 
     //println!("PWD: {}",pwd.as_path().to_str().unwrap());
+    //let test = include_str!("resources/hyphen.cfg");
+    //let test2 : TeXString = test.as_bytes().into();
+    //println!("{}",rustex::HYPHEN_CFG);
+    //println!("{}\n\n{}",test,test2);
     do_latexltx()
     //do_thesis()
 

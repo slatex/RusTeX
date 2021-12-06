@@ -25,6 +25,7 @@ pub(in crate::interpreter) struct FileStore {
 }
 
 use std::cell::RefMut;
+use crate::HYPHEN_CFG;
 
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {
@@ -38,19 +39,25 @@ impl VFile {
         match opt {
             Some(vf) => vf,
             _ => {
-                /*if simplename == "<texmf>/LANGUAGE.DAT" {
+                if simplename.to_string() == "<texmf>/LANGUAGE.DAT" {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Some(LANGUAGE_DAT.into()),
                         id:simplename,
                     }
-                } else if simplename == "<texmf>/UNICODEDATA.TXT" {
+                } else if simplename.to_string() == "<texmf>/HYPHEN.CFG" {
+                    VFile {
+                        source:VFileBase::Virtual,
+                        string:Some(HYPHEN_CFG.into()),
+                        id:simplename
+                    }
+                } /* else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Some(UNICODEDATA_TXT.into()),
                         id:simplename
                     }
-                } else */ {
+                } */ else {
                     VFile {
                         source:VFileBase::Real(fp.to_str().unwrap().into()),
                         string:if fp.exists() {fs::read(fp).ok().map(|x| x.into())} else {Some("".into())},

@@ -142,7 +142,7 @@ impl StringMouth {
         use crate::interpreter::files::VFileBase;
         let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
             VFileBase::Real(p) => p.clone(),
-            _ => todo!()
+            VFileBase::Virtual => file.id.clone()
         });
         let string = file.string.as_ref().expect("This shouldn't happen").clone();
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)

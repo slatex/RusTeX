@@ -62,8 +62,9 @@ use crate::ontology::Token;
 use crate::utils::TeXString;
 
 
-static LANGUAGE_DAT : &[u8] = include_bytes!("resources/language.dat");
-static UNICODEDATA_TXT : &[u8] = include_bytes!("resources/UnicodeData.txt");
+pub static LANGUAGE_DAT : &str = include_str!("resources/language.dat");
+pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
+pub static HYPHEN_CFG : &str = include_str!("resources/hyphen.cfg");
 
 #[cfg(test)]
 mod tests {
