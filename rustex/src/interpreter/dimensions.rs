@@ -157,19 +157,33 @@ impl Numeric {
         }
     }
 }
-pub fn dimtostr(dim:i64) -> String {
+pub fn numtostr(dim : i64,suff:&str) -> String {
     let val = round(dim);
-    if val.floor() == val {
-        val.to_string() + ".0pt"
+    if (val * 10.0).round() / 10.0 == val {
+        format!("{:.1}{}",val,suff).to_string()
+    } else if (val * 100.0).round() / 100.0 == val {
+        format!("{:.2}{}",val,suff).to_string()
+    } else if (val * 1000.0).round() / 1000.0 == val {
+        format!("{:.3}{}",val,suff).to_string()
+    } else if (val * 1000.0).round() / 1000.0 == val {
+        format!("{:.4}{}",val,suff).to_string()
+    } else if (val * 10000.0).round() / 10000.0 == val {
+        format!("{:.5}{}",val,suff).to_string()
+    } else if (val * 100000.0).round() / 100000.0 == val {
+        format!("{:.6}{}",val,suff).to_string()
+    } else if (val * 1000000.0).round() / 1000000.0 == val {
+        format!("{:.7}{}",val,suff).to_string()
     } else {
-        val.to_string() + "pt"
+        format!("{:.8}{}",val,suff).to_string()
     }
 }
+pub fn dimtostr(dim:i64) -> String { numtostr(dim,"pt") }
 pub fn mudimtostr(dim:i64) -> String {
-    round(dim).to_string() + "mu"
+    numtostr(dim,"mu")
 }
 pub fn round(input : i64) -> f64 {
     let mut i = 1.0 as f64;
+    let mut ip = ((input as f64) * 100000000.0).round() / 100000000.0;
     loop {
         let rounded = (((input as f64) / 65536.0) * i).round() / i;
         if ((rounded * 65536.0).round() as i64) == input {
@@ -247,6 +261,7 @@ impl std::ops::Add for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i+j),
+            (Dim(i),Int(j)) => Int(i+j),
             _ => todo!("{}+{}",self,rhs)
         }
     }
@@ -258,6 +273,7 @@ impl std::ops::Sub for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i-j),
+            (Dim(i),Int(j)) => Int(i-j),
             _ => todo!("{}-{}",self,rhs)
         }
     }

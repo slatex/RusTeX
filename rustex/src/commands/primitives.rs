@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, IntCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
+use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -510,7 +510,7 @@ pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub static TIME : IntCommand = IntCommand {
+pub static TIME : NumericCommand = NumericCommand {
     _getvalue: |int| {
         let time = int.jobinfo.time;
         Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i64))
@@ -518,21 +518,21 @@ pub static TIME : IntCommand = IntCommand {
     name: "time"
 };
 
-pub static YEAR : IntCommand = IntCommand {
+pub static YEAR : NumericCommand = NumericCommand {
     name:"year",
     _getvalue: |int| {
         Ok(Numeric::Int(int.jobinfo.time.year() as i64))
     }
 };
 
-pub static MONTH : IntCommand = IntCommand {
+pub static MONTH : NumericCommand = NumericCommand {
     name:"month",
     _getvalue: |int| {
         Ok(Numeric::Int(int.jobinfo.time.month() as i64))
     }
 };
 
-pub static DAY : IntCommand = IntCommand {
+pub static DAY : NumericCommand = NumericCommand {
     name:"day",
     _getvalue: |int| {
         Ok(Numeric::Int(int.jobinfo.time.day() as i64))
@@ -624,6 +624,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
         log!("\\advance sets {} to {}",index,num+sum);
         let ch = match (num,sum) {
             (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
+            (Numeric::Int(num),Numeric::Dim(sum)) => StateChange::Register(index,num+sum,global),
             (Numeric::Dim(num),Numeric::Dim(sum)) => StateChange::Dimen(index,num + sum,global),
             _ => todo!()
         };
@@ -642,7 +643,7 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
         let reg = int.read_command_token()?;
         log!("\\the {}",reg);
         rf.2 = match &*int.get_command(&reg.cmdname())?.orig {
-            Int(ic) => {
+            Num(ic) => {
                 let ret = (ic._getvalue)(int)?;
                 log!("\\the{} = {}",reg,ret);
                 stt(ret.to_string().into())
@@ -783,7 +784,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         }
 
         let ret = int.read_token_list(true,true,false,true)?;
-        let string = int.tokens_to_string(ret);
+        let string = int.tokens_to_string(&ret);
         return Ok(ExecutableWhatsit {
             _apply: Box::new(move |int| {
                 int.file_write(num,string)
@@ -802,7 +803,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false,false,true)?;
-        let string = int.tokens_to_string(ret);
+        let string = int.tokens_to_string(&ret);
         print!("{}",Yellow.paint(string.to_string()));
         Ok(())
     }
@@ -983,16 +984,17 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false,false,true)?;
-        let string = int.tokens_to_string(ret);
+        let string = int.tokens_to_string(&ret);
         let mut eh = int.state_tokens(-(ERRHELP.index as i32));
+        println!("Errhelp: {}",TokenList(&eh));
         let rethelp = if !eh.is_empty() {
             eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
-            eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
+            //eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
             int.push_tokens(eh);
             let rethelp = int.read_token_list(true,false,false,true)?;
-            int.tokens_to_string(rethelp)
+            int.tokens_to_string(&rethelp)
         } else {"".into()};
-        TeXErr!((int,None),"\n{}\n\n{}",Red.bold().paint(string.to_string()),rethelp)
+        TeXErr!((int,None),"{}\n{}",Red.bold().paint(string.to_string()),rethelp)
     }
 };
 
@@ -1005,7 +1007,7 @@ pub static ETEXREVISION : PrimitiveExecutable = PrimitiveExecutable {
     name: "eTeXrevision"
 };
 
-pub static ETEXVERSION : IntCommand = IntCommand {
+pub static ETEXVERSION : NumericCommand = NumericCommand {
     _getvalue: |_int| {
         Ok(Numeric::Int(VERSION_INFO.etexversion.to_string().parse().unwrap()))
     },
@@ -1136,7 +1138,7 @@ fn eatrelax(int : &Interpreter) {
     }
 }
 
-pub static NUMEXPR: IntCommand = IntCommand {
+pub static NUMEXPR: NumericCommand = NumericCommand {
     name:"numexpr",
     _getvalue: |int| {
         log!("\\numexpr starts: >{}",int.preview());
@@ -1147,7 +1149,7 @@ pub static NUMEXPR: IntCommand = IntCommand {
     }
 };
 
-pub static DIMEXPR: IntCommand = IntCommand {
+pub static DIMEXPR: NumericCommand = NumericCommand {
     name:"dimexpr",
     _getvalue: |int| {
         log!("\\dimexpr starts: >{}",int.preview());
@@ -1158,7 +1160,7 @@ pub static DIMEXPR: IntCommand = IntCommand {
     }
 };
 
-pub static GLUEEXPR: IntCommand = IntCommand {
+pub static GLUEEXPR: NumericCommand = NumericCommand {
     name:"glueexpr",
     _getvalue: |int| {
         log!("\\glueexpr starts: >{}",int.preview());
@@ -1169,7 +1171,7 @@ pub static GLUEEXPR: IntCommand = IntCommand {
     }
 };
 
-pub static MUEXPR: IntCommand = IntCommand {
+pub static MUEXPR: NumericCommand = NumericCommand {
     name:"muexpr",
     _getvalue: |int| {
         log!("\\muexpr starts: >{}",int.preview());
@@ -1268,25 +1270,26 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|exp,int| {
         let tkl = int.read_balanced_argument(false,false,false,true)?;
+        let space = Token::new(32,CategoryCode::Space,None,SourceReference::None,false);
+        let escape = match int.state_catcodes().escapechar {
+            255 => None,
+            _ => Some(Token::new(int.state_catcodes().escapechar, CategoryCode::Other, None, SourceReference::None, false))
+        };
         for t in tkl {
             match t.catcode {
-                CategoryCode::Space | CategoryCode::EOL => exp.2.push(Token::new(t.char,CategoryCode::Space,None,SourceReference::None,false)),
+                CategoryCode::Space | CategoryCode::EOL => exp.2.push(space.clone()),
                 CategoryCode::Escape => {
-                    let esc = int.state_catcodes().escapechar;
-                    if esc != 255 {
-                        exp.2.push(Token::new(esc, CategoryCode::Other, None, SourceReference::None, false));
-                    }
+                    for tk in &escape { exp.2.push(tk.clone()) }
                     for t in t.name().iter() {
                         exp.2.push(Token::new(*t,CategoryCode::Other,None,SourceReference::None,false));
                     }
-                    if t.name().len() == 1 {
-                        let c = t.name().iter().get(0).unwrap();
+                    if t.name().len() > 1 { exp.2.push(space.clone()) }
+                    else if t.name().len() == 1 {
+                        let c = t.name().iter().first().unwrap();
                         match int.state_catcodes().get_code(*c) {
-                            CategoryCode::Letter => {}
-                            _ => exp.2.push(Token::new(32,CategoryCode::Space,None,SourceReference::None,false))
+                            CategoryCode::Letter => exp.2.push(space.clone()),
+                            _ => ()
                         }
-                    } else {
-                        exp.2.push(Token::new(32,CategoryCode::Space,None,SourceReference::None,false))
                     }
                 }
                 _ => {
@@ -1391,7 +1394,8 @@ pub static FONT: FontAssValue = FontAssValue {
     }
 };
 
-fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
+pub fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
+    int.expand_until(true)?;
     let tk = int.read_command_token()?;
     let cmd = int.get_command(tk.cmdname())?;
     match &*cmd.orig {
@@ -1462,7 +1466,7 @@ pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-pub static INPUTLINENO: IntCommand = IntCommand {
+pub static INPUTLINENO: NumericCommand = NumericCommand {
     _getvalue: |int| {
         Ok(Numeric::Int(int.line_no() as i64))
     },
@@ -1778,7 +1782,7 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         let tks = int.read_balanced_argument(false,false,false,true)?;
-        let str = int.tokens_to_string(tks);
+        let str = int.tokens_to_string(&tks);
         int.push_string(tk.clone(),str);
         Ok(())
     }
@@ -1814,6 +1818,42 @@ pub static DP: NumAssValue = NumAssValue {
     _getvalue: |int| {
         let index = int.read_number()?;
         Ok(Numeric::Dim(int.state_copy_box(index as i32).depth()))
+    }
+};
+
+pub static FONTCHARWD: NumericCommand = NumericCommand {
+    name:"fontcharwd",
+    _getvalue: |int| {
+        let font = read_font(int)?;
+        let char = int.read_number()? as u16;
+        Ok(Numeric::Dim(font.get_width(char)))
+    }
+};
+
+pub static FONTCHARHT: NumericCommand = NumericCommand {
+    name:"fontcharht",
+    _getvalue: |int| {
+        let font = read_font(int)?;
+        let char = int.read_number()? as u16;
+        Ok(Numeric::Dim(font.get_height(char)))
+    }
+};
+
+pub static FONTCHARDP: NumericCommand = NumericCommand {
+    name:"fontchardp",
+    _getvalue: |int| {
+        let font = read_font(int)?;
+        let char = int.read_number()? as u16;
+        Ok(Numeric::Dim(font.get_depth(char)))
+    }
+};
+
+pub static FONTCHARIC: NumericCommand = NumericCommand {
+    name:"fontchardp",
+    _getvalue: |int| {
+        let font = read_font(int)?;
+        let char = int.read_number()? as u16;
+        Ok(Numeric::Dim(font.get_ic(char)))
     }
 };
 
@@ -2523,30 +2563,6 @@ pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontname",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static FONTCHARWD: PrimitiveExecutable = PrimitiveExecutable {
-    name:"fontcharwd",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static FONTCHARHT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"fontcharht",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static FONTCHARDP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"fontchardp",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static FONTCHARIC: PrimitiveExecutable = PrimitiveExecutable {
-    name:"fontcharic",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3461,15 +3477,19 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
     PrimitiveTeXCommand::Ass(&FUTURELET),
     PrimitiveTeXCommand::AV(AssignableValue::Tok(&TOKS)),
-    PrimitiveTeXCommand::Int(&TIME),
-    PrimitiveTeXCommand::Int(&YEAR),
-    PrimitiveTeXCommand::Int(&MONTH),
-    PrimitiveTeXCommand::Int(&DAY),
-    PrimitiveTeXCommand::Int(&NUMEXPR),
-    PrimitiveTeXCommand::Int(&DIMEXPR),
-    PrimitiveTeXCommand::Int(&GLUEEXPR),
-    PrimitiveTeXCommand::Int(&MUEXPR),
-    PrimitiveTeXCommand::Int(&INPUTLINENO),
+    PrimitiveTeXCommand::Num(&TIME),
+    PrimitiveTeXCommand::Num(&YEAR),
+    PrimitiveTeXCommand::Num(&MONTH),
+    PrimitiveTeXCommand::Num(&DAY),
+    PrimitiveTeXCommand::Num(&NUMEXPR),
+    PrimitiveTeXCommand::Num(&DIMEXPR),
+    PrimitiveTeXCommand::Num(&GLUEEXPR),
+    PrimitiveTeXCommand::Num(&MUEXPR),
+    PrimitiveTeXCommand::Num(&INPUTLINENO),
+    PrimitiveTeXCommand::Num(&FONTCHARWD),
+    PrimitiveTeXCommand::Num(&FONTCHARHT),
+    PrimitiveTeXCommand::Num(&FONTCHARDP),
+    PrimitiveTeXCommand::Num(&FONTCHARIC),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -3477,7 +3497,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MEANING),
     PrimitiveTeXCommand::Primitive(&ETEXREVISION),
     PrimitiveTeXCommand::Primitive(&UNEXPANDED),
-    PrimitiveTeXCommand::Int(&ETEXVERSION),
+    PrimitiveTeXCommand::Num(&ETEXVERSION),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&FONTDIMEN)),
@@ -3634,10 +3654,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ERRORSTOPMODE),
     PrimitiveTeXCommand::Primitive(&EXPANDED),
     PrimitiveTeXCommand::Primitive(&FONTNAME),
-    PrimitiveTeXCommand::Primitive(&FONTCHARWD),
-    PrimitiveTeXCommand::Primitive(&FONTCHARHT),
-    PrimitiveTeXCommand::Primitive(&FONTCHARDP),
-    PrimitiveTeXCommand::Primitive(&FONTCHARIC),
     PrimitiveTeXCommand::Primitive(&IGNORESPACES),
     PrimitiveTeXCommand::Primitive(&JOBNAME),
     PrimitiveTeXCommand::Primitive(&LOWERCASE),

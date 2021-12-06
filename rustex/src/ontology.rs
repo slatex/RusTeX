@@ -29,11 +29,10 @@ pub struct Token {
 }
 impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
-        self.char == other.char && self.catcode == other.catcode && &self.name_opt == &other.name_opt /* match (&self.name_opt,&other.name_opt) {
-            (None,None) => true,
-            (Some(a),Some(b)) => a == b,
-            _ => false
-        } */
+        match self.catcode {
+            CategoryCode::Escape => other.catcode == CategoryCode::Escape && &self.name_opt == &other.name_opt,
+            _ => self.char == other.char && self.catcode == other.catcode && &self.name_opt == &other.name_opt
+        }
     }
 }
 impl Display for Token {

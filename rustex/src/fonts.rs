@@ -237,6 +237,12 @@ pub struct Font {
     pub name:TeXStr
 }
 impl Font {
+    pub fn get_at(&self) -> i64 {
+        match self.at {
+            Some(a) => a,
+            None => self.file.size as i64
+        }
+    }
     pub fn new(file:Rc<FontFile>,at:Option<i64>,name:TeXStr) -> Rc<Font> {
         let hc = file.hyphenchar;
         let sc = file.skewchar;
@@ -262,6 +268,30 @@ impl Font {
                 })).round() as i64,
                 None => 0
             }
+        }
+    }
+    pub fn get_width(&self,i:u16) -> i64 {
+        match self.file.widths.get(&i) {
+            None => 0,
+            Some(f) => ((self.get_at() as f64) * (*f as f64)).round() as i64
+        }
+    }
+    pub fn get_height(&self,i:u16) -> i64 {
+        match self.file.heights.get(&i) {
+            None => 0,
+            Some(f) => ((self.get_at() as f64) * (*f as f64)).round() as i64
+        }
+    }
+    pub fn get_depth(&self,i:u16) -> i64 {
+        match self.file.depths.get(&i) {
+            None => 0,
+            Some(f) => ((self.get_at() as f64) * (*f as f64)).round() as i64
+        }
+    }
+    pub fn get_ic(&self,i:u16) -> i64 {
+        match self.file.ics.get(&i) {
+            None => 0,
+            Some(f) => ((self.get_at() as f64) * (*f as f64)).round() as i64
         }
     }
 }

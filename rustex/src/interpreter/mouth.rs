@@ -58,7 +58,7 @@ impl TokenMouth {
         self.tokens.pop().unwrap()
     }
     fn preview(&self) -> TeXString {
-        crate::interpreter::tokens_to_string_default(self.tokens.iter().rev().map(|x| x.clone()).collect())
+        crate::interpreter::tokens_to_string_default(&self.tokens.iter().rev().map(|x| x.clone()).collect())
     }
     fn pushback(&mut self) {}
     fn peek(&mut self) -> Token {
@@ -624,7 +624,7 @@ impl Mouths {
         }
         match self.buffer.borrow() {
             None => ret,
-            Some(tk) => crate::interpreter::tokens_to_string_default(vec!(tk.clone())) + ret
+            Some(tk) => crate::interpreter::tokens_to_string_default(&vec!(tk.clone())) + ret
         }
     }
 }

@@ -1,8 +1,8 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, IntCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
-use crate::interpreter::dimensions::Numeric;
+use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
 use crate::stomach::whatsits::SimpleWI;
@@ -12,7 +12,7 @@ pub fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     let ret = match int.read_keyword(vec!("attr"))? {
         Some(_) => {
             int.skip_ws();
-            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+            Some(int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into())
         },
         None => None
     };
@@ -22,21 +22,21 @@ pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     let ret = match int.read_keyword(vec!("resources"))? {
         Some(_) => {
             int.skip_ws();
-            Some(int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into())
+            Some(int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into())
         },
         None => None
     };
     Ok(ret)
 }
 
-pub static PDFTEXVERSION : IntCommand = IntCommand {
+pub static PDFTEXVERSION : NumericCommand = NumericCommand {
     _getvalue: |_int| {
         Ok(Numeric::Int(VERSION_INFO.pdftexversion.to_string().parse().unwrap()))
     },
     name: "pdftexversion"
 };
 
-pub static PDFMAJORVERSION: IntCommand = IntCommand {
+pub static PDFMAJORVERSION: NumericCommand = NumericCommand {
     name:"pdfmajorversion",
     _getvalue: |_int| {
         use std::str::from_utf8;
@@ -44,7 +44,7 @@ pub static PDFMAJORVERSION: IntCommand = IntCommand {
     },
 };
 
-pub static PDFSHELLESCAPE: IntCommand = IntCommand {
+pub static PDFSHELLESCAPE: NumericCommand = NumericCommand {
     name:"pdfshellescape",
     _getvalue:|_int| {
         Ok(Numeric::Int(2))
@@ -65,8 +65,8 @@ pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstrcmp",
     expandable:true,
     _apply:|rf,int| {
-        let first = int.tokens_to_string(int.read_balanced_argument(true,false,false,true)?);
-        let second = int.tokens_to_string(int.read_balanced_argument(true,false,false,true)?);
+        let first = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let second = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         log!("\\pdfstrcmp: \"{}\" == \"{}\"?",first,second);
         if first == second {
             log!("true");
@@ -85,7 +85,7 @@ pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         let strtks = int.read_balanced_argument(true,false,false,true)?;
-        let str = int.tokens_to_string(strtks);
+        let str = int.tokens_to_string(&strtks);
         /*if str.to_string() == "hyphen.cfg" {
             unsafe { crate::LOG = true };
         }*/
@@ -129,8 +129,8 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => int.read_number()?,
             _ => -1
         };
-        let mut pattern_string = int.tokens_to_string(int.read_argument()?).to_string();
-        let target = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).to_string();
+        let mut pattern_string = int.tokens_to_string(&int.read_argument()?).to_string();
+        let target = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).to_string();
         if icase {
             pattern_string = "(?i)".to_string() + &pattern_string
         }
@@ -183,11 +183,11 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
         match prestring {
             Some(s) if s == "pop" => int.state_color_pop(num as usize),
             Some(s) if s == "set" => {
-                let color = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
                 int.state_color_set(num as usize,color.into())
             }
             Some(s) if s == "push" => {
-                let color = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
                 int.state_color_push(num as usize,color.into())
             }
             Some(s) if s == "current" => todo!(),
@@ -205,7 +205,7 @@ pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
         match int.read_keyword(vec!("page","direct"))? {
             Some(s) if s == "direct" => {
                 let tks = int.read_balanced_argument(true,false,false,false)?;
-                let str = int.tokens_to_string(tks);
+                let str = int.tokens_to_string(&tks);
                 int.state_color_push(num,str.into());
             }
             Some(_) => todo!(),
@@ -228,7 +228,7 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
             }
             Some(s) if s == "useobjnum" => {
                 let index = int.read_number()?;
-                let str = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?);
+                let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
                 int.state_set_pdfobj(index as u16,str.into());
                 Ok(())
             }
@@ -267,9 +267,20 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     modes: |x| {true},
     _get: |tk, int| {
         int.read_keyword(vec!("direct","page"));
-        let str : TeXStr = int.tokens_to_string(int.read_balanced_argument(true,false,false,false)?).into();
+        let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
         let rf = int.update_reference(tk);
         Ok(SimpleWI::PdfLiteral(str,rf))
+    }
+};
+
+pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdffontsize",
+    expandable:true,
+    _apply:|rf,int| {
+        let font = crate::commands::primitives::read_font(int)?;
+        let str = dimtostr(font.get_at());
+        rf.2 = crate::interpreter::string_to_tokens(str.into());
+        Ok(())
     }
 };
 
@@ -475,12 +486,6 @@ pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdffontsize",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontexpand",
     expandable:true,
@@ -644,9 +649,9 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
 // -------------------------------------------------------------------------------------------------
 
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
-    PrimitiveTeXCommand::Int(&PDFTEXVERSION),
-    PrimitiveTeXCommand::Int(&PDFSHELLESCAPE),
-    PrimitiveTeXCommand::Int(&PDFMAJORVERSION),
+    PrimitiveTeXCommand::Num(&PDFTEXVERSION),
+    PrimitiveTeXCommand::Num(&PDFSHELLESCAPE),
+    PrimitiveTeXCommand::Num(&PDFMAJORVERSION),
 
     PrimitiveTeXCommand::Cond(&IFPDFABSNUM),
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),

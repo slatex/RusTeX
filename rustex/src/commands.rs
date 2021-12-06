@@ -74,7 +74,7 @@ impl PartialEq for TokAssValue {
     }
 }
 
-pub struct IntCommand {
+pub struct NumericCommand {
     pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>,
     pub name : &'static str
 }
@@ -330,7 +330,7 @@ pub enum PrimitiveTeXCommand {
     AV(AssignableValue),
     Ext(Rc<dyn ExternalCommand>),
     Cond(&'static Conditional),
-    Int(&'static IntCommand),
+    Num(&'static NumericCommand),
     Char(Token),
     Ass(&'static PrimitiveAssignment),
     Def(DefMacro),
@@ -389,14 +389,7 @@ impl PrimitiveTeXCommand {
                 for s in &d.sig.elems {
                     match s {
                         ParamToken::Token(tk) => {
-                            match tk.catcode {
-                                CategoryCode::Escape => {
-                                    meaning += escape.clone();
-                                    meaning += tk.name();
-                                    meaning += " "
-                                }
-                                _ => meaning += tk.char
-                            }
+                            meaning += crate::interpreter::tokens_to_string(&vec!(tk.clone()),catcodes)
                         },
                         ParamToken::Param(0,u) => {
                             meaning += u.char;
@@ -409,19 +402,10 @@ impl PrimitiveTeXCommand {
                     }
                 }
                 meaning += "->";
-                for tk in &d.ret {
-                    match tk.catcode {
-                        CategoryCode::Escape => {
-                            meaning += escape.clone();
-                            meaning += tk.name();
-                            meaning += " "
-                        }
-                        _ => meaning += tk.char
-                    }
-                }
+                meaning += crate::interpreter::tokens_to_string(&d.ret,catcodes);
                 meaning
             }
-            Int(ic) => {
+            Num(ic) => {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + ic.name.into()
             },
@@ -479,7 +463,7 @@ impl PrimitiveTeXCommand {
             AV(av) => av.name(),
             Ext(jr) => Some(jr.name().as_str().into()),
             Cond(c) => Some(c.name.into()),
-            Int(i) => Some(i.name.into()),
+            Num(i) => Some(i.name.into()),
             Def(_) => None,
             Whatsit(wi) => wi.name(),
             MathChar(_) => None
@@ -510,7 +494,7 @@ impl PrimitiveTeXCommand {
                 _ => false
             },
             PrimitiveTeXCommand::Ext(ext) if ext.has_num() => true,
-            PrimitiveTeXCommand::Int(_) => true,
+            PrimitiveTeXCommand::Num(_) => true,
             PrimitiveTeXCommand::MathChar(_) => true,
             PrimitiveTeXCommand::Char(_) => true,
             _ => false
@@ -540,7 +524,7 @@ impl PrimitiveTeXCommand {
             AV(Register(i)) => Ok(Numeric::Int(int.state_register(*i as i32))),
             AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(*i as i32))),
             AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
-            PrimitiveTeXCommand::Int(i) => Ok((i._getvalue)(int)?),
+            PrimitiveTeXCommand::Num(i) => Ok((i._getvalue)(int)?),
             AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-(r.index as i32)))),
             AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-(r.index as i32)))),
             AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-(r.index as i32)))),
@@ -576,12 +560,12 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "str_const:Nx" && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31587") {
+        /* if tk.name().to_string() == "MT@is@char" { // && int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex (23") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
              unsafe {crate::LOG = true }
-        }*/
+        } */
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")
@@ -858,7 +842,7 @@ impl fmt::Display for PrimitiveTeXCommand {
                 write!(f,"\\{}",p.name),
             Cond(p) =>
                 write!(f,"\\{}",p.name),
-            Int(p) =>
+            Num(p) =>
                 write!(f,"\\{}",p.name),
             Ext(p) =>
                 write!(f,"External \\{}",p.name()),

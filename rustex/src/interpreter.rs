@@ -66,14 +66,31 @@ pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
     tokenize(s,&OTHER_SCHEME)
 }
-pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
+pub fn tokens_to_string_default(tks:&Vec<Token>) -> TeXString {
+    tokens_to_string(tks,&crate::catcodes::OTHER_SCHEME)
+}
+
+pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXString {
     let mut ret : Vec<u8> = vec!();
+    let escapechar = catcodes.escapechar;
     for tk in tks {
         match tk.catcode {
             CategoryCode::Escape => {
-                ret.push(92);
-                for s in tk.name().iter() { ret.push(*s) }
-                ret.push(32)
+                let name = tk.name();
+                if escapechar != 255 { ret.push(catcodes.escapechar) }
+                for s in name.iter() { ret.push(*s) }
+                if name.len() > 1 {
+                    ret.push(32)
+                } else if name.len() == 1 {
+                    match catcodes.get_code(*name.iter().first().unwrap()) {
+                        CategoryCode::Letter => ret.push(32),
+                        _ => ()
+                    }
+                } else {
+                    ret.append(&mut vec!(99,115,110,97,109,101)); // csname
+                    if catcodes.escapechar != 255 { ret.push(catcodes.escapechar) }
+                    ret.append(&mut vec!(101,110,100,99,115,110,97,109,101)) // endcsname
+                }
             }
             _ => ret.push(tk.char)
         }
@@ -84,20 +101,9 @@ pub fn tokens_to_string_default(tks:Vec<Token>) -> TeXString {
 use crate::stomach::{EmptyStomach, Stomach};
 
 impl Interpreter<'_> {
-    pub fn tokens_to_string(&self,tks:Vec<Token>) -> TeXString {
+    pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
         let catcodes = self.catcodes.borrow();
-        let mut ret : Vec<u8> = vec!();
-        for tk in tks {
-            match tk.catcode {
-                CategoryCode::Escape if catcodes.escapechar != 255 => {
-                    ret.push(catcodes.escapechar);
-                    for s in tk.name().iter() { ret.push(*s) }
-                    ret.push(32)
-                }
-                _ => ret.push(tk.char)
-            }
-        }
-        ret.into()
+        tokens_to_string(tks,&catcodes)
     }
 
     pub fn kpsewhich(&self,filename: &str) -> Option<PathBuf> {
