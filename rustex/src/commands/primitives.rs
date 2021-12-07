@@ -355,8 +355,8 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     Ok(())
 }
 
-use crate::interpreter::dimensions::{dimtostr, Numeric};
-use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox};
+use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
+use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -772,6 +772,34 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         Ok(())
     }
 };
+
+pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
+    name:"readline",
+    _assign: |rf,int,global| {
+        let index = int.read_number()? as u8;
+        match int.read_keyword(vec!("to"))? {
+            Some(_) => (),
+            None => TeXErr!((int,None),"\"to\" expected in \\read")
+        }
+        let newcmd = int.read_command_token()?;
+        let toks = int.file_read_line(index)?;
+        let cmd = PrimitiveTeXCommand::Def(DefMacro {
+            protected: false,
+            long: false,
+            sig: Signature {
+                elems: vec![],
+                endswithbrace: false,
+                arity: 0
+            },
+            ret: toks
+        }).as_ref(rf);
+        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
+                                         Some(cmd),
+                                         global));
+        Ok(())
+    }
+};
+
 
 pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name: "write",
@@ -1505,6 +1533,18 @@ pub static INPUTLINENO: NumericCommand = NumericCommand {
         Ok(Numeric::Int(int.line_no() as i64))
     },
     name:"inputlineno",
+};
+
+pub static LASTSKIP: NumericCommand = NumericCommand {
+    name:"lastskip",
+    _getvalue: |int| {
+        match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::Skip(s,_))) => Ok(Numeric::Skip(s)),
+            _ => Ok(Numeric::Skip(Skip {
+                base:0,stretch:None,shrink:None
+            }))
+        }
+    },
 };
 
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
@@ -3081,12 +3121,6 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static READLINE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"readline",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptfont",
     expandable:true,
@@ -3257,12 +3291,6 @@ pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static LASTBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LASTSKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lastskip",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3522,6 +3550,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&KERN)),
     PrimitiveTeXCommand::Ass(&READ),
+    PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
     PrimitiveTeXCommand::Ass(&MATHCHARDEF),
     PrimitiveTeXCommand::Ass(&FUTURELET),
@@ -3539,6 +3568,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&FONTCHARHT),
     PrimitiveTeXCommand::Num(&FONTCHARDP),
     PrimitiveTeXCommand::Num(&FONTCHARIC),
+    PrimitiveTeXCommand::Num(&LASTSKIP),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -3792,7 +3822,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
     PrimitiveTeXCommand::Primitive(&PARSHAPE),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
-    PrimitiveTeXCommand::Primitive(&READLINE),
     PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
     PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
     PrimitiveTeXCommand::Primitive(&TEXTFONT),
@@ -3822,7 +3851,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
     PrimitiveTeXCommand::Primitive(&LASTBOX),
-    PrimitiveTeXCommand::Primitive(&LASTSKIP),
     PrimitiveTeXCommand::Primitive(&LASTPENALTY),
     PrimitiveTeXCommand::Primitive(&LASTKERN),
     PrimitiveTeXCommand::Primitive(&LEADERS),

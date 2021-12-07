@@ -1,14 +1,14 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::stomach::whatsits::SimpleWI;
+use crate::stomach::whatsits::{ActionSpec, SimpleWI};
 use crate::utils::{TeXError, TeXStr};
 
-pub fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     let ret = match int.read_keyword(vec!("attr"))? {
         Some(_) => {
             int.skip_ws();
@@ -18,7 +18,15 @@ pub fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     };
     Ok(ret)
 }
-pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+
+fn read_rule_spec(int:&Interpreter )-> Result<String,TeXError> {
+    int.skip_ws();
+    match int.read_keyword(vec!("width", "height", "depth"))? {
+        Some(s) => Ok((s + " " + &dimtostr(int.read_dimension()?) + " " + &read_rule_spec(int)?.to_string()).into()),
+        None => Ok("".into())
+    }
+}
+fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     let ret = match int.read_keyword(vec!("resources"))? {
         Some(_) => {
             int.skip_ws();
@@ -29,8 +37,76 @@ pub fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
     Ok(ret)
 }
 
-pub fn read_action_spec(int:&Interpreter) {
-    todo!()
+fn read_action_spec(int:&Interpreter) -> Result<ActionSpec,TeXError> {
+    match int.read_keyword(vec!("user","goto","thread"))? {
+        Some(s) if s == "user" => {
+            let retstr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+            Ok(ActionSpec::User(retstr.into()))
+        }
+        Some(s) if s == "goto" => {
+            match int.read_keyword(vec!("num","file","name","page"))? {
+                Some(s) if s == "num" => {
+                    let num = int.read_number()?;
+                    Ok(ActionSpec::GotoNum(num))
+                }
+                Some(s) if s == "file" => {
+                    let f = int.read_string()?;
+                    match int.read_keyword(vec!("name","page"))? {
+                        Some(s) if s == "name" => {
+                            let name = int.read_string()?;
+                            let target = int.read_keyword(vec!("newwindow", "nonewindow"))?;
+                            Ok(ActionSpec::File(f.as_str().into(),name.as_str().into(),target.map(|x| x.as_str().into())))
+                        }
+                        Some(_) => {
+                            let num = int.read_number()?;
+                            let target = int.read_keyword(vec!("newwindow", "nonewindow"))?;
+                            Ok(ActionSpec::FilePage(f.as_str().into(),num,target.map(|x| x.as_str().into())))
+                        }
+                        _ => TeXErr!((int,None),"Expected \"name\" or \"page\" in action spec")
+                    }
+                }
+                Some(s) if s == "name" => {
+                    let name = int.read_string()?;
+                    Ok(ActionSpec::Name(name.as_str().into()))
+                }
+                Some(_) => {
+                    let num = int.read_number()?;
+                    let ret = int.read_argument()?;
+                    Ok(ActionSpec::Page(num))
+                }
+                _ => {
+                    let ret = int.read_argument()?;
+                    TeXErr!((int,None),"Here: {}",TokenList(&ret))
+                }
+            }
+        }
+        Some(_) => {
+            match int.read_keyword(vec!("num","file"))? {
+                Some(s) if s == "num" => {
+                    let num = int.read_number()?;
+                    Ok(ActionSpec::GotoNum(num))
+                }
+                Some(_) => {
+                    let f = int.read_string()?;
+                    match int.read_keyword(vec!("name","page"))? {
+                        Some(s) if s == "name" => {
+                            let name = int.read_string()?;
+                            let target = int.read_keyword(vec!("newwindow", "nonewindow"))?;
+                            Ok(ActionSpec::File(f.as_str().into(),name.as_str().into(),target.map(|x| x.as_str().into())))
+                        }
+                        Some(_) => {
+                            let num = int.read_number()?;
+                            let target = int.read_keyword(vec!("newwindow", "nonewindow"))?;
+                            Ok(ActionSpec::FilePage(f.as_str().into(),num,target.map(|x| x.as_str().into())))
+                        }
+                        _ => TeXErr!((int,None),"Expected \"name\" or \"page\" in action spec")
+                    }
+                }
+                _ => TeXErr!((int,None),"Expected \"num\" or \"file\" after \"thread\" in action spec")
+            }
+        }
+        _ => TeXErr!((int,None),"Expected \"user\", \"goto\" or \"thread\" in action spec")
+    }
 }
 
 pub static PDFTEXVERSION : NumericCommand = NumericCommand {
@@ -277,6 +353,36 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfdest",
+    modes: |x| {true},
+    _get:|tk,int| {
+        let target = match int.read_keyword(vec!("num","name"))? {
+            Some(s) if s == "num" => {
+                "NUM_".to_string() +  &int.read_number()?.to_string()
+            }
+            Some(_) => int.read_string()?,
+            None => TeXErr!((int,None),"Expected \"num\" or \"name\" after \\pdfdest")
+        };
+        let dest = match int.read_keyword(vec!("xyz","XYZ","fitr","fitbh","fitbv","fitb","fith","fitv","fit"))? {
+            Some(s) if s == "xyz" || s == "XYZ" => {
+                "xyz".to_string() + &match int.read_keyword(vec!("zoom"))? {
+                    None => "".to_string(),
+                    Some(_) => {
+                        " zoom ".to_string() + &int.read_number()?.to_string()
+                    }
+                }
+            }
+            Some(s) if s == "fitr" => {
+                "fitr ".to_string() + &read_rule_spec(int)?
+            }
+            Some(s) => s,
+            None => TeXErr!((int,None),"Expected \"xyz\", \"XYZ\", \"fitr\", \"fitbh\", \"fitbv\", \"fitb\", \"fith\", \"fitv\" or \"fit\" in \\pdfdest")
+        };
+        Ok(SimpleWI::PdfDest(target.as_str().into(),dest.as_str().into(),int.update_reference(tk)))
+    }
+};
+
 pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontsize",
     expandable:true,
@@ -306,7 +412,7 @@ pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|rf,int| {
         let attr = read_attrspec(int)?;
         let action = read_action_spec(int);
-        let num = match int.read_keyword(vec!("count")) {
+        let num = match int.read_keyword(vec!("count"))? {
             Some(_) => int.read_number()?,
             _ => 0
         };
@@ -314,6 +420,55 @@ pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
         Ok(())
     }
 };
+
+pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfmdfivesum",
+    expandable:true,
+    _apply:|rf,int| {
+        match int.read_keyword(vec!("file"))? {
+            None => todo!(),
+            Some(_) => ()
+        }
+        let tks = int.read_balanced_argument(true,false,false,false)?;
+        let str = int.tokens_to_string(&tks);
+        let file = int.get_file(&str.to_utf8())?;
+        match file.string {
+            None => todo!(),
+            Some(s) => {
+                let md = md5::compute(s.to_utf8());
+                let str = format!("{:X}", md);
+                rf.2 = crate::interpreter::string_to_tokens(str.into());
+                Ok(())
+            }
+        }
+    }
+};
+
+pub static PDFESCAPESTRING: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfescapestring",
+    expandable:true,
+    _apply:|rf,int| {
+        rf.2 = int.read_balanced_argument(true,false,false,true)?;
+        Ok(())
+    }
+};
+
+pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfcatalog",
+    expandable:false,
+    _apply:|_tk,int| {
+        let arg = int.read_string()?;
+        match int.read_keyword(vec!("openaction"))? {
+            None => Ok(()),
+            Some(_) => {
+                read_action_spec(int)?;
+                Ok(())
+            }
+        }
+    }
+};
+
+// -------------------------------------------------------------------------------------------------
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
     name: "pdfoutput",
@@ -469,15 +624,6 @@ pub static IFPDFPRIMITIVE : Conditional = Conditional {
     }
 };
 
-pub static PDFESCAPESTRING: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfescapestring",
-    expandable:true,
-    _apply:|rf,int| {
-        rf.2 = int.read_balanced_argument(true,false,false,true)?;
-        Ok(())
-    }
-};
-
 pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapename",
     expandable:true,
@@ -486,18 +632,6 @@ pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfannot",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfcatalog",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFDEST: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfdest",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -610,12 +744,6 @@ pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfmdfivesum",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 /*
   val pdfcreationdate = new PrimitiveCommandProcessor("pdfcreationdate") {}
   val pdfendthread = new PrimitiveCommandProcessor("pdfendthread") {}
@@ -681,6 +809,7 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
 
     PrimitiveTeXCommand::Primitive(&PDFOBJ),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFLITERAL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFDEST)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXFORM)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
@@ -718,7 +847,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFCATALOG),
     PrimitiveTeXCommand::Primitive(&PDFCOLORSTACKINIT),
     PrimitiveTeXCommand::Primitive(&PDFCOLORSTACK),
-    PrimitiveTeXCommand::Primitive(&PDFDEST),
     PrimitiveTeXCommand::Primitive(&PDFESCAPEHEX),
     PrimitiveTeXCommand::Primitive(&PDFFILEDUMP),
     PrimitiveTeXCommand::Primitive(&PDFFILEMODDATE),

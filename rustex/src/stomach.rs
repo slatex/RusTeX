@@ -15,26 +15,41 @@ pub trait Stomach {
         };
         Ok(())
     }
+    fn last_whatsit(&self) -> Option<Whatsit>;
 }
 
 pub trait BufferedStomach : Stomach {
-    fn buffer(&mut self) -> &mut Vec<Vec<Whatsit>>;
+    fn buffer_mut(&mut self) -> &mut Vec<Vec<Whatsit>>;
+    fn buffer(&self) -> &Vec<Vec<Whatsit>>;
 }
 
 impl<S> Stomach for S where S:BufferedStomach {
     fn new_group(&mut self) {
-        self.buffer().push(vec!())
+        self.buffer_mut().push(vec!())
     }
     fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
         let buf = self.buffer();
         if buf.len() < 2 {
             TeXErr!((int,None),"Can't close group in stomach!")
         } else {
-            Ok(self.buffer().pop().unwrap())
+            Ok(self.buffer_mut().pop().unwrap())
         }
     }
     fn add(&mut self, wi: Whatsit) {
-        self.buffer().last_mut().unwrap().push(wi)
+        self.buffer_mut().last_mut().unwrap().push(wi)
+    }
+    fn last_whatsit(&self) -> Option<Whatsit> {
+        let buf = self.buffer();
+        for ls in buf.iter().rev() {
+            for v in ls.iter().rev() {
+                match v {
+                    w@Whatsit::Box(_) => return Some(w.clone()),
+                    w@Whatsit::Simple(_) => return Some(w.clone()),
+                    _ => ()
+                }
+            }
+        }
+        return None
     }
 }
 
@@ -50,7 +65,11 @@ impl EmptyStomach {
 }
 
 impl BufferedStomach for EmptyStomach {
-    fn buffer(&mut self) -> &mut Vec<Vec<Whatsit>> {
+    fn buffer_mut(&mut self) -> &mut Vec<Vec<Whatsit>> {
         self.buff.borrow_mut()
     }
+    fn buffer(&self) -> &Vec<Vec<Whatsit>> {
+        &self.buff
+    }
+
 }

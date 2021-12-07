@@ -20,6 +20,16 @@ fn do_thesis() {
     let mut int = Interpreter::with_state(state,stomach.borrow_mut());
     int.do_file(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"));
 }
+
+fn do_other() {
+    use rustex::interpreter::state::default_pdf_latex_state;
+    let state = default_pdf_latex_state();
+    let filename = "/home/jazzpirate/work/Software/ext/sTeX/doc/stex.tex";
+    //unsafe{ rustex::LOG = true };
+    let mut stomach = EmptyStomach::new();
+    let mut int = Interpreter::with_state(state,stomach.borrow_mut());
+    int.do_file(Path::new(filename));
+}
 /*
 fn do_test() {
     let state = State::new();
@@ -64,5 +74,6 @@ fn main() {
     //println!("{}\n\n{}",test,test2);
     //do_latexltx()
     do_thesis()
+    //do_other()
 
 }

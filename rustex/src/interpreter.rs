@@ -58,7 +58,7 @@ pub struct Interpreter<'a> {
     mouths:RefCell<Mouths>,
     filestore:RefCell<FileStore>,
     catcodes:RefCell<CategoryCodeScheme>,
-    stomach:RefCell<&'a mut dyn Stomach>
+    pub stomach:RefCell<&'a mut dyn Stomach>
 }
 use crate::{TeXErr,FileEnd};
 

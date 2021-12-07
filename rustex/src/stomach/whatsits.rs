@@ -1,6 +1,7 @@
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
+use crate::interpreter::dimensions::Skip;
 use crate::references::SourceFileReference;
 
 #[derive(Copy,Clone,PartialEq)]
@@ -117,6 +118,17 @@ impl WIGroup {
 }
 
 #[derive(Clone)]
+pub enum ActionSpec {
+    User(TeXStr),
+    GotoNum(i64),
+    //   file    name    window
+    File(TeXStr,TeXStr,Option<TeXStr>),
+    FilePage(TeXStr,i64,Option<TeXStr>),
+    Name(TeXStr),
+    Page(i64)
+}
+
+#[derive(Clone)]
 pub enum SimpleWI {
     //                                  height       width      depth
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
@@ -130,6 +142,8 @@ pub enum SimpleWI {
     Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
     Raise(i64,TeXBox,Option<SourceFileReference>),
     Kern(i64,Option<SourceFileReference>),
+    Skip(Skip,Option<SourceFileReference>),
+    PdfDest(TeXStr,TeXStr,Option<SourceFileReference>)
 }
 impl SimpleWI {
     pub fn width(&self) -> i64 { todo!( )}

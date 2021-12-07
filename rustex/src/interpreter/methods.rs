@@ -112,7 +112,10 @@ impl Interpreter<'_> {
                     }
                 },
                 CategoryCode::Space | CategoryCode::EOL if !quoted => return Ok(from_utf8(ret.as_slice()).unwrap().to_owned()),
-                CategoryCode::BeginGroup if ret.is_empty() => todo!(),
+                CategoryCode::BeginGroup if ret.is_empty() => {
+                    let tks = self.read_token_list(true,false,false,true)?;
+                    return Ok(self.tokens_to_string(&tks).to_string())
+                },
                 _ if next.char == 34 && !quoted => quoted = true,
                 _ if next.char == 34 => {
                     self.skip_ws();

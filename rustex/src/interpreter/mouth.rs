@@ -110,7 +110,41 @@ pub struct StringMouth {
 }
 
 impl StringMouth {
-    pub(in crate::interpreter) fn read_line(&mut self,catcodes:&CategoryCodeScheme,nocomment:bool) -> Vec<Token> {
+    pub(in crate::interpreter) fn is_eof(&self) -> bool {
+        self.peekbuffer.is_none() && self.charbuffer.is_none() && (self.string.is_none() || self.string.as_ref().unwrap().is_empty()) && self.allstrings.is_empty()
+    }
+    pub(in crate::interpreter) fn read_line(&mut self, catcodes:&CategoryCodeScheme) -> Vec<Token> {
+        match &self.string {
+            None => {
+                if self.allstrings.is_empty() { vec!() } else {
+                    let string = self.allstrings.pop().unwrap();
+                    self.string = Some(string);
+                    self.read_line(catcodes)
+                }
+            }
+            Some(s) if s.is_empty() => {
+                if self.allstrings.is_empty() { vec!() } else {
+                    let string = self.allstrings.pop().unwrap();
+                    self.string = Some(string);
+                    self.read_line(catcodes)
+                }
+            }
+            Some(s) => {
+                let mut ret : Vec<Token> = vec!();
+                for c in s.0.iter() {
+                    match catcodes.get_code(*c) {
+                        CategoryCode::Space if ret.is_empty() => (),
+                        CategoryCode::Space => ret.push(Token::new(*c,CategoryCode::Space,None,SourceReference::None,true)),
+                        _ => ret.push(Token::new(*c,CategoryCode::Other,None,SourceReference::None,true)),
+                    }
+                }
+                if ret.is_empty() && !self.is_eof() {
+                    self.read_line(catcodes)
+                } else { ret }
+            }
+        }
+    }
+    pub(in crate::interpreter) fn read(&mut self, catcodes:&CategoryCodeScheme, nocomment:bool) -> Vec<Token> {
         let currentline = self.line;
         let mut ret:Vec<Token> = vec!();
         let mut braces = 0;

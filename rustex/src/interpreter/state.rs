@@ -550,6 +550,12 @@ use crate::references::SourceFileReference;
 use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit};
 
 impl Interpreter<'_> {
+    pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {
+        match self.state.borrow_mut().infiles.get_mut(&index) {
+            None => TeXErr!((self,None),"No file open at index {}",index),
+            Some(fm) => Ok(fm.read_line(&self.catcodes.borrow()))
+        }
+    }
     pub fn file_read(&self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
         use std::io::BufRead;
         match index {
@@ -561,7 +567,7 @@ impl Interpreter<'_> {
             i => {
                 match self.state.borrow_mut().infiles.get_mut(&i) {
                     None => TeXErr!((self,None),"No file open at index {}",i),
-                    Some(fm) => Ok(fm.read_line(&self.catcodes.borrow(),nocomment))
+                    Some(fm) => Ok(fm.read(&self.catcodes.borrow(), nocomment))
                 }
             }
         }
@@ -570,8 +576,7 @@ impl Interpreter<'_> {
         match self.state.borrow_mut().infiles.get_mut(&index) {
             None => TeXErr!((self,None),"No file open at index {}",index),
             Some(fm) => {
-                let ret = fm.has_next(&self.catcodes.borrow(),false,true);
-                Ok(!ret)
+                Ok(fm.is_eof())
             }
         }
     }
