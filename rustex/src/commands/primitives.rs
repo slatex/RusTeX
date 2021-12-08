@@ -575,7 +575,13 @@ fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXEr
             int.read_keyword(vec!("by"))?;
             (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
-        _ => todo!()
+        AV(AssignableValue::Skip(i)) => {
+            int.read_keyword(vec!("by"))?;
+            (i as i32, Numeric::Skip(int.state_skip(i as i32)),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+        }
+        ref p =>{
+            todo!("{}",p)
+        }
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
     };
     Ok((index,num,val))
@@ -626,6 +632,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
             (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
             (Numeric::Int(num),Numeric::Dim(sum)) => StateChange::Register(index,num+sum,global),
             (Numeric::Dim(num),Numeric::Dim(sum)) => StateChange::Dimen(index,num + sum,global),
+            (Numeric::Skip(num),Numeric::Skip(sum)) => StateChange::Skip(index,num + sum,global),
             _ => todo!()
         };
         int.change_state(ch);
@@ -1567,7 +1574,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             _ => (0 as i64,None)
         };
         let ret = int.read_whatsit_group(BoxMode::H)?;
-        if ret.is_empty() {Ok(TeXBox::Void)} else {
+        /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::H(HBox {
                 children: ret,
                 spread,
@@ -1588,7 +1595,7 @@ pub static VBOX: ProvidesBox = ProvidesBox {
             _ => (0 as i64,None)
         };
         let ret = int.read_whatsit_group(BoxMode::V)?;
-        if ret.is_empty() {Ok(TeXBox::Void)} else {
+        /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::V(VBox {
                 children: ret,
                 center:false,
@@ -1774,7 +1781,7 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
             }
         }
         let rf = int.update_reference(tk);
-        Ok(SimpleWI::VRule(rf,height,width,depth))
+        Ok(Whatsit::Simple(SimpleWI::VRule(rf,height,width,depth)))
     }
 };
 
@@ -1785,7 +1792,7 @@ pub static VFIL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(SimpleWI::VFil(int.update_reference(tk)))
+        Ok(Whatsit::Simple(SimpleWI::VFil(int.update_reference(tk))))
     }
 };
 
@@ -1796,7 +1803,7 @@ pub static VFILL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(SimpleWI::VFill(int.update_reference(tk)))
+        Ok(Whatsit::Simple(SimpleWI::VFill(int.update_reference(tk))))
     }
 };
 
@@ -1807,7 +1814,7 @@ pub static HFIL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(SimpleWI::HFil(int.update_reference(tk)))
+        Ok(Whatsit::Simple(SimpleWI::HFil(int.update_reference(tk))))
     }
 };
 
@@ -1818,7 +1825,7 @@ pub static HFILL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(SimpleWI::HFill(int.update_reference(tk)))
+        Ok(Whatsit::Simple(SimpleWI::HFill(int.update_reference(tk))))
     }
 };
 
@@ -1826,7 +1833,7 @@ pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
     name:"penalty",
     modes:|_| true,
     _get: |tk,int| {
-        Ok(SimpleWI::Penalty(int.read_number()?))
+        Ok(Whatsit::Simple(SimpleWI::Penalty(int.read_number()?)))
     }
 };
 
@@ -1840,7 +1847,7 @@ pub static LOWER: SimpleWhatsit = SimpleWhatsit {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
         let rf = int.update_reference(tk);
-        Ok(SimpleWI::Raise(-dim,bx,rf))
+        Ok(Whatsit::Simple(SimpleWI::Raise(-dim,bx,rf)))
     }
 };
 
@@ -1854,7 +1861,7 @@ pub static RAISE: SimpleWhatsit = SimpleWhatsit {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
         let rf = int.update_reference(tk);
-        Ok(SimpleWI::Raise(dim,bx,rf))
+        Ok(Whatsit::Simple(SimpleWI::Raise(dim,bx,rf)))
     }
 };
 
@@ -1864,7 +1871,59 @@ pub static KERN: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let rf = int.update_reference(tk);
-        Ok(SimpleWI::Kern(dim,rf))
+        Ok(Whatsit::Simple(SimpleWI::Kern(dim,rf)))
+    }
+};
+
+pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
+    name:"unvbox",
+    modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
+    _get: |tk,int| {
+        let ind = int.read_number()?;
+        let bx = int.state_get_box(ind as i32);
+        match bx {
+            TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
+            _ => Ok(Whatsit::Ls(vec!())),
+        }
+    }
+};
+
+pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
+    name:"unvcopy",
+    modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
+    _get: |tk,int| {
+        let ind = int.read_number()?;
+        let bx = int.state_copy_box(ind as i32);
+        match bx {
+            TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
+            _ => Ok(Whatsit::Ls(vec!())),
+        }
+    }
+};
+
+pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
+    name:"unhbox",
+    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal },
+    _get: |tk,int| {
+        let ind = int.read_number()?;
+        let bx = int.state_get_box(ind as i32);
+        match bx {
+            TeXBox::H(h) => Ok(Whatsit::Ls(h.children)),
+            _ => Ok(Whatsit::Ls(vec!())),
+        }
+    }
+};
+
+pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
+    name:"unhcopy",
+    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal },
+    _get: |tk,int| {
+        let ind = int.read_number()?;
+        let bx = int.state_copy_box(ind as i32);
+        match bx {
+            TeXBox::H(h) => Ok(Whatsit::Ls(h.children)),
+            _ => Ok(Whatsit::Ls(vec!())),
+        }
     }
 };
 
@@ -3403,30 +3462,6 @@ pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static UNHBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unhbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNVBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unvbox",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNHCOPY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unhcopy",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNVCOPY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unvcopy",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static UNDERLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"underline",
     expandable:true,
@@ -3549,6 +3584,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LOWER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&KERN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNHBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNHCOPY)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNVBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNVCOPY)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -3869,10 +3908,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&RIGHT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),
-    PrimitiveTeXCommand::Primitive(&UNHBOX),
-    PrimitiveTeXCommand::Primitive(&UNVBOX),
-    PrimitiveTeXCommand::Primitive(&UNHCOPY),
-    PrimitiveTeXCommand::Primitive(&UNVCOPY),
     PrimitiveTeXCommand::Primitive(&UNDERLINE),
     PrimitiveTeXCommand::Primitive(&UNSKIP),
     PrimitiveTeXCommand::Primitive(&UNKERN),

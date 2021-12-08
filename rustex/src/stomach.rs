@@ -36,7 +36,10 @@ impl<S> Stomach for S where S:BufferedStomach {
         }
     }
     fn add(&mut self, wi: Whatsit) {
-        self.buffer_mut().last_mut().unwrap().push(wi)
+        match wi {
+            Whatsit::Ls(ls) => for wi in ls { self.add(wi) }
+            _ => self.buffer_mut().last_mut().unwrap().push(wi)
+        }
     }
     fn last_whatsit(&self) -> Option<Whatsit> {
         let buf = self.buffer();

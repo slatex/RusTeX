@@ -3,6 +3,7 @@ use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::log;
+use crate::stomach::whatsits::TeXBox;
 
 
 pub fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
@@ -450,25 +451,36 @@ pub static IFHMODE : Conditional = Conditional {
         }
     }
 };
-
 pub static IFVOID : Conditional = Conditional {
     name:"ifvoid",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let ind = int.read_number()?;
+        match int.state_copy_box(ind as i32) {
+            TeXBox::Void => dotrue(int,cond,unless),
+            _ => dofalse(int,cond,unless)
+        }
     }
 };
 
 pub static IFVBOX : Conditional = Conditional {
     name:"ifvbox",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let ind = int.read_number()?;
+        match int.state_copy_box(ind as i32) {
+            TeXBox::V(_) => dotrue(int,cond,unless),
+            _ => dofalse(int,cond,unless)
+        }
     }
 };
 
 pub static IFHBOX : Conditional = Conditional {
     name:"ifhbox",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let ind = int.read_number()?;
+        match int.state_copy_box(ind as i32) {
+            TeXBox::H(_) => dotrue(int,cond,unless),
+            _ => dofalse(int,cond,unless)
+        }
     }
 };
 

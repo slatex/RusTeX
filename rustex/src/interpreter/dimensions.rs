@@ -74,6 +74,17 @@ impl Skip {
     }
 }
 
+impl std::ops::Add for Skip {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Skip {
+            base:self.base + rhs.base,
+            stretch:self.stretch,
+            shrink:self.shrink
+        }
+    }
+}
+
 
 #[derive(Copy,Clone)]
 pub enum MuSkipDim {

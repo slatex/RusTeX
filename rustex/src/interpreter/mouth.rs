@@ -138,6 +138,7 @@ impl StringMouth {
                         _ => ret.push(Token::new(*c,CategoryCode::Other,None,SourceReference::None,true)),
                     }
                 }
+                self.string = None;
                 if ret.is_empty() && !self.is_eof() {
                     self.read_line(catcodes)
                 } else { ret }

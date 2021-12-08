@@ -152,7 +152,7 @@ pub struct MathWhatsit {
 pub struct SimpleWhatsit {
     pub name: &'static str,
     pub modes: fn(TeXMode) -> bool,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<SimpleWI,TeXError>
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<Whatsit,TeXError>
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ impl ProvidesWhatsit {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
             Exec(e) => Ok(Whatsit::Exec(Rc::new((e._get)(tk,int)?))),
             Math(m) => todo!(),
-            Simple(s) => Ok(Whatsit::Simple((s._get)(tk,int)?))
+            Simple(s) => Ok((s._get)(tk,int)?)
         }
     }
 }
@@ -560,13 +560,13 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "blx@ifsigned" { // && int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex (23") {
+        /*if tk.name().to_string() == "blx@bbl@labelnumber" || tk.name().to_string() == "abx@flfw@labelnumber" { // && int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex (23") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
              unsafe {crate::LOG = true }
-        } */
+        }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")

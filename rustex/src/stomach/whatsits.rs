@@ -1,6 +1,7 @@
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
+use crate::fonts::Font;
 use crate::interpreter::dimensions::Skip;
 use crate::references::SourceFileReference;
 
@@ -30,19 +31,57 @@ pub struct VBox {
 pub enum TeXBox {
     Void,H(HBox),V(VBox)
 }
+
+static WIDTH_CORRECTION : i64 = 0;
+static HEIGHT_CORRECTION : i64 = 0;
+
 impl TeXBox {
     pub fn width(&self) -> i64 {
         match self {
             TeXBox::Void => 0,
-            TeXBox::H(hb) => todo!(),
-            TeXBox::V(vb) => todo!(),
+            TeXBox::H(hb) => match hb._width {
+                Some(i) => i,
+                None => {
+                    let mut w = hb.spread;
+                    for c in &hb.children { w += c.width() + WIDTH_CORRECTION }
+                    w
+                }
+            },
+            TeXBox::V(vb) => match vb._width {
+                Some(i) => i,
+                None => {
+                    let mut w = 0;
+                    for c in &vb.children {
+                        let wd = c.width();
+                        if wd > w { w = wd }
+                    }
+                    w
+                }
+            },
         }
     }
     pub fn height(&self) -> i64 {
         match self {
             TeXBox::Void => 0,
-            TeXBox::H(hb) => todo!(),
-            TeXBox::V(vb) => todo!(),
+            TeXBox::H(hb) =>  match hb._height {
+                Some(i) => i,
+                None => {
+                    let mut w = 0;
+                    for c in &hb.children {
+                        let ht = c.height();
+                        if ht > w { w = ht }
+                    }
+                    w
+                }
+            },
+            TeXBox::V(vb) => match vb._height {
+                Some(i) => i,
+                None => {
+                    let mut w = vb.spread;
+                    for c in &vb.children { w += c.height() + HEIGHT_CORRECTION }
+                    w
+                }
+            },
         }
     }
     pub fn depth(&self) -> i64 {
@@ -72,6 +111,8 @@ pub enum Whatsit {
     Ext(Rc<dyn ExtWhatsit>),
     GroupLike(WIGroup),
     Simple(SimpleWI),
+    Char(u8,Rc<Font>,Option<SourceFileReference>),
+    Ls(Vec<Whatsit>)
 }
 
 impl Whatsit {
@@ -82,7 +123,9 @@ impl Whatsit {
             Box(b) => b.width(),
             Ext(e) => e.width(),
             GroupLike(w) => w.width(),
-            Simple(s) => s.width()
+            Simple(s) => s.width(),
+            Char(u,f,_) => f.get_width(*u as u16),
+            Ls(_) => unreachable!()
         }
     }
     pub fn height(&self) -> i64 {
@@ -92,7 +135,9 @@ impl Whatsit {
             Box(b) => b.height(),
             Ext(e) => e.height(),
             GroupLike(w) => w.height(),
-            Simple(s) => s.height()
+            Simple(s) => s.height(),
+            Char(u,f,_) => f.get_height(*u as u16),
+            Ls(_) => unreachable!()
         }
     }
     pub fn depth(&self) -> i64 {
@@ -102,7 +147,9 @@ impl Whatsit {
             Box(b) => b.depth(),
             Ext(e) => e.depth(),
             GroupLike(w) => w.depth(),
-            Simple(s) => s.depth()
+            Simple(s) => s.depth(),
+            Char(u,f,_) => f.get_depth(*u as u16),
+            Ls(_) => unreachable!()
         }
     }
 }

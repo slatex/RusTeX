@@ -5,7 +5,7 @@ use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::stomach::whatsits::{ActionSpec, SimpleWI};
+use crate::stomach::whatsits::{ActionSpec, SimpleWI, Whatsit};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
@@ -338,7 +338,7 @@ pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
     modes: |_| {true},
     _get: |tk,int| {
         let num = int.read_number()?;
-        int.state_get_pdfxform(num as usize)
+        Ok(Whatsit::Simple(int.state_get_pdfxform(num as usize)?))
     }
 };
 
@@ -349,7 +349,7 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
         int.read_keyword(vec!("direct","page"));
         let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
         let rf = int.update_reference(tk);
-        Ok(SimpleWI::PdfLiteral(str,rf))
+        Ok(Whatsit::Simple(SimpleWI::PdfLiteral(str,rf)))
     }
 };
 
@@ -379,7 +379,7 @@ pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
             Some(s) => s,
             None => TeXErr!((int,None),"Expected \"xyz\", \"XYZ\", \"fitr\", \"fitbh\", \"fitbv\", \"fitb\", \"fith\", \"fitv\" or \"fit\" in \\pdfdest")
         };
-        Ok(SimpleWI::PdfDest(target.as_str().into(),dest.as_str().into(),int.update_reference(tk)))
+        Ok(Whatsit::Simple(SimpleWI::PdfDest(target.as_str().into(),dest.as_str().into(),int.update_reference(tk))))
     }
 };
 

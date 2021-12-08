@@ -99,6 +99,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{EmptyStomach, Stomach};
+use crate::stomach::whatsits::Whatsit;
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -209,9 +210,14 @@ impl Interpreter<'_> {
             },
             CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
             CategoryCode::EndGroup => self.pop_group(GroupType::Token),
-            CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical => Ok(()),
+            CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => Ok(()),
+            CategoryCode::Letter | CategoryCode::Other if self.get_mode() == TeXMode::Horizontal || self.get_mode() == TeXMode::RestrictedHorizontal => {
+                let font = self.get_font();
+                let rf = self.update_reference(&next);
+                self.stomach.borrow_mut().add(Whatsit::Char(next.char,font,rf));
+                Ok(())
+            }
             _ => TeXErr!((self,Some(next)),"Urgh!"),
-            _ => todo!("{}, {} >>{}",next,self.current_line(),self.preview())
         }
     }
 
