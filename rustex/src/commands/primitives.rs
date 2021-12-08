@@ -356,7 +356,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
-use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit};
+use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1546,7 +1546,8 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
     name:"lastskip",
     _getvalue: |int| {
         match int.stomach.borrow().last_whatsit() {
-            Some(Whatsit::Simple(SimpleWI::Skip(s,_))) => Ok(Numeric::Skip(s)),
+            Some(Whatsit::Simple(SimpleWI::VSkip(s,_))) => Ok(Numeric::Skip(s)),
+            Some(Whatsit::Simple(SimpleWI::HSkip(s,_))) => Ok(Numeric::Skip(s)),
             _ => Ok(Numeric::Skip(Skip {
                 base:0,stretch:None,shrink:None
             }))
@@ -1606,6 +1607,16 @@ pub static VBOX: ProvidesBox = ProvidesBox {
             }))
         }
     }
+};
+
+pub static LASTBOX: ProvidesBox = ProvidesBox {
+    _get: |_tk,int| {
+        match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Box(tb)) => Ok(tb),
+            _ => Ok(TeXBox::Void)
+        }
+    },
+    name:"lastbox",
 };
 
 pub static COPY: ProvidesBox = ProvidesBox {
@@ -1684,8 +1695,11 @@ pub static DELCODE: NumAssValue = NumAssValue {
 
 pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
-    _assign: |_,int,global| {
+    _assign: |rf,int,global| {
         int.change_state(StateChange::Font(Nullfont.try_with(|x| x.clone()).unwrap(),global));
+        int.stomach.borrow_mut().add(Whatsit::GroupLike(
+            WIGroup::FontChange(Nullfont.try_with(|x| x.clone()).unwrap(),int.update_reference(&rf.0),global,vec!())
+        ));
         Ok(())
     }
 };
@@ -1804,6 +1818,30 @@ pub static VFILL: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(Whatsit::Simple(SimpleWI::VFill(int.update_reference(tk))))
+    }
+};
+
+pub static VSKIP: SimpleWhatsit = SimpleWhatsit {
+    name:"vskip",
+    modes:|m| match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        let sk = int.read_skip()?;
+        Ok(Whatsit::Simple(SimpleWI::VSkip(sk,int.update_reference(tk))))
+    }
+};
+
+pub static HSKIP: SimpleWhatsit = SimpleWhatsit {
+    name:"hskip",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        let sk = int.read_skip()?;
+        Ok(Whatsit::Simple(SimpleWI::HSkip(sk,int.update_reference(tk))))
     }
 };
 
@@ -3318,12 +3356,6 @@ pub static HRULE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HSKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HSS: PrimitiveExecutable = PrimitiveExecutable {
     name:"hss",
     expandable:true,
@@ -3344,12 +3376,6 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
     name:"italiccorr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LASTBOX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lastbox",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3498,12 +3524,6 @@ pub static VCENTER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static VSKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"vfilneg",
     expandable:true,
@@ -3578,6 +3598,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFILL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VSKIP)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HSKIP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
@@ -3626,6 +3648,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&LASTBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&COPY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
@@ -3884,12 +3907,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&HALIGN),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
     PrimitiveTeXCommand::Primitive(&HRULE),
-    PrimitiveTeXCommand::Primitive(&HSKIP),
     PrimitiveTeXCommand::Primitive(&HSS),
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
-    PrimitiveTeXCommand::Primitive(&LASTBOX),
     PrimitiveTeXCommand::Primitive(&LASTPENALTY),
     PrimitiveTeXCommand::Primitive(&LASTKERN),
     PrimitiveTeXCommand::Primitive(&LEADERS),
@@ -3914,7 +3935,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&UNPENALTY),
     PrimitiveTeXCommand::Primitive(&VADJUST),
     PrimitiveTeXCommand::Primitive(&VCENTER),
-    PrimitiveTeXCommand::Primitive(&VSKIP),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
     PrimitiveTeXCommand::Primitive(&VSS),

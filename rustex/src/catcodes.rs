@@ -114,7 +114,7 @@ lazy_static! {
             catcodes,
             newlinechar:10,
             endlinechar:13,
-            escapechar:255
+            escapechar:92
         }
     };
     pub static ref STARTING_SCHEME : CategoryCodeScheme = {

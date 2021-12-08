@@ -5,7 +5,7 @@ use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::stomach::whatsits::{ActionSpec, SimpleWI, Whatsit};
+use crate::stomach::whatsits::{ActionSpec, SimpleWI, Whatsit, WIGroup};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
@@ -261,14 +261,20 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
         let num = int.read_number()?;
         let prestring = int.read_keyword(vec!("push", "pop", "set", "current"))?;
         match prestring {
-            Some(s) if s == "pop" => int.state_color_pop(num as usize),
+            Some(s) if s == "pop" => {
+                int.state_color_pop(num as usize);
+                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorEnd(int.update_reference(&tk.0))))
+            },
             Some(s) if s == "set" => {
-                let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
-                int.state_color_set(num as usize,color.into())
+                let color: TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
+                int.state_color_set(num as usize,color.clone());
+                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorEnd(int.update_reference(&tk.0))));
+                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorChange(color,int.update_reference(&tk.0),vec!())))
             }
             Some(s) if s == "push" => {
-                let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
-                int.state_color_push(num as usize,color.into())
+                let color : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
+                int.state_color_push(num as usize,color.clone());
+                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorChange(color,int.update_reference(&tk.0),vec!())))
             }
             Some(s) if s == "current" => todo!(),
             _ => TeXErr!((int,None),"Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")

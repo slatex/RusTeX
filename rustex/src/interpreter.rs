@@ -176,6 +176,21 @@ impl Interpreter<'_> {
 
     pub fn do_top(&self,next:Token) -> Result<(),TeXError> {
         use crate::commands::primitives;
+        if !self.state.borrow().indocument {
+            let line = self.state.borrow().indocument_line;
+            match line {
+                Some(i) if self.line_no() > i => {
+                    self.state.borrow_mut().indocument_line = None;
+                    self.stomach.borrow_mut().on_begin_document(self)
+                }
+                _ => match next.catcode {
+                    CategoryCode::Escape if next.cmdname() == "document" => {
+                        self.state.borrow_mut().indocument_line = Some(self.line_no())
+                    }
+                    _ => ()
+                }
+            }
+        }
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let p = self.get_command(&next.cmdname())?;
@@ -204,6 +219,9 @@ impl Interpreter<'_> {
                         let next = w.get(&next,self)?;
                         Ok(self.stomach.borrow_mut().add(next))
                     },
+                    PrimitiveTeXCommand::Whatsit(_) if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => {
+                        Ok(self.switch_to_H(next))
+                    }
                     _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
 
                 }
@@ -211,14 +229,23 @@ impl Interpreter<'_> {
             CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
             CategoryCode::EndGroup => self.pop_group(GroupType::Token),
             CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => Ok(()),
-            CategoryCode::Letter | CategoryCode::Other if self.get_mode() == TeXMode::Horizontal || self.get_mode() == TeXMode::RestrictedHorizontal => {
+            CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space if self.get_mode() == TeXMode::Horizontal || self.get_mode() == TeXMode::RestrictedHorizontal => {
                 let font = self.get_font();
                 let rf = self.update_reference(&next);
                 self.stomach.borrow_mut().add(Whatsit::Char(next.char,font,rf));
                 Ok(())
             }
+            CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space => Ok(self.switch_to_H(next)),
             _ => TeXErr!((self,Some(next)),"Urgh!"),
         }
+    }
+
+    fn switch_to_H(&self,next:Token) {
+        self.requeue(next);
+        self.state.borrow_mut().mode = TeXMode::Horizontal;
+        self.insert_every(&crate::commands::primitives::EVERYPAR);
+        let indent = self.state.borrow().get_dimension(-(crate::commands::primitives::PARINDENT.index as i32));
+        self.stomach.borrow_mut().start_paragraph(indent)
     }
 
     pub fn current_line(&self) -> String {

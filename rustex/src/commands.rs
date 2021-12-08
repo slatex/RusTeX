@@ -132,7 +132,7 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, SimpleWI, TeXBox, Whatsit};
+use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, SimpleWI, TeXBox, Whatsit, WIGroup};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -697,6 +697,7 @@ impl PrimitiveTeXCommand {
         use crate::utils::u8toi16;
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
+        use crate::stomach::whatsits::Whatsit;
 
         let globals = int.state_register(-(GLOBALDEFS.index as i32));
         let global = !(globals < 0) && ( globally || globals > 0 );
@@ -716,11 +717,15 @@ impl PrimitiveTeXCommand {
                     Ok(())
                 }
                 AssignableValue::Font(f) => {
-                    (f._assign)(rf,int,global)
+                    (f._assign)(rf,int,global);
+                    Ok(())
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
                     int.change_state(StateChange::Font(f.clone(),global));
+                    int.stomach.borrow_mut().add(Whatsit::GroupLike(
+                        WIGroup::FontChange(f.clone(),int.update_reference(&rf.0),global,vec!())
+                    ));
                     Ok(())
                 },
                 AssignableValue::Dim(i) => {

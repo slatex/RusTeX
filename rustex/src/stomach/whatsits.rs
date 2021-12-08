@@ -36,6 +36,19 @@ static WIDTH_CORRECTION : i64 = 0;
 static HEIGHT_CORRECTION : i64 = 0;
 
 impl TeXBox {
+    pub fn has_ink(&self) -> bool {
+        match self {
+            TeXBox::Void => false,
+            TeXBox::H(hb) => {
+                for c in &hb.children { if c.has_ink() { return true } }
+                false
+            }
+            TeXBox::V(vb) => {
+                for c in &vb.children { if c.has_ink() { return true } }
+                false
+            }
+        }
+    }
     pub fn width(&self) -> i64 {
         match self {
             TeXBox::Void => 0,
@@ -112,10 +125,24 @@ pub enum Whatsit {
     GroupLike(WIGroup),
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
-    Ls(Vec<Whatsit>)
+    Ls(Vec<Whatsit>),
+    Grouped(WIGroup)
 }
 
 impl Whatsit {
+    pub fn has_ink(&self) -> bool {
+        use Whatsit::*;
+        match self {
+            Exec(_) => false,
+            Box(b) => b.has_ink(),
+            Ext(e) => e.has_ink(),
+            GroupLike(w) => w.has_ink(),
+            Grouped(w) => w.has_ink(),
+            Simple(s) => s.has_ink(),
+            Char(u,f,_) => true,
+            Ls(_) => unreachable!()
+        }
+    }
     pub fn width(&self) -> i64 {
         use Whatsit::*;
         match self {
@@ -123,6 +150,7 @@ impl Whatsit {
             Box(b) => b.width(),
             Ext(e) => e.width(),
             GroupLike(w) => w.width(),
+            Grouped(w) => w.width(),
             Simple(s) => s.width(),
             Char(u,f,_) => f.get_width(*u as u16),
             Ls(_) => unreachable!()
@@ -135,6 +163,7 @@ impl Whatsit {
             Box(b) => b.height(),
             Ext(e) => e.height(),
             GroupLike(w) => w.height(),
+            Grouped(w) => w.height(),
             Simple(s) => s.height(),
             Char(u,f,_) => f.get_height(*u as u16),
             Ls(_) => unreachable!()
@@ -147,6 +176,7 @@ impl Whatsit {
             Box(b) => b.depth(),
             Ext(e) => e.depth(),
             GroupLike(w) => w.depth(),
+            Grouped(w) => w.depth(),
             Simple(s) => s.depth(),
             Char(u,f,_) => f.get_depth(*u as u16),
             Ls(_) => unreachable!()
@@ -156,12 +186,46 @@ impl Whatsit {
 
 #[derive(Clone)]
 pub enum WIGroup {
-
+    FontChange(Rc<Font>,Option<SourceFileReference>,bool,Vec<Whatsit>),
+    ColorChange(TeXStr,Option<SourceFileReference>,Vec<Whatsit>),
+    ColorEnd(Option<SourceFileReference>)
 }
 impl WIGroup {
+    pub fn has_ink(&self) -> bool {
+        use Whatsit::*;
+        for x in self.children() { if x.has_ink() {return true} }
+        false
+    }
+    pub fn children_d(self) -> Vec<Whatsit> {
+        match self {
+            WIGroup::FontChange(_,_,_,v) => v,
+            WIGroup::ColorChange(_,_,v) => v,
+            WIGroup::ColorEnd(_) => unreachable!()
+        }
+    }
+    pub fn children(&self) -> &Vec<Whatsit> {
+        match self {
+            WIGroup::FontChange(_,_,_,v) => v,
+            WIGroup::ColorChange(_,_,v) => v,
+            WIGroup::ColorEnd(_) => unreachable!()
+        }
+    }
+    pub fn new_from(&self,children:Vec<Whatsit>) -> WIGroup {
+        match self {
+            WIGroup::FontChange(f,r,b,_) => WIGroup::FontChange(f.clone(),r.clone(),*b,children),
+            WIGroup::ColorChange(c,r,_) => WIGroup::ColorChange(c.clone(),r.clone(),children),
+            WIGroup::ColorEnd(_) => unreachable!()
+        }
+    }
     pub fn width(&self) -> i64 { todo!( )}
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}
+    pub fn closesWithGroup(&self) -> bool {
+        match self {
+            WIGroup::FontChange(_,_,b,_) => !*b,
+            _ => false
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -181,6 +245,8 @@ pub enum SimpleWI {
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
     VFil(Option<SourceFileReference>),
     VFill(Option<SourceFileReference>),
+    VSkip(Skip,Option<SourceFileReference>),
+    HSkip(Skip,Option<SourceFileReference>),
     HFil(Option<SourceFileReference>),
     HFill(Option<SourceFileReference>),
     Penalty(i64),
@@ -189,10 +255,18 @@ pub enum SimpleWI {
     Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
     Raise(i64,TeXBox,Option<SourceFileReference>),
     Kern(i64,Option<SourceFileReference>),
-    Skip(Skip,Option<SourceFileReference>),
     PdfDest(TeXStr,TeXStr,Option<SourceFileReference>)
 }
 impl SimpleWI {
+    pub fn has_ink(&self) -> bool {
+        use SimpleWI::*;
+        match self {
+            VRule(_,_,_,_) => true,
+            VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
+            PdfLiteral(_,_) | Pdfxform(_,_,_,_) | Kern(_,_) | PdfDest(_,_,_) => false,
+            Raise(_,bx,_) => bx.has_ink()
+        }
+    }
     pub fn width(&self) -> i64 { todo!( )}
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}
@@ -211,6 +285,7 @@ pub trait ExtWhatsit {
     fn height(&self) -> i64;
     fn width(&self) -> i64;
     fn depth(&self) -> i64;
+    fn has_ink(&self) -> bool;
 }
 
 // -------------------------------------------------------------------------------------------------

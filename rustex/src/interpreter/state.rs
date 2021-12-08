@@ -148,7 +148,9 @@ pub struct State {
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
     pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
-    pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>
+    pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>,
+    pub(in crate) indocument_line:Option<usize>,
+    pub(in crate) indocument:bool
 }
 
 // sudo apt install libkpathsea-dev
@@ -168,7 +170,8 @@ impl State {
             pdfmatches : vec!(),
             pdfobjs : HashMap::new(),
             pdfcolorstacks: vec!(vec!()),
-            pdfxforms:vec!()
+            pdfxforms:vec!(),
+            indocument_line:None,indocument:false
         }
     }
 
@@ -547,7 +550,7 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit};
+use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit, WIGroup};
 
 impl Interpreter<'_> {
     pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {
