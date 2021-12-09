@@ -29,3 +29,4 @@ name = "kpathsea"
 [dependencies]
 kpathsea_sys = { path = "../kpathsea_sys" }
 which="2.0.1"
+lazy_static = "1.4.0"

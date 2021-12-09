@@ -322,7 +322,9 @@ impl SimpleWI {
             Raise(_,bx,_) => bx.has_ink()
         }
     }
-    pub fn width(&self) -> i64 { todo!( )}
+    pub fn width(&self) -> i64 {
+        todo!( )
+    }
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}
 }

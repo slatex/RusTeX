@@ -106,6 +106,12 @@ pub trait Stomach {
             let ret = self.base_mut().buffer.pop().unwrap();
             match ret {
                 StomachGroup::Par(p) => Ok(p),
+                StomachGroup::TeXGroup(gt,v) => {
+                    for c in v { self.add(int,c)? }
+                    let ret = self.end_paragraph_loop(int)?;
+                    self.base_mut().buffer.push(StomachGroup::TeXGroup(gt,vec!()));
+                    Ok(ret)
+                }
                 _ => todo!()
             }
         }

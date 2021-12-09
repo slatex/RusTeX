@@ -4,7 +4,19 @@
 use kpathsea_sys::*;
 use std::ffi::{CStr,CString};
 use which::which;
+use lazy_static::lazy_static;
 
+lazy_static! {
+  /// loads the kpathsea library
+  pub static ref kpathsealib : Kpathsea = {
+    #[cfg(unix)]
+    let path = "libkpathsea.so";
+    #[cfg(windows)]
+    let path = "kpathsealib.dll";
+    unsafe { Kpathsea::new(/*process_path::get_executable_path().unwrap().to_str().unwrap().to_string() +*/path).unwrap() }
+
+  };
+}
 /// External result type for handling library errors
 pub type Result<T> = std::result::Result<T, &'static str>;
 
@@ -26,7 +38,7 @@ fn get_kpsewhich_path() -> Result<CString> {
 impl Kpaths {
   /// Obtain a new kpathsea struct, with metadata for the current rust executable
   pub fn new() -> Result<Self> {
-    let kpse = unsafe { kpathsea_new() };
+    let kpse = unsafe { kpathsealib.kpathsea_new() };
 
     // kpathsea says we should pass in the current executable name to
     // kpathsea_set_program_name, but there are cases where this causes
@@ -36,7 +48,7 @@ impl Kpaths {
     let kpsewhich_path = get_kpsewhich_path()?;
 
     unsafe {
-      kpathsea_set_program_name(
+      kpathsealib.kpathsea_set_program_name(
         kpse,
         kpsewhich_path.as_ptr(),
         std::ptr::null()
@@ -57,7 +69,7 @@ impl Kpaths {
         // If this format hasn't been initialized yet, initialize it now.
         // Otherwise, it won't have the list of suffixes initialized.
         unsafe {
-          kpathsea_init_format(self.0, format_type as kpse_file_format_type);
+          kpathsealib.kpathsea_init_format(self.0, format_type as kpse_file_format_type);
         }
       }
 
@@ -107,7 +119,7 @@ impl Kpaths {
     let c_name = CString::new(name).unwrap();
 
     let file_format_type = self.guess_format_from_filename(name);
-    let c_filename_buf = unsafe { kpathsea_find_file(
+    let c_filename_buf = unsafe { kpathsealib.kpathsea_find_file(
       self.0,
       c_name.as_ptr(),
       file_format_type,
@@ -131,6 +143,6 @@ impl Kpaths {
 impl Drop for Kpaths {
   /// Cleanup the kpathsea pointer in the destructor
   fn drop(&mut self) {
-    unsafe { kpathsea_finish(self.0) };
+    unsafe { kpathsealib.kpathsea_finish(self.0) };
   }
 }

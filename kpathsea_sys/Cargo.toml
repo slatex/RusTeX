@@ -31,3 +31,6 @@ rustdoc-args = ["--cfg", "kpathsea_docs_rs"]
 name = "kpathsea_sys"
 [build-dependencies.pkg-config]
 version = "0.3.2"
+
+[dependencies]
+libloading = "0.7.2"

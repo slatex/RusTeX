@@ -1,6 +1,6 @@
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use rustex::interpreter::Interpreter;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXString;
