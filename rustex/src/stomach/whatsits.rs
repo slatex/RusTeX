@@ -1,3 +1,4 @@
+use std::cmp::max;
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
@@ -35,20 +36,21 @@ pub enum TeXBox {
 static WIDTH_CORRECTION : i64 = 0;
 static HEIGHT_CORRECTION : i64 = 0;
 
-impl TeXBox {
-    fn iter(f:&mut dyn FnMut (&Whatsit) -> (),v : &Vec<Whatsit>) {
-        for r in v {
-            match r {
-                Whatsit::Grouped(wi) => TeXBox::iter(f, wi.children()),
-                r => f(r)
-            }
+fn iterate_primitives(f:&mut dyn FnMut (&Whatsit) -> (), v : &Vec<Whatsit>) {
+    for r in v {
+        match r {
+            Whatsit::Grouped(wi) => iterate_primitives(f, wi.children()),
+            r => f(r)
         }
     }
+}
+
+impl TeXBox {
     pub fn primitive_children(&self,f:&mut dyn FnMut (&Whatsit) -> ()) {
         match self {
             TeXBox::Void => (),
-            TeXBox::H(hb) => TeXBox::iter(f,&hb.children),
-            TeXBox::V(vb) => TeXBox::iter(f,&vb.children),
+            TeXBox::H(hb) => iterate_primitives(f, &hb.children),
+            TeXBox::V(vb) => iterate_primitives(f, &vb.children),
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -142,7 +144,8 @@ pub enum Whatsit {
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
     Ls(Vec<Whatsit>),
-    Grouped(WIGroup)
+    Grouped(WIGroup),
+    Par(Paragraph)
 }
 
 impl Whatsit {
@@ -156,6 +159,7 @@ impl Whatsit {
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
             Char(u,f,_) => true,
+            Par(p) => true,
             Ls(_) => unreachable!()
         }
     }
@@ -169,6 +173,7 @@ impl Whatsit {
             Grouped(w) => w.width(),
             Simple(s) => s.width(),
             Char(u,f,_) => f.get_width(*u as u16),
+            Par(p) => p.width(),
             Ls(_) => unreachable!()
         }
     }
@@ -182,6 +187,7 @@ impl Whatsit {
             Grouped(w) => w.height(),
             Simple(s) => s.height(),
             Char(u,f,_) => f.get_height(*u as u16),
+            Par(p) => p.height(),
             Ls(_) => unreachable!()
         }
     }
@@ -195,6 +201,7 @@ impl Whatsit {
             Grouped(w) => w.depth(),
             Simple(s) => s.depth(),
             Char(u,f,_) => f.get_depth(*u as u16),
+            Par(p) => p.depth(),
             Ls(_) => unreachable!()
         }
     }
@@ -336,8 +343,74 @@ pub trait ExtWhatsit {
     fn has_ink(&self) -> bool;
 }
 
-// -------------------------------------------------------------------------------------------------
+#[derive(Clone)]
+pub struct Paragraph {
+    pub indent:Option<i64>,
+    pub parskip:i64,
+    pub children:Vec<Whatsit>,
+    leftskip:Option<i64>,
+    rightskip:Option<i64>,
+    hsize:Option<i64>,
+    lineheight:Option<i64>,
+    pub _width:i64,
+    pub _height:i64,
+    pub _depth:i64
+    /*
+    if (leftskip == null) leftskip = parser.state.getSkip(PrimitiveRegisters.leftskip.index).getOrElse(Skip(Point(0),None,None))
+    if (rightskip == null) rightskip = parser.state.getSkip(PrimitiveRegisters.rightskip.index).getOrElse(Skip(Point(0),None,None))
+    if (hsize == null) hsize = parser.state.getDimen(PrimitiveRegisters.hsize.index).getOrElse(Point(0))
+    if (hgoal == null) hgoal = hsize + leftskip.base.negate + rightskip.base.negate
+    if (lineheight == null) lineheight = parser.state.getSkip(PrimitiveRegisters.baselineskip.index).map(_.base).getOrElse(Point(Point.toSp(13.0)))
+     */
+}
 
-pub struct VRule {
-    reference : SourceFileReference
+impl Paragraph {
+    pub fn close(&mut self,int:&Interpreter) {
+        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
+        self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
+        self.lineheight.get_or_insert(int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
+        self.hsize.get_or_insert(int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32)));
+        self._width = self.hsize.unwrap() - (self.leftskip.unwrap()  + self.rightskip.unwrap());
+        let mut currentwidth : i64 = 0;
+        let mut currentheight : i64 = 0;
+        let mut currentlineheight : i64 = 0;
+        let mut currentdepth : i64 = 0;
+        let hgoal = self._width;
+        let lineheight = self.lineheight.unwrap();
+        iterate_primitives(&mut move |wi| {
+            match wi {
+                Whatsit::Simple(SimpleWI::Penalty(i)) if *i <= -10000 => {
+                    currentwidth = 0;
+                    currentheight += currentlineheight;
+                    currentlineheight = 0;
+                    currentdepth = 0;
+                }
+                wi => {
+                    let width = wi.width();
+                    if currentwidth + width > hgoal {
+                        currentwidth = 0;
+                        currentheight += currentlineheight;
+                        currentlineheight = 0;
+                        currentdepth = 0;
+                    }
+                    currentlineheight = max(currentlineheight,match wi {
+                        Whatsit::Char(_,_,_) => max(wi.height(),lineheight),
+                        _ => wi.height()
+                    });
+                    currentdepth = max(currentdepth,wi.depth());
+                    currentwidth += width
+                }
+            }
+        }, &self.children);
+        self._height = currentheight + currentlineheight;
+        self._depth = currentdepth;
+    }
+    pub fn new(indent:Option<i64>,parskip:i64) -> Paragraph { Paragraph {
+        indent,parskip,children:vec!(),
+        leftskip:None,rightskip:None,hsize:None,lineheight:None,
+        _width:0,_height:0,_depth:0
+    }}
+    pub fn width(&self) -> i64 { self._width }
+    pub fn height(&self) -> i64 { self._height }
+    pub fn depth(&self) -> i64 { self._depth }
 }

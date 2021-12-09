@@ -150,7 +150,8 @@ pub struct State {
     pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
     pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>,
     pub(in crate) indocument_line:Option<usize>,
-    pub(in crate) indocument:bool
+    pub(in crate) indocument:bool,
+    pub(in crate) insetbox:bool
 }
 
 // sudo apt install libkpathsea-dev
@@ -171,7 +172,7 @@ impl State {
             pdfobjs : HashMap::new(),
             pdfcolorstacks: vec!(vec!()),
             pdfxforms:vec!(),
-            indocument_line:None,indocument:false
+            indocument_line:None,indocument:false,insetbox:false
         }
     }
 

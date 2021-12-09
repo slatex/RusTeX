@@ -53,7 +53,7 @@ impl Jobinfo {
 }
 
 pub struct Interpreter<'a> {
-    state:RefCell<State>,
+    pub (in crate) state:RefCell<State>,
     pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
     filestore:RefCell<FileStore>,
@@ -99,7 +99,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach};
-use crate::stomach::whatsits::Whatsit;
+use crate::stomach::whatsits::{SimpleWI, Whatsit};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -137,6 +137,21 @@ impl Interpreter<'_> {
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         while self.has_next() {
             let next = self.next_token();
+            if !self.state.borrow().indocument {
+                let line = self.state.borrow().indocument_line;
+                match line {
+                    Some(i) if self.line_no() > i => {
+                        self.state.borrow_mut().indocument_line = None;
+                        self.stomach.borrow_mut().on_begin_document(self)
+                    }
+                    _ => match next.catcode {
+                        CategoryCode::Escape if next.cmdname() == "document" => {
+                            self.state.borrow_mut().indocument_line = Some(self.line_no())
+                        }
+                        _ => ()
+                    }
+                }
+            }
             match self.do_top(next) {
                 Ok(_) => {},
                 Err(s) => s.throw()
@@ -152,6 +167,21 @@ impl Interpreter<'_> {
         int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
             let next = int.next_token();
+            if !int.state.borrow().indocument {
+                let line = int.state.borrow().indocument_line;
+                match line {
+                    Some(i) if int.line_no() > i => {
+                        int.state.borrow_mut().indocument_line = None;
+                        int.stomach.borrow_mut().on_begin_document(&int)
+                    }
+                    _ => match next.catcode {
+                        CategoryCode::Escape if next.cmdname() == "document" => {
+                            int.state.borrow_mut().indocument_line = Some(int.line_no())
+                        }
+                        _ => ()
+                    }
+                }
+            }
             match int.do_top(next) {
                 Ok(_) => {},
                 Err(s) => s.throw()
@@ -176,21 +206,6 @@ impl Interpreter<'_> {
 
     pub fn do_top(&self,next:Token) -> Result<(),TeXError> {
         use crate::commands::primitives;
-        if !self.state.borrow().indocument {
-            let line = self.state.borrow().indocument_line;
-            match line {
-                Some(i) if self.line_no() > i => {
-                    self.state.borrow_mut().indocument_line = None;
-                    self.stomach.borrow_mut().on_begin_document(self)
-                }
-                _ => match next.catcode {
-                    CategoryCode::Escape if next.cmdname() == "document" => {
-                        self.state.borrow_mut().indocument_line = Some(self.line_no())
-                    }
-                    _ => ()
-                }
-            }
-        }
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
                 let p = self.get_command(&next.cmdname())?;
@@ -200,7 +215,10 @@ impl Interpreter<'_> {
                     return p.expand(next,self)
                 }
                 match &*p.orig {
-                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.get_mode() == TeXMode::Vertical => Ok(()),
+                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && (self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical) => Ok(()),
+                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.get_mode() == TeXMode::Horizontal => {
+                        self.stomach.borrow_mut().end_paragraph(self)
+                    },
                     PrimitiveTeXCommand::Primitive(np) => {
                         let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
                         np.apply(&mut exp,self)?;
@@ -244,7 +262,8 @@ impl Interpreter<'_> {
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::primitives::EVERYPAR);
         let indent = self.state.borrow().get_dimension(-(crate::commands::primitives::PARINDENT.index as i32));
-        self.stomach.borrow_mut().start_paragraph(indent)
+        let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
+        self.stomach.borrow_mut().start_paragraph(indent,parskip.base)
     }
 
     pub fn current_line(&self) -> String {

@@ -7,19 +7,9 @@ use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::GroupType;
 use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::WIGroup;
+use crate::stomach::whatsits::Paragraph;
 
 pub mod whatsits;
-
-pub struct Paragraph {
-    pub indent:Option<i64>,
-    pub children:Vec<Whatsit>,
-}
-
-impl Paragraph {
-    pub fn new(indent:Option<i64>) -> Paragraph { Paragraph {
-        indent,children:vec!()
-    }}
-}
 
 pub enum StomachGroup {
     Top(Vec<Whatsit>),
@@ -33,7 +23,7 @@ impl StomachGroup {
         match self {
             Top(_) => unreachable!(),
             TeXGroup(gt,_) => TeXGroup(gt.clone(),vec!()),
-            Par(p) => Par(Paragraph::new(p.indent)),
+            Par(p) => Par(Paragraph::new(p.indent,p.parskip)),
             Other(wig) => Other(wig.new_from())
         }
     }
@@ -67,6 +57,17 @@ impl StomachGroup {
             _ => todo!()
         }
     }
+    pub fn get_mut(&mut self) -> &mut Vec<Whatsit> {
+        use StomachGroup::*;
+        match self {
+            Top(t) => t.borrow_mut(),
+            TeXGroup(_,t) => t.borrow_mut(),
+            Par(t) => t.children.borrow_mut(),
+            Other(WIGroup::FontChange(_,_,_,t)) => t.borrow_mut(),
+            Other(WIGroup::ColorChange(_,_,t)) => t.borrow_mut(),
+            _ => todo!()
+        }
+    }
     pub fn get_d(self) -> Vec<Whatsit> {
         use StomachGroup::*;
         match self {
@@ -88,8 +89,26 @@ pub trait Stomach {
 
     // ---------------------------------------------------------------------------------------------
 
-    fn start_paragraph(&mut self,indent: i64) {
-        self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(Some(indent))))
+    fn start_paragraph(&mut self,indent: i64,parskip:i64) {
+        self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(Some(indent),parskip)))
+    }
+
+    fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
+        let mut p = self.end_paragraph_loop(int)?;
+        p.close(int);
+        self.add(int,Whatsit::Par(p))
+    }
+
+    fn end_paragraph_loop(&mut self,int:&Interpreter) -> Result<Paragraph,TeXError> {
+        if self.base().buffer.len() < 2 {
+            TeXErr!((int,None),"Can't close paragraph in stomach!")
+        } else {
+            let ret = self.base_mut().buffer.pop().unwrap();
+            match ret {
+                StomachGroup::Par(p) => Ok(p),
+                _ => todo!()
+            }
+        }
     }
 
     fn new_group(&mut self,tp:GroupType) {
@@ -268,6 +287,27 @@ pub trait Stomach {
         }
     }
 
+    fn drop_last(&mut self) {
+        let buf = &mut self.base_mut().buffer;
+        for ls in buf.iter_mut().rev() {
+            for (i,v) in ls.get().iter().enumerate().rev() {
+                match v {
+                    Whatsit::Box(_) => {
+                        ls.get_mut().remove(i);
+                        return ()
+                    },
+                    Whatsit::Simple(_) => {
+                        ls.get_mut().remove(i);
+                        return ()
+                    },
+                    Whatsit::Grouped(_) => return (),
+                    _ => ()
+                }
+            }
+        }
+
+    }
+
     fn last_whatsit(&self) -> Option<Whatsit> {
         let buf = &self.base().buffer;
         for ls in buf.iter().rev() {
@@ -275,6 +315,7 @@ pub trait Stomach {
                 match v {
                     w@Whatsit::Box(_) => return Some(w.clone()),
                     w@Whatsit::Simple(_) => return Some(w.clone()),
+                    Whatsit::Grouped(_) => return None,
                     _ => ()
                 }
             }

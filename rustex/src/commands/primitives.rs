@@ -1560,6 +1560,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_rf,int,global| {
         let index = int.read_number()? as u16;
         int.read_eq();
+        int.state.borrow_mut().insetbox = true;
         let wi = int.read_box()?;
         int.change_state(StateChange::Box(index as i32,wi,global));
         Ok(())
@@ -1617,6 +1618,20 @@ pub static LASTBOX: ProvidesBox = ProvidesBox {
         }
     },
     name:"lastbox",
+};
+
+pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unskip",
+    expandable:false,
+    _apply:|_tk,int| {
+        match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::HSkip(_,_) | SimpleWI::VSkip(_,_))) => {
+                int.stomach.borrow_mut().drop_last()
+            },
+            _ => ()
+        }
+        Ok(())
+    }
 };
 
 pub static COPY: ProvidesBox = ProvidesBox {
@@ -3489,12 +3504,6 @@ pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNDERLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"underline",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unskip",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

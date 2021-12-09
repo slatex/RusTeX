@@ -292,6 +292,10 @@ impl Interpreter<'_> {
                     BoxMode::DM => TeXMode::Displaymath,
                     _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
                 });
+                if self.state.borrow().insetbox {
+                    self.state.borrow_mut().insetbox = false;
+                    self.insert_afterassignment();
+                }
                 self.read_whatsits()?;
                 let ret = self.get_whatsit_group(GroupType::Box(bm))?;
                 self.set_mode(_oldmode);
