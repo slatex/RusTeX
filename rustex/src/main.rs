@@ -13,19 +13,12 @@ fn do_latexltx() {
 }
 
 fn do_thesis() {
-    use rustex::interpreter::state::default_pdf_latex_state;
-    let state = default_pdf_latex_state();
-    //unsafe{ rustex::LOG = true };
-    let mut stomach = NoShipoutRoutine::new();
-    let mut int = Interpreter::with_state(state,stomach.borrow_mut());
-    int.do_file(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"));
+    do_other("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex")
 }
 
-fn do_other() {
+fn do_other(filename : &str) {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
-    let filename = "/home/jazzpirate/work/Software/ext/sTeX/doc/stex.tex";
-    //unsafe{ rustex::LOG = true };
     let mut stomach = NoShipoutRoutine::new();
     let mut int = Interpreter::with_state(state,stomach.borrow_mut());
     int.do_file(Path::new(filename));
@@ -72,8 +65,23 @@ fn main() {
     //let test2 : TeXString = test.as_bytes().into();
     //println!("{}",rustex::HYPHEN_CFG);
     //println!("{}\n\n{}",test,test2);
-    //do_latexltx()
-    do_thesis()
+    //do_latexltx();
+    let mut args: Vec<String> = std::env::args().collect();
+    args.remove(0);
+    if args.is_empty() {
+        do_latexltx()
+    } else {
+        let mut str = "".to_string();
+        for s in args {
+            str += &s;
+            if s.ends_with("\\") {
+                str.pop();
+                str.push(' ')
+            } else { break }
+        }
+        do_other(&str)
+    }
+    //do_thesis()
     //do_other()
 
 }

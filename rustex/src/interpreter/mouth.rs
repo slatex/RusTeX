@@ -146,6 +146,7 @@ impl StringMouth {
         }
     }
     pub(in crate::interpreter) fn read(&mut self, catcodes:&CategoryCodeScheme, nocomment:bool) -> Vec<Token> {
+        self.has_next(catcodes,nocomment,false);
         let currentline = self.line;
         let mut ret:Vec<Token> = vec!();
         let mut braces = 0;
