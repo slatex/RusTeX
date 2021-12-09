@@ -263,18 +263,18 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
         match prestring {
             Some(s) if s == "pop" => {
                 int.state_color_pop(num as usize);
-                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorEnd(int.update_reference(&tk.0))))
+                int.stomach.borrow_mut().add(int,Whatsit::GroupClose(WIGroup::ColorEnd(int.update_reference(&tk.0))))?
             },
             Some(s) if s == "set" => {
                 let color: TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
                 int.state_color_set(num as usize,color.clone());
-                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorEnd(int.update_reference(&tk.0))));
-                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorChange(color,int.update_reference(&tk.0),vec!())))
+                int.stomach.borrow_mut().add(int,Whatsit::GroupClose(WIGroup::ColorEnd(int.update_reference(&tk.0))))?;
+                int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(WIGroup::ColorChange(color, int.update_reference(&tk.0), vec!())))?
             }
             Some(s) if s == "push" => {
                 let color : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
                 int.state_color_push(num as usize,color.clone());
-                int.stomach.borrow_mut().add(Whatsit::GroupLike(WIGroup::ColorChange(color,int.update_reference(&tk.0),vec!())))
+                int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(WIGroup::ColorChange(color, int.update_reference(&tk.0), vec!())))?
             }
             Some(s) if s == "current" => todo!(),
             _ => TeXErr!((int,None),"Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")

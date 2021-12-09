@@ -660,7 +660,7 @@ impl Interpreter<'_> {
     pub fn new_group(&self,tp:GroupType) {
         log!("Push: {}",tp);
         self.state.borrow_mut().push(self.catcodes.borrow().clone(),tp);
-        self.stomach.borrow_mut().new_group();
+        self.stomach.borrow_mut().new_group(tp);
     }
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
@@ -672,8 +672,7 @@ impl Interpreter<'_> {
         scc.endlinechar = cc.endlinechar;
         scc.newlinechar = cc.newlinechar;
         scc.escapechar = cc.escapechar;
-        self.stomach.borrow_mut().close_group(self);
-        Ok(())
+        self.stomach.borrow_mut().close_group(self)
     }
     pub fn get_whatsit_group(&self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
         log!("Pop: {}",tp);

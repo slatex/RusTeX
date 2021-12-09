@@ -98,7 +98,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
     ret.into()
 }
 
-use crate::stomach::{EmptyStomach, Stomach};
+use crate::stomach::{NoShipoutRoutine, Stomach};
 use crate::stomach::whatsits::Whatsit;
 
 impl Interpreter<'_> {
@@ -144,7 +144,7 @@ impl Interpreter<'_> {
         }
     }
     pub fn do_file_with_state(p : &Path, s : State) -> State {
-        let mut stomach = EmptyStomach::new();
+        let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut());
         int.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
@@ -217,7 +217,7 @@ impl Interpreter<'_> {
                     },
                     PrimitiveTeXCommand::Whatsit(w) if w.allowed_in(self.get_mode()) => {
                         let next = w.get(&next,self)?;
-                        Ok(self.stomach.borrow_mut().add(next))
+                        self.stomach.borrow_mut().add(self,next)
                     },
                     PrimitiveTeXCommand::Whatsit(_) if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => {
                         Ok(self.switch_to_H(next))
@@ -232,8 +232,7 @@ impl Interpreter<'_> {
             CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space if self.get_mode() == TeXMode::Horizontal || self.get_mode() == TeXMode::RestrictedHorizontal => {
                 let font = self.get_font();
                 let rf = self.update_reference(&next);
-                self.stomach.borrow_mut().add(Whatsit::Char(next.char,font,rf));
-                Ok(())
+                self.stomach.borrow_mut().add(self,Whatsit::Char(next.char,font,rf))
             }
             CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space => Ok(self.switch_to_H(next)),
             _ => TeXErr!((self,Some(next)),"Urgh!"),

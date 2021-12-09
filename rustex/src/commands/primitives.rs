@@ -1697,10 +1697,9 @@ pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
         int.change_state(StateChange::Font(Nullfont.try_with(|x| x.clone()).unwrap(),global));
-        int.stomach.borrow_mut().add(Whatsit::GroupLike(
+        int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(
             WIGroup::FontChange(Nullfont.try_with(|x| x.clone()).unwrap(),int.update_reference(&rf.0),global,vec!())
-        ));
-        Ok(())
+        ))
     }
 };
 

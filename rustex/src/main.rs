@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
-use rustex::stomach::EmptyStomach;
+use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXString;
 
 fn do_latexltx() {
@@ -16,7 +16,7 @@ fn do_thesis() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
     //unsafe{ rustex::LOG = true };
-    let mut stomach = EmptyStomach::new();
+    let mut stomach = NoShipoutRoutine::new();
     let mut int = Interpreter::with_state(state,stomach.borrow_mut());
     int.do_file(Path::new("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex"));
 }
@@ -26,7 +26,7 @@ fn do_other() {
     let state = default_pdf_latex_state();
     let filename = "/home/jazzpirate/work/Software/ext/sTeX/doc/stex.tex";
     //unsafe{ rustex::LOG = true };
-    let mut stomach = EmptyStomach::new();
+    let mut stomach = NoShipoutRoutine::new();
     let mut int = Interpreter::with_state(state,stomach.borrow_mut());
     int.do_file(Path::new(filename));
 }
@@ -72,8 +72,8 @@ fn main() {
     //let test2 : TeXString = test.as_bytes().into();
     //println!("{}",rustex::HYPHEN_CFG);
     //println!("{}\n\n{}",test,test2);
-    do_latexltx()
-    //do_thesis()
+    //do_latexltx()
+    do_thesis()
     //do_other()
 
 }

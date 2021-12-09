@@ -1,7 +1,11 @@
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
+use std::ops::Deref;
+use std::rc::Rc;
 use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, TeXErr};
-use crate::utils::TeXError;
+use crate::fonts::{Font, Nullfont};
+use crate::interpreter::state::GroupType;
+use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::WIGroup;
 
 pub mod whatsits;
@@ -19,28 +23,56 @@ impl Paragraph {
 
 pub enum StomachGroup {
     Top(Vec<Whatsit>),
-    TeXGroup(Vec<Whatsit>),
+    TeXGroup(GroupType,Vec<Whatsit>),
     Par(Paragraph),
     Other(WIGroup)
 }
 impl StomachGroup {
+    pub fn new_from(&self) -> StomachGroup {
+        use StomachGroup::*;
+        match self {
+            Top(_) => unreachable!(),
+            TeXGroup(gt,_) => TeXGroup(gt.clone(),vec!()),
+            Par(p) => Par(Paragraph::new(p.indent)),
+            Other(wig) => Other(wig.new_from())
+        }
+    }
+    pub fn priority(&self) -> i16 {
+        use StomachGroup::*;
+        match self {
+            Top(_) => 255,
+            TeXGroup(GroupType::Box(_),_) => 250,
+            Par(_) => 240,
+            TeXGroup(_,_) => 5,
+            Other(w) => w.priority(),
+        }
+    }
     pub fn push(&mut self,wi:Whatsit) {
         use StomachGroup::*;
         match self {
             Top(t) => t.push(wi),
-            TeXGroup(t) => t.push(wi),
+            TeXGroup(_,t) => t.push(wi),
             Par(t) => t.children.push(wi),
-            Other(WIGroup::FontChange(_,_,_,t)) => t.push(wi),
-            Other(WIGroup::ColorChange(_,_,t)) => t.push(wi),
-            _ => todo!()
+            Other(wg) => wg.push(wi),
         }
     }
     pub fn get(&self) -> &Vec<Whatsit> {
         use StomachGroup::*;
         match self {
             Top(t) => t,
-            TeXGroup(t) => t,
+            TeXGroup(_,t) => t,
             Par(t) => &t.children,
+            Other(WIGroup::FontChange(_,_,_,t)) => t,
+            Other(WIGroup::ColorChange(_,_,t)) => t,
+            _ => todo!()
+        }
+    }
+    pub fn get_d(self) -> Vec<Whatsit> {
+        use StomachGroup::*;
+        match self {
+            Top(t) => t,
+            TeXGroup(_,t) => t,
+            Par(t) => t.children,
             Other(WIGroup::FontChange(_,_,_,t)) => t,
             Other(WIGroup::ColorChange(_,_,t)) => t,
             _ => todo!()
@@ -49,133 +81,195 @@ impl StomachGroup {
 }
 
 pub trait Stomach {
-    fn buffer_mut(&mut self) -> &mut Vec<StomachGroup>;
-    fn buffer(&self) -> &Vec<StomachGroup>;
+    fn base_mut(&mut self) -> &mut StomachBase;
+    fn base(&self) -> &StomachBase;
     fn ship_whatsit(&mut self, wi:Whatsit);
-    fn on_begin_document(&mut self, int:&Interpreter);
-    fn in_document(&self) -> bool;
+    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError>;
 
     // ---------------------------------------------------------------------------------------------
 
     fn start_paragraph(&mut self,indent: i64) {
-        self.buffer_mut().push(StomachGroup::Par(Paragraph::new(Some(indent))))
+        self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(Some(indent))))
     }
 
-    fn new_group(&mut self) {
-        self.buffer_mut().push(StomachGroup::TeXGroup(vec!()))
+    fn new_group(&mut self,tp:GroupType) {
+        self.base_mut().buffer.push(StomachGroup::TeXGroup(tp,vec!()))
     }
     fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
-        let buf = self.buffer();
-        if buf.len() < 2 {
+        if self.base().buffer.len() < 2 {
             TeXErr!((int,None),"Can't close group in stomach!")
         } else {
-            let ret = self.buffer_mut().pop().unwrap();
+            let ret = self.base_mut().buffer.pop().unwrap();
             match ret {
-                StomachGroup::TeXGroup(v) => Ok(v),
+                StomachGroup::TeXGroup(_,v) => Ok(v),
                 StomachGroup::Other(g) => {
-                    let repushes = if g.closesWithGroup() {None} else {Some(g.new_from(vec!()))};
+                    let repushes = if g.closesWithGroup() {None} else {Some(g.new_from())};
                     if g.has_ink() {
-                        self.buffer_mut().last_mut().unwrap().push(Whatsit::Grouped(g));
+                        self.base_mut().buffer.last_mut().unwrap().push(Whatsit::Grouped(g));
                     } else {
-                        let buf = self.buffer_mut().last_mut().unwrap();
+                        let buf = self.base_mut().buffer.last_mut().unwrap();
                         for c in g.children_d() {buf.push(c)}
                     }
-                    let ret = self.pop_group(int);
+                    let ret = self.pop_group(int)?;
                     for c in repushes {
-                        self.buffer_mut().push(StomachGroup::Other(c))
+                        self.base_mut().buffer.push(StomachGroup::Other(c))
                     }
-                    ret
+                    Ok(ret)
                 }
                 _ => todo!()
             }
         }
     }
+
     fn close_group(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        for w in self.pop_group(int)? {
-            self.add(w)
-        };
-        Ok(())
+        let mut cwgs: Vec<WIGroup> = vec!();
+        for bg in self.base().buffer.iter().rev() {
+            match bg {
+                StomachGroup::Other(w) if w.closesWithGroup() => cwgs.push(w.new_from()),
+                StomachGroup::TeXGroup(_,_) => break,
+                _ => ()
+            }
+        }
+        for c in cwgs { self._close_stomach_group(int,c)?; }
+
+        let top = self.base_mut().buffer.pop();
+        match top {
+            None => {
+                TeXErr!((int,None),"Stomach empty")
+            },
+            Some(StomachGroup::TeXGroup(_,v)) => {
+                for c in v { self.add(int,c)? }
+                Ok(())
+            }
+            Some(StomachGroup::Other(g)) if g.closesWithGroup() => {
+                self.close_group(int)?;
+                let mut ng = g.new_from();
+                let mut nv = g.children_d();
+                let mut latter : Vec<Whatsit> = vec!();
+                loop {
+                    match nv.last() {
+                        None => break,
+                        Some(s) if s.has_ink() => break,
+                        Some(_) => latter.push(nv.pop().unwrap())
+                    }
+                }
+                if !nv.is_empty() {
+                    for v in nv { ng.push(v) }
+                    self.add(int, Whatsit::Grouped(ng))?;
+                }
+                for r in latter { self.add(int,r)? }
+                Ok(())
+            }
+            Some(p) => {
+                self.close_group(int)?;
+                self.base_mut().buffer.push(p);
+                Ok(())
+            }
+        }
     }
-    fn add(&mut self, wi: Whatsit) {
+
+    fn _close_stomach_group(&mut self, int:&Interpreter, wi:WIGroup) -> Result<(),TeXError> {
+        let top = match self.base_mut().buffer.pop() {
+            None => TeXErr!((int,None),"Error in Stomach: Stomach empty"),
+            Some(p) => p
+        };
+        if top.priority() == wi.priority() {
+            let mut ng = match top {
+                StomachGroup::Other(ref g) => g.new_from(),
+                _ => unreachable!()
+            };
+            let mut nv = top.get_d();
+            let mut latter : Vec<Whatsit> = vec!();
+            loop {
+                match nv.last() {
+                    None => break,
+                    Some(s) if s.has_ink() => break,
+                    Some(_) => latter.push(nv.pop().unwrap())
+                }
+            }
+            if !nv.is_empty() {
+                for v in nv { ng.push(v) }
+                self.add(int, Whatsit::Grouped(ng))?;
+            }
+            for r in latter { self.add(int,r)? }
+            Ok(())
+        } else if top.priority() > wi.priority() {
+            let mut nwi = wi.new_from();
+            self._close_stomach_group(int,wi)?;
+            self.base_mut().buffer.push(top.new_from());
+            let mut grv : Vec<Whatsit> = vec!();
+            for w in top.get_d() {
+                if grv.is_empty() && !w.has_ink() { self.add(int,w)? } else { grv.push(w) }
+            }
+            for w in grv { nwi.push(w) }
+            self.base_mut().buffer.push(StomachGroup::Other(nwi));
+            Ok(())
+        } else {
+            let mut ng = top.new_from();
+            let mut nv = top.get_d();
+            let mut latter : Vec<Whatsit> = vec!();
+            loop {
+                match nv.last() {
+                    None => break,
+                    Some(s) if s.has_ink() => break,
+                    Some(_) => latter.push(nv.pop().unwrap())
+                }
+            }
+            if !nv.is_empty() {
+                for v in nv { ng.push(v) }
+                self.add(int, match ng {
+                    StomachGroup::Other(wg) => Whatsit::Grouped(wg),
+                    _ => todo!()
+                })?;
+            }
+            self._close_stomach_group(int,wi)?;
+            for l in latter { self.add(int,l)? }
+            Ok(())
+        }
+    }
+
+    fn add_inner(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
-            Whatsit::Ls(ls) => for wi in ls { self.add(wi) }
-            Whatsit::GroupLike(ref g) => {
+            Whatsit::Ls(ls) => {
+                for wi in ls { self.add(int,wi)? }
+                Ok(())
+            }
+            Whatsit::GroupOpen(ref g) => {
                 match g {
-                    WIGroup::FontChange(_,_,b,_) if !b => {
-                        self.buffer_mut().push(StomachGroup::Other(g.clone()))
+                    WIGroup::FontChange(_, _, b, _) if !b => {
+                        self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
+                        Ok(())
                     }
-                    //WIGroup::ColorChange(_,_,_) if !self.in_document() && self.buffer().len() == 1 => self.buffer_mut().last_mut().unwrap().push(Whatsit::Grouped(g.clone())),
-                    WIGroup::ColorChange(_,_,_) => {
-                        self.buffer_mut().push(StomachGroup::Other(g.clone()))
+                    WIGroup::ColorChange(_, _, _) => {
+                        self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
+                        Ok(())
                     },
-                    //WIGroup::ColorEnd(_) if !self.in_document() && self.buffer().len() == 1 => self.buffer_mut().last_mut().unwrap().push(Whatsit::Grouped(g.clone())),
-                    WIGroup::ColorEnd(_) => {
-                        let mut ret = vec!(self.buffer_mut().pop().unwrap());
-                        while match ret.last().unwrap() {
-                            StomachGroup::Other(WIGroup::ColorChange(_,_,_)) => false,
-                            _ => true
-                        } {
-                            ret.push(self.buffer_mut().pop().unwrap())
-                        }
-                        let head = match ret.pop() {
-                            Some(StomachGroup::Other(c@WIGroup::ColorChange(_,_,_))) => c,
-                            _ => unreachable!()
-                        };
-                        let (color,rf) = match &head {
-                            WIGroup::ColorChange(cl,r,_) => (cl.clone(),r.clone()),
-                            _ => unreachable!()
-                        };
-                        if head.has_ink() {
-                            self.add(Whatsit::Grouped(head))
-                        } else {
-                            for t in head.children_d() { self.add(t) }
-                        }
-                        ret.reverse();
-                        let stack = self.buffer_mut();
-                        for sg in ret {
-                            if sg.get().is_empty() {
-                                stack.push(sg)
-                            } else {
-                                match sg {
-                                    StomachGroup::TeXGroup(v) => {
-                                        stack.push(StomachGroup::TeXGroup(vec!(
-                                            Whatsit::Grouped(WIGroup::ColorChange(color.clone(),rf.clone(),v))
-                                        )))
-                                    },
-                                    StomachGroup::Top(_) => unreachable!(),
-                                    StomachGroup::Par(p) => {
-                                        let mut np = Paragraph::new(p.indent);
-                                        np.children = vec!(Whatsit::Grouped(WIGroup::ColorChange(color.clone(),rf.clone(),p.children)));
-                                        stack.push(StomachGroup::Par(np))
-                                    }
-                                    StomachGroup::Other(wi) => {
-                                        let v = vec!(Whatsit::Grouped(WIGroup::ColorChange(color.clone(),rf.clone(),wi.children().clone())));
-                                        let new = wi.new_from(v);
-                                        stack.push(StomachGroup::Other(new))
-                                    }
-                                }
-                            }
-                        }
-                    }
                     _ => todo!()
                 }
+            }
+            Whatsit::GroupClose(g) => {
+                self._close_stomach_group(int,g)
             },
             Whatsit::Ext(e) if e.isGroup() => todo!(),
-            o if o.has_ink() => self.buffer_mut().last_mut().unwrap().push(o),
+            o if o.has_ink() => {
+                self.base_mut().buffer.last_mut().unwrap().push(o);
+                Ok(())
+            },
             _ => {
-                let last_one = self.buffer_mut().iter_mut().rev().find(|x| match x {
-                    StomachGroup::TeXGroup(_) => true,
+                let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
+                    StomachGroup::TeXGroup(GroupType::Box(_),_) => true,
                     StomachGroup::Par(_) => true,
                     StomachGroup::Top(_) => true,
                     o => !o.get().is_empty()
                 }).unwrap();
-                last_one.push(wi)
+                last_one.push(wi);
+                Ok(())
             }
         }
     }
 
     fn last_whatsit(&self) -> Option<Whatsit> {
-        let buf = self.buffer();
+        let buf = &self.base().buffer;
         for ls in buf.iter().rev() {
             for v in ls.get().iter().rev() {
                 match v {
@@ -187,33 +281,74 @@ pub trait Stomach {
         }
         return None
     }
-}
-
-pub struct EmptyStomach {
-    buff : Vec<StomachGroup>,
-    indocument:bool
-}
-impl EmptyStomach {
-    pub fn new() -> EmptyStomach {
-        EmptyStomach {
-            buff:vec!(StomachGroup::Top(vec!())),
-            indocument:false
+    fn on_begin_document(&mut self, _: &Interpreter) {
+        let base = self.base_mut();
+        base.indocument = true;
+        let mut groups : Vec<GroupType> = vec!();
+        let stack = &mut base.buffer;
+        loop {
+            match stack.pop() {
+                Some(StomachGroup::Top(v)) => {
+                    stack.push(StomachGroup::Top(v));
+                    break
+                }
+                Some(StomachGroup::TeXGroup(GroupType::Box(_),_)) => panic!("This shouldn't happen!"),
+                Some(StomachGroup::TeXGroup(gt,v)) => {
+                    groups.push(gt);
+                    for c in v {stack.last_mut().unwrap().push(c)}
+                }
+                Some(StomachGroup::Other(WIGroup::FontChange(f,_,_,v))) => {
+                    base.basefont.get_or_insert(f);
+                    for c in v {stack.last_mut().unwrap().push(c)}
+                }
+                Some(StomachGroup::Other(WIGroup::ColorChange(s,_,v))) => {
+                    base.basecolor.get_or_insert(s);
+                    for c in v {stack.last_mut().unwrap().push(c)}
+                }
+                _ => panic!("This shouldn't happen")
+            }
+        }
+        for gt in groups.iter().rev() {
+            stack.push(StomachGroup::TeXGroup(*gt,vec!()))
         }
     }
 }
 
-impl Stomach for EmptyStomach {
-    fn buffer_mut(&mut self) -> &mut Vec<StomachGroup> {
-        self.buff.borrow_mut()
+pub struct StomachBase {
+    pub buffer:Vec<StomachGroup>,
+    pub indocument:bool,
+    pub basefont:Option<Rc<Font>>,
+    pub basecolor:Option<TeXStr>
+}
+
+pub struct NoShipoutRoutine {
+    base: StomachBase
+}
+impl NoShipoutRoutine {
+    pub fn new() -> NoShipoutRoutine {
+        NoShipoutRoutine {
+            base:StomachBase {
+                buffer:vec!(StomachGroup::Top(vec!())),
+                indocument:false,
+                basefont:None,
+                basecolor:None
+            }
+        }
     }
-    fn buffer(&self) -> &Vec<StomachGroup> {
-        &self.buff
+}
+
+impl Stomach for NoShipoutRoutine {
+    fn base_mut(&mut self) -> &mut StomachBase {
+        self.base.borrow_mut()
+    }
+    fn base(&self) -> &StomachBase {
+        &self.base
+    }
+    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+        match wi {
+            Whatsit::Exec(e) => (std::rc::Rc::try_unwrap(e).ok().unwrap()._apply)(int),
+            _ => self.add_inner(int,wi)
+        }
     }
     fn ship_whatsit(&mut self, _:Whatsit) {}
-    fn on_begin_document(&mut self, int: &Interpreter) {
-        self.indocument = true
-    }
-    fn in_document(&self) -> bool {
-        self.indocument
-    }
 }

@@ -723,10 +723,9 @@ impl PrimitiveTeXCommand {
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
                     int.change_state(StateChange::Font(f.clone(),global));
-                    int.stomach.borrow_mut().add(Whatsit::GroupLike(
+                    int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(
                         WIGroup::FontChange(f.clone(),int.update_reference(&rf.0),global,vec!())
-                    ));
-                    Ok(())
+                    ))
                 },
                 AssignableValue::Dim(i) => {
                     int.read_eq();

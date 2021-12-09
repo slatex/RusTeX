@@ -36,6 +36,21 @@ static WIDTH_CORRECTION : i64 = 0;
 static HEIGHT_CORRECTION : i64 = 0;
 
 impl TeXBox {
+    fn iter(f:&mut dyn FnMut (&Whatsit) -> (),v : &Vec<Whatsit>) {
+        for r in v {
+            match r {
+                Whatsit::Grouped(wi) => TeXBox::iter(f, wi.children()),
+                r => f(r)
+            }
+        }
+    }
+    pub fn primitive_children(&self,f:&mut dyn FnMut (&Whatsit) -> ()) {
+        match self {
+            TeXBox::Void => (),
+            TeXBox::H(hb) => TeXBox::iter(f,&hb.children),
+            TeXBox::V(vb) => TeXBox::iter(f,&vb.children),
+        }
+    }
     pub fn has_ink(&self) -> bool {
         match self {
             TeXBox::Void => false,
@@ -56,7 +71,7 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = hb.spread;
-                    for c in &hb.children { w += c.width() + WIDTH_CORRECTION }
+                    self.primitive_children(&mut move |c| w += c.width() + WIDTH_CORRECTION);
                     w
                 }
             },
@@ -64,10 +79,10 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = 0;
-                    for c in &vb.children {
+                    self.primitive_children(&mut move |c| {
                         let wd = c.width();
                         if wd > w { w = wd }
-                    }
+                    });
                     w
                 }
             },
@@ -80,10 +95,10 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = 0;
-                    for c in &hb.children {
+                    self.primitive_children(&mut move |c| {
                         let ht = c.height();
                         if ht > w { w = ht }
-                    }
+                    });
                     w
                 }
             },
@@ -91,7 +106,7 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = vb.spread;
-                    for c in &vb.children { w += c.height() + HEIGHT_CORRECTION }
+                    self.primitive_children(&mut move |c| w += c.height() + HEIGHT_CORRECTION );
                     w
                 }
             },
@@ -122,7 +137,8 @@ pub enum Whatsit {
     Exec(Rc<ExecutableWhatsit>),
     Box(TeXBox),
     Ext(Rc<dyn ExtWhatsit>),
-    GroupLike(WIGroup),
+    GroupOpen(WIGroup),
+    GroupClose(WIGroup),
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
     Ls(Vec<Whatsit>),
@@ -133,10 +149,10 @@ impl Whatsit {
     pub fn has_ink(&self) -> bool {
         use Whatsit::*;
         match self {
-            Exec(_) => false,
+            Exec(_) | GroupClose(_) => false,
             Box(b) => b.has_ink(),
             Ext(e) => e.has_ink(),
-            GroupLike(w) => w.has_ink(),
+            GroupOpen(w) => w.has_ink(),
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
             Char(u,f,_) => true,
@@ -146,10 +162,10 @@ impl Whatsit {
     pub fn width(&self) -> i64 {
         use Whatsit::*;
         match self {
-            Exec(_) => 0,
+            Exec(_) | GroupClose(_) => 0,
             Box(b) => b.width(),
             Ext(e) => e.width(),
-            GroupLike(w) => w.width(),
+            GroupOpen(w) => w.width(),
             Grouped(w) => w.width(),
             Simple(s) => s.width(),
             Char(u,f,_) => f.get_width(*u as u16),
@@ -159,10 +175,10 @@ impl Whatsit {
     pub fn height(&self) -> i64 {
         use Whatsit::*;
         match self {
-            Exec(_) => 0,
+            Exec(_) | GroupClose(_) => 0,
             Box(b) => b.height(),
             Ext(e) => e.height(),
-            GroupLike(w) => w.height(),
+            GroupOpen(w) => w.height(),
             Grouped(w) => w.height(),
             Simple(s) => s.height(),
             Char(u,f,_) => f.get_height(*u as u16),
@@ -172,10 +188,10 @@ impl Whatsit {
     pub fn depth(&self) -> i64 {
         use Whatsit::*;
         match self {
-            Exec(_) => 0,
+            Exec(_) | GroupClose(_) => 0,
             Box(b) => b.depth(),
             Ext(e) => e.depth(),
-            GroupLike(w) => w.depth(),
+            GroupOpen(w) => w.depth(),
             Grouped(w) => w.depth(),
             Simple(s) => s.depth(),
             Char(u,f,_) => f.get_depth(*u as u16),
@@ -191,10 +207,31 @@ pub enum WIGroup {
     ColorEnd(Option<SourceFileReference>)
 }
 impl WIGroup {
+    pub fn push(&mut self,wi:Whatsit) {
+        use WIGroup::*;
+        match self {
+            FontChange(_,_,_,v) => v.push(wi),
+            ColorChange(_,_,v) => v.push(wi),
+            ColorEnd(_) => unreachable!(),
+        }
+    }
+    pub fn priority(&self) -> i16 {
+        use WIGroup::*;
+        match self {
+            FontChange(_,_,true,_) => 25,
+            FontChange(_,_,_,_) => 2,
+            ColorChange(_,_,_) | ColorEnd(_) => 50,
+        }
+    }
     pub fn has_ink(&self) -> bool {
-        use Whatsit::*;
-        for x in self.children() { if x.has_ink() {return true} }
-        false
+        use WIGroup::*;
+        match self {
+            ColorEnd(_) => false,
+            _ => {
+                for x in self.children() { if x.has_ink() {return true} }
+                false
+            }
+        }
     }
     pub fn children_d(self) -> Vec<Whatsit> {
         match self {
@@ -210,14 +247,25 @@ impl WIGroup {
             WIGroup::ColorEnd(_) => unreachable!()
         }
     }
-    pub fn new_from(&self,children:Vec<Whatsit>) -> WIGroup {
+    pub fn new_from(&self) -> WIGroup {
         match self {
-            WIGroup::FontChange(f,r,b,_) => WIGroup::FontChange(f.clone(),r.clone(),*b,children),
-            WIGroup::ColorChange(c,r,_) => WIGroup::ColorChange(c.clone(),r.clone(),children),
+            WIGroup::FontChange(f,r,b,_) => WIGroup::FontChange(f.clone(),r.clone(),*b,vec!()),
+            WIGroup::ColorChange(c,r,_) => WIGroup::ColorChange(c.clone(),r.clone(),vec!()),
             WIGroup::ColorEnd(_) => unreachable!()
         }
     }
-    pub fn width(&self) -> i64 { todo!( )}
+    pub fn width(&self) -> i64 {
+        let c = match self {
+            WIGroup::FontChange(_,_,_,c) => c,
+            WIGroup::ColorChange(_,_,c) => c,
+            WIGroup::ColorEnd(_) => return 0
+        };
+        let mut ret : i64 = 0;
+        for x in c {
+            ret += x.width() + WIDTH_CORRECTION
+        }
+        ret
+    }
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}
     pub fn closesWithGroup(&self) -> bool {
@@ -232,7 +280,7 @@ impl WIGroup {
 pub enum ActionSpec {
     User(TeXStr),
     GotoNum(i64),
-    //   file    name    window
+    //    file   name    window
     File(TeXStr,TeXStr,Option<TeXStr>),
     FilePage(TeXStr,i64,Option<TeXStr>),
     Name(TeXStr),
