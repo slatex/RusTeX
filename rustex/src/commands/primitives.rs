@@ -1618,7 +1618,8 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"unskip",
     expandable:false,
     _apply:|_tk,int| {
-        match int.stomach.borrow().last_whatsit() {
+        let lw = int.stomach.borrow().last_whatsit();
+        match lw {
             Some(Whatsit::Simple(SimpleWI::HSkip(_,_) | SimpleWI::VSkip(_,_))) => {
                 int.stomach.borrow_mut().drop_last()
             },
