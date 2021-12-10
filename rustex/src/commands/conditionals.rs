@@ -484,15 +484,19 @@ pub static IFHBOX : Conditional = Conditional {
     }
 };
 
-pub static IFINNER : Conditional = Conditional {
-    name:"ifinner",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+pub static IFINCSNAME : Conditional = Conditional {
+    name:"ifincsname",
+    _apply: |int,cond,unless| {
+        if int.currcs() > 0 {
+            dotrue(int,cond,unless)
+        } else {
+            dofalse(int,cond,unless)
+        }
     }
 };
 
-pub static IFINCSNAME : Conditional = Conditional {
-    name:"ifincsname",
+pub static IFINNER : Conditional = Conditional {
+    name:"ifinner",
     _apply: |_int,_cond,_unless| {
         todo!()
     }
