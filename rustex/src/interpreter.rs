@@ -152,7 +152,7 @@ impl Interpreter<'_> {
                     }
                 }
             }
-            match self.do_top(next) {
+            match self.do_top(next,false) {
                 Ok(_) => {},
                 Err(s) => s.throw()
             }
@@ -182,7 +182,7 @@ impl Interpreter<'_> {
                     }
                 }
             }
-            match int.do_top(next) {
+            match int.do_top(next,false) {
                 Ok(_) => {},
                 Err(s) => s.throw()
             }
@@ -204,7 +204,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn do_top(&self,next:Token) -> Result<(),TeXError> {
+    pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
         match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
@@ -217,7 +217,7 @@ impl Interpreter<'_> {
                 match &*p.orig {
                     PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && (self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical) => Ok(()),
                     PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.get_mode() == TeXMode::Horizontal => {
-                        self.stomach.borrow_mut().end_paragraph(self)
+                        self.end_paragraph(inner)
                     },
                     PrimitiveTeXCommand::Primitive(np) => {
                         let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
@@ -264,6 +264,11 @@ impl Interpreter<'_> {
         let indent = self.state.borrow().get_dimension(-(crate::commands::primitives::PARINDENT.index as i32));
         let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
         self.stomach.borrow_mut().start_paragraph(indent,parskip.base)
+    }
+
+    fn end_paragraph(&self,inner : bool) -> Result<(),TeXError> {
+        if inner { self.set_mode(TeXMode::InternalVertical) } else { self.set_mode(TeXMode::Vertical) }
+        self.stomach.borrow_mut().end_paragraph(self)
     }
 
     pub fn current_line(&self) -> String {

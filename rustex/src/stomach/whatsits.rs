@@ -117,8 +117,26 @@ impl TeXBox {
     pub fn depth(&self) -> i64 {
         match self {
             TeXBox::Void => 0,
-            TeXBox::H(hb) => todo!(),
-            TeXBox::V(vb) => todo!(),
+            TeXBox::H(hb) => match hb._depth {
+                Some(d) => d,
+                None => {
+                    let mut d = 0;
+                    self.primitive_children(&mut move |c| {
+                        let ht = c.height();
+                        if ht > w { w = ht }
+                    });
+                    d
+                }
+            },
+            TeXBox::V(vb) => match vb._depth {
+                Some(d) => d,
+                None => {
+                    match vb.children.last() {
+                        None => 0,
+                        Some(c) => c.depth()
+                    }
+                }
+            },
         }
     }
 }
@@ -328,6 +346,7 @@ impl SimpleWI {
         match self {
             VKern(_,_) | Penalty(_) => 0,
             HKern(i,_) => *i,
+            VRule(_,_,w,_) => w.unwrap_or(26214),
             _ => todo!()
         }
     }
@@ -335,6 +354,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | Penalty(_) => 0,
+            VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             _ => todo!()
         }
@@ -343,6 +363,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) => 0,
+            VRule(_,_,_,d) => d.unwrap_or(0),
             _ => todo!()
         }
     }

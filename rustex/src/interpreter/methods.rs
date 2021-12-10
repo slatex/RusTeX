@@ -353,7 +353,7 @@ impl Interpreter<'_> {
                     self.pop_group(GroupType::Token)?;
                 }
                 _ => {
-                    self.do_top(next)?
+                    self.do_top(next,true)?
                 }
             }
         }

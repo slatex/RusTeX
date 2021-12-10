@@ -46,6 +46,8 @@ jobs:
       run: sudo apt install mingw-w64 # libkpathsea-dev
     - name: rustups
       run: rustup target add i686-pc-windows-gnu # && rustup target add x86_64-apple-darwin
+    - name: linker fixes
+      run: cd ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/i686-pc-windows-gnu/lib && mv crt2.o crt2.o.ori && mv dllcrt2.o dllcrt2.o.ori && cp /usr/i686-w64-mingw32/sys-root/mingw/lib/crt2.o . && cp /usr/i686-w64-mingw32/sys-root/mingw/lib/dllcrt2.o .
     - name: Deploy Windows
       run: cd rustex && cargo build --release --target i686-pc-windows-gnu
     - name: Upload Windows
