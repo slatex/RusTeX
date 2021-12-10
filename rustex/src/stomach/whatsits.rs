@@ -326,7 +326,7 @@ impl SimpleWI {
     pub fn width(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            VKern(_,_) => 0,
+            VKern(_,_) | Penalty(_) => 0,
             HKern(i,_) => *i,
             _ => todo!()
         }
@@ -334,12 +334,18 @@ impl SimpleWI {
     pub fn height(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            HKern(_,_) => 0,
+            HKern(_,_) | Penalty(_) => 0,
             VKern(i,_) => *i,
             _ => todo!()
         }
     }
-    pub fn depth(&self) -> i64 { todo!( )}
+    pub fn depth(&self) -> i64 {
+        use SimpleWI::*;
+        match self {
+            HKern(_,_) | VKern(_,_) | Penalty(_) => 0,
+            _ => todo!()
+        }
+    }
 }
 
 
