@@ -122,8 +122,8 @@ impl TeXBox {
                 None => {
                     let mut d = 0;
                     self.primitive_children(&mut move |c| {
-                        let ht = c.height();
-                        if ht > w { w = ht }
+                        let dp = c.depth();
+                        if dp > d { d = dp }
                     });
                     d
                 }
