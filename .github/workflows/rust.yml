@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
-    - name: Install kpathsea
-      run: sudo apt install libkpathsea-dev
+#    - name: Install kpathsea
+#      run: sudo apt install libkpathsea-dev
     - name: Build
       run: cd rustex && cargo build --release --target x86_64-unknown-linux-gnu
     - name: Install texlive
@@ -27,8 +27,8 @@ jobs:
     environment: production
     steps:
     - uses: actions/checkout@v2
-    - name: Install kpathsea
-      run: sudo apt install libkpathsea-dev
+    - name: Install Tools
+      run: sudo apt install mingw-w64 # libkpathsea-dev
     - name: rustups
       run: rustup target add i686-pc-windows-gnu && rustup target add x86_64-apple-darwin
     - name: Deploy Linux
