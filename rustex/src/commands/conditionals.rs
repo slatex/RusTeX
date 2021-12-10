@@ -2,6 +2,7 @@ use crate::interpreter::{Interpreter, TeXMode};
 use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand};
 use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
+use crate::commands::primitives::read_font;
 use crate::log;
 use crate::stomach::whatsits::TeXBox;
 
@@ -495,15 +496,20 @@ pub static IFINCSNAME : Conditional = Conditional {
     }
 };
 
-pub static IFINNER : Conditional = Conditional {
-    name:"ifinner",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+pub static IFFONTCHAR : Conditional = Conditional {
+    name:"iffontchar",
+    _apply: |int,cond,unless| {
+        let font = read_font(int)?;
+        let num = int.read_number()? as u16;
+        match (font.file.heights.get(&num),font.file.widths.get(&num)) {
+            (Some(_),_) | (_,Some(_)) => dotrue(int,cond,unless),
+            _ => dofalse(int,cond,unless)
+        }
     }
 };
 
-pub static IFFONTCHAR : Conditional = Conditional {
-    name:"iffontchar",
+pub static IFINNER : Conditional = Conditional {
+    name:"ifinner",
     _apply: |_int,_cond,_unless| {
         todo!()
     }
