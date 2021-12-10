@@ -226,10 +226,12 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
         None
     } else {
         env::set_current_dir(indir).expect("Could not switch to directory");
-        match kpaths.try_with(|x| x.find_file(s)).unwrap() {
-            Some(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s))),
-            None => Some(indir.to_path_buf().join(s))
-        }
+        let ret = match kpaths.try_with(|x| x.find_file(s)).unwrap() {
+            Some(v) =>
+                PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s)),
+            None => indir.to_path_buf().join(s)
+        };
+        Some(ret)
         /*
         let rs : Vec<u8> = Command::new("kpsewhich")
             .arg(s).output().expect("kpsewhich not found!")

@@ -180,7 +180,10 @@ impl StringMouth {
             VFileBase::Real(p) => p.clone(),
             VFileBase::Virtual => file.id.clone()
         });
-        let string = file.string.as_ref().expect("This shouldn't happen").clone();
+        let string : TeXString = match &file.string {
+            Some(s) => s.clone(),
+            None => "".into()
+        };
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(newlinechar:u8, source:Expansion, string : TeXString) -> StringMouth {

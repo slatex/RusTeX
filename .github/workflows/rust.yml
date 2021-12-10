@@ -29,13 +29,26 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install kpathsea
       run: sudo apt install libkpathsea-dev
-    - name: Deploy
+    - name: rustups
+      run: rustup target add i686-pc-windows-gnu && rustup target add x86_64-apple-darwin
+    - name: Deploy Linux
       run: cd rustex && cargo build --release --target x86_64-unknown-linux-gnu
-    - name: Upload
+    - name: Deploy Windows
+      run: cd rustex && cargo build --release --target i686-pc-windows-gnu
+    - name: Upload Linux
       uses: actions/upload-artifact@v2
       with:
-        name: packaged
+        name: linux
         path: |
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.rlib
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.so
           ./rustex/target/x86_64-unknown-linux-gnu/release/rustex
+    - name: Upload Windows
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows
+        path: |
+          ./rustex/target/i686-pc-windows-gnu/release/librustex.rlib
+          ./rustex/target/i686-pc-windows-gnu/release/rustex.dll
+          ./rustex/target/i686-pc-windows-gnu/release/rustex.dll.lib
+          ./rustex/target/i686-pc-windows-gnu/release/rustex.exe

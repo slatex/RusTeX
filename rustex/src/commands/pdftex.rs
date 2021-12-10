@@ -474,6 +474,15 @@ pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFGLYPHTOUNICODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfglyphtounicode",
+    expandable:false,
+    _apply:|_tk,int| {
+        int.read_argument()?; int.read_argument()?;
+        Ok(())
+    }
+};
+
 // -------------------------------------------------------------------------------------------------
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
@@ -660,12 +669,6 @@ pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFGLYPHTOUNICODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfglyphtounicode",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfunescapehex",
     expandable:true,
@@ -750,6 +753,12 @@ pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
+pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfelapsedtime",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
 /*
   val pdfcreationdate = new PrimitiveCommandProcessor("pdfcreationdate") {}
   val pdfendthread = new PrimitiveCommandProcessor("pdfendthread") {}
@@ -783,7 +792,6 @@ pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
   val pdfcopyfont = new PrimitiveCommandProcessor("pdfcopyfont") {}
   val pdfeachlinedepth = new PrimitiveCommandProcessor("pdfeachlinedepth") {}
   val pdfeachlineheight = new PrimitiveCommandProcessor("pdfeachlineheight") {}
-  val pdfelapsedtime = new PrimitiveCommandProcessor("pdfelapsedtime") {}
   val pdffirstlineheight = new PrimitiveCommandProcessor("pdffirstlineheight") {}
   val pdfignoreddimen = new PrimitiveCommandProcessor("pdfignoreddimen") {}
   val pdfinsertht = new PrimitiveCommandProcessor("pdfinsertht") {}
@@ -880,4 +888,5 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),
+    PrimitiveTeXCommand::Primitive(&PDFELAPSEDTIME),
 ]}

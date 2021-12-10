@@ -309,7 +309,8 @@ pub enum SimpleWI {
     //          attr            resource
     Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
     Raise(i64,TeXBox,Option<SourceFileReference>),
-    Kern(i64,Option<SourceFileReference>),
+    VKern(i64,Option<SourceFileReference>),
+    HKern(i64,Option<SourceFileReference>),
     PdfDest(TeXStr,TeXStr,Option<SourceFileReference>)
 }
 impl SimpleWI {
@@ -318,12 +319,17 @@ impl SimpleWI {
         match self {
             VRule(_,_,_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
-            PdfLiteral(_,_) | Pdfxform(_,_,_,_) | Kern(_,_) | PdfDest(_,_,_) => false,
+            PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_) => false,
             Raise(_,bx,_) => bx.has_ink()
         }
     }
     pub fn width(&self) -> i64 {
-        todo!( )
+        use SimpleWI::*;
+        match self {
+            VKern(_,_) => 0,
+            HKern(i,_) => *i,
+            _ => todo!()
+        }
     }
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}

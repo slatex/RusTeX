@@ -12,8 +12,12 @@ lazy_static! {
     #[cfg(unix)]
     let path = "libkpathsea.so";
     #[cfg(windows)]
-    let path = "kpathsealib.dll";
-    unsafe { Kpathsea::new(/*process_path::get_executable_path().unwrap().to_str().unwrap().to_string() +*/path).unwrap() }
+    let path = {
+      let kpsewhich_path = which("kpsewhich").unwrap_or_else(|_| panic!("Error: no kpsewhich found!")).parent().unwrap().to_str().unwrap().to_string();
+      kpsewhich_path + "\\kpathsealib.dll"
+    };
+    unsafe { Kpathsea::new(&path)
+      .unwrap_or_else(|e| panic!("Error loading {}:\n{}",path,e)) }
 
   };
 }

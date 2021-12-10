@@ -32,6 +32,8 @@ impl VFile {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename : TeXStr = (if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
+        } else if fp.to_str().unwrap().starts_with("nul:") {
+            fp.to_str().unwrap().into()
         } else {
             pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_ascii_uppercase()
         }).as_str().into();
@@ -60,7 +62,11 @@ impl VFile {
                 } */ else {
                     VFile {
                         source:VFileBase::Real(fp.to_str().unwrap().into()),
-                        string:if fp.exists() {fs::read(fp).ok().map(|x| x.into())} else {Some("".into())},
+                        string:if fp.exists() {
+                            fs::read(fp).ok().map(|x| x.into())
+                        } else if simplename.to_string() == "nul:" {
+                            Some("".into())
+                        } else {None},
                         id:simplename
                     }
                 }

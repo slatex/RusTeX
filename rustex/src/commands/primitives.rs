@@ -334,13 +334,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         CategoryCode::Escape | CategoryCode::Active => {}
         _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
     }
-    /*if command.name().to_string() == "@@clr" {
-        println!("Here! {} >>{}",int.current_line(),int.preview());
-        unsafe {crate::LOG = true }
-        print!("")
-    }*/
     let sig = read_sig(int)?;
-    //let arity = sig.arity;
     let ret = int.read_token_list(edef,true,edef,false)?;
     log!("\\def {}{}{}{}{}",command,sig,"{",TokenList(&ret),"}");
     let dm = PrimitiveTeXCommand::Def(DefMacro {
@@ -1923,7 +1917,12 @@ pub static KERN: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::Kern(dim,rf)))
+        match int.get_mode() {
+            TeXMode::Vertical | TeXMode::InternalVertical =>
+                Ok(Whatsit::Simple(SimpleWI::VKern(dim,rf))),
+            _ =>
+                Ok(Whatsit::Simple(SimpleWI::HKern(dim,rf)))
+        }
     }
 };
 
@@ -2442,6 +2441,57 @@ pub static TRACINGSCANTOKENS : RegisterReference = RegisterReference {
     index:72
 };
 
+pub static TRACINGPAGES : RegisterReference = RegisterReference {
+    name: "tracingpages",
+    index:75
+};
+
+pub static TRACINGCOMMANDS : RegisterReference = RegisterReference {
+    name: "tracingcommands",
+    index:76
+};
+
+pub static TRACINGMACROS : RegisterReference = RegisterReference {
+    name: "tracingmacros",
+    index:77
+};
+
+pub static TRACINGONLINE : RegisterReference = RegisterReference {
+    name: "tracingonline",
+    index:78
+};
+
+pub static TRACINGOUTPUT : RegisterReference = RegisterReference {
+    name: "tracingoutput",
+    index:79
+};
+
+pub static TRACINGPARAGRAPHS : RegisterReference = RegisterReference {
+    name: "tracingparagraphs",
+    index:80
+};
+
+pub static TRACINGRESTORES : RegisterReference = RegisterReference {
+    name: "tracingrestores",
+    index:81
+};
+
+pub static TRACINGASSIGNS : RegisterReference = RegisterReference {
+    name: "tracingassigns",
+    index:82
+};
+
+pub static TRACINGGROUPS : RegisterReference = RegisterReference {
+    name: "tracinggroups",
+    index:83
+};
+
+pub static TRACINGIFS : RegisterReference = RegisterReference {
+    name: "tracingifs",
+    index:84
+};
+
+
 // Dimensions --------------------------------------------------------------------------------------
 
 pub static HFUZZ : DimenReference = DimenReference {
@@ -2914,48 +2964,6 @@ pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TRACINGCOMMANDS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingcommands",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGMACROS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingmacros",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGONLINE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingonline",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGOUTPUT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingoutput",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGPAGES: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingpages",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGPARAGRAPHS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingparagraphs",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGRESTORES: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingrestores",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static VALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"valign",
     expandable:true,
@@ -3150,24 +3158,6 @@ pub static TEXXETSTATE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static TOPMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmarks",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGASSIGNS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingassigns",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGGROUPS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracinggroups",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TRACINGIFS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"tracingifs",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3727,6 +3717,16 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGPAGES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGCOMMANDS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGMACROS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGONLINE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGOUTPUT)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGPARAGRAPHS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGRESTORES)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGASSIGNS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGGROUPS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGIFS)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HFUZZ)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&VFUZZ)),
@@ -3835,13 +3835,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SHOWLISTS),
     PrimitiveTeXCommand::Primitive(&SHOWTHE),
     PrimitiveTeXCommand::Primitive(&SPAN),
-    PrimitiveTeXCommand::Primitive(&TRACINGCOMMANDS),
-    PrimitiveTeXCommand::Primitive(&TRACINGMACROS),
-    PrimitiveTeXCommand::Primitive(&TRACINGONLINE),
-    PrimitiveTeXCommand::Primitive(&TRACINGOUTPUT),
-    PrimitiveTeXCommand::Primitive(&TRACINGPAGES),
-    PrimitiveTeXCommand::Primitive(&TRACINGPARAGRAPHS),
-    PrimitiveTeXCommand::Primitive(&TRACINGRESTORES),
     PrimitiveTeXCommand::Primitive(&VALIGN),
     PrimitiveTeXCommand::Primitive(&BEGINL),
     PrimitiveTeXCommand::Primitive(&BEGINR),
@@ -3875,9 +3868,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARKS),
     PrimitiveTeXCommand::Primitive(&TEXXETSTATE),
     PrimitiveTeXCommand::Primitive(&TOPMARKS),
-    PrimitiveTeXCommand::Primitive(&TRACINGASSIGNS),
-    PrimitiveTeXCommand::Primitive(&TRACINGGROUPS),
-    PrimitiveTeXCommand::Primitive(&TRACINGIFS),
     PrimitiveTeXCommand::Primitive(&EFCODE),
     PrimitiveTeXCommand::Primitive(&LEFTMARGINKERN),
     PrimitiveTeXCommand::Primitive(&LETTERSPACEFONT),
