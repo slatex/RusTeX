@@ -22,7 +22,7 @@ jobs:
       run: sudo apt install texlive
     - name: Test latex.ltx
       run: cd rustex/target/x86_64-unknown-linux-gnu/release && ./rustex
-  deploy linux:
+  deploy_linux:
     runs-on: ubuntu-18.04
     environment: production
     steps:
@@ -37,7 +37,7 @@ jobs:
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.rlib
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.so
           ./rustex/target/x86_64-unknown-linux-gnu/release/rustex
-  deploy windows:
+  deploy_windows:
     runs-on: ubuntu-latest
     environment: production
     steps:
