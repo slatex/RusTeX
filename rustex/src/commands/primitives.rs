@@ -2068,7 +2068,17 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
     _assign: |rf,int,global| {
-        todo!()
+        let index = int.read_number()? as i32;
+        int.read_eq();
+        let dim = int.read_dimension()?;
+        let bx = int.state_get_box(index);
+        match bx {
+            TeXBox::Void => (),
+            TeXBox::H(mut hb) => hb._width = Some(dim),
+            TeXBox::V(mut hb) => hb._width = Some(dim),
+        }
+        int.change_state(StateChange::Box(index,bx,global));
+        ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
@@ -2079,7 +2089,17 @@ pub static WD: NumAssValue = NumAssValue {
 pub static HT: NumAssValue = NumAssValue {
     name:"ht",
     _assign: |rf,int,global| {
-        todo!()
+        let index = int.read_number()? as i32;
+        int.read_eq();
+        let dim = int.read_dimension()?;
+        let bx = int.state_get_box(index);
+        match bx {
+            TeXBox::Void => (),
+            TeXBox::H(mut hb) => hb._height = Some(dim),
+            TeXBox::V(mut hb) => hb._height = Some(dim),
+        }
+        int.change_state(StateChange::Box(index,bx,global));
+        ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
@@ -2090,7 +2110,17 @@ pub static HT: NumAssValue = NumAssValue {
 pub static DP: NumAssValue = NumAssValue {
     name:"dp",
     _assign: |rf,int,global| {
-        todo!()
+        let index = int.read_number()? as i32;
+        int.read_eq();
+        let dim = int.read_dimension()?;
+        let bx = int.state_get_box(index);
+        match bx {
+            TeXBox::Void => (),
+            TeXBox::H(mut hb) => hb._depth = Some(dim),
+            TeXBox::V(mut hb) => hb._depth = Some(dim),
+        }
+        int.change_state(StateChange::Box(index,bx,global));
+        ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
