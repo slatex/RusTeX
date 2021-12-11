@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, Ordering};
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
@@ -37,21 +37,57 @@ pub enum TeXBox {
 static WIDTH_CORRECTION : i64 = 0;
 static HEIGHT_CORRECTION : i64 = 0;
 
-fn iterate_primitives(f:&mut dyn FnMut (&Whatsit) -> (), v : &Vec<Whatsit>) {
-    for r in v {
-        match r {
-            Whatsit::Grouped(wi) => iterate_primitives(f, wi.children()),
-            r => f(r)
+struct WhatsitIter<'a> {
+    children:&'a [Whatsit],
+    parent:Option<Box<WhatsitIter<'a>>>
+}
+impl WhatsitIter<'_> {
+    pub fn new(v:&Vec<Whatsit>) -> WhatsitIter {
+        WhatsitIter {
+            children:v.as_slice(),
+            parent:None
         }
     }
 }
+impl <'a> Iterator for WhatsitIter<'a> {
+    type Item = &'a Whatsit;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.children.get(0) {
+            None => match self.parent.take() {
+                Some(p) =>{
+                    *self = *p;
+                    self.next()
+                }
+                None => None
+            }
+            Some(Whatsit::Grouped(g)) => {
+                self.children = &self.children[1..];
+                *self = WhatsitIter {
+                    children:g.children().as_slice(),
+                    parent:Some(Box::new(std::mem::take(self)))
+                };
+                self.next()
+            }
+            Some(s) => {
+                self.children = &self.children[1..];
+                Some(s)
+            }
+        }
+    }
+}
+impl<'a> Default for WhatsitIter<'a> {
+    fn default() -> Self {
+        WhatsitIter { children: &[], parent: None }
+    }
+}
+
 
 impl TeXBox {
-    pub fn primitive_children(&self,f:&mut dyn FnMut (&Whatsit) -> ()) {
+    fn iter(&self) -> WhatsitIter {
         match self {
-            TeXBox::Void => (),
-            TeXBox::H(hb) => iterate_primitives(f, &hb.children),
-            TeXBox::V(vb) => iterate_primitives(f, &vb.children),
+            TeXBox::Void => WhatsitIter::default(),
+            TeXBox::H(hb) => WhatsitIter::new(&hb.children),
+            TeXBox::V(vb) => WhatsitIter::new(&vb.children),
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -74,7 +110,9 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = hb.spread;
-                    self.primitive_children(&mut move |c| w += c.width() + WIDTH_CORRECTION);
+                    for c in self.iter() {
+                        w += c.width() + WIDTH_CORRECTION
+                    }
                     w
                 }
             },
@@ -82,10 +120,10 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = 0;
-                    self.primitive_children(&mut move |c| {
+                    for c in self.iter() {
                         let wd = c.width();
                         if wd > w { w = wd }
-                    });
+                    }
                     w
                 }
             },
@@ -98,10 +136,10 @@ impl TeXBox {
                 Some(i) => i,
                 None => {
                     let mut w = 0;
-                    self.primitive_children(&mut move |c| {
+                    for c in self.iter() {
                         let ht = c.height();
                         if ht > w { w = ht }
-                    });
+                    }
                     w
                 }
             },
@@ -110,7 +148,7 @@ impl TeXBox {
                     Some(i) => i,
                     None => {
                         let mut w = vb.spread;
-                        self.primitive_children(&mut move |c| w += c.height() + HEIGHT_CORRECTION );
+                        for c in self.iter() { w += c.height() + HEIGHT_CORRECTION }
                         w
                     }
                 };
@@ -125,10 +163,10 @@ impl TeXBox {
                 Some(d) => d,
                 None => {
                     let mut d = 0;
-                    self.primitive_children(&mut move |c| {
+                    for c in self.iter() {
                         let dp = c.depth();
                         if dp > d { d = dp }
-                    });
+                    }
                     d
                 }
             },
@@ -388,23 +426,46 @@ impl SimpleWI {
                     match b {
                         AlignBlock::Noalign(v) => {
                             let mut max = 0;
-                            iterate_primitives(&mut move |x| {
-                                let w = x.width();
+                            for c in WhatsitIter::new(v) {
+                                let w = c.width();
                                 if w > max {max = w}
-                            },v);
+                            }
                             if max > width { width = max }
                         }
                         AlignBlock::Block(ls) => {
                             let mut w:i64 = 0;
                             for (v,s) in ls {
                                 w += s.base;
-                                iterate_primitives(&mut move |x| {w += x.width()},v)
+                                for c in WhatsitIter::new(v) { w += c.width() }
                             }
                             if w > width { width = w }
                         }
                     }
                 }
                 width + sk.base
+            }
+            Valign(_,_,bxs,_) => {
+                let mut width:i64 = 0;
+                for b in bxs {
+                    match b {
+                        AlignBlock::Noalign(v) => {
+                            for c in WhatsitIter::new(v) {
+                                width += c.width();
+                            }
+                        }
+                        AlignBlock::Block(ls) => {
+                            let mut wd:i64 = 0;
+                            for (v,s) in ls {
+                                for c in WhatsitIter::new(v) {
+                                    let w = c.width();
+                                    if w > wd { wd = w }
+                                }
+                            }
+                            width += wd
+                        }
+                    }
+                }
+                width
             }
             _ => {
                 todo!()
@@ -418,23 +479,46 @@ impl SimpleWI {
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             VSkip(sk,_) => sk.base,
-            Valign(sk,tpl,bxs,_) => {
+            Halign(_,_,bxs,_) => {
+                let mut height:i64 = 0;
+                for b in bxs {
+                    match b {
+                        AlignBlock::Noalign(v) => {
+                            for c in WhatsitIter::new(v) {
+                                height += c.height();
+                            }
+                        }
+                        AlignBlock::Block(ls) => {
+                            let mut ht:i64 = 0;
+                            for (v,s) in ls {
+                                for c in WhatsitIter::new(v) {
+                                    let h = c.height();
+                                    if h > ht { ht = h }
+                                }
+                            }
+                            height += ht
+                        }
+                    }
+                }
+                height
+            }
+            Valign(sk,_,bxs,_) => {
                 let mut height:i64 = 0;
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
                             let mut max = 0;
-                            iterate_primitives(&mut move |x| {
-                                let w = x.height();
+                            for c in WhatsitIter::new(v) {
+                                let w = c.height();
                                 if w > max {max = w}
-                            },v);
+                            }
                             if max > height { height = max }
                         }
                         AlignBlock::Block(ls) => {
                             let mut w:i64 = 0;
                             for (v,s) in ls {
                                 w += s.base;
-                                iterate_primitives(&mut move |x| {w += x.height()},v)
+                                for c in WhatsitIter::new(v) { w += c.height()}
                             }
                             if w > height { height = w }
                         }
@@ -451,7 +535,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
-                | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
+                | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             _ => todo!()
         }
@@ -508,7 +592,7 @@ impl Paragraph {
         let mut currentdepth : i64 = 0;
         let hgoal = self._width;
         let lineheight = self.lineheight.unwrap();
-        iterate_primitives(&mut move |wi| {
+        for wi in WhatsitIter::new(&self.children) {
             match wi {
                 Whatsit::Simple(SimpleWI::Penalty(i)) if *i <= -10000 => {
                     currentwidth = 0;
@@ -532,7 +616,7 @@ impl Paragraph {
                     currentwidth += width
                 }
             }
-        }, &self.children);
+        }
         self._height = currentheight + currentlineheight;
         self._depth = currentdepth;
     }
