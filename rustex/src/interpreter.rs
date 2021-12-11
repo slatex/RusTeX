@@ -206,20 +206,22 @@ impl Interpreter<'_> {
 
     pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
-        match next.catcode {
-            CategoryCode::Active | CategoryCode::Escape => {
+        let mode = self.get_mode();
+        use crate::catcodes::CategoryCode::*;
+        use TeXMode::*;
+        use PrimitiveTeXCommand::*;
+        match (next.catcode,mode) {
+            (Active | Escape,_) => {
                 let p = self.get_command(&next.cmdname())?;
                 if p.assignable() {
                     return p.assign(next,self,false)
                 } else if p.expandable(true) {
                     return p.expand(next,self)
                 }
-                match &*p.orig {
-                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && (self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical) => Ok(()),
-                    PrimitiveTeXCommand::Primitive(p) if **p == primitives::PAR && self.get_mode() == TeXMode::Horizontal => {
-                        self.end_paragraph(inner)
-                    },
-                    PrimitiveTeXCommand::Primitive(np) => {
+                match (&*p.orig,mode) {
+                    (Primitive(p),Vertical | InternalVertical) if **p == primitives::PAR => Ok(()),
+                    (Primitive(p),Horizontal) if **p == primitives::PAR => self.end_paragraph(inner),
+                    (Primitive(np),_) => {
                         let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
                         np.apply(&mut exp,self)?;
                         if !exp.2.is_empty() {
@@ -227,32 +229,35 @@ impl Interpreter<'_> {
                         }
                         Ok(())
                     },
-                    PrimitiveTeXCommand::Ext(exec) =>
+                    (Ext(exec),_) =>
                         exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!")),
-                    PrimitiveTeXCommand::Char(tk) => {
+                    (Char(tk),_) => {
                         self.requeue(tk.clone());
                         Ok(())
                     },
-                    PrimitiveTeXCommand::Whatsit(w) if w.allowed_in(self.get_mode()) => {
+                    (Whatsit(w),_) if w.allowed_in(mode) => {
                         let next = w.get(&next,self)?;
                         self.stomach.borrow_mut().add(self,next)
                     },
-                    PrimitiveTeXCommand::Whatsit(_) if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => {
+                    (Whatsit(_), Vertical | InternalVertical) => {
                         Ok(self.switch_to_H(next))
                     }
                     _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
 
                 }
             },
-            CategoryCode::BeginGroup => Ok(self.new_group(GroupType::Token)),
-            CategoryCode::EndGroup => self.pop_group(GroupType::Token),
-            CategoryCode::Space | CategoryCode::EOL if self.get_mode() == TeXMode::Vertical || self.get_mode() == TeXMode::InternalVertical => Ok(()),
-            CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space if self.get_mode() == TeXMode::Horizontal || self.get_mode() == TeXMode::RestrictedHorizontal => {
+            (BeginGroup,_) => Ok(self.new_group(GroupType::Token)),
+            (EndGroup,_) => self.pop_group(GroupType::Token),
+            (Space | EOL, Vertical | InternalVertical) => Ok(()),
+            (Letter | Other | Space, Horizontal | RestrictedHorizontal) => {
                 let font = self.get_font();
                 let rf = self.update_reference(&next);
-                self.stomach.borrow_mut().add(self,Whatsit::Char(next.char,font,rf))
+                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(next.char,font,rf))
             }
-            CategoryCode::Letter | CategoryCode::Other | CategoryCode::Space => Ok(self.switch_to_H(next)),
+            (MathShift, Horizontal | RestrictedHorizontal) => {
+                self.start_math(inner)
+            }
+            (Letter | Other | Space | MathShift,Vertical | InternalVertical) => Ok(self.switch_to_H(next)),
             _ => TeXErr!((self,Some(next)),"Urgh!"),
         }
     }
@@ -268,7 +273,40 @@ impl Interpreter<'_> {
 
     fn end_paragraph(&self,inner : bool) -> Result<(),TeXError> {
         if inner { self.set_mode(TeXMode::InternalVertical) } else { self.set_mode(TeXMode::Vertical) }
-        self.stomach.borrow_mut().end_paragraph(self)
+        self.stomach.borrow_mut().end_paragraph(self)?;
+        for w in self.state.borrow_mut().vadjust.drain(..) {
+            self.stomach.borrow_mut().add(self,w)?
+        }
+        Ok(())
+    }
+
+    fn start_math(&self, inner : bool) -> Result<(),TeXError> {
+        let _oldmode = self.get_mode();
+        let mode = if inner { TeXMode::Math } else {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::MathShift => TeXMode::Displaymath,
+                _ => {
+                    self.requeue(next);
+                    TeXMode::Math
+                }
+            }
+        };
+        self.set_mode(mode);
+        self.new_group(GroupType::Math);
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
+                CategoryCode::MathShift => {
+                    self.set_mode(_oldmode);
+                    self.pop_group(GroupType::Math)?;
+                    return Ok(())
+                }
+                _ => self.do_top(next,false)?
+            }
+        }
+        FileEnd!(self)
     }
 
     pub fn current_line(&self) -> String {

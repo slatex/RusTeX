@@ -15,14 +15,16 @@ pub enum FontStyle {
 pub enum GroupType {
     Token,
     Begingroup,
-    Box(BoxMode)
+    Box(BoxMode),
+    Math
 }
 impl Display for GroupType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",match self {
             GroupType::Token => "{",
             GroupType::Begingroup => "\\begingroup",
-            GroupType::Box(_) => "\\box"
+            GroupType::Box(_) => "\\box",
+            GroupType::Math => "$"
         })
     }
 }
@@ -48,7 +50,7 @@ struct StackFrame {
     pub(crate) boxes: HashMap<i32,TeXBox>,
     pub(crate) currfont : Rc<Font>,
     pub(crate) aftergroups : Vec<Token>,
-    pub(crate) fontstyle : FontStyle
+    pub(crate) fontstyle : FontStyle,
 }
 
 impl StackFrame {
@@ -97,7 +99,7 @@ impl StackFrame {
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
             tp:None,aftergroups:vec!(),
             currfont:Nullfont.try_with(|x| x.clone()).unwrap(),
-            fontstyle:FontStyle::Text
+            fontstyle:FontStyle::Text,
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
@@ -151,7 +153,8 @@ pub struct State {
     pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>,
     pub(in crate) indocument_line:Option<usize>,
     pub(in crate) indocument:bool,
-    pub(in crate) insetbox:bool
+    pub(in crate) insetbox:bool,
+    pub(in crate) vadjust:Vec<Whatsit>
 }
 
 // sudo apt install libkpathsea-dev
@@ -172,7 +175,8 @@ impl State {
             pdfobjs : HashMap::new(),
             pdfcolorstacks: vec!(vec!()),
             pdfxforms:vec!(),
-            indocument_line:None,indocument:false,insetbox:false
+            indocument_line:None,indocument:false,insetbox:false,
+            vadjust:vec!()
         }
     }
 
@@ -677,14 +681,16 @@ impl Interpreter<'_> {
     }
     pub fn get_whatsit_group(&self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
         log!("Pop: {}",tp);
-        let mut state = self.state.borrow_mut();
-        let (cc,ag) = state.pop(self,tp)?;
-        self.push_tokens(ag);
-        let mut scc = self.catcodes.borrow_mut();
-        scc.catcodes = cc.catcodes.clone();
-        scc.endlinechar = cc.endlinechar;
-        scc.newlinechar = cc.newlinechar;
-        scc.escapechar = cc.escapechar;
+        {
+            let mut state = self.state.borrow_mut();
+            let (cc, ag) = state.pop(self, tp)?;
+            self.push_tokens(ag);
+            let mut scc = self.catcodes.borrow_mut();
+            scc.catcodes = cc.catcodes.clone();
+            scc.endlinechar = cc.endlinechar;
+            scc.newlinechar = cc.newlinechar;
+            scc.escapechar = cc.escapechar;
+        }
         self.stomach.borrow_mut().pop_group(self)
     }
 

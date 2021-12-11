@@ -23,7 +23,7 @@ pub struct Token {
     pub char : u8,
     pub catcode : CategoryCode,
     name_opt: TeXStr,
-    cmdname : TeXStr,
+    pub(in crate) cmdname : TeXStr,
     pub reference: Rc<SourceReference>,
     pub(in crate) expand:bool
 }

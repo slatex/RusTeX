@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::fonts::Font;
 use crate::interpreter::dimensions::Skip;
 use crate::references::SourceFileReference;
+use crate::Token;
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum BoxMode { H,V,M,DM,Void }
@@ -104,13 +105,16 @@ impl TeXBox {
                     w
                 }
             },
-            TeXBox::V(vb) => match vb._height {
-                Some(i) => i,
-                None => {
-                    let mut w = vb.spread;
-                    self.primitive_children(&mut move |c| w += c.height() + HEIGHT_CORRECTION );
-                    w
-                }
+            TeXBox::V(vb) => {
+                let ht = match vb._height {
+                    Some(i) => i,
+                    None => {
+                        let mut w = vb.spread;
+                        self.primitive_children(&mut move |c| w += c.height() + HEIGHT_CORRECTION );
+                        w
+                    }
+                };
+                if vb.center { ht / 2} else { ht }
             },
         }
     }
@@ -128,14 +132,17 @@ impl TeXBox {
                     d
                 }
             },
-            TeXBox::V(vb) => match vb._depth {
-                Some(d) => d,
-                None => {
-                    match vb.children.last() {
-                        None => 0,
-                        Some(c) => c.depth()
+            TeXBox::V(vb) => {
+                let dp = match vb._depth {
+                    Some(d) => d,
+                    None => {
+                        match vb.children.last() {
+                            None => 0,
+                            Some(c) => c.depth()
+                        }
                     }
-                }
+                };
+                if vb.center { dp + self.height() } else { dp }
             },
         }
     }
@@ -313,9 +320,16 @@ pub enum ActionSpec {
 }
 
 #[derive(Clone)]
+pub enum AlignBlock {
+    Noalign(Vec<Whatsit>),
+    Block(Vec<(Vec<Whatsit>,Skip)>)
+}
+
+#[derive(Clone)]
 pub enum SimpleWI {
     //                                  height       width      depth
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
+    HRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
     VFil(Option<SourceFileReference>),
     VFill(Option<SourceFileReference>),
     VSkip(Skip,Option<SourceFileReference>),
@@ -329,40 +343,115 @@ pub enum SimpleWI {
     Raise(i64,TeXBox,Option<SourceFileReference>),
     VKern(i64,Option<SourceFileReference>),
     HKern(i64,Option<SourceFileReference>),
-    PdfDest(TeXStr,TeXStr,Option<SourceFileReference>)
+    PdfDest(TeXStr,TeXStr,Option<SourceFileReference>),
+    Halign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
+    Valign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
 }
 impl SimpleWI {
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
-            VRule(_,_,_,_) => true,
+            VRule(_,_,_,_) | HRule(_,_,_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_) => false,
-            Raise(_,bx,_) => bx.has_ink()
+            Raise(_,bx,_) => bx.has_ink(),
+            Halign(_,_,ab,_) => {
+                for v in ab {
+                    match v {
+                        AlignBlock::Noalign(v) => for c in v { if c.has_ink() {return true} }
+                        AlignBlock::Block(v) => for (iv,_) in v { for c in iv { if c.has_ink() {return true} } }
+                    }
+                }
+                false
+            }
+            Valign(_,_,ab,_) => {
+                for v in ab {
+                    match v {
+                        AlignBlock::Noalign(v) => for c in v { if c.has_ink() {return true} }
+                        AlignBlock::Block(v) => for (iv,_) in v { for c in iv { if c.has_ink() {return true} } }
+                    }
+                }
+                false
+            }
         }
     }
     pub fn width(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            VKern(_,_) | Penalty(_) => 0,
+            VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
-            _ => todo!()
+            HSkip(sk,_) => sk.base,
+            Halign(sk,tpl,bxs,_) => {
+                let mut width:i64 = 0;
+                for b in bxs {
+                    match b {
+                        AlignBlock::Noalign(v) => {
+                            let mut max = 0;
+                            iterate_primitives(&mut move |x| {
+                                let w = x.width();
+                                if w > max {max = w}
+                            },v);
+                            if max > width { width = max }
+                        }
+                        AlignBlock::Block(ls) => {
+                            let mut w:i64 = 0;
+                            for (v,s) in ls {
+                                w += s.base;
+                                iterate_primitives(&mut move |x| {w += x.width()},v)
+                            }
+                            if w > width { width = w }
+                        }
+                    }
+                }
+                width + sk.base
+            }
+            _ => {
+                todo!()
+            }
         }
     }
     pub fn height(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            HKern(_,_) | Penalty(_) => 0,
+            HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
-            _ => todo!()
+            VSkip(sk,_) => sk.base,
+            Valign(sk,tpl,bxs,_) => {
+                let mut height:i64 = 0;
+                for b in bxs {
+                    match b {
+                        AlignBlock::Noalign(v) => {
+                            let mut max = 0;
+                            iterate_primitives(&mut move |x| {
+                                let w = x.height();
+                                if w > max {max = w}
+                            },v);
+                            if max > height { height = max }
+                        }
+                        AlignBlock::Block(ls) => {
+                            let mut w:i64 = 0;
+                            for (v,s) in ls {
+                                w += s.base;
+                                iterate_primitives(&mut move |x| {w += x.height()},v)
+                            }
+                            if w > height { height = w }
+                        }
+                    }
+                }
+                height + sk.base
+            }
+            _ => {
+                todo!()
+            }
         }
     }
     pub fn depth(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            HKern(_,_) | VKern(_,_) | Penalty(_) => 0,
+            HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
+                | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             _ => todo!()
         }

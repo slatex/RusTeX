@@ -350,7 +350,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
-use crate::stomach::whatsits::{BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1569,7 +1569,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i64,None)
         };
-        let ret = int.read_whatsit_group(BoxMode::H)?;
+        let ret = int.read_whatsit_group(BoxMode::H,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::H(HBox {
                 children: ret,
@@ -1590,7 +1590,7 @@ pub static VBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i64,None)
         };
-        let ret = int.read_whatsit_group(BoxMode::V)?;
+        let ret = int.read_whatsit_group(BoxMode::V,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::V(VBox {
                 children: ret,
@@ -1600,6 +1600,20 @@ pub static VBOX: ProvidesBox = ProvidesBox {
                 _height: height,
                 _depth: None
             }))
+        }
+    }
+};
+
+pub static VCENTER: ProvidesBox = ProvidesBox {
+    name:"vcenter",
+    _get: |tk,int| {
+        let bx = (VBOX._get)(tk,int)?;
+        match bx {
+            TeXBox::V(mut vb) => {
+                vb.center = true;
+                Ok(TeXBox::V(vb))
+            }
+            _ => unreachable!()
         }
     }
 };
@@ -1807,6 +1821,30 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
         Ok(Whatsit::Simple(SimpleWI::VRule(rf,height,width,depth)))
     }
 };
+
+pub static HRULE: SimpleWhatsit = SimpleWhatsit {
+    name:"hrule",
+    modes:|m| match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        let mut height : Option<i64> = None;
+        let mut width : Option<i64> = None;
+        let mut depth : Option<i64> = None;
+        loop {
+            match int.read_keyword(vec!("height","width","depth"))? {
+                Some(s) if s == "height" => height = Some(int.read_dimension()?),
+                Some(s) if s == "width" => width = Some(int.read_dimension()?),
+                Some(s) if s == "depth" => depth = Some(int.read_dimension()?),
+                _ => break
+            }
+        }
+        let rf = int.update_reference(tk);
+        Ok(Whatsit::Simple(SimpleWI::HRule(rf,height,width,depth)))
+    }
+};
+
 
 pub static VFIL: SimpleWhatsit = SimpleWhatsit {
     name:"vfil",
@@ -2093,6 +2131,290 @@ pub static FONTCHARIC: NumericCommand = NumericCommand {
         let font = read_font(int)?;
         let char = int.read_number()? as u16;
         Ok(Numeric::Dim(font.get_ic(char)))
+    }
+};
+
+pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
+    name:"vadjust",
+    expandable:false,
+    _apply:|_tk,int| {
+        let mut ret = int.read_whatsit_group(BoxMode::V,false)?;
+        int.state.borrow_mut().vadjust.append(&mut ret);
+        Ok(())
+    }
+};
+
+pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"omit",
+    expandable:false,
+    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\omit")}
+};
+
+pub static CR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"cr",
+    expandable:false,
+    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\cr")}
+};
+
+pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"crcr",
+    expandable:false,
+    _apply:|_tk,_int| {Ok(())}
+};
+
+pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noalign",
+    expandable:false,
+    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\noalign")}
+};
+
+pub static ENDTEMPLATE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endtemplate",
+    expandable:false,
+    _apply: |_,_| { unreachable!() }
+};
+
+fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
+        (Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>),TeXError> {
+    int.expand_until(false)?;
+    let bg = int.next_token();
+    match bg.catcode {
+        CategoryCode::BeginGroup => (),
+        CategoryCode::Escape | CategoryCode::Active => {
+            let cmd = int.get_command(bg.cmdname())?;
+            match &*cmd.orig {
+                PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::BeginGroup => (),
+                _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+            }
+        }
+        _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+    }
+
+    let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+    endtemplate.cmdname = "relax".into();
+    let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+    endrow.cmdname = "relax".into();
+
+    int.new_group(GroupType::Box(betweenmode));
+
+    let mut tabskip = int.state_skip(-(TABSKIP.index as i32));
+    let firsttabskip = tabskip;
+
+    let mut inV = false;
+    let mut columns: Vec<(Vec<Token>,Vec<Token>,Skip)> = vec!((vec!(),vec!(),tabskip));
+    let mut recindex: Option<usize> = None;
+
+    loop {
+        let next = int.next_token();
+        match next.catcode {
+            CategoryCode::AlignmentTab if !inV && columns.last().unwrap().0.is_empty() => recindex = Some(columns.len() - 1),
+            CategoryCode::AlignmentTab => {
+                columns.push((vec!(),vec!(),tabskip));
+                inV = false
+            }
+            CategoryCode::Parameter if !inV => inV = true,
+            CategoryCode::Parameter => TeXErr!((int,Some(next)),"Misplaced # in alignment"),
+            CategoryCode::Escape | CategoryCode::Active => {
+                let proc = int.state_get_command(next.cmdname());
+                match proc {
+                    None => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+                    Some(p) => match &*p.orig {
+                        PrimitiveTeXCommand::Primitive(p) if **p == CR || **p == CRCR => {
+                            int.insert_every(&EVERYCR);
+                            break
+                        }
+                        PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(p)) if **p == TABSKIP => {
+                            tabskip = int.read_skip()?;
+                            columns.last_mut().unwrap().2 = tabskip;
+                        }
+                        PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Parameter || tk.catcode == CategoryCode::AlignmentTab => {
+                            int.requeue(tk.clone())
+                        }
+                        PrimitiveTeXCommand::Primitive(p) if **p == SPAN => {
+                            let next = int.next_token();
+                            match next.catcode {
+                                CategoryCode::Escape | CategoryCode::Active => {
+                                    let p = int.get_command(next.cmdname())?;
+                                    if p.expandable(true) {
+                                        p.expand(next,int)?
+                                    } else {
+                                        TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                                    }
+                                }
+                                _ => TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                            }
+                        }
+                        _ => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+                    }
+                }
+            }
+            _ => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+        }
+    }
+
+    let mut boxes : Vec<AlignBlock> = vec!();
+
+    'table: loop {
+        'prelude: loop {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::EndGroup => break 'table,
+                CategoryCode::Space => (),
+                CategoryCode::Active | CategoryCode::Escape => {
+                    let cmd = int.state_get_command(next.cmdname());
+                    match cmd {
+                        None => {
+                            int.requeue(next);
+                            break 'prelude
+                        },
+                        Some(cmd) => {
+                            if cmd.expandable(true) { cmd.expand(next,int)?} else {
+                                match &*cmd.orig {
+                                    PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::EndGroup => break 'table,
+                                    PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
+                                    PrimitiveTeXCommand::Primitive(c) if **c == CRCR => (),
+                                    _ => {
+                                        int.requeue(next);
+                                        break 'prelude
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    int.requeue(next);
+                    break 'prelude
+                }
+            }
+        }
+
+        let mut columnindex : usize = 0;
+        let mut row:Vec<(Vec<Whatsit>,Skip)> = vec!();
+
+        'row: loop {
+            let mut doheader = true;
+            inV = false;
+            'prelude: loop {
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::Space => (),
+                    CategoryCode::Active | CategoryCode::Escape => {
+                        let cmd = int.state_get_command(next.cmdname());
+                        match cmd {
+                            None => {
+                                int.requeue(next);
+                                break 'prelude
+                            },
+                            Some(cmd) => {
+                                if cmd.expandable(true) { cmd.expand(next,int)?} else {
+                                    match &*cmd.orig {
+                                        PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
+                                        PrimitiveTeXCommand::Primitive(c) if **c == OMIT => {
+                                            doheader = false;
+                                            break 'prelude
+                                        }
+                                        _ => {
+                                            int.requeue(next);
+                                            break 'prelude
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        int.requeue(next);
+                        break 'prelude
+                    }
+                }
+            }
+            if columns.len() <= columnindex {
+                match recindex {
+                    Some(i) => columnindex = i,
+                    None => TeXErr!((int,None),"Invalid column index in align")
+                }
+            }
+            if doheader {
+                int.push_tokens(columns.get(columnindex).unwrap().0.clone())
+            }
+            let _oldmode = int.get_mode();
+            int.new_group(GroupType::Box(tabmode));
+            'cell: loop {
+                let next = int.next_token();
+                match next.catcode {
+                    CategoryCode::AlignmentTab if !doheader => break 'cell,
+                    CategoryCode::AlignmentTab if !inV => {
+                        inV = true;
+                        int.requeue(endtemplate.clone());
+                        int.push_tokens(columns.get(columnindex).unwrap().1.clone())
+                    }
+                    CategoryCode::Escape if next.char == endtemplate.char && next == endtemplate => {
+                        break 'cell
+                    }
+                    CategoryCode::Escape if next.char == endrow.char && next == endrow => {
+                        let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
+                        row.push((ret,columns.get(columnindex).unwrap().2));
+                        int.set_mode(_oldmode);
+                        int.insert_every(&EVERYCR);
+                        break 'row
+                    }
+                    CategoryCode::Escape | CategoryCode::Active => {
+                        let p = int.get_command(next.cmdname())?;
+                        match &*p.orig {
+                            PrimitiveTeXCommand::Primitive(p) if (**p == CR || **p == CRCR) && !doheader => {
+                                let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
+                                row.push((ret,columns.get(columnindex).unwrap().2));
+                                int.set_mode(_oldmode);
+                                int.insert_every(&EVERYCR);
+                                break 'row
+                            }
+                            PrimitiveTeXCommand::Primitive(p) if (**p == CR || **p == CRCR) && !inV => {
+                                inV = true;
+                                int.requeue(endrow.clone());
+                                int.push_tokens(columns.get(columnindex).unwrap().1.clone())
+                            }
+                            _ => int.do_top(next,true)?
+                        }
+                    }
+                    _ => int.do_top(next,true)?
+                }
+            }
+            let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
+            row.push((ret,columns.get(columnindex).unwrap().2));
+            int.set_mode(_oldmode);
+            columnindex += 1
+        }
+        boxes.push(AlignBlock::Block(row))
+    }
+
+    int.pop_group(GroupType::Box(betweenmode))?;
+    Ok((firsttabskip, columns,boxes))
+}
+
+pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
+    name:"halign",
+    modes: |x|  {x == TeXMode::Vertical || x == TeXMode::InternalVertical },
+    _get:|tk,int| {
+        let width = match int.read_keyword(vec!("to"))? {
+            Some(_) => Some(int.read_dimension()?),
+            None => None
+        };
+        let (skip,template,rows) = do_align(int,BoxMode::H,BoxMode::V)?;
+        Ok(Whatsit::Simple(SimpleWI::Halign(skip,template,rows,int.update_reference(tk))))
+    }
+};
+
+pub static VALIGN: SimpleWhatsit = SimpleWhatsit {
+    name:"valign",
+    modes: |x|  {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal },
+    _get:|tk,int| {
+        let height = match int.read_keyword(vec!("to"))? {
+            Some(_) => Some(int.read_dimension()?),
+            None => None
+        };
+        let (skip,template,columns) = do_align(int,BoxMode::V,BoxMode::H)?;
+        Ok(Whatsit::Simple(SimpleWI::Valign(skip,template,columns,int.update_reference(tk))))
     }
 };
 
@@ -2827,18 +3149,6 @@ pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static CR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"cr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"crcr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentgrouplevel",
     expandable:true,
@@ -2911,12 +3221,6 @@ pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"omit",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pausing",
     expandable:true,
@@ -2965,11 +3269,6 @@ pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static VALIGN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"valign",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
 
 pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
     name:"beginL",
@@ -3343,20 +3642,8 @@ pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HALIGN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"halign",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static HRULE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hrule",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3451,12 +3738,6 @@ pub static MSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"noalign",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"noindent",
     expandable:true,
@@ -3507,18 +3788,6 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vadjust",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VCENTER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vcenter",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3595,6 +3864,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLOSEIN),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(&WRITE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VRULE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HRULE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VFILL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VSKIP)),
@@ -3609,6 +3879,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNHCOPY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNVBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNVCOPY)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HALIGN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VALIGN)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -3647,6 +3919,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VCENTER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&LASTBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&COPY)),
@@ -3836,7 +4109,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SHOWLISTS),
     PrimitiveTeXCommand::Primitive(&SHOWTHE),
     PrimitiveTeXCommand::Primitive(&SPAN),
-    PrimitiveTeXCommand::Primitive(&VALIGN),
     PrimitiveTeXCommand::Primitive(&BEGINL),
     PrimitiveTeXCommand::Primitive(&BEGINR),
     PrimitiveTeXCommand::Primitive(&BOTMARKS),
@@ -3903,9 +4175,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BOTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
-    PrimitiveTeXCommand::Primitive(&HALIGN),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
-    PrimitiveTeXCommand::Primitive(&HRULE),
     PrimitiveTeXCommand::Primitive(&HSS),
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
@@ -3933,7 +4203,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&UNKERN),
     PrimitiveTeXCommand::Primitive(&UNPENALTY),
     PrimitiveTeXCommand::Primitive(&VADJUST),
-    PrimitiveTeXCommand::Primitive(&VCENTER),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
     PrimitiveTeXCommand::Primitive(&VSS),

@@ -1,7 +1,7 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::stomach::whatsits::Whatsit;
+pub use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, TeXErr};
 use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::GroupType;
@@ -140,6 +140,11 @@ pub trait Stomach {
                         self.base_mut().buffer.push(StomachGroup::Other(c))
                     }
                     Ok(ret)
+                }
+                StomachGroup::Par(_) => {
+                    self.base_mut().buffer.push(ret);
+                    self.end_paragraph(int)?;
+                    self.pop_group(int)
                 }
                 _ => todo!()
             }

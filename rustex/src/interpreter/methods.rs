@@ -5,6 +5,7 @@ use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
 use crate::commands::{TokReference, PrimitiveTeXCommand, TokenList};
 use crate::{TeXErr,FileEnd,log};
+use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
@@ -271,38 +272,44 @@ impl Interpreter<'_> {
 
     // Boxes & Whatsits ----------------------------------------------------------------------------
 
-    pub fn read_whatsit_group(&self,bm : BoxMode) -> Result<Vec<Whatsit>,TeXError> {
+    pub fn read_whatsit_group(&self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
-        match next.catcode {
-            CategoryCode::BeginGroup => {
-                self.requeue(next);
-                let _oldmode = self.get_mode();
-                self.new_group(GroupType::Box(bm));
-                self.set_mode(match bm {
-                    BoxMode::H => {
-                        self.insert_every(&crate::commands::primitives::EVERYHBOX);
-                        TeXMode::RestrictedHorizontal
-                    },
-                    BoxMode::V => {
-                        self.insert_every(&crate::commands::primitives::EVERYVBOX);
-                        TeXMode::InternalVertical
-                    },
-                    BoxMode::M => TeXMode::Math,
-                    BoxMode::DM => TeXMode::Displaymath,
-                    _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
-                });
-                if self.state.borrow().insetbox {
-                    self.state.borrow_mut().insetbox = false;
-                    self.insert_afterassignment();
+        let tk = match next.catcode {
+            CategoryCode::BeginGroup => next,
+            CategoryCode::Active | CategoryCode::Escape => {
+                let p = self.get_command(next.cmdname())?;
+                match &*p.orig {
+                    PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => tk.clone(),
+                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
                 }
-                self.read_whatsits()?;
-                let ret = self.get_whatsit_group(GroupType::Box(bm))?;
-                self.set_mode(_oldmode);
-                Ok(ret)
             }
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+        };
+        self.requeue(tk);
+        let _oldmode = self.get_mode();
+        self.new_group(GroupType::Box(bm));
+        self.set_mode(match bm {
+            BoxMode::H => {
+                if (insertevery) { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
+                TeXMode::RestrictedHorizontal
+            },
+            BoxMode::V => {
+                if (insertevery) { self.insert_every(&crate::commands::primitives::EVERYVBOX) };
+                TeXMode::InternalVertical
+            },
+            BoxMode::M => TeXMode::Math,
+            BoxMode::DM => TeXMode::Displaymath,
+            _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
+        });
+        if self.state.borrow().insetbox {
+            self.state.borrow_mut().insetbox = false;
+            self.insert_afterassignment();
         }
+        self.read_whatsits()?;
+        let ret = self.get_whatsit_group(GroupType::Box(bm))?;
+        self.set_mode(_oldmode);
+        Ok(ret)
     }
 
     pub fn read_box(&self) -> Result<TeXBox,TeXError> {
