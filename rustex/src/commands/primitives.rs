@@ -1423,6 +1423,66 @@ pub static FONT: FontAssValue = FontAssValue {
     }
 };
 
+pub static TEXTFONT: FontAssValue = FontAssValue {
+    name:"textfont",
+    _assign: |_rf,int,global| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        let f = read_font(int)?;
+        int.change_state(StateChange::Textfont(ind as usize,f,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        todo!()
+    }
+};
+
+pub static SCRIPTFONT: FontAssValue = FontAssValue {
+    name:"scriptfont",
+    _assign: |_rf,int,global| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        let f = read_font(int)?;
+        int.change_state(StateChange::Scriptfont(ind as usize,f,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        todo!()
+    }
+};
+pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
+    name:"scriptscriptfont",
+    _assign: |_rf,int,global| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        let f = read_font(int)?;
+        int.change_state(StateChange::Scriptscriptfont(ind as usize,f,global));
+        Ok(())
+    },
+    _getvalue: |int| {
+        let ind = int.read_number()?;
+        if ind < 0 || ind > 15 {
+            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+        }
+        todo!()
+    }
+};
+
+
 pub fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     int.expand_until(true)?;
     let tk = int.read_command_token()?;
@@ -2480,7 +2540,19 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
     expandable:false,
     _apply:|tk,int| {
-        todo!()
+        //unsafe { crate::LOG = true }
+        let num = int.read_number()?;
+        log!("\\parshape: Reading 2*{} dimensions:",num);
+        let mut vals : Vec<(i64,i64)> = vec!();
+        for i in 1..(num+1) {
+            let f = int.read_dimension()?;
+            log!("\\parshape: i{}={}",i,f);
+            let s = int.read_dimension()?;
+            log!("\\parshape: l{}={}",i,s);
+            vals.push((f,s))
+        }
+        int.stomach.borrow_mut().base_mut().parshape = vals;
+        Ok(())
     }
 };
 
@@ -3587,24 +3659,6 @@ pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scriptfont",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SCRIPTSCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"scriptscriptfont",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static TEXTFONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"textfont",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static ABOVE: PrimitiveExecutable = PrimitiveExecutable {
     name:"above",
     expandable:true,
@@ -3893,6 +3947,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Ass(&ADVANCE),
     PrimitiveTeXCommand::Ass(&SETBOX),
     PrimitiveTeXCommand::AV(AssignableValue::Font(&FONT)),
+    PrimitiveTeXCommand::AV(AssignableValue::Font(&TEXTFONT)),
+    PrimitiveTeXCommand::AV(AssignableValue::Font(&SCRIPTFONT)),
+    PrimitiveTeXCommand::AV(AssignableValue::Font(&SCRIPTSCRIPTFONT)),
     PrimitiveTeXCommand::Primitive(&INPUT),
     PrimitiveTeXCommand::Primitive(&BEGINGROUP),
     PrimitiveTeXCommand::Primitive(&ENDGROUP),
@@ -4198,9 +4255,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
-    PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
-    PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
-    PrimitiveTeXCommand::Primitive(&TEXTFONT),
     PrimitiveTeXCommand::Primitive(&ABOVE),
     PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&ACCENT),

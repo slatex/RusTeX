@@ -51,6 +51,30 @@ struct StackFrame {
     pub(crate) currfont : Rc<Font>,
     pub(crate) aftergroups : Vec<Token>,
     pub(crate) fontstyle : FontStyle,
+    pub(crate) textfonts: [Rc<Font>;16],
+    pub(crate) scriptfonts: [Rc<Font>;16],
+    pub(crate) scriptscriptfonts: [Rc<Font>;16],
+}
+
+fn newfonts() -> [Rc<Font>;16] {
+    [
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+        Nullfont.try_with(|x|x.clone()).unwrap(),
+    ]
 }
 
 impl StackFrame {
@@ -100,6 +124,9 @@ impl StackFrame {
             tp:None,aftergroups:vec!(),
             currfont:Nullfont.try_with(|x| x.clone()).unwrap(),
             fontstyle:FontStyle::Text,
+            textfonts:newfonts(),
+            scriptfonts:newfonts(),
+            scriptscriptfonts:newfonts(),
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
@@ -128,7 +155,10 @@ impl StackFrame {
             dimensions:dims,aftergroups:vec!(),
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
             tp:Some(tp),currfont:parent.currfont.clone(),
-            fontstyle:parent.fontstyle
+            fontstyle:parent.fontstyle,
+            textfonts:newfonts(),
+            scriptfonts:newfonts(),
+            scriptscriptfonts:newfonts(),
         }
     }
 }
@@ -323,6 +353,27 @@ impl State {
     }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
+            StateChange::Textfont(i,f,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.textfonts[i as usize] = f.clone()
+                    }
+                } else { self.stacks.last_mut().unwrap().textfonts[i as usize] = f}
+            }
+            StateChange::Scriptfont(i,f,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.scriptfonts[i as usize] = f.clone()
+                    }
+                } else { self.stacks.last_mut().unwrap().scriptfonts[i as usize] = f}
+            }
+            StateChange::Scriptscriptfont(i,f,global) => {
+                if global {
+                    for s in self.stacks.iter_mut() {
+                        s.scriptscriptfonts[i as usize] = f.clone()
+                    }
+                } else { self.stacks.last_mut().unwrap().scriptscriptfonts[i as usize] = f}
+            }
             StateChange::Fontstyle(fs) => self.stacks.last_mut().unwrap().fontstyle = fs,
             StateChange::Aftergroup(tk) => self.stacks.last_mut().unwrap().aftergroups.push(tk),
             StateChange::Font(f,global) => {
@@ -851,5 +902,8 @@ pub enum StateChange {
     Font(Rc<Font>,bool),
     Pdfmatches(Vec<TeXStr>),
     Aftergroup(Token),
-    Fontstyle(FontStyle)
+    Fontstyle(FontStyle),
+    Textfont(usize,Rc<Font>,bool),
+    Scriptfont(usize,Rc<Font>,bool),
+    Scriptscriptfont(usize,Rc<Font>,bool),
 }

@@ -265,7 +265,7 @@ impl Interpreter<'_> {
                 self.start_math(inner)
             }
             (Letter | Other | Space | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
-            _ => TeXErr!((self,Some(next)),"Urgh!"),
+            _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
         }
     }
 
@@ -308,19 +308,23 @@ impl Interpreter<'_> {
     }
 
     fn start_math(&self, inner : bool) -> Result<(),TeXError> {
-        let _oldmode = self.get_mode();
+        self.new_group(GroupType::Math);
         let mode = if inner { TeXMode::Math } else {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::MathShift => TeXMode::Displaymath,
+                CategoryCode::MathShift => {
+                    self.insert_every(&crate::commands::primitives::EVERYDISPLAY);
+                    TeXMode::Displaymath
+                },
                 _ => {
                     self.requeue(next);
+                    self.insert_every(&crate::commands::primitives::EVERYMATH);
                     TeXMode::Math
                 }
             }
         };
+        let _oldmode = self.get_mode();
         self.set_mode(mode);
-        self.new_group(GroupType::Math);
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
