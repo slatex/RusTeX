@@ -2071,14 +2071,14 @@ pub static WD: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let bx = int.state_get_box(index);
+        let mut bx = int.state_get_box(index);
         match bx {
             TeXBox::Void => (),
-            TeXBox::H(mut hb) => hb._width = Some(dim),
-            TeXBox::V(mut hb) => hb._width = Some(dim),
+            TeXBox::H(ref mut hb) => hb._width = Some(dim),
+            TeXBox::V(ref mut hb) => hb._width = Some(dim),
         }
         int.change_state(StateChange::Box(index,bx,global));
-        ok(())
+        Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
@@ -2092,14 +2092,14 @@ pub static HT: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let bx = int.state_get_box(index);
+        let mut bx = int.state_get_box(index);
         match bx {
             TeXBox::Void => (),
-            TeXBox::H(mut hb) => hb._height = Some(dim),
-            TeXBox::V(mut hb) => hb._height = Some(dim),
+            TeXBox::H(ref mut hb) => hb._height = Some(dim),
+            TeXBox::V(ref mut hb) => hb._height = Some(dim),
         }
         int.change_state(StateChange::Box(index,bx,global));
-        ok(())
+        Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
@@ -2113,14 +2113,14 @@ pub static DP: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let bx = int.state_get_box(index);
+        let mut bx = int.state_get_box(index);
         match bx {
             TeXBox::Void => (),
-            TeXBox::H(mut hb) => hb._depth = Some(dim),
-            TeXBox::V(mut hb) => hb._depth = Some(dim),
+            TeXBox::H(ref mut hb) => hb._depth = Some(dim),
+            TeXBox::V(ref mut hb) => hb._depth = Some(dim),
         }
         int.change_state(StateChange::Box(index,bx,global));
-        ok(())
+        Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
@@ -2448,6 +2448,59 @@ pub static VALIGN: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static HSS: SimpleWhatsit = SimpleWhatsit {
+    name:"hss",
+    modes: |x|  {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal },
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))}
+};
+
+pub static VSS: SimpleWhatsit = SimpleWhatsit {
+    name:"vss",
+    modes: |x|  {x == TeXMode::Vertical || x == TeXMode::InternalVertical },
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Vss(int.update_reference(tk))))}
+};
+
+pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
+    name: "hangindent",
+    expandable:false,
+    _apply: |rf,int| {
+        todo!()
+    }
+};
+
+pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
+    name: "hangafter",
+    expandable:false,
+    _apply: |rf,int| {
+        todo!()
+    }
+};
+
+pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"parshape",
+    expandable:false,
+    _apply:|tk,int| {
+        todo!()
+    }
+};
+
+pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"indent",
+    expandable:false,
+    _apply:|tk,int| {
+        int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Indent(
+            int.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),int.update_reference(&tk.0)
+        )))?;
+        Ok(())
+    }
+};
+
+pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"noindent",
+    expandable:false,
+    _apply:|_tk,_int| {Ok(())}
+};
+
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
     _get: |tk,int| {todo!()}
@@ -2707,11 +2760,6 @@ pub static LANGUAGE : RegisterReference = RegisterReference {
     index:54
 };
 
-pub static HANGAFTER : RegisterReference = RegisterReference {
-    name: "hangafter",
-    index:55
-};
-
 pub static INTERLINEPENALTY : RegisterReference = RegisterReference {
     name: "interlinepenalty",
     index:56
@@ -2917,13 +2965,6 @@ pub static LINESKIPLIMIT : DimenReference = DimenReference {
 pub static MATHSURROUND : DimenReference = DimenReference {
     name: "mathsurround",
     index:22
-};
-
-// -----------------
-
-pub static HANGINDENT : DimenReference = DimenReference {
-    name: "hangindent",
-    index:25
 };
 
 // ----------------
@@ -3546,12 +3587,6 @@ pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"parshape",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SCRIPTFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptfont",
     expandable:true,
@@ -3678,18 +3713,6 @@ pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static HSS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"hss",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"indent",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
     name:"insert",
     expandable:true,
@@ -3768,12 +3791,6 @@ pub static MSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"noindent",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static OVER: PrimitiveExecutable = PrimitiveExecutable {
     name:"over",
     expandable:true,
@@ -3830,12 +3847,6 @@ pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"vsplit",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VSS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vss",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -3911,6 +3922,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNVCOPY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HALIGN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VALIGN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HSS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VSS)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -3938,6 +3951,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MEANING),
     PrimitiveTeXCommand::Primitive(&ETEXREVISION),
     PrimitiveTeXCommand::Primitive(&UNEXPANDED),
+    PrimitiveTeXCommand::Primitive(&PARSHAPE),
+    PrimitiveTeXCommand::Primitive(&HANGINDENT),
+    PrimitiveTeXCommand::Primitive(&HANGAFTER),
     PrimitiveTeXCommand::Num(&ETEXVERSION),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&LCCODE)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&UCCODE)),
@@ -4004,7 +4020,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGNESTING)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&MAG)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LANGUAGE)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&HANGAFTER)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&INTERLINEPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&FLOATINGPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&LASTNODETYPE)),
@@ -4046,7 +4061,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HSIZE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&LINESKIPLIMIT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&MATHSURROUND)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HANGINDENT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGETOTAL)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGESTRETCH)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PAGEFILSTRETCH)),
@@ -4183,7 +4197,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PAGEGOAL),
-    PrimitiveTeXCommand::Primitive(&PARSHAPE),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
     PrimitiveTeXCommand::Primitive(&SCRIPTFONT),
     PrimitiveTeXCommand::Primitive(&SCRIPTSCRIPTFONT),
@@ -4206,7 +4219,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
     PrimitiveTeXCommand::Primitive(&HFILNEG),
-    PrimitiveTeXCommand::Primitive(&HSS),
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
@@ -4235,6 +4247,5 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&VADJUST),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
-    PrimitiveTeXCommand::Primitive(&VSS),
     PrimitiveTeXCommand::Primitive(&VTOP),
 ]}

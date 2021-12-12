@@ -23,7 +23,7 @@ impl StomachGroup {
         match self {
             Top(_) => unreachable!(),
             TeXGroup(gt,_) => TeXGroup(gt.clone(),vec!()),
-            Par(p) => Par(Paragraph::new(p.indent,p.parskip)),
+            Par(p) => Par(Paragraph::new(p.parskip)),
             Other(wig) => Other(wig.new_from())
         }
     }
@@ -89,14 +89,16 @@ pub trait Stomach {
 
     // ---------------------------------------------------------------------------------------------
 
-    fn start_paragraph(&mut self,indent: i64,parskip:i64) {
-        self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(Some(indent),parskip)))
+    fn start_paragraph(&mut self,parskip:i64) {
+        self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
     fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
         let mut p = self.end_paragraph_loop(int)?;
         p.close(int);
-        self.add(int,Whatsit::Par(p))
+        self.add(int,Whatsit::Par(p))?;
+        self.reset_par();
+        Ok(())
     }
 
     fn end_paragraph_loop(&mut self,int:&Interpreter) -> Result<Paragraph,TeXError> {
@@ -364,13 +366,22 @@ pub trait Stomach {
             stack.push(StomachGroup::TeXGroup(*gt,vec!()))
         }
     }
+    fn reset_par(&mut self) {
+        let base = self.base_mut();
+        base.hangindent = 0;
+        base.hangafter = 0;
+        base.parshape = vec!();
+    }
 }
 
 pub struct StomachBase {
     pub buffer:Vec<StomachGroup>,
     pub indocument:bool,
     pub basefont:Option<Rc<Font>>,
-    pub basecolor:Option<TeXStr>
+    pub basecolor:Option<TeXStr>,
+    pub hangindent:i64,
+    pub hangafter:usize,
+    pub parshape:Vec<(i64,i64)>
 }
 
 pub struct NoShipoutRoutine {
@@ -383,7 +394,7 @@ impl NoShipoutRoutine {
                 buffer:vec!(StomachGroup::Top(vec!())),
                 indocument:false,
                 basefont:None,
-                basecolor:None
+                basecolor:None,hangindent:0,hangafter:0,parshape:vec!()
             }
         }
     }

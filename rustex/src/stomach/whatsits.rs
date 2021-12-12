@@ -384,6 +384,9 @@ pub enum SimpleWI {
     PdfDest(TeXStr,TeXStr,Option<SourceFileReference>),
     Halign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
     Valign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
+    Hss(Option<SourceFileReference>),
+    Vss(Option<SourceFileReference>),
+    Indent(i64,Option<SourceFileReference>),
 }
 impl SimpleWI {
     pub fn has_ink(&self) -> bool {
@@ -391,7 +394,8 @@ impl SimpleWI {
         match self {
             VRule(_,_,_,_) | HRule(_,_,_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
-            PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_) => false,
+            PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
+            | Hss(_) | Vss(_) | Indent(_,_) => false,
             Raise(_,bx,_) => bx.has_ink(),
             Halign(_,_,ab,_) => {
                 for v in ab {
@@ -416,11 +420,13 @@ impl SimpleWI {
     pub fn width(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
+            VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
+                | Hss(_) | Vss(_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
             HSkip(sk,_) => sk.base,
-            Halign(sk,tpl,bxs,_) => {
+            Indent(i,_) => *i,
+            Halign(sk,_,bxs,_) => {
                 let mut width:i64 = 0;
                 for b in bxs {
                     match b {
@@ -475,7 +481,8 @@ impl SimpleWI {
     pub fn height(&self) -> i64 {
         use SimpleWI::*;
         match self {
-            HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_) => 0,
+            HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
+                | Hss(_) | Vss(_) | Indent(_,_) => 0,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             VSkip(sk,_) => sk.base,
@@ -535,7 +542,8 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
-                | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_) => 0,
+                | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
+                | Hss(_) | Vss(_) | Indent(_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             _ => todo!()
         }
@@ -560,7 +568,6 @@ pub trait ExtWhatsit {
 
 #[derive(Clone)]
 pub struct Paragraph {
-    pub indent:Option<i64>,
     pub parskip:i64,
     pub children:Vec<Whatsit>,
     leftskip:Option<i64>,
@@ -620,8 +627,8 @@ impl Paragraph {
         self._height = currentheight + currentlineheight;
         self._depth = currentdepth;
     }
-    pub fn new(indent:Option<i64>,parskip:i64) -> Paragraph { Paragraph {
-        indent,parskip,children:vec!(),
+    pub fn new(parskip:i64) -> Paragraph { Paragraph {
+        parskip,children:vec!(),
         leftskip:None,rightskip:None,hsize:None,lineheight:None,
         _width:0,_height:0,_depth:0
     }}

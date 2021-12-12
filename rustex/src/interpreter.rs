@@ -61,6 +61,7 @@ pub struct Interpreter<'a> {
     pub stomach:RefCell<&'a mut dyn Stomach>
 }
 use crate::{TeXErr,FileEnd};
+use crate::commands::PrimitiveTeXCommand::Whatsit;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
@@ -99,7 +100,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach};
-use crate::stomach::whatsits::{SimpleWI, Whatsit};
+use crate::stomach::whatsits::{SimpleWI};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -219,7 +220,13 @@ impl Interpreter<'_> {
                     return p.expand(next,self)
                 }
                 match (&*p.orig,mode) {
-                    (Primitive(p),Vertical | InternalVertical) if **p == primitives::PAR => Ok(()),
+                    (Primitive(p),Vertical | InternalVertical) if **p == primitives::PAR => {
+                        self.stomach.borrow_mut().reset_par();
+                        Ok(())
+                    },
+                    (Primitive(p),Vertical | InternalVertical) if **p == primitives::INDENT || **p == primitives::NOINDENT => {
+                        self.switch_to_H(next)
+                    }
                     (Primitive(p),Horizontal) if **p == primitives::PAR => self.end_paragraph(inner),
                     (Primitive(np),_) => {
                         let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
@@ -240,7 +247,7 @@ impl Interpreter<'_> {
                         self.stomach.borrow_mut().add(self,next)
                     },
                     (Whatsit(_), Vertical | InternalVertical) => {
-                        Ok(self.switch_to_H(next))
+                        self.switch_to_H(next)
                     }
                     _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
 
@@ -257,18 +264,38 @@ impl Interpreter<'_> {
             (MathShift, Horizontal | RestrictedHorizontal) => {
                 self.start_math(inner)
             }
-            (Letter | Other | Space | MathShift,Vertical | InternalVertical) => Ok(self.switch_to_H(next)),
+            (Letter | Other | Space | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
             _ => TeXErr!((self,Some(next)),"Urgh!"),
         }
     }
 
-    fn switch_to_H(&self,next:Token) {
-        self.requeue(next);
+    fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
+        let indent = match next.catcode {
+            CategoryCode::Escape | CategoryCode::Active => {
+                let pr = self.get_command(next.cmdname())?;
+                match &*pr.orig {
+                    PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::NOINDENT => 0,
+                    PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::INDENT =>
+                        self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),
+                    _ => {
+                        self.requeue(next);
+                        self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32))
+                    }
+                }
+            }
+            _ => {
+                self.requeue(next);
+                self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32))
+            }
+        };
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::primitives::EVERYPAR);
-        let indent = self.state.borrow().get_dimension(-(crate::commands::primitives::PARINDENT.index as i32));
         let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
-        self.stomach.borrow_mut().start_paragraph(indent,parskip.base)
+        self.stomach.borrow_mut().start_paragraph(parskip.base);
+        if indent != 0 {
+            self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Simple(SimpleWI::Indent(indent,None)))?
+        }
+        Ok(())
     }
 
     fn end_paragraph(&self,inner : bool) -> Result<(),TeXError> {
