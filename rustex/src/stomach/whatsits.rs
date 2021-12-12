@@ -37,10 +37,21 @@ pub enum TeXBox {
 static WIDTH_CORRECTION : i64 = 0;
 static HEIGHT_CORRECTION : i64 = 0;
 
+trait HasWhatsitIter {
+    fn iter_wi(&self) -> WhatsitIter;
+}
+
+impl HasWhatsitIter for Vec<Whatsit> {
+    fn iter_wi(&self) -> WhatsitIter {
+        WhatsitIter::new(self)
+    }
+}
+
 struct WhatsitIter<'a> {
     children:&'a [Whatsit],
     parent:Option<Box<WhatsitIter<'a>>>
 }
+
 impl WhatsitIter<'_> {
     pub fn new(v:&Vec<Whatsit>) -> WhatsitIter {
         WhatsitIter {
@@ -49,6 +60,7 @@ impl WhatsitIter<'_> {
         }
     }
 }
+
 impl <'a> Iterator for WhatsitIter<'a> {
     type Item = &'a Whatsit;
     fn next(&mut self) -> Option<Self::Item> {
@@ -80,14 +92,64 @@ impl<'a> Default for WhatsitIter<'a> {
         WhatsitIter { children: &[], parent: None }
     }
 }
+/*
+struct WhatsitIterMut<'a> {
+    children:&'a mut Vec<Whatsit>,
+    parent:Option<Box<WhatsitIterMut<'a>>>,
+    index:usize
+}
 
+impl WhatsitIterMut<'_> {
+    pub fn new(v:&mut Vec<Whatsit>) -> WhatsitIterMut {
+        WhatsitIterMut {
+            children:v,
+            parent:None,index:0
+        }
+    }
+    pub fn insert(&mut self,wi:Whatsit) {
+        self.children.insert(self.index,wi);
+        self.index += 1
+    }
+}
+
+impl <'a> Iterator for WhatsitIterMut<'a> {
+    type Item = (&'a Whatsit,&'a mut WhatsitIterMut<'a>);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.children.get(self.index) {
+            None => match self.parent.take() {
+                Some(p) => {
+                    *self = *p;
+                    self.next()
+                }
+                None => None
+            }
+            Some(w@Whatsit::Grouped(mut g)) => {
+                self.index += 1;
+                *self = WhatsitIterMut {
+                    children:&mut g.children(),
+                    parent:Some(Box::new(std::mem::take(self))),
+                    index:0
+                };
+                Some((w,self))
+            }
+            _ => todo!()
+        }
+    }
+}
+
+impl<'a> Default for WhatsitIterMut<'a> {
+    fn default() -> Self {
+        WhatsitIterMut { children: &mut vec!(), parent: None, index:0 }
+    }
+}
+*/
 
 impl TeXBox {
     fn iter(&self) -> WhatsitIter {
         match self {
             TeXBox::Void => WhatsitIter::default(),
-            TeXBox::H(hb) => WhatsitIter::new(&hb.children),
-            TeXBox::V(vb) => WhatsitIter::new(&vb.children),
+            TeXBox::H(hb) => hb.children.iter_wi(),
+            TeXBox::V(vb) => vb.children.iter_wi(),
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -432,7 +494,7 @@ impl SimpleWI {
                     match b {
                         AlignBlock::Noalign(v) => {
                             let mut max = 0;
-                            for c in WhatsitIter::new(v) {
+                            for c in v.iter_wi() {
                                 let w = c.width();
                                 if w > max {max = w}
                             }
@@ -442,7 +504,7 @@ impl SimpleWI {
                             let mut w:i64 = 0;
                             for (v,s) in ls {
                                 w += s.base;
-                                for c in WhatsitIter::new(v) { w += c.width() }
+                                for c in v.iter_wi() { w += c.width() }
                             }
                             if w > width { width = w }
                         }
@@ -455,14 +517,14 @@ impl SimpleWI {
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
-                            for c in WhatsitIter::new(v) {
+                            for c in v.iter_wi() {
                                 width += c.width();
                             }
                         }
                         AlignBlock::Block(ls) => {
                             let mut wd:i64 = 0;
                             for (v,s) in ls {
-                                for c in WhatsitIter::new(v) {
+                                for c in v.iter_wi() {
                                     let w = c.width();
                                     if w > wd { wd = w }
                                 }
@@ -491,14 +553,14 @@ impl SimpleWI {
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
-                            for c in WhatsitIter::new(v) {
+                            for c in v.iter_wi() {
                                 height += c.height();
                             }
                         }
                         AlignBlock::Block(ls) => {
                             let mut ht:i64 = 0;
                             for (v,s) in ls {
-                                for c in WhatsitIter::new(v) {
+                                for c in v.iter_wi() {
                                     let h = c.height();
                                     if h > ht { ht = h }
                                 }
@@ -515,7 +577,7 @@ impl SimpleWI {
                     match b {
                         AlignBlock::Noalign(v) => {
                             let mut max = 0;
-                            for c in WhatsitIter::new(v) {
+                            for c in v.iter_wi() {
                                 let w = c.height();
                                 if w > max {max = w}
                             }
@@ -525,7 +587,7 @@ impl SimpleWI {
                             let mut w:i64 = 0;
                             for (v,s) in ls {
                                 w += s.base;
-                                for c in WhatsitIter::new(v) { w += c.height()}
+                                for c in v.iter_wi() { w += c.height()}
                             }
                             if w > height { height = w }
                         }
@@ -587,25 +649,41 @@ pub struct Paragraph {
 }
 
 impl Paragraph {
-    pub fn close(&mut self,int:&Interpreter) {
-        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
+    pub fn close(&mut self,int:&Interpreter,hangindent:i64,hangafter:usize,parshape:Vec<(i64,i64)>) {
         self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
-        self.lineheight.get_or_insert(int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
+        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
         self.hsize.get_or_insert(int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32)));
+        self.lineheight.get_or_insert(int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
         self._width = self.hsize.unwrap() - (self.leftskip.unwrap()  + self.rightskip.unwrap());
+
+        let ils = if !parshape.is_empty() {
+            let mut ilsr : Vec<(i64,i64)> = vec!();
+            for (i,l) in parshape {
+                ilsr.push((i,l - (self.leftskip.unwrap() + self.rightskip.unwrap())))
+            }
+            ilsr
+        } else if hangindent != 0 && hangafter != 0 {
+            todo!()
+        } else {
+            vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap() + self.rightskip.unwrap())))
+        };
+
         let mut currentwidth : i64 = 0;
         let mut currentheight : i64 = 0;
         let mut currentlineheight : i64 = 0;
         let mut currentdepth : i64 = 0;
-        let hgoal = self._width;
+        let mut currline : usize = 0;
+        let mut hgoal = ils.first().unwrap().1;
         let lineheight = self.lineheight.unwrap();
-        for wi in WhatsitIter::new(&self.children) {
+        for wi in self.children.iter_wi() {
             match wi {
                 Whatsit::Simple(SimpleWI::Penalty(i)) if *i <= -10000 => {
                     currentwidth = 0;
                     currentheight += currentlineheight;
                     currentlineheight = 0;
                     currentdepth = 0;
+                    currline += 1;
+                    hgoal = ils.get(currline).unwrap_or(ils.last().unwrap()).1;
                 }
                 wi => {
                     let width = wi.width();
@@ -614,6 +692,8 @@ impl Paragraph {
                         currentheight += currentlineheight;
                         currentlineheight = 0;
                         currentdepth = 0;
+                        currline += 1;
+                        hgoal = ils.get(currline).unwrap_or(ils.last().unwrap()).1;
                     }
                     currentlineheight = max(currentlineheight,match wi {
                         Whatsit::Char(_,_,_) => max(wi.height(),lineheight),

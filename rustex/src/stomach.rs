@@ -95,7 +95,10 @@ pub trait Stomach {
 
     fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
         let mut p = self.end_paragraph_loop(int)?;
-        p.close(int);
+        let hangindent = self.base().hangindent;
+        let hangafter = self.base().hangafter;
+        let parshape = std::mem::take(&mut self.base_mut().parshape);
+        p.close(int,hangindent,hangafter,parshape);
         self.add(int,Whatsit::Par(p))?;
         self.reset_par();
         Ok(())
