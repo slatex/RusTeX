@@ -319,7 +319,9 @@ impl ProvidesWhatsit {
         match self {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
             Exec(e) => Ok(Whatsit::Exec(Rc::new((e._get)(tk,int)?))),
-            Math(m) => unreachable!(),//Ok(Whatsit::Math((m._get)(tk,int)?)),
+            Math(m) => {
+                unreachable!()
+            },//Ok(Whatsit::Math((m._get)(tk,int)?)),
             Simple(s) => Ok((s._get)(tk,int)?)
         }
     }

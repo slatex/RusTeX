@@ -350,7 +350,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
-use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1627,7 +1627,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static HBOX: ProvidesBox = ProvidesBox {
     name:"hbox",
-    _get: |_tk,int| {
+    _get: |tk,int| {
         let (spread,width) = match int.read_keyword(vec!("to","spread"))? {
             Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
@@ -1640,7 +1640,8 @@ pub static HBOX: ProvidesBox = ProvidesBox {
                 spread,
                 _width: width,
                 _height: None,
-                _depth: None
+                _depth: None,
+                rf : int.update_reference(tk)
             }))
         }
     }
@@ -1648,7 +1649,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
 
 pub static VBOX: ProvidesBox = ProvidesBox {
     name:"vbox",
-    _get: |_tk,int| {
+    _get: |tk,int| {
         let (spread,height) = match int.read_keyword(vec!("to","spread"))? {
             Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
@@ -1662,7 +1663,8 @@ pub static VBOX: ProvidesBox = ProvidesBox {
                 spread,
                 _width: None,
                 _height: height,
-                _depth: None
+                _depth: None,
+                rf : int.update_reference(tk)
             }))
         }
     }
@@ -2632,7 +2634,13 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
 
 pub static DELIMITER: MathWhatsit = MathWhatsit {
     name:"delimiter",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int| {
+        let ret = int.read_math_whatsit()?;
+        match ret {
+            Some(w) => Ok(MathKernel::Delimiter(Box::new(w),int.update_reference(tk))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {

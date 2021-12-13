@@ -17,7 +17,8 @@ pub struct HBox {
     pub spread:i64,
     pub _width:Option<i64>,
     pub _height:Option<i64>,
-    pub _depth:Option<i64>
+    pub _depth:Option<i64>,
+    pub rf : Option<SourceFileReference>
 }
 
 #[derive(Clone)]
@@ -27,7 +28,8 @@ pub struct VBox {
     pub spread:i64,
     pub _width:Option<i64>,
     pub _height:Option<i64>,
-    pub _depth:Option<i64>
+    pub _depth:Option<i64>,
+    pub rf : Option<SourceFileReference>
 }
 
 #[derive(Clone)]
@@ -261,23 +263,97 @@ impl MathGroup {
             kernel,subscript:None,superscript:None
         }
     }
-    pub fn width(&self) -> i64 { todo!( )}
-    pub fn height(&self) -> i64 { todo!( )}
-    pub fn depth(&self) -> i64 { todo!( )}
-    pub fn has_ink(&self) -> bool { todo!() }
+    pub fn width(&self) -> i64 {
+        self.kernel.width() + match &self.superscript {
+            None => 0,
+            Some(k) => k.width()
+        } + match &self.subscript {
+            None => 0,
+            Some(k) => k.width()
+        }
+    }
+    pub fn height(&self) -> i64 {
+        self.kernel.height() + match &self.superscript {
+            None => 0,
+            Some(k) => k.height() / 2
+        } + match &self.subscript {
+            None => 0,
+            Some(k) => k.height() / 2
+        }
+    }
+    pub fn depth(&self) -> i64 {
+        match &self.subscript {
+            Some(s) => max(s.height() / 2,self.kernel.depth()),
+            None => self.kernel.depth()
+        }
+    }
+    pub fn has_ink(&self) -> bool {
+        self.kernel.has_ink() || match &self.superscript {
+            None => false,
+            Some(s) => s.has_ink()
+        } || match &self.subscript {
+            None => false,
+            Some(s) => s.has_ink()
+        }
+    }
 }
 
 
 #[derive(Clone)]
 pub enum MathKernel {
-    Group(Vec<Whatsit>)
-
+    Group(Vec<Whatsit>),
+    Delimiter(Box<Whatsit>,Option<SourceFileReference>)
 }
 impl MathKernel {
-    pub fn width(&self) -> i64 { todo!( )}
-    pub fn height(&self) -> i64 { todo!( )}
-    pub fn depth(&self) -> i64 { todo!( )}
-    pub fn has_ink(&self) -> bool { todo!() }
+    pub fn width(&self) -> i64 {
+        use MathKernel::*;
+        match self {
+            Group(g) => {
+                let mut ret = 0;
+                for c in g { ret += c.width() }
+                ret
+            }
+            Delimiter(w,_) => w.width()
+        }
+    }
+    pub fn height(&self) -> i64 {
+        use MathKernel::*;
+        match self {
+            Group(g) => {
+                let mut ret = 0;
+                for c in g {
+                    let w = c.height();
+                    if w > ret { ret = w }
+                }
+                ret
+            }
+            Delimiter(w,_) => w.height()
+        }
+    }
+    pub fn depth(&self) -> i64 {
+        use MathKernel::*;
+        match self {
+            Group(g) => {
+                let mut ret = 0;
+                for c in g {
+                    let w = c.depth();
+                    if w > ret { ret = w }
+                }
+                ret
+            }
+            Delimiter(w,_) => w.depth()
+        }
+    }
+    pub fn has_ink(&self) -> bool {
+        use MathKernel::*;
+        match self {
+            Group(v) => {
+                for c in v { if c.has_ink() { return true } }
+                false
+            }
+            Delimiter(w,_) => w.has_ink()
+        }
+    }
 }
 
 #[derive(Clone)]

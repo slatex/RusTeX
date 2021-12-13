@@ -98,7 +98,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
     ret.into()
 }
 
-use crate::stomach::{NoShipoutRoutine, Stomach};
+use crate::stomach::{NoShipoutRoutine, Stomach, Whatsit};
 use crate::stomach::whatsits::{MathGroup, MathKernel, SimpleWI};
 use crate::interpreter::state::FontStyle;
 
@@ -359,6 +359,7 @@ impl Interpreter<'_> {
         use crate::catcodes::CategoryCode::*;
         use crate::commands::PrimitiveTeXCommand::*;
         use crate::stomach::Whatsit as WI;
+        use crate::commands::ProvidesWhatsit;
         self.new_group(GroupType::Math);
         let mode = if inner { TeXMode::Math } else {
             let next = self.next_token();
@@ -377,26 +378,47 @@ impl Interpreter<'_> {
         let _oldmode = self.get_mode();
         self.set_mode(mode);
 
-        let mut mathgroups : Vec<Vec<WI>> = vec!(vec!());
-
+        let mut mathgroups : Vec<WI> = vec!();
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
-                MathShift if mathgroups.len() == 1 => {
+                MathShift => {
                     self.set_mode(_oldmode);
                     self.pop_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups.pop().unwrap()))));
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups))));
                     return Ok(())
+                }
+                _ => {
+                    self.requeue(next);
+                    let ret = self.read_math_whatsit()?;
+                    match ret {
+                        Some(w) => mathgroups.push(w),
+                        None => ()
+                    }
+                }
+            }
+        }
+        FileEnd!(self)
+    }
+
+    pub fn read_math_whatsit(&self) -> Result<Option<Whatsit>,TeXError> {
+        use crate::catcodes::CategoryCode::*;
+        use crate::commands::PrimitiveTeXCommand::*;
+        use crate::stomach::Whatsit as WI;
+        use crate::commands::ProvidesWhatsit;
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                MathShift => {
+                    self.requeue(next);
+                    return Ok(None)
                 }
                 BeginGroup => {
                     self.new_group(GroupType::Math);
-                    mathgroups.push(vec!())
-                },
-                EndGroup if mathgroups.len() < 1 => TeXErr!((self,Some(next)),"Unexpected } Token!"),
-                EndGroup => {
                     todo!()
                 },
+                EndGroup => TeXErr!((self,Some(next)),"Unexpected } Token!"),
                 Active | Escape => {
                     let p = self.get_command(&next.cmdname())?;
                     if p.assignable() {
@@ -417,9 +439,13 @@ impl Interpreter<'_> {
                             Char(tk) => {
                                 self.requeue(tk.clone())
                             },
-                            Whatsit(w) if w.allowed_in(mode) => {
+                            Whatsit(ProvidesWhatsit::Math(mw)) => {
+                                let next = (mw._get)(&next,self)?;
+                                return Ok(Some(WI::Math(MathGroup::new(next))))
+                            },
+                            Whatsit(w) if w.allowed_in(self.get_mode()) => {
                                 let next = w.get(&next, self)?;
-                                mathgroups.last_mut().unwrap().push(next)
+                                return Ok(Some(next))
                             },
                             _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
                         }
@@ -434,7 +460,7 @@ impl Interpreter<'_> {
                         }
                         _ => {
                             let wi = self.do_math_char(next,mc as u32);
-                            self.stomach.borrow_mut().add(self,wi)?
+                            return Ok(Some(wi))
                         }
                     }
                 }
