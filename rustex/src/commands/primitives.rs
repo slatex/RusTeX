@@ -664,6 +664,10 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
+            AV(AssignableValue::Font(f)) => {
+                let font = (f._getvalue)(int)?;
+                vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),SourceReference::None,true))
+            }
             p => {
                 todo!("{}",p)
             }
@@ -1439,7 +1443,7 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
-        todo!()
+        Ok(int.state.borrow().getTextFont(ind as u8))
     }
 };
 
@@ -1459,7 +1463,7 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        todo!()
+        Ok(int.state.borrow().getScriptFont(ind as u8))
     }
 };
 pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
@@ -1478,7 +1482,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        todo!()
+        Ok(int.state.borrow().getScriptScriptFont(ind as u8))
     }
 };
 
@@ -2234,6 +2238,16 @@ pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"char",
+    expandable:false,
+    _apply:|rf,int| {
+        let num = int.read_number()? as u8;
+        rf.2 = vec!(Token::new(num,CategoryCode::Other,None,SourceReference::Exp(rf.get_ref()),true));
+        Ok(())
+    }
+};
+
 pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"omit",
     expandable:false,
@@ -2256,12 +2270,6 @@ pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"noalign",
     expandable:false,
     _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\noalign")}
-};
-
-pub static ENDTEMPLATE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"endtemplate",
-    expandable:false,
-    _apply: |_,_| { unreachable!() }
 };
 
 fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
@@ -3282,12 +3290,6 @@ pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     name:"bye",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"char",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

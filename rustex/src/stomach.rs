@@ -31,7 +31,7 @@ impl StomachGroup {
         use StomachGroup::*;
         match self {
             Top(_) => 255,
-            TeXGroup(GroupType::Box(_),_) => 250,
+            TeXGroup(GroupType::Box(_) | GroupType::Math,_) => 250,
             Par(_) => 240,
             TeXGroup(_,_) => 5,
             Other(w) => w.priority(),
@@ -292,7 +292,7 @@ pub trait Stomach {
             },
             _ => {
                 let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
-                    StomachGroup::TeXGroup(GroupType::Box(_),_) => true,
+                    StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
                     StomachGroup::Par(_) => true,
                     StomachGroup::Top(_) => true,
                     o => !o.get().is_empty()
@@ -349,7 +349,7 @@ pub trait Stomach {
                     stack.push(StomachGroup::Top(v));
                     break
                 }
-                Some(StomachGroup::TeXGroup(GroupType::Box(_),_)) => panic!("This shouldn't happen!"),
+                Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_)) => panic!("This shouldn't happen!"),
                 Some(StomachGroup::TeXGroup(gt,v)) => {
                     groups.push(gt);
                     for c in v {stack.last_mut().unwrap().push(c)}

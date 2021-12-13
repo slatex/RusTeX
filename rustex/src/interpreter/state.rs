@@ -574,6 +574,19 @@ impl State {
             None => TeXErr!((int,None),"No group here to end!")
         }
     }
+
+    pub fn getTextFont(&self,i : u8) -> Rc<Font> {
+        Rc::clone(self.stacks.last().unwrap().textfonts.get(i as usize).unwrap())
+    }
+    pub fn getScriptFont(&self,i : u8) -> Rc<Font> {
+        Rc::clone(self.stacks.last().unwrap().scriptfonts.get(i as usize).unwrap())
+    }
+    pub fn getScriptScriptFont(&self,i : u8) -> Rc<Font> {
+        Rc::clone(self.stacks.last().unwrap().scriptscriptfonts.get(i as usize).unwrap())
+    }
+    pub fn font_style(&self) -> FontStyle {
+        self.stacks.last().unwrap().fontstyle
+    }
 }
 
 

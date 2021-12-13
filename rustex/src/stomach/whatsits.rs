@@ -2,6 +2,7 @@ use std::cmp::{max, Ordering};
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
+use crate::commands::MathWhatsit;
 use crate::fonts::Font;
 use crate::interpreter::dimensions::Skip;
 use crate::references::SourceFileReference;
@@ -249,14 +250,34 @@ impl TeXBox {
 }
 
 #[derive(Clone)]
-pub struct MathWI {
-    pub tp : TeXStr,
-    pub children:Vec<Whatsit>
+pub struct MathGroup {
+    pub kernel : MathKernel,
+    pub superscript : Option<MathKernel>,
+    pub subscript : Option<MathKernel>
 }
-impl MathWI {
+impl MathGroup {
+    pub fn new(kernel:MathKernel) -> MathGroup {
+        MathGroup {
+            kernel,subscript:None,superscript:None
+        }
+    }
     pub fn width(&self) -> i64 { todo!( )}
     pub fn height(&self) -> i64 { todo!( )}
     pub fn depth(&self) -> i64 { todo!( )}
+    pub fn has_ink(&self) -> bool { todo!() }
+}
+
+
+#[derive(Clone)]
+pub enum MathKernel {
+    Group(Vec<Whatsit>)
+
+}
+impl MathKernel {
+    pub fn width(&self) -> i64 { todo!( )}
+    pub fn height(&self) -> i64 { todo!( )}
+    pub fn depth(&self) -> i64 { todo!( )}
+    pub fn has_ink(&self) -> bool { todo!() }
 }
 
 #[derive(Clone)]
@@ -268,6 +289,8 @@ pub enum Whatsit {
     GroupClose(WIGroup),
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
+    MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
+    Math(MathGroup),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
     Par(Paragraph)
@@ -283,8 +306,8 @@ impl Whatsit {
             GroupOpen(w) => w.has_ink(),
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
-            Char(u,f,_) => true,
-            Par(p) => true,
+            Char(_,_,_) | MathChar(_,_,_,_,_) | Par(_) => true,
+            Math(m) => m.has_ink(),
             Ls(_) => unreachable!()
         }
     }
@@ -298,6 +321,8 @@ impl Whatsit {
             Grouped(w) => w.width(),
             Simple(s) => s.width(),
             Char(u,f,_) => f.get_width(*u as u16),
+            MathChar(_,_,u,f,_) => f.get_width(*u as u16),
+            Math(m) => m.width(),
             Par(p) => p.width(),
             Ls(_) => unreachable!()
         }
@@ -312,6 +337,8 @@ impl Whatsit {
             Grouped(w) => w.height(),
             Simple(s) => s.height(),
             Char(u,f,_) => f.get_height(*u as u16),
+            MathChar(_,_,u,f,_) => f.get_height(*u as u16),
+            Math(m) => m.height(),
             Par(p) => p.height(),
             Ls(_) => unreachable!()
         }
@@ -326,6 +353,8 @@ impl Whatsit {
             Grouped(w) => w.depth(),
             Simple(s) => s.depth(),
             Char(u,f,_) => f.get_depth(*u as u16),
+            MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
+            Math(m) => m.depth(),
             Par(p) => p.depth(),
             Ls(_) => unreachable!()
         }

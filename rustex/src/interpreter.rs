@@ -61,7 +61,6 @@ pub struct Interpreter<'a> {
     pub stomach:RefCell<&'a mut dyn Stomach>
 }
 use crate::{TeXErr,FileEnd};
-use crate::commands::PrimitiveTeXCommand::Whatsit;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
@@ -100,7 +99,8 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach};
-use crate::stomach::whatsits::{SimpleWI};
+use crate::stomach::whatsits::{MathGroup, MathKernel, SimpleWI};
+use crate::interpreter::state::FontStyle;
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -197,7 +197,7 @@ impl Interpreter<'_> {
             Some(p) => Ok(p),
             None if s.len() == 1 => {
                 let char = *s.iter().first().unwrap();
-                let catcode = self.catcodes.borrow().get_code(char);
+                let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
                 let tk = Token::new(char,catcode,None,SourceReference::None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
@@ -255,18 +255,66 @@ impl Interpreter<'_> {
             },
             (BeginGroup,_) => Ok(self.new_group(GroupType::Token)),
             (EndGroup,_) => self.pop_group(GroupType::Token),
-            (Space | EOL, Vertical | InternalVertical) => Ok(()),
+            (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
             (Letter | Other | Space, Horizontal | RestrictedHorizontal) => {
                 let font = self.get_font();
                 let rf = self.update_reference(&next);
                 self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(next.char,font,rf))
             }
             (MathShift, Horizontal | RestrictedHorizontal) => {
-                self.start_math(inner)
+                self.do_math(inner)
             }
-            (Letter | Other | Space | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
+            (Letter | Other, Math | Displaymath) => {
+                let mc = self.state_get_mathcode(next.char as u8);
+                match mc {
+                    32768 => {
+                        self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true));
+                        Ok(())
+                    }
+                    _ => {
+                        let wi = self.do_math_char(next,mc as u32);
+                        self.stomach.borrow_mut().add(self,wi)?;
+                        Ok(())
+                    }
+                }
+            }
+            (Letter | Other | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
             _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
         }
+    }
+
+    fn do_math_char(&self,tk:Token,mc:u32) -> crate::stomach::Whatsit {
+        let mut num = mc;
+        let (mut cls,mut fam,mut pos) = {
+            if num == 0 {
+                (0,1,tk.char as u32)
+            } else {
+                let char = num % (16 * 16);
+                let rest = (num - char) / (16 * 16);
+                let fam = rest % 16;
+                (((rest - fam) / 16) % 16, fam, char)
+            }
+        };
+        if cls == 7 {
+            match self.state_register(-(crate::commands::primitives::FAM.index as i32)) {
+                i if i < 0 || i > 15 => {
+                    cls = 0;
+                    num = 256 * fam + pos
+                }
+                i => {
+                    cls = 0;
+                    fam = i as u32;
+                    num = 256 * fam + pos
+                }
+            }
+        }
+        let mode = self.state.borrow().font_style();
+        let font = match mode {
+            FontStyle::Text => self.state.borrow().getTextFont(fam as u8),
+            FontStyle::Script => self.state.borrow().getScriptFont(fam as u8),
+            FontStyle::Scriptscript => self.state.borrow().getScriptScriptFont(fam as u8),
+        };
+        crate::stomach::Whatsit::MathChar(cls,fam,pos,font,self.update_reference(&tk))
     }
 
     fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
@@ -307,12 +355,15 @@ impl Interpreter<'_> {
         Ok(())
     }
 
-    fn start_math(&self, inner : bool) -> Result<(),TeXError> {
+    fn do_math(&self, inner : bool) -> Result<(),TeXError> {
+        use crate::catcodes::CategoryCode::*;
+        use crate::commands::PrimitiveTeXCommand::*;
+        use crate::stomach::Whatsit as WI;
         self.new_group(GroupType::Math);
         let mode = if inner { TeXMode::Math } else {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::MathShift => {
+                MathShift => {
                     self.insert_every(&crate::commands::primitives::EVERYDISPLAY);
                     TeXMode::Displaymath
                 },
@@ -325,16 +376,69 @@ impl Interpreter<'_> {
         };
         let _oldmode = self.get_mode();
         self.set_mode(mode);
+
+        let mut mathgroups : Vec<Vec<WI>> = vec!(vec!());
+
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                CategoryCode::MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
-                CategoryCode::MathShift => {
+                MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
+                MathShift if mathgroups.len() == 1 => {
                     self.set_mode(_oldmode);
                     self.pop_group(GroupType::Math)?;
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups.pop().unwrap()))));
                     return Ok(())
                 }
-                _ => self.do_top(next,false)?
+                BeginGroup => {
+                    self.new_group(GroupType::Math);
+                    mathgroups.push(vec!())
+                },
+                EndGroup if mathgroups.len() < 1 => TeXErr!((self,Some(next)),"Unexpected } Token!"),
+                EndGroup => {
+                    todo!()
+                },
+                Active | Escape => {
+                    let p = self.get_command(&next.cmdname())?;
+                    if p.assignable() {
+                        p.assign(next,self,false)?
+                    } else if p.expandable(true) {
+                        p.expand(next,self)?
+                    } else {
+                        match &*p.orig {
+                            Primitive(np) => {
+                                let mut exp = Expansion(next, Rc::new(p.clone()), vec!());
+                                np.apply(&mut exp, self)?;
+                                if !exp.2.is_empty() {
+                                    self.push_expansion(exp)
+                                }
+                            },
+                            Ext(exec) =>
+                                exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!"))?,
+                            Char(tk) => {
+                                self.requeue(tk.clone())
+                            },
+                            Whatsit(w) if w.allowed_in(mode) => {
+                                let next = w.get(&next, self)?;
+                                mathgroups.last_mut().unwrap().push(next)
+                            },
+                            _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
+                        }
+                    }
+                },
+                Space | EOL=> (),
+                Letter | Other => {
+                    let mc = self.state_get_mathcode(next.char as u8);
+                    match mc {
+                        32768 => {
+                            self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true))
+                        }
+                        _ => {
+                            let wi = self.do_math_char(next,mc as u32);
+                            self.stomach.borrow_mut().add(self,wi)?
+                        }
+                    }
+                }
+                _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
             }
         }
         FileEnd!(self)

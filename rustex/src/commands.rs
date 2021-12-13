@@ -55,7 +55,7 @@ use crate::fonts::Font;
 pub struct FontAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<Font,TeXError>
+    pub _getvalue: fn(int: &Interpreter) -> Result<Rc<Font>,TeXError>
 }
 impl PartialEq for FontAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -132,7 +132,7 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, MathWI, SimpleWI, TeXBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{ExecutableWhatsit, MathKernel, SimpleWI, TeXBox, Whatsit, WIGroup};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -146,7 +146,7 @@ pub struct ProvidesBox {
 
 pub struct MathWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathWI,TeXError>
+    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathKernel,TeXError>
 }
 
 pub struct SimpleWhatsit {
@@ -319,7 +319,7 @@ impl ProvidesWhatsit {
         match self {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
             Exec(e) => Ok(Whatsit::Exec(Rc::new((e._get)(tk,int)?))),
-            Math(m) => todo!(),
+            Math(m) => unreachable!(),//Ok(Whatsit::Math((m._get)(tk,int)?)),
             Simple(s) => Ok((s._get)(tk,int)?)
         }
     }
