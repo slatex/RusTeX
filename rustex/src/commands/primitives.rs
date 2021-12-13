@@ -2530,6 +2530,15 @@ pub static VSS: SimpleWhatsit = SimpleWhatsit {
     _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Vss(int.update_reference(tk))))}
 };
 
+pub static MSKIP: SimpleWhatsit = SimpleWhatsit {
+    name:"mskip",
+    modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
+    _get:|tk,int| {
+        let ms = int.read_muskip()?;
+        Ok(Whatsit::Simple(SimpleWI::MSkip(ms,int.update_reference(tk))))
+    }
+};
+
 pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     name: "hangindent",
     expandable:false,
@@ -3849,12 +3858,6 @@ pub static MOVERIGHT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MSKIP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static OVER: PrimitiveExecutable = PrimitiveExecutable {
     name:"over",
     expandable:true,
@@ -3991,6 +3994,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VALIGN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HSS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VSS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MSKIP)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4296,7 +4300,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&MOVELEFT),
     PrimitiveTeXCommand::Primitive(&MOVERIGHT),
-    PrimitiveTeXCommand::Primitive(&MSKIP),
     PrimitiveTeXCommand::Primitive(&NOALIGN),
     PrimitiveTeXCommand::Primitive(&NOINDENT),
     PrimitiveTeXCommand::Primitive(&OVER),

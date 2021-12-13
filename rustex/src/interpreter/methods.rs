@@ -425,6 +425,7 @@ impl Interpreter<'_> {
                 _ if next.char.is_ascii_digit() => ret += next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
+                _ if next.char == 43 && ret.is_empty() => (),
                 _ if next.char == 46 && allowfloat && !isfloat => { isfloat = true; ret += "." }
                 _ if next.char == 34 && ret.is_empty() && !ishex && !isoct => ishex = true,
                 _ if next.char == 39 && ret.is_empty() && !ishex && !isoct => isoct = true,

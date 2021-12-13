@@ -4,7 +4,7 @@ use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
 use crate::commands::MathWhatsit;
 use crate::fonts::Font;
-use crate::interpreter::dimensions::Skip;
+use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::references::SourceFileReference;
 use crate::Token;
 
@@ -539,6 +539,7 @@ pub enum SimpleWI {
     VFill(Option<SourceFileReference>),
     VSkip(Skip,Option<SourceFileReference>),
     HSkip(Skip,Option<SourceFileReference>),
+    MSkip(MuSkip,Option<SourceFileReference>),
     HFil(Option<SourceFileReference>),
     HFill(Option<SourceFileReference>),
     Penalty(i64),
@@ -562,7 +563,7 @@ impl SimpleWI {
             VRule(_,_,_,_) | HRule(_,_,_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
-            | Hss(_) | Vss(_) | Indent(_,_) => false,
+            | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => false,
             Raise(_,bx,_) => bx.has_ink(),
             Halign(_,_,ab,_) => {
                 for v in ab {
@@ -592,6 +593,7 @@ impl SimpleWI {
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
             HSkip(sk,_) => sk.base,
+            MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
             Halign(sk,_,bxs,_) => {
                 let mut width:i64 = 0;
@@ -649,7 +651,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) | Indent(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => 0,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             VSkip(sk,_) => sk.base,
@@ -710,7 +712,7 @@ impl SimpleWI {
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
                 | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
-                | Hss(_) | Vss(_) | Indent(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             _ => todo!()
         }

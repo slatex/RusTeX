@@ -329,6 +329,20 @@ impl State {
             shrink: None
         }
     }
+
+    pub fn get_muskip(&self, index:i32) -> MuSkip {
+        for sf in self.stacks.iter().rev() {
+            match sf.muskips.get(&index) {
+                Some(r) => return *r,
+                _ => {}
+            }
+        }
+        MuSkip{
+            base: 0,
+            stretch: None,
+            shrink: None
+        }
+    }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
         &self.stacks.last().expect("Stack frames empty").catcodes
     }
@@ -767,6 +781,9 @@ impl Interpreter<'_> {
     }
     pub fn state_skip(&self,i:i32) -> Skip {
         self.state.borrow().get_skip(i)
+    }
+    pub fn state_muskip(&self,i:i32) -> MuSkip {
+        self.state.borrow().get_muskip(i)
     }
     pub fn state_sfcode(&self,i:u8) -> i64 { self.state.borrow().get_sfcode(i) }
     pub fn state_tokens(&self,i:i32) -> Vec<Token> { self.state.borrow().tokens(i)}

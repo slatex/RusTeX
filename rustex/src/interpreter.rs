@@ -389,6 +389,7 @@ impl Interpreter<'_> {
                     self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups))));
                     return Ok(())
                 }
+                EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
                 _ => {
                     self.requeue(next);
                     let ret = self.read_math_whatsit()?;
@@ -410,15 +411,31 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                MathShift => {
+                MathShift | EndGroup => {
                     self.requeue(next);
                     return Ok(None)
                 }
                 BeginGroup => {
                     self.new_group(GroupType::Math);
-                    todo!()
+                    let mut mathgroups : Vec<WI> = vec!();
+                    while self.has_next() {
+                        let next = self.next_token();
+                        match next.catcode {
+                            EndGroup => {
+                                self.pop_group(GroupType::Math)?;
+                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(mathgroups)))))
+                            }
+                            _ => {
+                                self.requeue(next);
+                                let ret = self.read_math_whatsit()?;
+                                match ret {
+                                    Some(w) => mathgroups.push(w),
+                                    None => ()
+                                }
+                            }
+                        }
+                    }
                 },
-                EndGroup => TeXErr!((self,Some(next)),"Unexpected } Token!"),
                 Active | Escape => {
                     let p = self.get_command(&next.cmdname())?;
                     if p.assignable() {
@@ -446,6 +463,15 @@ impl Interpreter<'_> {
                             Whatsit(w) if w.allowed_in(self.get_mode()) => {
                                 let next = w.get(&next, self)?;
                                 return Ok(Some(next))
+                            },
+                            MathChar(mc) => match mc {
+                                32768 => {
+                                    self.requeue(Token::new(next.char, CategoryCode::Active, None, SourceReference::None, true))
+                                }
+                                _ => {
+                                    let wi = self.do_math_char(next, *mc);
+                                    return Ok(Some(wi))
+                                }
                             },
                             _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
                         }
