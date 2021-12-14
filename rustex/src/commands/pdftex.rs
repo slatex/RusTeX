@@ -389,6 +389,28 @@ pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static PDFSTARTLINK: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfstartlink",
+    modes: |x| {true},
+    _get:|tk,int| {
+        let rule = read_rule_spec(int)?;
+        let attr = match read_attrspec(int)?{
+            Some(s) => s,
+            None => "".into()
+        };
+        let act = read_action_spec(int)?;
+        Ok(Whatsit::GroupOpen(WIGroup::PDFLink(rule.as_str().into(),attr,act,int.update_reference(tk),vec!())))
+    }
+};
+
+pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfendlink",
+    modes: |x| {true},
+    _get:|tk,int| {
+        Ok(Whatsit::GroupClose(WIGroup::LinkEnd(int.update_reference(tk))))
+    }
+};
+
 pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontsize",
     expandable:true,
@@ -729,18 +751,6 @@ pub static PDFSETMATRIX: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFSTARTLINK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfstartlink",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFENDLINK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfendlink",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfximage",
     expandable:true,
@@ -824,6 +834,8 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFOBJ),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFLITERAL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFDEST)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSTARTLINK)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFENDLINK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXFORM)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
@@ -880,8 +892,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFLASTXPOS),
     PrimitiveTeXCommand::Primitive(&PDFLASTYPOS),
     PrimitiveTeXCommand::Primitive(&PDFSETMATRIX),
-    PrimitiveTeXCommand::Primitive(&PDFSTARTLINK),
-    PrimitiveTeXCommand::Primitive(&PDFENDLINK),
     PrimitiveTeXCommand::Primitive(&PDFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFXIMAGE),
     PrimitiveTeXCommand::Primitive(&PDFREFXIMAGE),

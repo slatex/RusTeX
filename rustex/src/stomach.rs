@@ -229,7 +229,13 @@ pub trait Stomach {
             for r in latter { self.add(int,r)? }
             Ok(())
         } else if top.priority() > wi.priority() {
-            let mut nwi = wi.new_from();
+            let wiopen = match self.base().buffer.iter().rev().find(|x| x.priority() == wi.priority()) {
+                Some(StomachGroup::Other(w)) => w,
+                _ => {
+                    TeXErr!((int,None),"No group to close")
+                }
+            };
+            let mut nwi = wiopen.new_from();
             self._close_stomach_group(int,wi)?;
             self.base_mut().buffer.push(top.new_from());
             let mut grv : Vec<Whatsit> = vec!();
@@ -275,11 +281,10 @@ pub trait Stomach {
                         self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
                         Ok(())
                     }
-                    WIGroup::ColorChange(_, _, _) => {
+                    _ => {
                         self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
                         Ok(())
                     },
-                    _ => todo!()
                 }
             }
             Whatsit::GroupClose(g) => {

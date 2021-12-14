@@ -302,6 +302,7 @@ impl MathGroup {
 #[derive(Clone)]
 pub enum MathKernel {
     Group(Vec<Whatsit>),
+    MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
     Delimiter(Box<Whatsit>,Option<SourceFileReference>)
 }
 impl MathKernel {
@@ -313,6 +314,7 @@ impl MathKernel {
                 for c in g { ret += c.width() }
                 ret
             }
+            MathChar(_,_,u,f,_) => f.get_width(*u as u16),
             Delimiter(w,_) => w.width()
         }
     }
@@ -327,6 +329,7 @@ impl MathKernel {
                 }
                 ret
             }
+            MathChar(_,_,u,f,_) => f.get_height(*u as u16),
             Delimiter(w,_) => w.height()
         }
     }
@@ -341,6 +344,7 @@ impl MathKernel {
                 }
                 ret
             }
+            MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
             Delimiter(w,_) => w.depth()
         }
     }
@@ -351,6 +355,7 @@ impl MathKernel {
                 for c in v { if c.has_ink() { return true } }
                 false
             }
+            MathChar(_,_,_,_,_) => true,
             Delimiter(w,_) => w.has_ink()
         }
     }
@@ -365,7 +370,6 @@ pub enum Whatsit {
     GroupClose(WIGroup),
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
-    MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
     Math(MathGroup),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
@@ -382,7 +386,7 @@ impl Whatsit {
             GroupOpen(w) => w.has_ink(),
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
-            Char(_,_,_) | MathChar(_,_,_,_,_) | Par(_) => true,
+            Char(_,_,_) | Par(_) => true,
             Math(m) => m.has_ink(),
             Ls(_) => unreachable!()
         }
@@ -397,7 +401,6 @@ impl Whatsit {
             Grouped(w) => w.width(),
             Simple(s) => s.width(),
             Char(u,f,_) => f.get_width(*u as u16),
-            MathChar(_,_,u,f,_) => f.get_width(*u as u16),
             Math(m) => m.width(),
             Par(p) => p.width(),
             Ls(_) => unreachable!()
@@ -413,7 +416,6 @@ impl Whatsit {
             Grouped(w) => w.height(),
             Simple(s) => s.height(),
             Char(u,f,_) => f.get_height(*u as u16),
-            MathChar(_,_,u,f,_) => f.get_height(*u as u16),
             Math(m) => m.height(),
             Par(p) => p.height(),
             Ls(_) => unreachable!()
@@ -429,7 +431,6 @@ impl Whatsit {
             Grouped(w) => w.depth(),
             Simple(s) => s.depth(),
             Char(u,f,_) => f.get_depth(*u as u16),
-            MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
             Math(m) => m.depth(),
             Par(p) => p.depth(),
             Ls(_) => unreachable!()
@@ -441,6 +442,9 @@ impl Whatsit {
 pub enum WIGroup {
     FontChange(Rc<Font>,Option<SourceFileReference>,bool,Vec<Whatsit>),
     ColorChange(TeXStr,Option<SourceFileReference>,Vec<Whatsit>),
+    //       rule   attr  action
+    PDFLink(TeXStr,TeXStr,ActionSpec,Option<SourceFileReference>,Vec<Whatsit>),
+    LinkEnd(Option<SourceFileReference>),
     ColorEnd(Option<SourceFileReference>)
 }
 impl WIGroup {
@@ -449,7 +453,8 @@ impl WIGroup {
         match self {
             FontChange(_,_,_,v) => v.push(wi),
             ColorChange(_,_,v) => v.push(wi),
-            ColorEnd(_) => unreachable!(),
+            PDFLink(_,_,_,_,v) => v.push(wi),
+            ColorEnd(_) | LinkEnd(_) => unreachable!(),
         }
     }
     pub fn priority(&self) -> i16 {
@@ -458,12 +463,13 @@ impl WIGroup {
             FontChange(_,_,true,_) => 25,
             FontChange(_,_,_,_) => 2,
             ColorChange(_,_,_) | ColorEnd(_) => 50,
+            PDFLink(_,_,_,_,_) | LinkEnd(_) => 60,
         }
     }
     pub fn has_ink(&self) -> bool {
         use WIGroup::*;
         match self {
-            ColorEnd(_) => false,
+            ColorEnd(_) | LinkEnd(_) => false,
             _ => {
                 for x in self.children() { if x.has_ink() {return true} }
                 false
@@ -471,31 +477,39 @@ impl WIGroup {
         }
     }
     pub fn children_d(self) -> Vec<Whatsit> {
+        use WIGroup::*;
         match self {
-            WIGroup::FontChange(_,_,_,v) => v,
-            WIGroup::ColorChange(_,_,v) => v,
-            WIGroup::ColorEnd(_) => unreachable!()
+            FontChange(_,_,_,v) => v,
+            ColorChange(_,_,v) => v,
+            PDFLink(_,_,_,_,v) => v,
+            ColorEnd(_) | LinkEnd(_) => unreachable!()
         }
     }
     pub fn children(&self) -> &Vec<Whatsit> {
+        use WIGroup::*;
         match self {
-            WIGroup::FontChange(_,_,_,v) => v,
-            WIGroup::ColorChange(_,_,v) => v,
-            WIGroup::ColorEnd(_) => unreachable!()
+            FontChange(_,_,_,v) => v,
+            ColorChange(_,_,v) => v,
+            PDFLink(_,_,_,_,v) => v,
+            ColorEnd(_) | LinkEnd(_) => unreachable!()
         }
     }
     pub fn new_from(&self) -> WIGroup {
+        use WIGroup::*;
         match self {
-            WIGroup::FontChange(f,r,b,_) => WIGroup::FontChange(f.clone(),r.clone(),*b,vec!()),
-            WIGroup::ColorChange(c,r,_) => WIGroup::ColorChange(c.clone(),r.clone(),vec!()),
-            WIGroup::ColorEnd(_) => unreachable!()
+            FontChange(f,r,b,_) => FontChange(f.clone(),r.clone(),*b,vec!()),
+            ColorChange(c,r,_) => ColorChange(c.clone(),r.clone(),vec!()),
+            PDFLink(a,b,c,d,_) => PDFLink(a.clone(),b.clone(),c.clone(),d.clone(),vec!()),
+            ColorEnd(_) | LinkEnd(_) => unreachable!()
         }
     }
     pub fn width(&self) -> i64 {
+        use WIGroup::*;
         let c = match self {
-            WIGroup::FontChange(_,_,_,c) => c,
-            WIGroup::ColorChange(_,_,c) => c,
-            WIGroup::ColorEnd(_) => return 0
+            FontChange(_,_,_,c) => c,
+            ColorChange(_,_,c) => c,
+            PDFLink(_,_,_,_,v) => v,
+            ColorEnd(_) | LinkEnd(_) => return 0
         };
         let mut ret : i64 = 0;
         for x in c {

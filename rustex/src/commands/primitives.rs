@@ -2039,7 +2039,8 @@ pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
         let bx = int.state_get_box(ind as i32);
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
-            _ => Ok(Whatsit::Ls(vec!())),
+            TeXBox::Void => Ok(Whatsit::Ls(vec!())),
+            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
         }
     }
 };
@@ -2052,33 +2053,38 @@ pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
         let bx = int.state_copy_box(ind as i32);
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
-            _ => Ok(Whatsit::Ls(vec!())),
+            TeXBox::Void => Ok(Whatsit::Ls(vec!())),
+            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
         }
     }
 };
 
 pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
     name:"unhbox",
-    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal },
+    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |tk,int| {
         let ind = int.read_number()?;
         let bx = int.state_get_box(ind as i32);
-        match bx {
-            TeXBox::H(h) => Ok(Whatsit::Ls(h.children)),
-            _ => Ok(Whatsit::Ls(vec!())),
+        let mode = int.get_mode();
+        match (bx,mode) {
+            (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
+            (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
+            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
         }
     }
 };
 
 pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
     name:"unhcopy",
-    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal },
+    modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |tk,int| {
         let ind = int.read_number()?;
         let bx = int.state_copy_box(ind as i32);
-        match bx {
-            TeXBox::H(h) => Ok(Whatsit::Ls(h.children)),
-            _ => Ok(Whatsit::Ls(vec!())),
+        let mode = int.get_mode();
+        match (bx,mode) {
+            (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
+            (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
+            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
         }
     }
 };

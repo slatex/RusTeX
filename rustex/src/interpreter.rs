@@ -314,7 +314,7 @@ impl Interpreter<'_> {
             FontStyle::Script => self.state.borrow().getScriptFont(fam as u8),
             FontStyle::Scriptscript => self.state.borrow().getScriptScriptFont(fam as u8),
         };
-        crate::stomach::Whatsit::MathChar(cls,fam,pos,font,self.update_reference(&tk))
+        crate::stomach::Whatsit::Math(MathGroup::new(MathKernel::MathChar(cls,fam,pos,font,self.update_reference(&tk))))
     }
 
     fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
@@ -389,11 +389,46 @@ impl Interpreter<'_> {
                     self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups))));
                     return Ok(())
                 }
+                Superscript => {
+                    match mathgroups.last() {
+                        Some(WI::Math(_)) => (),
+                        _ => mathgroups.push(WI::Math(MathGroup::new(MathKernel::Group(vec!())))),
+                    }
+                    let mut gr = match mathgroups.last_mut().unwrap() {
+                        WI::Math(m) => m,
+                        _ => unreachable!()
+                    };
+                    let ret = self.read_math_whatsit()?;
+                    match ret {
+                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => {
+                            gr.superscript.insert(m.kernel);
+                        },
+                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                    }
+                }
+                Subscript => {
+                    match mathgroups.last() {
+                        Some(WI::Math(_)) => (),
+                        _ => mathgroups.push(WI::Math(MathGroup::new(MathKernel::Group(vec!())))),
+                    }
+                    let mut gr = match mathgroups.last_mut().unwrap() {
+                        WI::Math(m) => m,
+                        _ => unreachable!()
+                    };
+                    let ret = self.read_math_whatsit()?;
+                    match ret {
+                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => {
+                            gr.subscript.insert(m.kernel);
+                        },
+                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                    }
+                }
                 EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
                 _ => {
                     self.requeue(next);
                     let ret = self.read_math_whatsit()?;
                     match ret {
+                        Some(WI::Ls(v)) => for w in v { mathgroups.push(w) }
                         Some(w) => mathgroups.push(w),
                         None => ()
                     }
@@ -425,10 +460,45 @@ impl Interpreter<'_> {
                                 self.pop_group(GroupType::Math)?;
                                 return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(mathgroups)))))
                             }
+                            Superscript => {
+                                match mathgroups.last() {
+                                    Some(WI::Math(_)) => (),
+                                    _ => mathgroups.push(WI::Math(MathGroup::new(MathKernel::Group(vec!())))),
+                                }
+                                let mut gr = match mathgroups.last_mut().unwrap() {
+                                    WI::Math(m) => m,
+                                    _ => unreachable!()
+                                };
+                                let ret = self.read_math_whatsit()?;
+                                match ret {
+                                    Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => {
+                                        gr.superscript.insert(m.kernel);
+                                    },
+                                    _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                                }
+                            }
+                            Subscript => {
+                                match mathgroups.last() {
+                                    Some(WI::Math(_)) => (),
+                                    _ => mathgroups.push(WI::Math(MathGroup::new(MathKernel::Group(vec!())))),
+                                }
+                                let mut gr = match mathgroups.last_mut().unwrap() {
+                                    WI::Math(m) => m,
+                                    _ => unreachable!()
+                                };
+                                let ret = self.read_math_whatsit()?;
+                                match ret {
+                                    Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => {
+                                        gr.subscript.insert(m.kernel);
+                                    },
+                                    _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                                }
+                            }
                             _ => {
                                 self.requeue(next);
                                 let ret = self.read_math_whatsit()?;
                                 match ret {
+                                    Some(WI::Ls(v)) => for w in v { mathgroups.push(w) }
                                     Some(w) => mathgroups.push(w),
                                     None => ()
                                 }
@@ -489,6 +559,10 @@ impl Interpreter<'_> {
                             return Ok(Some(wi))
                         }
                     }
+                }
+                Superscript | Subscript => {
+                    self.requeue(next);
+                    return Ok(None)
                 }
                 _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
             }
