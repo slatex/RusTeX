@@ -1,4 +1,4 @@
-use std::cmp::{max, Ordering};
+use std::cmp::{max, min, Ordering};
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
@@ -569,16 +569,19 @@ pub enum SimpleWI {
     Hss(Option<SourceFileReference>),
     Vss(Option<SourceFileReference>),
     Indent(i64,Option<SourceFileReference>),
+    Mark(Vec<Token>,Option<SourceFileReference>),
+    Leaders(Box<Whatsit>,Option<SourceFileReference>)
 }
 impl SimpleWI {
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
-            VRule(_,_,_,_) | HRule(_,_,_,_) => true,
+            VRule(_,_,_,_) | HRule(_,_,_,_)=> true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
-            | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => false,
+            | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) => false,
             Raise(_,bx,_) => bx.has_ink(),
+            Leaders(w,_) => w.has_ink(),
             Halign(_,_,ab,_) => {
                 for v in ab {
                     match v {
@@ -603,7 +606,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) => 0,
+                | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
             HSkip(sk,_) => sk.base,
@@ -656,6 +659,7 @@ impl SimpleWI {
                 }
                 width
             }
+            Raise(_,b,_) => b.width(),
             _ => {
                 todo!()
             }
@@ -665,7 +669,7 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_) => 0,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             VSkip(sk,_) => sk.base,
@@ -716,6 +720,7 @@ impl SimpleWI {
                 }
                 height + sk.base
             }
+            Raise(r,b,_) => b.height() + r,
             _ => {
                 todo!()
             }
@@ -726,8 +731,9 @@ impl SimpleWI {
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
                 | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
-                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
+            Raise(r,b,_) => max(b.depth() - r,0),
             _ => todo!()
         }
     }

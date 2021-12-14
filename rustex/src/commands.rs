@@ -144,6 +144,12 @@ pub struct ProvidesBox {
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<TeXBox,TeXError>
 }
 
+impl PartialEq for ProvidesBox {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 pub struct MathWhatsit {
     pub name: &'static str,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathKernel,TeXError>
@@ -153,6 +159,12 @@ pub struct SimpleWhatsit {
     pub name: &'static str,
     pub modes: fn(TeXMode) -> bool,
     pub _get: fn(tk:&Token,int: &Interpreter) -> Result<Whatsit,TeXError>
+}
+
+impl PartialEq for SimpleWhatsit {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 // -------------------------------------------------------------------------------------------------

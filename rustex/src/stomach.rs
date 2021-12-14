@@ -52,8 +52,7 @@ impl StomachGroup {
             Top(t) => t,
             TeXGroup(_,t) => t,
             Par(t) => &t.children,
-            Other(WIGroup::FontChange(_,_,_,t)) => t,
-            Other(WIGroup::ColorChange(_,_,t)) => t,
+            Other(w) => w.children(),
             _ => todo!()
         }
     }
@@ -65,6 +64,7 @@ impl StomachGroup {
             Par(t) => t.children.borrow_mut(),
             Other(WIGroup::FontChange(_,_,_,t)) => t.borrow_mut(),
             Other(WIGroup::ColorChange(_,_,t)) => t.borrow_mut(),
+            Other(WIGroup::PDFLink(_,_,_,_,t)) => t.borrow_mut(),
             _ => todo!()
         }
     }
@@ -74,8 +74,7 @@ impl StomachGroup {
             Top(t) => t,
             TeXGroup(_,t) => t,
             Par(t) => t.children,
-            Other(WIGroup::FontChange(_,_,_,t)) => t,
-            Other(WIGroup::ColorChange(_,_,t)) => t,
+            Other(w) => w.children_d(),
             _ => todo!()
         }
     }

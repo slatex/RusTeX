@@ -207,6 +207,7 @@ impl Interpreter<'_> {
 
     pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
+        use crate::stomach::Whatsit as WI;
         let mode = self.get_mode();
         use crate::catcodes::CategoryCode::*;
         use TeXMode::*;
@@ -283,7 +284,7 @@ impl Interpreter<'_> {
         }
     }
 
-    fn do_math_char(&self,tk:Token,mc:u32) -> crate::stomach::Whatsit {
+    pub fn do_math_char(&self,tk:Token,mc:u32) -> crate::stomach::Whatsit {
         let mut num = mc;
         let (mut cls,mut fam,mut pos) = {
             if num == 0 {

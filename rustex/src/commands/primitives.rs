@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -572,6 +573,10 @@ fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXEr
         AV(AssignableValue::Skip(i)) => {
             int.read_keyword(vec!("by"))?;
             (i as i32, Numeric::Skip(int.state_skip(i as i32)),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+        }
+        AV(AssignableValue::PrimSkip(r)) => {
+            int.read_keyword(vec!("by"))?;
+            (-(r.index as i32), Numeric::Skip(int.state_skip(-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
         }
         ref p =>{
             todo!("{}",p)
@@ -2545,6 +2550,51 @@ pub static MSKIP: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static MARK: SimpleWhatsit = SimpleWhatsit {
+    name:"mark",
+    modes: |x| { true },
+    _get:|tk,int| {
+        let cnt = int.read_balanced_argument(true,false,false,true)?;
+        Ok(Whatsit::Simple(SimpleWI::Mark(cnt,int.update_reference(tk))))
+    }
+};
+
+pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
+    name:"leaders",
+    modes: |x| { true },
+    _get:|tk,int| {
+        match int.read_keyword(vec!("Width","Height","Depth"))? {
+            Some(_) => todo!(),
+            None => {
+                let cmdtk = int.read_command_token()?;
+                let cmd = int.get_command(cmdtk.cmdname())?;
+                let content = match &*cmd.orig {
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == HBOX => {
+                        Whatsit::Box((HBOX._get)(&cmdtk,int)?)
+                    }
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == VBOX => {
+                        Whatsit::Box((VBOX._get)(&cmdtk,int)?)
+                    }
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == BOX => {
+                        Whatsit::Box((BOX._get)(&cmdtk,int)?)
+                    }
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == COPY => {
+                        Whatsit::Box((COPY._get)(&cmdtk,int)?)
+                    }
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == HRULE => {
+                        (HRULE._get)(&cmdtk,int)?
+                    }
+                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == VRULE => {
+                        (VRULE._get)(&cmdtk,int)?
+                    }
+                    _ => TeXErr!((int,Some(cmdtk)),"Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
+                };
+                Ok(Whatsit::Simple(SimpleWI::Leaders(Box::new(content),int.update_reference(tk))))
+            }
+        }
+    }
+};
+
 pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     name: "hangindent",
     expandable:false,
@@ -2596,6 +2646,22 @@ pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"noindent",
     expandable:false,
     _apply:|_tk,_int| {Ok(())}
+};
+
+pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"insert",
+    expandable:false,
+    _apply:|tk,int| {
+        let num = int.read_number()? as u16;
+        let mut bx = int.read_whatsit_group(BoxMode::V,true)?;
+        let mut state = int.state.borrow_mut();
+        let prev = state.inserts.get_mut(&num);
+        match prev {
+            Some(v) => v.append(&mut bx),
+            None => {state.inserts.insert(num,bx);}
+        }
+        Ok(())
+    }
 };
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
@@ -2660,7 +2726,39 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {
     name:"mathchar",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int| {
+        let mut num = int.read_number()? as u32;
+        let (mut cls,mut fam,mut pos) = {
+            if num == 0 {
+                (0,1,tk.char as u32)
+            } else {
+                let char = num % (16 * 16);
+                let rest = (num - char) / (16 * 16);
+                let fam = rest % 16;
+                (((rest - fam) / 16) % 16, fam, char)
+            }
+        };
+        if cls == 7 {
+            match int.state_register(-(FAM.index as i32)) {
+                i if i < 0 || i > 15 => {
+                    cls = 0;
+                    num = 256 * fam + pos
+                }
+                i => {
+                    cls = 0;
+                    fam = i as u32;
+                    num = 256 * fam + pos
+                }
+            }
+        }
+        let mode = int.state.borrow().font_style();
+        let font = match mode {
+            FontStyle::Text => int.state.borrow().getTextFont(fam as u8),
+            FontStyle::Script => int.state.borrow().getScriptFont(fam as u8),
+            FontStyle::Scriptscript => int.state.borrow().getScriptScriptFont(fam as u8),
+        };
+        Ok(MathKernel::MathChar(cls,fam,pos,font,int.update_reference(tk)))
+    }
 };
 
 pub static MIDDLE: MathWhatsit = MathWhatsit {
@@ -3750,12 +3848,6 @@ pub static DISPLAYLIMITS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmark",
     expandable:true,
@@ -3792,12 +3884,6 @@ pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"insert",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
     name:"italiccorr",
     expandable:true,
@@ -3812,12 +3898,6 @@ pub static LASTPENALTY: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static LASTKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastkern",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LEADERS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"leaders",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4001,6 +4081,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HSS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&VSS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MSKIP)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MARK)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEADERS)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4286,7 +4368,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&LIMITS),
     PrimitiveTeXCommand::Primitive(&NOLIMITS),
     PrimitiveTeXCommand::Primitive(&DISPLAYLIMITS),
-    PrimitiveTeXCommand::Primitive(&MARK),
     PrimitiveTeXCommand::Primitive(&TOPMARK),
     PrimitiveTeXCommand::Primitive(&FIRSTMARK),
     PrimitiveTeXCommand::Primitive(&BOTMARK),
@@ -4298,7 +4379,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
     PrimitiveTeXCommand::Primitive(&LASTPENALTY),
     PrimitiveTeXCommand::Primitive(&LASTKERN),
-    PrimitiveTeXCommand::Primitive(&LEADERS),
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),
