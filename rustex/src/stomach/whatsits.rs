@@ -255,12 +255,13 @@ impl TeXBox {
 pub struct MathGroup {
     pub kernel : MathKernel,
     pub superscript : Option<MathKernel>,
-    pub subscript : Option<MathKernel>
+    pub subscript : Option<MathKernel>,
+    pub limits:bool
 }
 impl MathGroup {
-    pub fn new(kernel:MathKernel) -> MathGroup {
+    pub fn new(kernel:MathKernel,display:bool) -> MathGroup {
         MathGroup {
-            kernel,subscript:None,superscript:None
+            kernel,subscript:None,superscript:None,limits:display
         }
     }
     pub fn width(&self) -> i64 {
@@ -303,7 +304,8 @@ impl MathGroup {
 pub enum MathKernel {
     Group(Vec<Whatsit>),
     MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
-    Delimiter(Box<Whatsit>,Option<SourceFileReference>)
+    MKern(MuSkip,Option<SourceFileReference>),
+    Delimiter(Box<Whatsit>,Option<SourceFileReference>),
 }
 impl MathKernel {
     pub fn width(&self) -> i64 {
@@ -314,6 +316,7 @@ impl MathKernel {
                 for c in g { ret += c.width() }
                 ret
             }
+            MKern(s,_) => s.base,
             MathChar(_,_,u,f,_) => f.get_width(*u as u16),
             Delimiter(w,_) => w.width()
         }
@@ -329,6 +332,7 @@ impl MathKernel {
                 }
                 ret
             }
+            MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_height(*u as u16),
             Delimiter(w,_) => w.height()
         }
@@ -344,6 +348,7 @@ impl MathKernel {
                 }
                 ret
             }
+            MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
             Delimiter(w,_) => w.depth()
         }
@@ -355,6 +360,7 @@ impl MathKernel {
                 for c in v { if c.has_ink() { return true } }
                 false
             }
+            MKern(_,_) => false,
             MathChar(_,_,_,_,_) => true,
             Delimiter(w,_) => w.has_ink()
         }
@@ -660,6 +666,7 @@ impl SimpleWI {
                 width
             }
             Raise(_,b,_) => b.width(),
+            Leaders(b,_) => b.width(), // TODO maybe
             _ => {
                 todo!()
             }
@@ -669,9 +676,11 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
+                 => 0,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
+            Leaders(b,_) => b.height(),
             VSkip(sk,_) => sk.base,
             Halign(_,_,bxs,_) => {
                 let mut height:i64 = 0;
@@ -734,6 +743,7 @@ impl SimpleWI {
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
+            Leaders(b,_) => b.depth(),
             _ => todo!()
         }
     }

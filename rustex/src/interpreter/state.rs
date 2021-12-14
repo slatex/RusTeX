@@ -10,6 +10,15 @@ use crate::{TeXErr,log};
 pub enum FontStyle {
     Text,Script,Scriptscript
 }
+impl FontStyle {
+    pub fn inc(&self) -> FontStyle {
+        use FontStyle::*;
+        match self {
+            Text => Script,
+            _ => Scriptscript
+        }
+    }
+}
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum GroupType {
@@ -54,6 +63,7 @@ struct StackFrame {
     pub(crate) textfonts: [Rc<Font>;16],
     pub(crate) scriptfonts: [Rc<Font>;16],
     pub(crate) scriptscriptfonts: [Rc<Font>;16],
+    pub(crate) displaymode: bool
 }
 
 fn newfonts() -> [Rc<Font>;16] {
@@ -127,6 +137,7 @@ impl StackFrame {
             textfonts:newfonts(),
             scriptfonts:newfonts(),
             scriptscriptfonts:newfonts(),
+            displaymode:false
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
@@ -158,7 +169,7 @@ impl StackFrame {
             fontstyle:parent.fontstyle,
             textfonts:newfonts(),
             scriptfonts:newfonts(),
-            scriptscriptfonts:newfonts(),
+            scriptscriptfonts:newfonts(),displaymode:parent.displaymode
         }
     }
 }
@@ -368,6 +379,7 @@ impl State {
     }
     pub fn change(&mut self,int:&Interpreter,change:StateChange) {
         match change {
+            StateChange::Displaymode(b) => self.stacks.last_mut().unwrap().displaymode = b,
             StateChange::Textfont(i,f,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
@@ -601,6 +613,9 @@ impl State {
     }
     pub fn font_style(&self) -> FontStyle {
         self.stacks.last().unwrap().fontstyle
+    }
+    pub fn display_mode(&self) -> bool {
+        self.stacks.last().unwrap().displaymode
     }
 }
 
@@ -937,4 +952,5 @@ pub enum StateChange {
     Textfont(usize,Rc<Font>,bool),
     Scriptfont(usize,Rc<Font>,bool),
     Scriptscriptfont(usize,Rc<Font>,bool),
+    Displaymode(bool)
 }

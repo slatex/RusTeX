@@ -351,7 +351,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
-use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -2664,61 +2664,72 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
+    name:"mathclose",
+    _get: |tk,int,pr| {
+        match pr {
+            Some(p) => p.limits = int.state.borrow().display_mode(),
+            _ => ()
+        }
+        Ok(None)
+    }
+};
+
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHBIN: MathWhatsit = MathWhatsit {
     name:"mathbin",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 pub static MATHINNER: MathWhatsit = MathWhatsit {
     name:"mathinner",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHOP: MathWhatsit = MathWhatsit {
     name:"mathop",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHOPEN: MathWhatsit = MathWhatsit {
     name:"mathopen",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHORD: MathWhatsit = MathWhatsit {
     name:"mathord",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHPUNCT: MathWhatsit = MathWhatsit {
     name:"mathpunct",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHREL: MathWhatsit = MathWhatsit {
     name:"mathrel",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHACCENT: MathWhatsit = MathWhatsit {
     name:"mathaccent",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static RADICAL: MathWhatsit = MathWhatsit {
     name:"radical",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static DELIMITER: MathWhatsit = MathWhatsit {
     name:"delimiter",
-    _get: |tk,int| {
-        let ret = int.read_math_whatsit()?;
+    _get: |tk,int,_| {
+        let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(MathKernel::Delimiter(Box::new(w),int.update_reference(tk))),
+            Some(w) => Ok(Some(MathKernel::Delimiter(Box::new(w),int.update_reference(tk)))),
             None => TeXErr!((int,None),"unfinished \\delimiter")
         }
     }
@@ -2726,7 +2737,7 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {
     name:"mathchar",
-    _get: |tk,int| {
+    _get: |tk,int,_| {
         let mut num = int.read_number()? as u32;
         let (mut cls,mut fam,mut pos) = {
             if num == 0 {
@@ -2757,18 +2768,21 @@ pub static MATHCHAR: MathWhatsit = MathWhatsit {
             FontStyle::Script => int.state.borrow().getScriptFont(fam as u8),
             FontStyle::Scriptscript => int.state.borrow().getScriptScriptFont(fam as u8),
         };
-        Ok(MathKernel::MathChar(cls,fam,pos,font,int.update_reference(tk)))
+        Ok(Some(MathKernel::MathChar(cls,fam,pos,font,int.update_reference(tk))))
+    }
+};
+
+pub static MKERN: MathWhatsit = MathWhatsit {
+    name:"mkern",
+    _get: |tk,int,_| {
+        let kern = int.read_muskip()?;
+        Ok(Some(MathKernel::MKern(kern,int.update_reference(tk))))
     }
 };
 
 pub static MIDDLE: MathWhatsit = MathWhatsit {
     name:"middle",
-    _get: |tk,int| {todo!()}
-};
-
-pub static MKERN: MathWhatsit = MathWhatsit {
-    name:"mkern",
-    _get: |tk,int| {todo!()}
+    _get: |tk,int,_| {todo!()}
 };
 
 // REGISTERS ---------------------------------------------------------------------------------------
@@ -3842,12 +3856,6 @@ pub static NOLIMITS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DISPLAYLIMITS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"displaylimits",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmark",
     expandable:true,
@@ -4128,6 +4136,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&LASTBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&COPY)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&DISPLAYLIMITS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHBIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHINNER)),
@@ -4367,7 +4376,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
     PrimitiveTeXCommand::Primitive(&LIMITS),
     PrimitiveTeXCommand::Primitive(&NOLIMITS),
-    PrimitiveTeXCommand::Primitive(&DISPLAYLIMITS),
     PrimitiveTeXCommand::Primitive(&TOPMARK),
     PrimitiveTeXCommand::Primitive(&FIRSTMARK),
     PrimitiveTeXCommand::Primitive(&BOTMARK),

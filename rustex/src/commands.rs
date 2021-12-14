@@ -132,7 +132,7 @@ impl Display for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, MathKernel, SimpleWI, TeXBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{ExecutableWhatsit, MathGroup, MathKernel, SimpleWI, TeXBox, Whatsit, WIGroup};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -152,7 +152,13 @@ impl PartialEq for ProvidesBox {
 
 pub struct MathWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<MathKernel,TeXError>
+    pub _get: fn(tk:&Token,int: &Interpreter,prev:Option<&mut MathGroup>) -> Result<Option<MathKernel>,TeXError>
+}
+
+impl PartialEq for MathWhatsit {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 pub struct SimpleWhatsit {
