@@ -2665,7 +2665,7 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
 };
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
-    name:"mathclose",
+    name:"displaylimits",
     _get: |tk,int,pr| {
         match pr {
             Some(p) => p.limits = int.state.borrow().display_mode(),
@@ -2677,51 +2677,68 @@ pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathclose(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHBIN: MathWhatsit = MathWhatsit {
     name:"mathbin",
-    _get: |tk,int,pr| {todo!()}
-};
-pub static MATHINNER: MathWhatsit = MathWhatsit {
-    name:"mathinner",
-    _get: |tk,int,pr| {todo!()}
-};
-
-pub static MATHOP: MathWhatsit = MathWhatsit {
-    name:"mathop",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathbin(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHOPEN: MathWhatsit = MathWhatsit {
     name:"mathopen",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathopen(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHORD: MathWhatsit = MathWhatsit {
     name:"mathord",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathord(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHPUNCT: MathWhatsit = MathWhatsit {
     name:"mathpunct",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathpunct(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static MATHREL: MathWhatsit = MathWhatsit {
     name:"mathrel",
-    _get: |tk,int,pr| {todo!()}
-};
-
-pub static MATHACCENT: MathWhatsit = MathWhatsit {
-    name:"mathaccent",
-    _get: |tk,int,pr| {todo!()}
-};
-
-pub static RADICAL: MathWhatsit = MathWhatsit {
-    name:"radical",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathrel(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
 };
 
 pub static DELIMITER: MathWhatsit = MathWhatsit {
@@ -2733,6 +2750,33 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
             None => TeXErr!((int,None),"unfinished \\delimiter")
         }
     }
+};
+
+pub static MATHOP : MathWhatsit = MathWhatsit {
+    name: "mathop",
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathop(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\delimiter")
+        }
+    }
+};
+
+pub static MATHINNER: MathWhatsit = MathWhatsit {
+    name:"mathinner",
+    _get: |tk,int,pr| {todo!()}
+};
+
+
+pub static MATHACCENT: MathWhatsit = MathWhatsit {
+    name:"mathaccent",
+    _get: |tk,int,pr| {todo!()}
+};
+
+pub static RADICAL: MathWhatsit = MathWhatsit {
+    name:"radical",
+    _get: |tk,int,pr| {todo!()}
 };
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {

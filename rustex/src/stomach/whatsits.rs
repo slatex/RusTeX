@@ -306,6 +306,13 @@ pub enum MathKernel {
     MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
     MKern(MuSkip,Option<SourceFileReference>),
     Delimiter(Box<Whatsit>,Option<SourceFileReference>),
+    Mathop(Box<Whatsit>,Option<SourceFileReference>),
+    Mathopen(Box<Whatsit>,Option<SourceFileReference>),
+    Mathclose(Box<Whatsit>,Option<SourceFileReference>),
+    Mathbin(Box<Whatsit>,Option<SourceFileReference>),
+    Mathord(Box<Whatsit>,Option<SourceFileReference>),
+    Mathpunct(Box<Whatsit>,Option<SourceFileReference>),
+    Mathrel(Box<Whatsit>,Option<SourceFileReference>),
 }
 impl MathKernel {
     pub fn width(&self) -> i64 {
@@ -318,7 +325,14 @@ impl MathKernel {
             }
             MKern(s,_) => s.base,
             MathChar(_,_,u,f,_) => f.get_width(*u as u16),
-            Delimiter(w,_) => w.width()
+            Delimiter(w,_) => w.width(),
+            Mathop(w,_) => w.width(),
+            Mathopen(w,_) => w.width(),
+            Mathclose(w,_) => w.width(),
+            Mathbin(w,_) => w.width(),
+            Mathord(w,_) => w.width(),
+            Mathpunct(w,_) => w.width(),
+            Mathrel(w,_) => w.width(),
         }
     }
     pub fn height(&self) -> i64 {
@@ -334,7 +348,14 @@ impl MathKernel {
             }
             MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_height(*u as u16),
-            Delimiter(w,_) => w.height()
+            Delimiter(w,_) => w.height(),
+            Mathop(w,_) => w.height(),
+            Mathopen(w,_) => w.height(),
+            Mathclose(w,_) => w.height(),
+            Mathbin(w,_) => w.height(),
+            Mathord(w,_) => w.height(),
+            Mathpunct(w,_) => w.height(),
+            Mathrel(w,_) => w.height(),
         }
     }
     pub fn depth(&self) -> i64 {
@@ -350,7 +371,14 @@ impl MathKernel {
             }
             MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
-            Delimiter(w,_) => w.depth()
+            Delimiter(w,_) => w.depth(),
+            Mathop(w,_) => w.depth(),
+            Mathopen(w,_) => w.depth(),
+            Mathclose(w,_) => w.depth(),
+            Mathbin(w,_) => w.depth(),
+            Mathord(w,_) => w.depth(),
+            Mathpunct(w,_) => w.depth(),
+            Mathrel(w,_) => w.depth(),
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -362,7 +390,14 @@ impl MathKernel {
             }
             MKern(_,_) => false,
             MathChar(_,_,_,_,_) => true,
-            Delimiter(w,_) => w.has_ink()
+            Delimiter(w,_) => w.has_ink(),
+            Mathop(w,_) => w.has_ink(),
+            Mathopen(w,_) => w.has_ink(),
+            Mathclose(w,_) => w.has_ink(),
+            Mathbin(w,_) => w.has_ink(),
+            Mathord(w,_) => w.has_ink(),
+            Mathpunct(w,_) => w.has_ink(),
+            Mathrel(w,_) => w.has_ink(),
         }
     }
 }
