@@ -247,8 +247,11 @@ impl Interpreter<'_> {
                         let next = w.get(&next,self)?;
                         self.stomach.borrow_mut().add(self,next)
                     },
-                    (Whatsit(_), Vertical | InternalVertical) => {
+                    (Whatsit(w), Vertical | InternalVertical) if w.allowed_in(TeXMode::Horizontal) => {
                         self.switch_to_H(next)
+                    }
+                    (Whatsit(w), Horizontal) if w.allowed_in(TeXMode::Vertical) => {
+                        self.end_paragraph(inner)
                     }
                     _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
 
@@ -382,27 +385,59 @@ impl Interpreter<'_> {
         let _oldmode = self.get_mode();
         self.set_mode(mode);
 
-        let mut mathgroups : Vec<WI> = vec!();
+        let mut mathgroup: Option<MathGroup> = None;
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
                 MathShift => {
+                    let mode = self.state.borrow().display_mode();
                     self.set_mode(_oldmode);
-                    self.pop_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(mathgroups),self.state.borrow().display_mode())));
+                    for g in mathgroup.take() {
+                        self.stomach.borrow_mut().add(self,WI::Math(g))?
+                    }
+                    let ret = self.get_whatsit_group(GroupType::Math)?;
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),mode)));
                     return Ok(())
                 }
                 EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
                 _ => {
                     self.requeue(next);
-                    let ret = self.read_math_whatsit(match mathgroups.last_mut() {
-                        Some(WI::Math(mg)) => Some(mg),
+                    let ret = self.read_math_whatsit(match mathgroup.as_mut() {
+                        Some(mg) => Some(mg),
                         _ => None
                     })?;
                     match ret {
-                        Some(WI::Ls(v)) => for w in v { mathgroups.push(w) }
-                        Some(w) => mathgroups.push(w),
+                        Some(WI::Ls(v)) if v.is_empty() => (),
+                        Some(WI::Ls(mut v)) => {
+                            for g in mathgroup.take() {
+                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                            }
+                            let last = v.pop();
+                            for w in v { self.stomach.borrow_mut().add(self,w)? }
+                            match last {
+                                Some(WI::Math(mg)) => {
+                                    match mathgroup.replace(mg) {
+                                        Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                        _ => ()
+                                    }
+                                },
+                                Some(w) => self.stomach.borrow_mut().add(self,w)?,
+                                None => ()
+                            }
+                        }
+                        Some(WI::Math(mg)) => {
+                            match mathgroup.replace(mg) {
+                                Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                _ => ()
+                            }
+                        },
+                        Some(w) => {
+                            for g in mathgroup.take() {
+                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                            }
+                            self.stomach.borrow_mut().add(self,w)?
+                        },
                         None => ()
                     }
                 }
@@ -425,23 +460,55 @@ impl Interpreter<'_> {
                 }
                 BeginGroup => {
                     self.new_group(GroupType::Math);
-                    let mut mathgroups : Vec<WI> = vec!();
+                    let mut mathgroup: Option<MathGroup> = None;
                     while self.has_next() {
                         let next = self.next_token();
                         match next.catcode {
                             EndGroup => {
-                                self.pop_group(GroupType::Math)?;
-                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(mathgroups),self.state.borrow().display_mode()))))
+                                let mode = self.state.borrow().display_mode();
+                                for g in mathgroup.take() {
+                                    self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                }
+                                let ret = self.get_whatsit_group(GroupType::Math)?;
+                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(ret),self.state.borrow().display_mode()))))
                             }
                             _ => {
                                 self.requeue(next);
-                                let ret = self.read_math_whatsit(match mathgroups.last_mut() {
-                                    Some(WI::Math(mg)) => Some(mg),
+                                let ret = self.read_math_whatsit(match mathgroup.as_mut() {
+                                    Some(mg) => Some(mg),
                                     _ => None
                                 })?;
                                 match ret {
-                                    Some(WI::Ls(v)) => for w in v { mathgroups.push(w) }
-                                    Some(w) => mathgroups.push(w),
+                                    Some(WI::Ls(v)) if v.is_empty() => (),
+                                    Some(WI::Ls(mut v)) => {
+                                        for g in mathgroup.take() {
+                                            self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                        }
+                                        let last = v.pop();
+                                        for w in v { self.stomach.borrow_mut().add(self,w)? }
+                                        match last {
+                                            Some(WI::Math(mg)) => {
+                                                match mathgroup.replace(mg) {
+                                                    Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                                    _ => ()
+                                                }
+                                            },
+                                            Some(w) => self.stomach.borrow_mut().add(self,w)?,
+                                            None => ()
+                                        }
+                                    }
+                                    Some(WI::Math(mg)) => {
+                                        match mathgroup.replace(mg) {
+                                            Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                            _ => ()
+                                        }
+                                    },
+                                    Some(w) => {
+                                        for g in mathgroup.take() {
+                                            self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                        }
+                                        self.stomach.borrow_mut().add(self,w)?
+                                    },
                                     None => ()
                                 }
                             }

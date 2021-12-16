@@ -1052,8 +1052,84 @@ pub static ETEXVERSION : NumericCommand = NumericCommand {
     name: "eTeXversion"
 };
 
+fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+    int.skip_ws();
+    log!("expr_loop: >{}",int.preview());
+    let mut first = expr_loop_inner(int,getnum)?;
+    'top: loop {
+        match int.read_keyword(vec!("+","-","*","/"))? {
+            Some(s) if s == "+" => {
+                let mut second = expr_loop_inner(int,getnum)?;
+                'inner: loop {
+                    match int.read_keyword(vec!("*","/"))? {
+                        None => {
+                            first = first + second;
+                            break 'inner
+                        }
+                        Some(s) if s == "*" => {
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            second = second * third
+                        }
+                        Some(_) => {
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            second = second / third
+                        }
+                    }
+                }
+            }
+            Some(s) if s == "-" => {
+                let mut second = expr_loop_inner(int,getnum)?;
+                'inner: loop {
+                    match int.read_keyword(vec!("*","/"))? {
+                        None => {
+                            first = first - second;
+                            break 'inner
+                        }
+                        Some(s) if s == "*" => {
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            second = second * third
+                        }
+                        Some(_) => {
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            second = second / third
+                        }
+                    }
+                }
+            }
+            Some(s) if s == "*" => {
+                let second = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                first = first * second
+            }
+            Some(_) => {
+                let second = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                first = first / second
+            }
+            None => {
+                log!("    >{}",int.preview());
+                return Ok(first)
+            }
+        }
+    }
+}
+
+fn expr_loop_inner(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+    match int.read_keyword(vec!("("))? {
+        Some(_) => {
+            let r = expr_loop(int,getnum)?;
+            match int.read_keyword(vec!(")"))? {
+                Some(_) => Ok(r),
+                None => TeXErr!((int,None),"Expected ')'")
+            }
+        }
+        None => (getnum)(int)
+    }
+}
+
+
+/*
 fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>,cont:Option<(Box<dyn Fn(Numeric) -> Numeric>,u8)>) -> Result<Numeric,TeXError> {
     int.skip_ws();
+    //if tlog {println!("read: >{}",int.preview())}
     let mut first = match int.read_keyword(vec!("("))? {
         Some(_) => {
             let ret = expr_loop(int, getnum,None)?;
@@ -1064,6 +1140,7 @@ fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXEr
         }
         _ => (getnum)(int)?
     };
+    //if tlog {println!("    = {} > {}",first,int.preview())}
     match int.read_keyword(vec!("-","+","*","/"))? {
         Some(p) if p == "+" => {
             first = match cont {
@@ -1119,39 +1196,14 @@ fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXEr
                 }
             }
         }
-        //Some(p) if p == "/" => {} //Ok(first / int.read_number_i(true)?),
-        //Some(p) if p == "*" => {} //Ok(first * int.read_number_i(true)?),
         _ => match cont {
             Some((f,_)) => {
                 Ok((f.deref())(first))
             }
             None => Ok(first)
-        } //Ok(first)
-    }
-
-}
-
-/*
-fn expr_loop(int : &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
-    int.skip_ws();
-    let first = match int.read_keyword(vec!("("))? {
-        Some(_) => {
-            let ret = expr_loop(int, getnum)?;
-            match int.read_keyword(vec!(")"))? {
-                Some(_) => ret,
-                None => TeXErr!((int,None),"Expected ) in expression")
-            }
         }
-        _ => (getnum)(int)?
-    };
-    match int.read_keyword(vec!("-","+","*","/"))? {
-        Some(p) if p == "+" => Ok(first + expr_loop(int,getnum)?),
-        Some(p) if p == "*" => Ok(first * int.read_number_i(true)?),
-        Some(p) if p == "/" => Ok(first / int.read_number_i(true)?),
-        Some(p) if p == "-" => Ok(first - expr_loop(int,getnum)?),
-        Some(o) => TeXErr!((int,None),"TODO: {}",o),
-        None => Ok(first)
     }
+
 }
 
  */
@@ -1179,9 +1231,11 @@ fn eatrelax(int : &Interpreter) {
 pub static NUMEXPR: NumericCommand = NumericCommand {
     name:"numexpr",
     _getvalue: |int| {
+        //println!("\\numexpr starts: >{}",int.preview());
         log!("\\numexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| i.read_number_i(false),None)?;
+        let ret =expr_loop(int,|i| i.read_number_i(false))?;
         eatrelax(int);
+        //println!("\\numexpr: {}",ret);
         log!("\\numexpr: {}",ret);
         Ok(ret)
     }
@@ -1190,9 +1244,11 @@ pub static NUMEXPR: NumericCommand = NumericCommand {
 pub static DIMEXPR: NumericCommand = NumericCommand {
     name:"dimexpr",
     _getvalue: |int| {
+        //println!("\\dimexpr starts: >{}",int.preview());
         log!("\\dimexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)),None)?;
+        let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
         eatrelax(int);
+        //println!("\\dimexpr: {}",ret);
         log!("\\dimexpr: {}",ret);
         Ok(ret)
     }
@@ -1201,9 +1257,11 @@ pub static DIMEXPR: NumericCommand = NumericCommand {
 pub static GLUEEXPR: NumericCommand = NumericCommand {
     name:"glueexpr",
     _getvalue: |int| {
+        //println!("\\glueexpr starts: >{}",int.preview());
         log!("\\glueexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)),None)?;
+        let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
         eatrelax(int);
+        //println!("\\glueexpr: {}",ret);
         log!("\\glueexpr: {}",ret);
         Ok(ret)
     }
@@ -1212,9 +1270,11 @@ pub static GLUEEXPR: NumericCommand = NumericCommand {
 pub static MUEXPR: NumericCommand = NumericCommand {
     name:"muexpr",
     _getvalue: |int| {
+        //println!("\\muexpr starts: >{}",int.preview());
         log!("\\muexpr starts: >{}",int.preview());
-        let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)),None)?;
+        let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
         eatrelax(int);
+        //println!("\\muexpr: {}",ret);
         log!("\\muexpr: {}",ret);
         Ok(ret)
     }
@@ -2591,6 +2651,42 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
                 };
                 Ok(Whatsit::Simple(SimpleWI::Leaders(Box::new(content),int.update_reference(tk))))
             }
+        }
+    }
+};
+
+pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
+    name:"mathchoice",
+    modes: |x| {x == TeXMode::Math || x == TeXMode::Displaymath},
+    _get:|_tk,int| {
+        let mode = int.state.borrow().display_mode();
+        let font = int.state.borrow().font_style();
+        let ret = match (font,mode) {
+            (FontStyle::Scriptscript,_) => {
+                int.read_argument()?;int.read_argument()?;int.read_argument()?;
+                int.read_math_whatsit(None)?
+            }
+            (FontStyle::Script,_) => {
+                int.read_argument()?;int.read_argument()?;
+                let ret = int.read_math_whatsit(None)?;
+                int.read_argument()?;
+                ret
+            },
+            (_,false) => {
+                int.read_argument()?;
+                let ret = int.read_math_whatsit(None)?;
+                int.read_argument()?;int.read_argument()?;
+                ret
+            },
+            (_,_) => {
+                let ret = int.read_math_whatsit(None)?;
+                int.read_argument()?;int.read_argument()?;int.read_argument()?;
+                ret
+            },
+        };
+        match ret {
+            Some(s) => Ok(s),
+            _ => Ok(Whatsit::Ls(vec!()))
         }
     }
 };
@@ -3972,12 +4068,6 @@ pub static LEFT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MATHCHOICE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"mathchoice",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"medskip",
     expandable:true,
@@ -4135,6 +4225,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MSKIP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MARK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEADERS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MATHCHOICE)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4434,7 +4525,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),
-    PrimitiveTeXCommand::Primitive(&MATHCHOICE),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&MOVELEFT),
     PrimitiveTeXCommand::Primitive(&MOVERIGHT),

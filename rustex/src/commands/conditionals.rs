@@ -510,8 +510,12 @@ pub static IFFONTCHAR : Conditional = Conditional {
 
 pub static IFINNER : Conditional = Conditional {
     name:"ifinner",
-    _apply: |_int,_cond,_unless| {
-        todo!()
+    _apply: |int,cond,unless| {
+        let istrue = match int.state.borrow().mode {
+            TeXMode::RestrictedHorizontal | TeXMode::InternalVertical | TeXMode::Math => true,
+            _ => false
+        };
+        if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 

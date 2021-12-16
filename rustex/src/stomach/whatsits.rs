@@ -320,7 +320,7 @@ impl MathKernel {
         match self {
             Group(g) => {
                 let mut ret = 0;
-                for c in g { ret += c.width() }
+                for c in g.iter_wi() { ret += c.width() }
                 ret
             }
             MKern(s,_) => s.base,
@@ -340,7 +340,7 @@ impl MathKernel {
         match self {
             Group(g) => {
                 let mut ret = 0;
-                for c in g {
+                for c in g.iter_wi() {
                     let w = c.height();
                     if w > ret { ret = w }
                 }
@@ -363,7 +363,7 @@ impl MathKernel {
         match self {
             Group(g) => {
                 let mut ret = 0;
-                for c in g {
+                for c in g.iter_wi() {
                     let w = c.depth();
                     if w > ret { ret = w }
                 }
@@ -558,7 +558,9 @@ impl WIGroup {
         }
         ret
     }
-    pub fn height(&self) -> i64 { todo!( )}
+    pub fn height(&self) -> i64 {
+        todo!( )
+    }
     pub fn depth(&self) -> i64 { todo!( )}
     pub fn closesWithGroup(&self) -> bool {
         match self {

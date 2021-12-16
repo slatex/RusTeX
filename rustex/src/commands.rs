@@ -582,7 +582,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "blx@bbl@labelnumber" || tk.name().to_string() == "abx@flfw@labelnumber" { // && int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex (23") {
+        /*if tk.name().to_string() == "__fp_parse_word_round:N" && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));

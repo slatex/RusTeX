@@ -262,6 +262,7 @@ impl std::ops::Mul for Numeric {
             (Dim(i),Dim(f)) => Dim(((i as f64) * (f as f64 / 65536.0)).round() as i64),
             (Dim(i),Skip(f)) => Dim(((i as f64) * (f.base as f64 / 65536.0)).round() as i64),
             (Dim(i),Int(f)) => Dim(i * f),
+            (Dim(i),Float(f)) => Dim(((i as f64) * f).round() as i64),
             _ => todo!("{}*{}",self,rhs)
         }
     }
@@ -273,6 +274,7 @@ impl std::ops::Add for Numeric {
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i+j),
             (Dim(i),Int(j)) => Int(i+j),
+            (Dim(i),Dim(j)) => Dim(i+j),
             _ => todo!("{}+{}",self,rhs)
         }
     }
@@ -285,6 +287,7 @@ impl std::ops::Sub for Numeric {
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i-j),
             (Dim(i),Int(j)) => Int(i-j),
+            (Dim(i),Dim(j)) => Dim(i - j),
             _ => todo!("{}-{}",self,rhs)
         }
     }

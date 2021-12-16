@@ -8,6 +8,7 @@ use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
 use crate::interpreter::state::{GroupType, StateChange};
+use crate::references::SourceReference;
 use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
 use crate::utils::u8toi16;
 
@@ -383,12 +384,19 @@ impl Interpreter<'_> {
     }
 
     pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
+        self.skip_ws();
+        match self.read_number_i_opt(allowfloat)? {
+            Some(i) => Ok(i),
+            _ => TeXErr!((self,None),"Number expected")
+        }
+    }
+
+    pub(crate) fn read_number_i_opt(&self,allowfloat:bool) -> Result<Option<Numeric>,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
         let mut isoct = false;
         let mut isfloat = false;
         let mut ret : TeXString = "".into();
-        self.skip_ws();
         log!("Reading number {}",self.preview());
         while self.has_next() {
             let next = self.next_token();
@@ -396,12 +404,12 @@ impl Interpreter<'_> {
                 CategoryCode::Escape | CategoryCode::Active if ret.is_empty() && !ishex && !isoct => {
                     let p = self.get_command(&next.cmdname())?;
                     if p.has_num() {
-                        return Ok(if isnegative { p.get_num(self)?.negate() } else { p.get_num(self)? })
+                        return Ok(Some(if isnegative { p.get_num(self)?.negate() } else { p.get_num(self)? }))
                     } else if p.expandable(true) {
                         p.expand(next,self)?;
                     } else {
                         match &*p.orig {
-                            PrimitiveTeXCommand::Char(tk) => return Ok(Numeric::Int(if isnegative { -(tk.char as i64) } else { tk.char as i64 })),
+                            PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i64) } else { tk.char as i64 }))),
                             _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                         }
                     }
@@ -413,15 +421,15 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space || tk.catcode == CategoryCode::EOL =>
-                                return self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret),
+                                return Ok(Some(self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret)?)),
                             _ => {
                                 self.requeue(next);
-                                return self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret)
+                                return Ok(Some(self.num_do_ret(ishex, isoct, isnegative, allowfloat, ret)?))
                             }
                         }
                     }
                 }
-                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret),
+                CategoryCode::Space | CategoryCode::EOL if !ret.is_empty() => return Ok(Some(self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)?)),
                 _ if next.char.is_ascii_digit() => ret += next.name(),
                 _ if next.char.is_ascii_hexdigit() && ishex => ret += next.name(),
                 _ if next.char == 45 && ret.is_empty() => isnegative = !isnegative,
@@ -435,7 +443,7 @@ impl Interpreter<'_> {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
                             let num = *next.cmdname().iter().first().unwrap() as i64;
                             self.expand_until(true)?;
-                            return Ok(Numeric::Int(if isnegative { -num } else { num }))
+                            return Ok(Some(Numeric::Int(if isnegative { -num } else { num })))
                         }
                         CategoryCode::Escape => {
                             let cmd = self.get_command(&next.cmdname())?;
@@ -445,7 +453,7 @@ impl Interpreter<'_> {
                                 match &*cmd.orig {
                                     PrimitiveTeXCommand::Char(c) => {
                                         self.expand_until(true)?;
-                                        return Ok(Numeric::Int(if isnegative {-(c.char as i64)} else {c.char as i64}))
+                                        return Ok(Some(Numeric::Int(if isnegative {-(c.char as i64)} else {c.char as i64})))
                                     }
                                     _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                                 }
@@ -453,15 +461,21 @@ impl Interpreter<'_> {
                         }
                         _ => {
                             self.expand_until(true)?;
-                            return Ok(Numeric::Int(if isnegative {-(next.char as i64)} else {next.char as i64}))
+                            return Ok(Some(Numeric::Int(if isnegative {-(next.char as i64)} else {next.char as i64})))
                         }
                     }
                 }
                 _ if !ret.is_empty() => {
                     self.requeue(next);
-                    return self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)
+                    return Ok(Some(self.num_do_ret(ishex,isoct,isnegative,allowfloat,ret)?))
                 }
-                _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
+                _ => {
+                    self.requeue(next);
+                    if (isnegative) {
+                        self.push_tokens(vec!(Token::new(45,self.state_catcodes().get_code(45),None,SourceReference::None,true)))
+                    }
+                    return Ok(None)
+                }
             }
         }
         FileEnd!(self)
