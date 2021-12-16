@@ -543,33 +543,33 @@ impl Interpreter<'_> {
 
     pub fn read_skip(&self) -> Result<Skip,TeXError> {
         match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_skip(i),
+            Numeric::Dim(i) => self.rest_skip(i,None,None),
             Numeric::Float(f) => self.rest_skip(match self.point_to_int(f,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
-            }),
+            },None,None),
             Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f64,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
-            }),
-            Numeric::Skip(s) => Ok(s),
+            },None,None),
+            Numeric::Skip(s) => self.rest_skip(s.base,s.stretch,s.shrink),
             Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
         }
     }
 
     pub fn read_muskip(&self) -> Result<MuSkip,TeXError> {
         match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_muskip(i),
+            Numeric::Dim(i) => self.rest_muskip(i,None,None),
             Numeric::Float(f) => self.rest_muskip(match self.point_to_muskip(f)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
-            }),
+            },None,None),
             Numeric::Int(f) => self.rest_muskip(match self.point_to_muskip(f as f64)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
-            }),
+            },None,None),
             Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
-            Numeric::MuSkip(s) =>  Ok(s)
+            Numeric::MuSkip(s) =>  self.rest_muskip(s.base,s.stretch,s.shrink)
         }
     }
 
@@ -590,12 +590,12 @@ impl Interpreter<'_> {
         }
     }
 
-    fn rest_skip(&self,dim:i64) -> Result<Skip,TeXError> {
+    fn rest_skip(&self,dim:i64,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(Skip {
                 base: dim,
-                stretch:None,
-                shrink:None
+                stretch:plus,
+                shrink:minus
             }),
             Some(p) if p == "plus" => {
                 let stretch = Some(self.read_skipdim()?);
@@ -632,12 +632,12 @@ impl Interpreter<'_> {
     }
 
 
-    fn rest_muskip(&self,dim:i64) -> Result<MuSkip,TeXError> {
+    fn rest_muskip(&self,dim:i64,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(MuSkip {
                 base: dim,
-                stretch:None,
-                shrink:None
+                stretch:plus,
+                shrink:minus
             }),
             Some(p) if p == "plus" => {
                 let stretch = Some(self.read_muskipdim()?);
