@@ -1923,6 +1923,7 @@ pub static VSKIP: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
+        log!("\\vskip >{}",int.preview());
         let sk = int.read_skip()?;
         Ok(Whatsit::Simple(SimpleWI::VSkip(sk,int.update_reference(tk))))
     }

@@ -445,6 +445,10 @@ impl PrimitiveTeXCommand {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "dimen".into() + i.to_string().into()
             },
+            AV(AssignableValue::Skip(i)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + "skip".into() + i.to_string().into()
+            },
             AV(AssignableValue::Register(i)) => {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "count".into() + i.to_string().into()
@@ -582,7 +586,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "__fp_parse_word_round:N" && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
+        /*if tk.name().to_string() == "needspace" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));

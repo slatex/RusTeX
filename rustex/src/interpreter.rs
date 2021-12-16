@@ -251,6 +251,7 @@ impl Interpreter<'_> {
                         self.switch_to_H(next)
                     }
                     (Whatsit(w), Horizontal) if w.allowed_in(TeXMode::Vertical) => {
+                        self.requeue(next);
                         self.end_paragraph(inner)
                     }
                     _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
