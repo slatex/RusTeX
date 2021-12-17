@@ -288,6 +288,9 @@ impl std::ops::Sub for Numeric {
             (Int(i),Int(j)) => Int(i-j),
             (Dim(i),Int(j)) => Int(i-j),
             (Dim(i),Dim(j)) => Dim(i - j),
+            (Skip(s),Skip(t)) => Skip(crate::interpreter::dimensions::Skip {
+                base:s.base + t.base,stretch:s.stretch,shrink:s.shrink
+            }),
             _ => todo!("{}-{}",self,rhs)
         }
     }

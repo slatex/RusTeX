@@ -1595,6 +1595,17 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
     },
 };
 
+pub static LASTKERN: NumericCommand = NumericCommand {
+    name:"lastkern",
+    _getvalue: |int| {
+        match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::VKern(s,_))) => Ok(Numeric::Dim(s)),
+            Some(Whatsit::Simple(SimpleWI::HKern(s,_))) => Ok(Numeric::Dim(s)),
+            _ => Ok(Numeric::Dim(0))
+        }
+    },
+};
+
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     name:"setbox",
     _assign: |_rf,int,global| {
@@ -2183,6 +2194,28 @@ pub static DP: NumAssValue = NumAssValue {
     }
 };
 
+pub static PAGEGOAL: NumAssValue = NumAssValue {
+    name:"pagegoal",
+    _assign: |_,int,_| {
+        let dim = int.read_dimension()?;
+        int.state.borrow_mut().pagegoal = dim;
+        Ok(())
+    },
+    _getvalue: |int| {
+        let ph = int.stomach.borrow().page_height();
+        if ph == 0 {
+            Ok(Numeric::Dim(1073741823))
+        } else {
+            let pg = int.state.borrow().pagegoal;
+            if pg == 0 {
+                Ok(Numeric::Dim(int.state_dimension(-(VSIZE.index as i32))))
+            } else {
+                Ok(Numeric::Dim(pg))
+            }
+        }
+    }
+};
+
 pub static FONTCHARWD: NumericCommand = NumericCommand {
     name:"fontcharwd",
     _getvalue: |int| {
@@ -2216,6 +2249,16 @@ pub static FONTCHARIC: NumericCommand = NumericCommand {
         let font = read_font(int)?;
         let char = int.read_number()? as u16;
         Ok(Numeric::Dim(font.get_ic(char)))
+    }
+};
+
+pub static LASTPENALTY: NumericCommand = NumericCommand {
+    name:"lastpenalty",
+    _getvalue: |int| {
+        match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::Penalty(i))) => Ok(Numeric::Int(i)),
+            _ => Ok(Numeric::Int(0))
+        }
     }
 };
 
@@ -3848,12 +3891,6 @@ pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PAGEGOAL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pagegoal",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static ABOVE: PrimitiveExecutable = PrimitiveExecutable {
     name:"above",
     expandable:true,
@@ -3952,18 +3989,6 @@ pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
     name:"italiccorr",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LASTPENALTY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lastpenalty",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LASTKERN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"lastkern",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4087,6 +4112,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&HT)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&WD)),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DP)),
+    PrimitiveTeXCommand::AV(AssignableValue::Int(&PAGEGOAL)),
     PrimitiveTeXCommand::Ass(&CHARDEF),
     PrimitiveTeXCommand::Ass(&COUNTDEF),
     PrimitiveTeXCommand::Ass(&DIMENDEF),
@@ -4163,7 +4189,9 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&FONTCHARHT),
     PrimitiveTeXCommand::Num(&FONTCHARDP),
     PrimitiveTeXCommand::Num(&FONTCHARIC),
+    PrimitiveTeXCommand::Num(&LASTPENALTY),
     PrimitiveTeXCommand::Num(&LASTSKIP),
+    PrimitiveTeXCommand::Num(&LASTKERN),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -4417,7 +4445,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&HYPHENATION),
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
-    PrimitiveTeXCommand::Primitive(&PAGEGOAL),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
     PrimitiveTeXCommand::Primitive(&ABOVE),
     PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),
@@ -4438,8 +4465,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
-    PrimitiveTeXCommand::Primitive(&LASTPENALTY),
-    PrimitiveTeXCommand::Primitive(&LASTKERN),
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&LEFT),

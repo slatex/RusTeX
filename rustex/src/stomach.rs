@@ -379,6 +379,9 @@ pub trait Stomach {
         base.hangafter = 0;
         base.parshape = vec!();
     }
+    fn page_height(&self) -> i64 {
+        self.base().pageheight
+    }
 }
 
 pub struct StomachBase {
@@ -388,6 +391,7 @@ pub struct StomachBase {
     pub basecolor:Option<TeXStr>,
     pub hangindent:i64,
     pub hangafter:usize,
+    pub pageheight:i64,
     pub parshape:Vec<(i64,i64)>
 }
 
@@ -401,7 +405,7 @@ impl NoShipoutRoutine {
                 buffer:vec!(StomachGroup::Top(vec!())),
                 indocument:false,
                 basefont:None,
-                basecolor:None,hangindent:0,hangafter:0,parshape:vec!()
+                basecolor:None,hangindent:0,hangafter:0,parshape:vec!(),pageheight:0
             }
         }
     }

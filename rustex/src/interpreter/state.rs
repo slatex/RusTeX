@@ -196,7 +196,8 @@ pub struct State {
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
-    pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>
+    pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
+    pub(in crate) pagegoal:i64
 }
 
 // sudo apt install libkpathsea-dev
@@ -218,7 +219,8 @@ impl State {
             pdfcolorstacks: vec!(vec!()),
             pdfxforms:vec!(),
             indocument_line:None,indocument:false,insetbox:false,
-            vadjust:vec!(),inserts:HashMap::new()
+            vadjust:vec!(),inserts:HashMap::new(),
+            pagegoal:0
         }
     }
 
