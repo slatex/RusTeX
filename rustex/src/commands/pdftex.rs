@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
@@ -5,7 +6,7 @@ use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::stomach::whatsits::{ActionSpec, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::whatsits::{ActionSpec, Pdfximage, SimpleWI, Whatsit, WIGroup};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
@@ -411,6 +412,49 @@ pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfximage",
+    expandable:false,
+    _apply:|tk,int| {
+        let rule = read_rule_spec(int)?;
+        let attr = read_attrspec(int)?;
+        let pagespec = match int.read_keyword(vec!("page"))? {
+            Some(_) => Some(int.read_number()?),
+            None => None
+        };
+        let colorspace = match int.read_keyword(vec!("colorspace"))? {
+            Some(_) => Some(int.read_number()?),
+            None => None
+        };
+        let boxspec : Option<TeXStr> = match int.read_keyword(vec!("mediabox","cropbox","bleedbox","trimbox","artbox"))? {
+            Some(s) => Some(s.as_str().into()),
+            None => None
+        };
+        let filename = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let file = match int.kpsewhich(filename.to_string().as_str()) {
+            Some(p) if p.exists() => p,
+            _ => TeXErr!((int,None),"No image file by name {} found",filename)
+        };
+        let image = match match image::io::Reader::open(file.clone()) {
+            Ok(x) => x,
+            _ => TeXErr!((int,None),"Error reading image {}",filename)
+        }.decode() {
+            Ok(x) => x,
+            _ => TeXErr!((int,None),"Error decoding image {}",filename)
+        };
+        int.state.borrow_mut().pdfximages.push(
+            Pdfximage(rule.as_str().into(),attr,pagespec,colorspace,boxspec,file,image)
+        );
+        Ok(())
+    }
+};
+
+pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfrefximage",
+    expandable:true,
+    _apply:|_tk,_int| {todo!()}
+};
+
 pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffontsize",
     expandable:true,
@@ -747,18 +791,6 @@ pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFSETMATRIX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsetmatrix",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfximage",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfrefximage",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

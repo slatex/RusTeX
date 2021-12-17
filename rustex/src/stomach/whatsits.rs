@@ -1,7 +1,9 @@
 use std::cmp::{max, min, Ordering};
+use std::path::PathBuf;
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
+use image::{DynamicImage, GenericImageView};
 use crate::commands::MathWhatsit;
 use crate::fonts::Font;
 use crate::interpreter::dimensions::{MuSkip, Skip};
@@ -587,8 +589,13 @@ pub enum AlignBlock {
     Block(Vec<(Vec<Whatsit>,Skip)>)
 }
 
+//                      rule           attr            pagespec      colorspace         boxspec          file          image
+#[derive(Clone)]
+pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i64>,pub Option<i64>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
+
 #[derive(Clone)]
 pub enum SimpleWI {
+    Img(Pdfximage),
     //                                  height       width      depth
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
     HRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
@@ -619,7 +626,7 @@ impl SimpleWI {
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
-            VRule(_,_,_,_) | HRule(_,_,_,_)=> true,
+            VRule(_,_,_,_) | HRule(_,_,_,_) | Img(_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
             | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) => false,
@@ -655,6 +662,7 @@ impl SimpleWI {
             HSkip(sk,_) => sk.base,
             MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
+            Img(Pdfximage(_,_,_,_,_,_,img)) => img.width() as i64,
             Halign(sk,_,bxs,_) => {
                 let mut width:i64 = 0;
                 for b in bxs {
@@ -715,6 +723,7 @@ impl SimpleWI {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
                  => 0,
+            Img(Pdfximage(_,_,_,_,_,_,img)) => img.height() as i64,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             Leaders(b,_) => b.height(),
@@ -777,7 +786,8 @@ impl SimpleWI {
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
                 | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
-                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_) => 0,
+                | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
+                | Img(_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
             Leaders(b,_) => b.depth(),

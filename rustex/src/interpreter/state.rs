@@ -197,7 +197,8 @@ pub struct State {
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
     pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
-    pub(in crate) pagegoal:i64
+    pub(in crate) pagegoal:i64,
+    pub(in crate) pdfximages:Vec<Pdfximage>
 }
 
 // sudo apt install libkpathsea-dev
@@ -220,8 +221,12 @@ impl State {
             pdfxforms:vec!(),
             indocument_line:None,indocument:false,insetbox:false,
             vadjust:vec!(),inserts:HashMap::new(),
-            pagegoal:0
+            pagegoal:0,pdfximages:vec!()
         }
+    }
+
+    pub fn stack_depth(&self) -> usize {
+        self.stacks.len() - 1
     }
 
     pub fn get_font(&mut self,int:&Interpreter,name:TeXStr) -> Result<Rc<FontFile>,TeXError> {
@@ -651,7 +656,7 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{BoxMode, SimpleWI, TeXBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{BoxMode, Pdfximage, SimpleWI, TeXBox, Whatsit, WIGroup};
 
 impl Interpreter<'_> {
     pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {

@@ -2262,6 +2262,13 @@ pub static LASTPENALTY: NumericCommand = NumericCommand {
     }
 };
 
+pub static CURRENTGROUPLEVEL: NumericCommand = NumericCommand {
+    name:"currentgrouplevel",
+    _getvalue:|int| {
+        Ok(Numeric::Int(int.state.borrow().stack_depth() as i64))
+    }
+};
+
 pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
     name:"vadjust",
     expandable:false,
@@ -3530,12 +3537,6 @@ pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static CURRENTGROUPLEVEL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"currentgrouplevel",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
     name:"eqno",
     expandable:true,
@@ -4192,6 +4193,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&LASTPENALTY),
     PrimitiveTeXCommand::Num(&LASTSKIP),
     PrimitiveTeXCommand::Num(&LASTKERN),
+    PrimitiveTeXCommand::Num(&CURRENTGROUPLEVEL),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -4365,7 +4367,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CRCR),
     PrimitiveTeXCommand::Primitive(&CSNAME),
     PrimitiveTeXCommand::Primitive(&ENDCSNAME),
-    PrimitiveTeXCommand::Primitive(&CURRENTGROUPLEVEL),
     PrimitiveTeXCommand::Primitive(&DETOKENIZE),
     PrimitiveTeXCommand::Primitive(&DUMP),
     PrimitiveTeXCommand::Primitive(&ENDINPUT),
