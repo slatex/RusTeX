@@ -770,14 +770,16 @@ impl Interpreter<'_> {
     }
     pub fn pop_group(&self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
-        let mut state = self.state.borrow_mut();
-        let (cc,ag) = state.pop(self,tp)?;
-        self.push_tokens(ag);
-        let mut scc = self.catcodes.borrow_mut();
-        scc.catcodes = cc.catcodes.clone();
-        scc.endlinechar = cc.endlinechar;
-        scc.newlinechar = cc.newlinechar;
-        scc.escapechar = cc.escapechar;
+        {
+            let mut state = self.state.borrow_mut();
+            let (cc, ag) = state.pop(self, tp)?;
+            self.push_tokens(ag);
+            let mut scc = self.catcodes.borrow_mut();
+            scc.catcodes = cc.catcodes.clone();
+            scc.endlinechar = cc.endlinechar;
+            scc.newlinechar = cc.newlinechar;
+            scc.escapechar = cc.escapechar;
+        }
         self.stomach.borrow_mut().close_group(self)
     }
     pub fn get_whatsit_group(&self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {

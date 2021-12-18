@@ -131,6 +131,20 @@ impl Display for DefMacro {
         write!(f,"{}->{}{}{}",self.sig,"{",TokenList(&self.ret),"}")
     }
 }
+impl PartialEq for DefMacro {
+    fn eq(&self, other: &Self) -> bool {
+        self.long == other.long &&
+            self.protected == other.protected &&
+            self.sig == other.sig &&
+            self.ret.len() == other.ret.len() &&
+            {
+                for i in 0..self.ret.len() {
+                    if self.ret.get(i) != other.ret.get(i) {return false}
+                }
+                true
+            }
+    }
+}
 
 use crate::stomach::whatsits::{ExecutableWhatsit, MathGroup, MathKernel, SimpleWI, TeXBox, Whatsit, WIGroup};
 
@@ -848,18 +862,7 @@ impl PartialEq for PrimitiveTeXCommand {
             (Whatsit(a),Whatsit(b)) => a.name() == b.name(),
             (MathChar(a),MathChar(b)) => a==b,
             (Char(tk),Char(tkb)) => tk.char == tkb.char && tk.catcode == tkb.catcode,
-            (Def(a),Def(b)) => {
-                a.long == b.long &&
-                    a.protected == b.protected &&
-                    a.sig == b.sig &&
-                    a.ret.len() == b.ret.len() &&
-                    {
-                        for i in 0..a.ret.len() {
-                            if a.ret.get(i) != b.ret.get(i) {return false}
-                        }
-                        true
-                    }
-            }
+            (Def(a),Def(b)) => a == b,
             _ => false
         }
     }

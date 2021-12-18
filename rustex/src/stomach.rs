@@ -2,9 +2,10 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use crate::stomach::whatsits::Whatsit;
-use crate::{Interpreter, TeXErr};
+use crate::{Interpreter, TeXErr, Token};
+use crate::commands::DefMacro;
 use crate::fonts::{Font, Nullfont};
-use crate::interpreter::state::GroupType;
+use crate::interpreter::state::{GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::WIGroup;
 use crate::stomach::whatsits::Paragraph;
@@ -85,6 +86,7 @@ pub trait Stomach {
     fn base(&self) -> &StomachBase;
     fn ship_whatsit(&mut self, wi:Whatsit);
     fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError>;
+    fn on_begin_document(&mut self, _: &Interpreter);
 
     // ---------------------------------------------------------------------------------------------
 
@@ -276,19 +278,7 @@ pub trait Stomach {
     }
 
     fn add_inner(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
-        use crate::stomach::whatsits::SimpleWI;
         match wi {
-            Whatsit::Simple(SimpleWI::Penalty(i)) if i <= -1000 && self.is_top() => {
-                let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
-                    StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
-                    StomachGroup::Par(_) => true,
-                    StomachGroup::Top(_) => true,
-                    o => !o.get().is_empty()
-                }).unwrap();
-                last_one.push(wi);
-                self.do_floats(int);
-                Ok(())
-            }
             Whatsit::Ls(ls) => {
                 for wi in ls { self.add(int,wi)? }
                 Ok(())
@@ -361,7 +351,7 @@ pub trait Stomach {
         }
         return None
     }
-    fn on_begin_document(&mut self, _: &Interpreter) {
+    fn on_begin_document_inner(&mut self, _: &Interpreter) {
         let base = self.base_mut();
         base.indocument = true;
         let mut groups : Vec<GroupType> = vec!();
@@ -442,9 +432,6 @@ pub trait Stomach {
         }
         unreachable!()
     }
-    fn do_floats(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        todo!()
-    }
 }
 
 pub struct StomachBase {
@@ -459,18 +446,86 @@ pub struct StomachBase {
 }
 
 pub struct NoShipoutRoutine {
-    base: StomachBase
+    base: StomachBase,
+    floatlist: Vec<(TeXStr,i32)>,
+    floatcmd:Option<DefMacro>
 }
 impl NoShipoutRoutine {
     pub fn new() -> NoShipoutRoutine {
         NoShipoutRoutine {
-            base:StomachBase {
-                buffer:vec!(StomachGroup::Top(vec!())),
-                indocument:false,
-                basefont:None,
-                basecolor:None,hangindent:0,hangafter:0,parshape:vec!(),pageheight:0
-            }
+            base: StomachBase {
+                buffer: vec!(StomachGroup::Top(vec!())),
+                indocument: false,
+                basefont: None,
+                basecolor: None,
+                hangindent: 0,
+                hangafter: 0,
+                parshape: vec!(),
+                pageheight: 0
+            },
+            floatlist: vec!(),
+            floatcmd:None
         }
+    }
+    fn do_floats(&mut self, int: &Interpreter) -> Result<(), TeXError> {
+        use crate::commands::PrimitiveTeXCommand;
+        use crate::catcodes::CategoryCode::*;
+        //for s in &self.floatlist { println!("{}",s)}
+        let inserts = int.state.borrow_mut().inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
+        let cmd = int.get_command(&"@freelist".into()).unwrap();
+        let floatregs : Vec<i32> = match &*cmd.orig {
+            PrimitiveTeXCommand::Def(df) if *df != *self.floatcmd.as_ref().unwrap() => {
+                let mut freefloats: Vec<TeXStr> = vec!();
+                for tk in &df.ret {
+                    match (tk.catcode, tk.cmdname()) {
+                        (_, s) if s == "@elt" => (),
+                        (Escape, o) => freefloats.push(o.clone()),
+                        _ => ()
+                    }
+                }
+                self.floatlist.iter().filter(|(x,i)| !freefloats.contains(x)).map(|(_,i)| *i).collect()
+            }
+            _ => vec!()
+        };
+        if !inserts.is_empty() {
+            self.add(int,Whatsit::Inserts(inserts))?
+        }
+        if !floatregs.is_empty() {
+            int.change_state(StateChange::Cs("@freelist".into(),
+                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true))
+        }
+        for fnm in floatregs {
+            self.add(int,Whatsit::Float(int.state_get_box(fnm)))?
+        }
+        Ok(())
+    }
+    fn get_float_list(&mut self, int: &Interpreter) -> Vec<(TeXStr,i32)> {
+        use crate::commands::{PrimitiveTeXCommand,ProvidesWhatsit};
+        use crate::catcodes::CategoryCode::*;
+        let mut ret: Vec<(TeXStr,i32)> = vec!();
+        let cmd = int.get_command(&"@freelist".into()).unwrap();
+        match &*cmd.orig {
+            PrimitiveTeXCommand::Def(df) => {
+                for tk in &df.ret {
+                    match (tk.catcode, tk.cmdname()) {
+                        (_, s) if s == "@elt" => (),
+                        (Escape, o) => {
+                            let p = &*int.state_get_command(o).unwrap().orig;
+                            match p {
+                                PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
+                                _ => panic!("Weird float setup")
+                            }
+                        },
+                        _ => ()
+                    }
+                }
+                if self.floatcmd.is_none() {
+                    self.floatcmd = Some(df.clone())
+                }
+            }
+            _ => unreachable!()
+        }
+        ret
     }
 }
 
@@ -482,10 +537,26 @@ impl Stomach for NoShipoutRoutine {
         &self.base
     }
     fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+        use crate::stomach::whatsits::SimpleWI;
         match wi {
+            Whatsit::Simple(SimpleWI::Penalty(i)) if i <= -1000 && self.is_top() && self.base().indocument => {
+                let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
+                    StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
+                    StomachGroup::Par(_) => true,
+                    StomachGroup::Top(_) => true,
+                    o => !o.get().is_empty()
+                }).unwrap();
+                last_one.push(wi);
+                self.do_floats(int);
+                Ok(())
+            }
             Whatsit::Exec(e) => (std::rc::Rc::try_unwrap(e).ok().unwrap()._apply)(int),
             _ => self.add_inner(int,wi)
         }
     }
     fn ship_whatsit(&mut self, _:Whatsit) {}
+    fn on_begin_document(&mut self, int: &Interpreter) {
+        self.on_begin_document_inner(int);
+        self.floatlist = self.get_float_list(int)
+    }
 }

@@ -551,7 +551,9 @@ pub enum Whatsit {
     Math(MathGroup),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
-    Par(Paragraph)
+    Par(Paragraph),
+    Inserts(Vec<Vec<Whatsit>>),
+    Float(TeXBox)
 }
 
 impl Whatsit {
@@ -569,7 +571,8 @@ impl Whatsit {
             Par(p) => p.as_xml_internal(prefix),
             Box(b) => b.as_xml_internal(prefix),
             Char(u,_,_) => TeXStr::new(&[*u]).to_string(),
-            Ls(_) => unreachable!()
+            Ls(_) => unreachable!(),
+            _ => todo!()
         }
 
     }
@@ -582,7 +585,7 @@ impl Whatsit {
             GroupOpen(w) => w.has_ink(),
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
-            Char(_,_,_) | Par(_) => true,
+            Char(_,_,_) | Par(_) | Float(_) | Inserts(_) => true,
             Math(m) => m.has_ink(),
             Ls(_) => unreachable!()
         }
@@ -599,7 +602,8 @@ impl Whatsit {
             Char(u,f,_) => f.get_width(*u as u16),
             Math(m) => m.width(),
             Par(p) => p.width(),
-            Ls(_) => unreachable!()
+            Ls(_) => unreachable!(),
+            _ => todo!()
         }
     }
     pub fn height(&self) -> i64 {
@@ -614,7 +618,8 @@ impl Whatsit {
             Char(u,f,_) => f.get_height(*u as u16),
             Math(m) => m.height(),
             Par(p) => p.height(),
-            Ls(_) => unreachable!()
+            Ls(_) => unreachable!(),
+            _ => todo!()
         }
     }
     pub fn depth(&self) -> i64 {
@@ -629,7 +634,8 @@ impl Whatsit {
             Char(u,f,_) => f.get_depth(*u as u16),
             Math(m) => m.depth(),
             Par(p) => p.depth(),
-            Ls(_) => unreachable!()
+            Ls(_) => unreachable!(),
+            _ => todo!()
         }
     }
 }
