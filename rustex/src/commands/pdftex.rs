@@ -132,6 +132,13 @@ pub static PDFSHELLESCAPE: NumericCommand = NumericCommand {
     }
 };
 
+pub static PDFLASTXIMAGE: NumericCommand = NumericCommand {
+    name: "pdflastximage",
+    _getvalue:|int| {
+        Ok(Numeric::Int(int.state.borrow().pdfximages.len() as i64 -1))
+    }
+};
+
 pub static PDFTEXREVISION: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdftexrevision",
     expandable:true,
@@ -412,6 +419,58 @@ pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static PDFSETMATRIX: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfsetmatrix",
+    modes: |x| {true},
+    _get:|tk,int| {
+        use std::num::*;
+        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let str = int.tokens_to_string(&tks);
+        let nums : Vec<f32> = str.split(32).iter().map(|x| {
+            match x.to_string().parse::<f32>() {
+                Ok(f) => Ok(f),
+                Err(_) => TeXErr!((int,None),"Not a floating point number in \\pdfsetmatrix: {}",x)
+            }
+        }).collect::<Result<Vec<f32>,TeXError>>()?;
+        assert_eq!(nums.len(),4);
+        Ok(Whatsit::Simple(SimpleWI::PdfMatrix(nums[0],nums[1],nums[2],nums[3],int.update_reference(tk))))
+    }
+};
+
+pub static PDFSAVE: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfsave",
+    modes: |x| {true},
+    _get:|tk,int| {
+        use crate::interpreter::TeXMode;
+        Ok(Whatsit::GroupOpen(WIGroup::PdfMatrixSave(int.update_reference(tk),match int.get_mode() {
+            TeXMode::Vertical | TeXMode::InternalVertical => true,
+            _ => false
+        },vec!())))
+    }
+};
+
+pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfrestore",
+    modes: |x| {true},
+    _get:|tk,int| {
+        Ok(Whatsit::GroupClose(WIGroup::PdfRestore(int.update_reference(tk))))
+    }
+};
+
+
+pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfrefximage",
+    modes: |x| {true},
+    _get:|tk,int| {
+        let num = int.read_number()?;
+        let img = match int.state.borrow().pdfximages.get(num as usize) {
+            Some(i) => i.clone(),
+            None => TeXErr!((int,Some(tk.clone())),"No image as index {}",num)
+        };
+        Ok(Whatsit::Simple(SimpleWI::Img(img,int.update_reference(tk))))
+    }
+};
+
 pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfximage",
     expandable:false,
@@ -447,12 +506,6 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
         );
         Ok(())
     }
-};
-
-pub static PDFREFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfrefximage",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
 };
 
 pub static PDFFONTSIZE: PrimitiveExecutable = PrimitiveExecutable {
@@ -622,12 +675,6 @@ pub static PDFADJUSTSPACING : RegisterReference = RegisterReference {
 
 // ------------------
 
-
-pub static PDFLASTXIMAGE : RegisterReference = RegisterReference {
-    name: "pdflastximage",
-    index:60
-};
-
 // -------------
 
 
@@ -759,18 +806,6 @@ pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFRESTORE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfrestore",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFSAVE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfsave",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFSAVEPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsavepos",
     expandable:true,
@@ -785,12 +820,6 @@ pub static PDFLASTXPOS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastypos",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFSETMATRIX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfsetmatrix",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -858,6 +887,7 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&PDFTEXVERSION),
     PrimitiveTeXCommand::Num(&PDFSHELLESCAPE),
     PrimitiveTeXCommand::Num(&PDFMAJORVERSION),
+    PrimitiveTeXCommand::Num(&PDFLASTXIMAGE),
 
     PrimitiveTeXCommand::Cond(&IFPDFABSNUM),
     PrimitiveTeXCommand::Cond(&IFPDFABSDIM),
@@ -869,6 +899,10 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSTARTLINK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFENDLINK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXFORM)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFREFXIMAGE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSETMATRIX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSAVE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFRESTORE)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
@@ -883,7 +917,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFSUPPRESSWARNINGDUPDEST)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFPROTRUDECHARS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFADJUSTSPACING)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFLASTXIMAGE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFDRAFTMODE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFGENTOUNICODE)),
 
@@ -918,15 +951,11 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFLASTMATCH),
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),
     PrimitiveTeXCommand::Primitive(&PDFPAGEATTR),
-    PrimitiveTeXCommand::Primitive(&PDFRESTORE),
-    PrimitiveTeXCommand::Primitive(&PDFSAVE),
     PrimitiveTeXCommand::Primitive(&PDFSAVEPOS),
     PrimitiveTeXCommand::Primitive(&PDFLASTXPOS),
     PrimitiveTeXCommand::Primitive(&PDFLASTYPOS),
-    PrimitiveTeXCommand::Primitive(&PDFSETMATRIX),
     PrimitiveTeXCommand::Primitive(&PDFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFXIMAGE),
-    PrimitiveTeXCommand::Primitive(&PDFREFXIMAGE),
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),

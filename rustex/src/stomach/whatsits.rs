@@ -77,7 +77,7 @@ impl <'a> Iterator for WhatsitIter<'a> {
                 }
                 None => None
             }
-            Some(Whatsit::Grouped(g)) => {
+            Some(Whatsit::Grouped(g)) if !g.opaque() => {
                 self.children = &self.children[1..];
                 *self = WhatsitIter {
                     children:g.children().as_slice(),
@@ -487,17 +487,27 @@ pub enum WIGroup {
     ColorChange(TeXStr,Option<SourceFileReference>,Vec<Whatsit>),
     //       rule   attr  action
     PDFLink(TeXStr,TeXStr,ActionSpec,Option<SourceFileReference>,Vec<Whatsit>),
+    PdfMatrixSave(Option<SourceFileReference>,bool,Vec<Whatsit>),
+    PdfRestore(Option<SourceFileReference>),
     LinkEnd(Option<SourceFileReference>),
-    ColorEnd(Option<SourceFileReference>)
+    ColorEnd(Option<SourceFileReference>),
 }
 impl WIGroup {
+    pub fn opaque(&self) -> bool {
+        use WIGroup::*;
+        match self {
+            PdfMatrixSave(_,_,_) => true,
+            _ => false
+        }
+    }
     pub fn push(&mut self,wi:Whatsit) {
         use WIGroup::*;
         match self {
             FontChange(_,_,_,v) => v.push(wi),
             ColorChange(_,_,v) => v.push(wi),
             PDFLink(_,_,_,_,v) => v.push(wi),
-            ColorEnd(_) | LinkEnd(_) => unreachable!(),
+            PdfMatrixSave(_,_,v) => v.push(wi),
+            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!(),
         }
     }
     pub fn priority(&self) -> i16 {
@@ -507,12 +517,13 @@ impl WIGroup {
             FontChange(_,_,_,_) => 2,
             ColorChange(_,_,_) | ColorEnd(_) => 50,
             PDFLink(_,_,_,_,_) | LinkEnd(_) => 60,
+            PdfMatrixSave(_,_,_) | PdfRestore(_) => 70
         }
     }
     pub fn has_ink(&self) -> bool {
         use WIGroup::*;
         match self {
-            ColorEnd(_) | LinkEnd(_) => false,
+            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => false,
             _ => {
                 for x in self.children() { if x.has_ink() {return true} }
                 false
@@ -525,7 +536,8 @@ impl WIGroup {
             FontChange(_,_,_,v) => v,
             ColorChange(_,_,v) => v,
             PDFLink(_,_,_,_,v) => v,
-            ColorEnd(_) | LinkEnd(_) => unreachable!()
+            PdfMatrixSave(_,_,v) => v,
+            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
         }
     }
     pub fn children(&self) -> &Vec<Whatsit> {
@@ -534,7 +546,8 @@ impl WIGroup {
             FontChange(_,_,_,v) => v,
             ColorChange(_,_,v) => v,
             PDFLink(_,_,_,_,v) => v,
-            ColorEnd(_) | LinkEnd(_) => unreachable!()
+            PdfMatrixSave(_,_,v) => v,
+            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
         }
     }
     pub fn new_from(&self) -> WIGroup {
@@ -543,22 +556,20 @@ impl WIGroup {
             FontChange(f,r,b,_) => FontChange(f.clone(),r.clone(),*b,vec!()),
             ColorChange(c,r,_) => ColorChange(c.clone(),r.clone(),vec!()),
             PDFLink(a,b,c,d,_) => PDFLink(a.clone(),b.clone(),c.clone(),d.clone(),vec!()),
-            ColorEnd(_) | LinkEnd(_) => unreachable!()
+            PdfMatrixSave(r,b,v) => {
+                match v.iter().find(|x| match x {
+                    Whatsit::Simple(SimpleWI::PdfMatrix(a,b,c,d,o)) => true,
+                    _ => false
+                }) {
+                    None => PdfMatrixSave(r.clone(),*b,vec!()),
+                    Some(p) => PdfMatrixSave(r.clone(),*b,vec!(p.clone()))
+                }
+            }
+            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
         }
     }
     pub fn width(&self) -> i64 {
-        use WIGroup::*;
-        let c = match self {
-            FontChange(_,_,_,c) => c,
-            ColorChange(_,_,c) => c,
-            PDFLink(_,_,_,_,v) => v,
-            ColorEnd(_) | LinkEnd(_) => return 0
-        };
-        let mut ret : i64 = 0;
-        for x in c {
-            ret += x.width() + WIDTH_CORRECTION
-        }
-        ret
+        todo!()
     }
     pub fn height(&self) -> i64 {
         todo!( )
@@ -595,7 +606,7 @@ pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i64>,pub Option<i6
 
 #[derive(Clone)]
 pub enum SimpleWI {
-    Img(Pdfximage),
+    Img(Pdfximage,Option<SourceFileReference>),
     //                                  height       width      depth
     VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
     HRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
@@ -620,16 +631,17 @@ pub enum SimpleWI {
     Vss(Option<SourceFileReference>),
     Indent(i64,Option<SourceFileReference>),
     Mark(Vec<Token>,Option<SourceFileReference>),
-    Leaders(Box<Whatsit>,Option<SourceFileReference>)
+    Leaders(Box<Whatsit>,Option<SourceFileReference>),
+    PdfMatrix(f32,f32,f32,f32,Option<SourceFileReference>)
 }
 impl SimpleWI {
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
-            VRule(_,_,_,_) | HRule(_,_,_,_) | Img(_) => true,
+            VRule(_,_,_,_) | HRule(_,_,_,_) | Img(_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
-            | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) => false,
+            | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => false,
             Raise(_,bx,_) => bx.has_ink(),
             Leaders(w,_) => w.has_ink(),
             Halign(_,_,ab,_) => {
@@ -656,13 +668,13 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) => 0,
+                | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
             HSkip(sk,_) => sk.base,
             MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
-            Img(Pdfximage(_,_,_,_,_,_,img)) => img.width() as i64,
+            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.width() as i64 * 65536,
             Halign(sk,_,bxs,_) => {
                 let mut width:i64 = 0;
                 for b in bxs {
@@ -722,8 +734,8 @@ impl SimpleWI {
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
-                 => 0,
-            Img(Pdfximage(_,_,_,_,_,_,img)) => img.height() as i64,
+                | PdfMatrix(_,_,_,_,_) => 0,
+            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i64 * 65536,
             VRule(_,h,_,_) => h.unwrap_or(0),
             VKern(i,_) => *i,
             Leaders(b,_) => b.height(),
@@ -787,7 +799,7 @@ impl SimpleWI {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
                 | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
-                | Img(_) => 0,
+                | Img(_,_) | PdfMatrix(_,_,_,_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
             Leaders(b,_) => b.depth(),

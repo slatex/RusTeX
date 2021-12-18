@@ -2659,21 +2659,6 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
-pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
-    name: "hangindent",
-    expandable:false,
-    _apply: |rf,int| {
-        todo!()
-    }
-};
-
-pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
-    name: "hangafter",
-    expandable:false,
-    _apply: |rf,int| {
-        todo!()
-    }
-};
 
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
@@ -2691,6 +2676,26 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
             vals.push((f,s))
         }
         int.stomach.borrow_mut().base_mut().parshape = vals;
+        Ok(())
+    }
+};
+
+pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
+    name: "hangindent",
+    expandable:false,
+    _apply: |_,int| {
+        let dim = int.read_dimension()?;
+        int.stomach.borrow_mut().base_mut().hangindent = dim;
+        Ok(())
+    }
+};
+
+pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
+    name: "hangafter",
+    expandable:false,
+    _apply: |_,int| {
+        let num = int.read_number()?;
+        int.stomach.borrow_mut().base_mut().hangafter = num as usize;
         Ok(())
     }
 };
