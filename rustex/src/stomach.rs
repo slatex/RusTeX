@@ -116,6 +116,13 @@ pub trait Stomach {
                     self.base_mut().buffer.push(StomachGroup::TeXGroup(gt,vec!()));
                     Ok(ret)
                 }
+                StomachGroup::Other(g) if g.closesWithGroup() => {
+                    let ng = StomachGroup::Other(g.new_from());
+                    self.add(int,Whatsit::Grouped(g))?;
+                    let ret = self.end_paragraph_loop(int)?;
+                    self.base_mut().buffer.push(ng);
+                    Ok(ret)
+                }
                 _ => todo!()
             }
         }
@@ -381,6 +388,36 @@ pub trait Stomach {
     }
     fn page_height(&self) -> i64 {
         self.base().pageheight
+    }
+    fn close_all(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>,TeXError> {
+        loop {
+            let last = self.base_mut().buffer.pop();
+            match last {
+                Some(StomachGroup::Top(v)) => {
+                    //self.base_mut().buffer.push(t);
+                    return Ok(v)
+                },
+                Some(StomachGroup::Other(g)) => self.add(int,Whatsit::Grouped(g))?,
+                Some(p@StomachGroup::Par(_)) => {
+                    self.base_mut().buffer.push(p);
+                    self.end_paragraph(int)?
+                },
+                Some(g@StomachGroup::TeXGroup(_,_)) => {
+                    self.base_mut().buffer.push(g);
+                    for w in self.pop_group(int)? { self.add(int,w)? }
+                }
+                None => unreachable!()
+            }
+        }
+    }
+    fn final_xml(&mut self,int:&Interpreter) -> Result<String,TeXError> {
+        let wis = self.close_all(int)?;
+        let mut ret = "<doc>\n".to_string();
+        for w in wis {
+            ret += &w.as_xml_internal("  ".to_string())
+        }
+        ret += "\n</doc>";
+        Ok(ret)
     }
 }
 

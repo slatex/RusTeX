@@ -301,10 +301,16 @@ impl TeXError {
     pub fn derive(self,msg:String) -> TeXError {
         TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
     }
-    pub fn throw<A>(mut self) -> A {
+    pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
         std::io::stdout().flush();
         self.backtrace.resolve();
-        panic!("{}",self)
+        match int {
+            None => panic!("{}",self),
+            Some(i) => match i.stomach.borrow_mut().final_xml(i) {
+                Ok(s) => panic!("{}\n\n{}",self,s),
+                Err(e) => e.throw(None)
+            }
+        }
     }
     pub fn print(&mut self) {
         std::io::stdout().flush();

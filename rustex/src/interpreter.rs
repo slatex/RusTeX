@@ -155,7 +155,7 @@ impl Interpreter<'_> {
             }
             match self.do_top(next,false) {
                 Ok(_) => {},
-                Err(s) => s.throw()
+                Err(s) => s.throw(Some(&self))
             }
         }
     }
@@ -185,7 +185,7 @@ impl Interpreter<'_> {
             }
             match int.do_top(next,false) {
                 Ok(_) => {},
-                Err(s) => s.throw()
+                Err(s) => s.throw(Some(&int))
             }
         }
         let ret = int.state.borrow().clone();

@@ -3,10 +3,11 @@ use std::path::PathBuf;
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
+use std::str::from_utf8;
 use image::{DynamicImage, GenericImageView};
 use crate::commands::MathWhatsit;
 use crate::fonts::Font;
-use crate::interpreter::dimensions::{MuSkip, Skip};
+use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
 use crate::Token;
 
@@ -37,6 +38,98 @@ pub struct VBox {
 #[derive(Clone)]
 pub enum TeXBox {
     Void,H(HBox),V(VBox)
+}
+
+impl TeXBox {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        match self {
+            TeXBox::Void => "".to_string(),
+            TeXBox::H(hb) => {
+                let mut ret = "\n".to_string() + &prefix + "<hbox";
+                match hb._width {
+                    Some(w) => {
+                        ret += " width=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb._height {
+                    Some(w) => {
+                        ret += " height=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb._depth {
+                    Some(w) => {
+                        ret += " depth=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb.spread {
+                    0 => (),
+                    w => {
+                        ret += " spread=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                }
+                ret += ">";
+                for c in &hb.children {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</hbox>"
+            }
+            TeXBox::V(hb) => {
+                let mut ret = "\n".to_string() + &prefix + "<vbox";
+                match hb._width {
+                    Some(w) => {
+                        ret += " width=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb._height {
+                    Some(w) => {
+                        ret += " height=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb._depth {
+                    Some(w) => {
+                        ret += " depth=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    },
+                    None => ()
+                }
+                match hb.spread {
+                    0 => (),
+                    w => {
+                        ret += " spread=\"";
+                        ret += &dimtostr(w);
+                        ret += "\"";
+                    }
+                }
+                match hb.center {
+                    true => ret += " center",
+                    _ => ()
+                }
+                ret += ">";
+                for c in &hb.children {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</vbox>"
+            }
+        }
+    }
 }
 
 static WIDTH_CORRECTION : i64 = 0;
@@ -261,6 +354,26 @@ pub struct MathGroup {
     pub limits:bool
 }
 impl MathGroup {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        let mut ret = "\n".to_string() + &prefix + "<math>\n  " + &prefix + "<kernel>";
+        ret += &self.kernel.as_xml_internal(prefix.clone() + "    ");
+        ret += "</kernel>";
+        if self.subscript.is_some() {
+            ret += "\n  ";
+            ret += &prefix;
+            ret += "<subscript>";
+            ret += &self.subscript.as_ref().unwrap().as_xml_internal(prefix.clone() + "    ");
+            ret += "</subscript>"
+        }
+        if self.superscript.is_some() {
+            ret += "\n  ";
+            ret += &prefix;
+            ret += "<superscript>";
+            ret += &self.superscript.as_ref().unwrap().as_xml_internal(prefix.clone() + "    ");
+            ret += "</superscript>"
+        }
+        ret + "\n" + &prefix + "</math>"
+    }
     pub fn new(kernel:MathKernel,display:bool) -> MathGroup {
         MathGroup {
             kernel,subscript:None,superscript:None,limits:display
@@ -317,6 +430,18 @@ pub enum MathKernel {
     Mathrel(Box<Whatsit>,Option<SourceFileReference>),
 }
 impl MathKernel {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        use MathKernel::*;
+        match self {
+            Group(v) => {
+                let mut ret = "".to_string();
+                for w in v {ret += &w.as_xml_internal(prefix.clone())}
+                ret
+            }
+            MathChar(_,_,u,_,_) => "\n".to_owned() + &prefix + "<mathchar value=\"" + &u.to_string() + "\"/>",
+            _ => todo!()
+        }
+    }
     pub fn width(&self) -> i64 {
         use MathKernel::*;
         match self {
@@ -420,6 +545,24 @@ pub enum Whatsit {
 }
 
 impl Whatsit {
+    pub fn as_xml(&self) -> String {
+        self.as_xml_internal("".to_string())
+    }
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        use Whatsit::*;
+        match self {
+            Exec(_) | GroupOpen(_) | GroupClose(_) => "".to_string(),
+            Ext(e) => e.as_xml_internal(prefix),
+            Math(m) => m.as_xml_internal(prefix),
+            Simple(s) => s.as_xml_internal(prefix),
+            Grouped(g) => g.as_xml_internal(prefix),
+            Par(p) => p.as_xml_internal(prefix),
+            Box(b) => b.as_xml_internal(prefix),
+            Char(u,_,_) => TeXStr::new(&[*u]).to_string(),
+            Ls(_) => unreachable!()
+        }
+
+    }
     pub fn has_ink(&self) -> bool {
         use Whatsit::*;
         match self {
@@ -493,6 +636,40 @@ pub enum WIGroup {
     ColorEnd(Option<SourceFileReference>),
 }
 impl WIGroup {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        use WIGroup::*;
+        match self {
+            FontChange(_,_,_,v) => {
+                let mut ret = "\n".to_string() + &prefix + "<font TODO>";
+                for c in v {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</font>"
+            }
+            ColorChange(c,_,v) => {
+                let mut ret = "\n".to_string() + &prefix + "<color color=\"" + c.to_string().as_str() + "\">";
+                for c in v {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</color>"
+            }
+            PDFLink(a,b,_,_,v) => {
+                let mut ret = "\n".to_string() + &prefix + "<link a=\"" + a.to_string().as_str() + "\" b=\"" + b.to_string().as_str() + "\">";
+                for c in v {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</link>"
+            }
+            PdfMatrixSave(_,_,v) => {
+                let mut ret = "\n".to_string() + &prefix + "<pdfmatrix>";
+                for c in v {
+                    ret += &c.as_xml_internal(prefix.clone() + "  ")
+                }
+                ret + "\n" + &prefix + "</pdfmatrix>"
+            }
+            _ => todo!()
+        }
+    }
     pub fn opaque(&self) -> bool {
         use WIGroup::*;
         match self {
@@ -635,6 +812,29 @@ pub enum SimpleWI {
     PdfMatrix(f32,f32,f32,f32,Option<SourceFileReference>)
 }
 impl SimpleWI {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        use SimpleWI::*;
+        match self {
+            VRule(_,_,_,_) =>
+                "\n".to_string() + &prefix + "<vrule width=\"" + &dimtostr(self.width()) +
+                    "\" height=\"" + &dimtostr(self.height()) + "\" depth=\"" + &dimtostr(self.depth()) + "\"/>",
+            HRule(_,_,_,_) =>
+                "\n".to_string() + &prefix + "<hrule width=\"" + &dimtostr(self.width()) +
+                    "\" height=\"" + &dimtostr(self.height()) + "\" depth=\"" + &dimtostr(self.depth()) + "\"/>",
+            Penalty(i) => "\n".to_string() + &prefix + "<penalty val=\"" + &i.to_string() + "\"/>",
+            VFil(_) => "\n".to_string() + &prefix + "<vfil/>",
+            VFill(_) => "\n".to_string() + &prefix + "<vfill/>",
+            HFil(_) => "\n".to_string() + &prefix + "<hfil/>",
+            HFill(_) => "\n".to_string() + &prefix + "<hfill/>",
+            PdfDest(a,b,_) => "\n".to_string() + &prefix + "<pdfdest a=\"" + a.to_string().as_str() + "\" b=\"" + b.to_string().as_str() + "\"/>",
+            VSkip(i,_) => "\n".to_string() + &prefix + "<vskip val=\"" + &i.to_string() + "\"/>",
+            HSkip(i,_) => "\n".to_string() + &prefix + "<hskip val=\"" + &i.to_string() + "\"/>",
+            VKern(i,_) => "\n".to_string() + &prefix + "<vkern val=\"" + &dimtostr(*i) + "\"/>",
+            HKern(i,_) => "\n".to_string() + &prefix + "<hkern val=\"" + &dimtostr(*i) + "\"/>",
+            Indent(i,_) => "\n".to_string() + &prefix + "<indent val=\"" + &dimtostr(*i) + "\"/>",
+            _ => todo!()
+        }
+    }
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
@@ -671,6 +871,7 @@ impl SimpleWI {
                 | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
+            HRule(_,_,w,_) => w.unwrap_or(0),
             HSkip(sk,_) => sk.base,
             MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
@@ -737,6 +938,7 @@ impl SimpleWI {
                 | PdfMatrix(_,_,_,_,_) => 0,
             Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i64 * 65536,
             VRule(_,h,_,_) => h.unwrap_or(0),
+            HRule(_,h,_,_) => h.unwrap_or(26214),
             VKern(i,_) => *i,
             Leaders(b,_) => b.height(),
             VSkip(sk,_) => sk.base,
@@ -801,6 +1003,7 @@ impl SimpleWI {
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
                 | Img(_,_) | PdfMatrix(_,_,_,_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
+            HRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
             Leaders(b,_) => b.depth(),
             _ => todo!()
@@ -822,6 +1025,7 @@ pub trait ExtWhatsit {
     fn width(&self) -> i64;
     fn depth(&self) -> i64;
     fn has_ink(&self) -> bool;
+    fn as_xml_internal(&self,prefix:String) -> String;
 }
 
 #[derive(Clone)]
@@ -845,6 +1049,11 @@ pub struct Paragraph {
 }
 
 impl Paragraph {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        let mut ret = "\n".to_owned() + &prefix + "<paragraph>";
+        for c in &self.children { ret += &c.as_xml_internal(prefix.clone() + "  ")}
+        ret + "\n" + &prefix + "</paragraph>"
+    }
     pub fn close(&mut self,int:&Interpreter,hangindent:i64,hangafter:usize,parshape:Vec<(i64,i64)>) {
         self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
         self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);

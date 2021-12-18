@@ -3936,7 +3936,9 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
 pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"discretionary",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,int| {
+        TeXErr!((int,None),"TODO! \\discretionary")
+    }
 };
 
 pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
