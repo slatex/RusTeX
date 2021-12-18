@@ -571,6 +571,26 @@ impl Whatsit {
             Par(p) => p.as_xml_internal(prefix),
             Box(b) => b.as_xml_internal(prefix),
             Char(u,_,_) => TeXStr::new(&[*u]).to_string(),
+            Inserts(vs) => {
+                let mut ret = "\n".to_string() + &prefix + "<inserts>";
+                for v in vs {
+                    ret += "\n  ";
+                    ret += &prefix;
+                    ret += "<insert>";
+                    for w in v {
+                        ret  += &w.as_xml_internal(prefix.clone() + "    ")
+                    }
+                    ret += "\n  ";
+                    ret += &prefix;
+                    ret += "</insert>";
+                }
+                ret + "\n" + &prefix + "</inserts>"
+            }
+            Float(bx) => {
+                let mut ret = "\n".to_string() + &prefix + "<float>";
+                ret  += &bx.as_xml_internal(prefix.clone() + "  ");
+                ret + "\n" + &prefix + "</float>"
+            }
             Ls(_) => unreachable!(),
             _ => todo!()
         }

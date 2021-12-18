@@ -2478,6 +2478,11 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 int.push_tokens(columns.get(columnindex).unwrap().0.clone())
             }
             let _oldmode = int.get_mode();
+            int.set_mode(match tabmode {
+                BoxMode::H => TeXMode::RestrictedHorizontal,
+                BoxMode::V => TeXMode::InternalVertical,
+                _ => unreachable!()
+            });
             int.new_group(GroupType::Box(tabmode));
             'cell: loop {
                 let next = int.next_token();
