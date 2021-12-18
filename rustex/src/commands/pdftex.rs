@@ -467,6 +467,7 @@ pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
             Some(i) => i.clone(),
             None => TeXErr!((int,Some(tk.clone())),"No image as index {}",num)
         };
+        //unsafe {crate::LOG = true}
         Ok(Whatsit::Simple(SimpleWI::Img(img,int.update_reference(tk))))
     }
 };

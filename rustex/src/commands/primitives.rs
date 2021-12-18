@@ -2137,7 +2137,7 @@ pub static WD: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_get_box(index);
+        let mut bx = int.state_copy_box(index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._width = Some(dim),
@@ -2158,7 +2158,7 @@ pub static HT: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_get_box(index);
+        let mut bx = int.state_copy_box(index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._height = Some(dim),
@@ -2179,7 +2179,7 @@ pub static DP: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_get_box(index);
+        let mut bx = int.state_copy_box(index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._depth = Some(dim),

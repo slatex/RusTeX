@@ -268,9 +268,9 @@ impl Display for ParamToken {
 
 #[derive(Clone)]
 pub struct Signature {
-    elems:Vec<ParamToken>,
-    endswithbrace:bool,
-    arity:u8
+    pub(in crate) elems:Vec<ParamToken>,
+    pub(in crate) endswithbrace:bool,
+    pub(in crate) arity:u8
 }
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
@@ -468,6 +468,10 @@ impl PrimitiveTeXCommand {
                 ret + "count".into() + i.to_string().into()
             },
             AV(AssignableValue::PrimReg(p)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
+            AV(AssignableValue::PrimToks(p)) => {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },

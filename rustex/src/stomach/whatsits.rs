@@ -985,7 +985,8 @@ impl SimpleWI {
         use SimpleWI::*;
         match self {
             VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
-                | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => 0,
+                | Hss(_) | Vss(_) | PdfDest(_,_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_)
+                | PdfLiteral(_,_) | Pdfxform(_,_,_,_) => 0,
             HKern(i,_) => *i,
             VRule(_,_,w,_) => w.unwrap_or(26214),
             HRule(_,_,w,_) => w.unwrap_or(0),
@@ -1052,7 +1053,7 @@ impl SimpleWI {
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
-                | PdfMatrix(_,_,_,_,_) => 0,
+                | PdfMatrix(_,_,_,_,_)| PdfLiteral(_,_)| Pdfxform(_,_,_,_) => 0,
             Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i64 * 65536,
             VRule(_,h,_,_) => h.unwrap_or(0),
             HRule(_,h,_,_) => h.unwrap_or(26214),
@@ -1118,7 +1119,7 @@ impl SimpleWI {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
                 | HFill(_) | HFil(_) | VFil(_) | VFill(_) | Halign(_,_,_,_) | Valign(_,_,_,_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
-                | Img(_,_) | PdfMatrix(_,_,_,_,_) => 0,
+                | Img(_,_) | PdfMatrix(_,_,_,_,_) | PdfLiteral(_,_)| Pdfxform(_,_,_,_) => 0,
             VRule(_,_,_,d) => d.unwrap_or(0),
             HRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),

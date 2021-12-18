@@ -308,6 +308,7 @@ pub trait Stomach {
                     StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
                     StomachGroup::Par(_) => true,
                     StomachGroup::Top(_) => true,
+                    StomachGroup::Other(wg) if wg.opaque() => true,
                     o => !o.get().is_empty()
                 }).unwrap();
                 last_one.push(wi);
@@ -557,6 +558,10 @@ impl Stomach for NoShipoutRoutine {
     fn ship_whatsit(&mut self, _:Whatsit) {}
     fn on_begin_document(&mut self, int: &Interpreter) {
         self.on_begin_document_inner(int);
-        self.floatlist = self.get_float_list(int)
+        self.floatlist = self.get_float_list(int);
+        let maxval = 2147483647;
+        let omax= i32::MAX;
+        println!("Here: {}",omax);
+        int.change_state(StateChange::Dimen(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true))
     }
 }

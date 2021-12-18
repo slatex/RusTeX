@@ -7,6 +7,7 @@ pub mod catcodes;
 pub mod stomach;
 mod fonts;
 
+static PGF_AS_SVG : bool = false;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = true;
 static COPY_TOKENS_FULL : bool = true;
@@ -66,6 +67,7 @@ use crate::utils::TeXString;
 pub static LANGUAGE_DAT : &str = include_str!("resources/language.dat");
 pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
 pub static HYPHEN_CFG : &str = include_str!("resources/hyphen.cfg");
+pub static PGFSYS_SCALA: &str = include_str!("resources/pgfsys-scala.def");
 
 #[cfg(test)]
 mod tests {

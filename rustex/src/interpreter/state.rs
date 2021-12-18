@@ -1,7 +1,7 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
-use crate::commands::TeXCommand;
+use crate::commands::{DefMacro, PrimitiveTeXCommand, Signature, TeXCommand};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
@@ -636,6 +636,20 @@ pub fn default_pdf_latex_state() -> State {
     //println!("{}",latex_ltx.to_str().expect("wut"));
     st = Interpreter::do_file_with_state(&pdftex_cfg,st);
     st = Interpreter::do_file_with_state(&latex_ltx,st);
+    if crate::PGF_AS_SVG {
+        st.stacks.first_mut().unwrap().commands.insert("pgfsysdriver".into(), Some(PrimitiveTeXCommand::Def(
+            DefMacro {
+                long: false,
+                protected: false,
+                sig: Signature {
+                    arity: 0,
+                    endswithbrace: false,
+                    elems: vec!()
+                },
+                ret: crate::interpreter::string_to_tokens("pgfsys-scala.def".into())
+            }
+        ).as_command()));
+    }
     st
     /*
 
@@ -913,16 +927,22 @@ impl Interpreter<'_> {
         objs.insert(i,obj);
     }
     pub fn state_get_box(&self,i:i32) -> TeXBox {
-        match self.state.borrow_mut().stacks.last_mut().unwrap().boxes.remove(&i) {
-            Some(b) => b,
-            None => TeXBox::Void
+        for sf in self.state.borrow_mut().stacks.iter_mut().rev() {
+            match sf.boxes.remove(&i) {
+                Some(b) => return b,
+                None => ()
+            }
         }
+        TeXBox::Void
     }
     pub fn state_copy_box(&self,i:i32) -> TeXBox {
-        match self.state.borrow().stacks.last().unwrap().boxes.get(&i) {
-            Some(b) => b.clone(),
-            None => TeXBox::Void
+        for sf in self.state.borrow().stacks.iter().rev() {
+            match sf.boxes.get(&i) {
+                Some(b) => return b.clone(),
+                None => ()
+            }
         }
+        TeXBox::Void
     }
     pub fn state_set_pdfxform(&self,attr:Option<TeXStr>,resources:Option<TeXStr>,content:TeXBox,rf:Option<SourceFileReference>) {
         self.state.borrow_mut().pdfxforms.push((attr,resources,content,rf))

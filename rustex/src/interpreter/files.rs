@@ -25,7 +25,7 @@ pub(in crate::interpreter) struct FileStore {
 }
 
 use std::cell::RefMut;
-use crate::HYPHEN_CFG;
+use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_SCALA};
 
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {
@@ -52,6 +52,12 @@ impl VFile {
                         source:VFileBase::Virtual,
                         string:Some(HYPHEN_CFG.into()),
                         id:simplename
+                    }
+                } else if simplename.to_string().contains("PGFSYS-SCALA.DEF") && crate::PGF_AS_SVG {
+                    VFile {
+                        source:VFileBase::Virtual,
+                        string:Some(PGFSYS_SCALA.into()),
+                        id:"<texmf>/PGFSYS-SCALA.DEF".into()
                     }
                 } /* else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
                     VFile {
