@@ -119,7 +119,7 @@ impl TeXBox {
                     }
                 }
                 match hb.center {
-                    true => ret += " center",
+                    true => ret += " center=\"true\"",
                     _ => ()
                 }
                 ret += ">";
@@ -420,7 +420,7 @@ pub enum MathKernel {
     Group(Vec<Whatsit>),
     MathChar(u32,u32,u32,Rc<Font>,Option<SourceFileReference>),
     MKern(MuSkip,Option<SourceFileReference>),
-    Delimiter(Box<Whatsit>,Option<SourceFileReference>),
+    Delimiter(Box<Whatsit>,Box<Whatsit>,Option<SourceFileReference>),
     Mathop(Box<Whatsit>,Option<SourceFileReference>),
     Mathopen(Box<Whatsit>,Option<SourceFileReference>),
     Mathclose(Box<Whatsit>,Option<SourceFileReference>),
@@ -439,6 +439,16 @@ impl MathKernel {
                 ret
             }
             MathChar(_,_,u,_,_) => "\n".to_owned() + &prefix + "<mathchar value=\"" + &u.to_string() + "\"/>",
+            Delimiter(a,b,_) =>
+                "\n".to_owned() + &prefix + "<delimiter>" + &a.as_xml_internal(prefix.clone()) + &b.as_xml_internal(prefix) + "</delimiter>",
+            MKern(ms,_) => "<mkern value=\"".to_string() + &ms.to_string() + "\"/>",
+            Mathop(bx,_) => "<mathop>".to_owned() + &bx.as_xml_internal(prefix) + "</mathop>",
+            Mathopen(bx,_) => "<mathopen>".to_owned() + &bx.as_xml_internal(prefix) + "</mathopen>",
+            Mathclose(bx,_) => "<mathclose>".to_owned() + &bx.as_xml_internal(prefix) + "</mathclose>",
+            Mathbin(bx,_) => "<mathbin>".to_owned() + &bx.as_xml_internal(prefix) + "</mathbin>",
+            Mathord(bx,_) => "<mathord>".to_owned() + &bx.as_xml_internal(prefix) + "</mathord>",
+            Mathpunct(bx,_) => "<mathpunct>".to_owned() + &bx.as_xml_internal(prefix) + "</mathpunct>",
+            Mathrel(bx,_) => "<mathrel>".to_owned() + &bx.as_xml_internal(prefix) + "</mathrel>",
             _ => todo!()
         }
     }
@@ -452,7 +462,7 @@ impl MathKernel {
             }
             MKern(s,_) => s.base,
             MathChar(_,_,u,f,_) => f.get_width(*u as u16),
-            Delimiter(w,_) => w.width(),
+            Delimiter(w,_,_) => w.width(),
             Mathop(w,_) => w.width(),
             Mathopen(w,_) => w.width(),
             Mathclose(w,_) => w.width(),
@@ -475,7 +485,7 @@ impl MathKernel {
             }
             MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_height(*u as u16),
-            Delimiter(w,_) => w.height(),
+            Delimiter(w,_,_) => w.height(),
             Mathop(w,_) => w.height(),
             Mathopen(w,_) => w.height(),
             Mathclose(w,_) => w.height(),
@@ -498,7 +508,7 @@ impl MathKernel {
             }
             MKern(_,_) => 0,
             MathChar(_,_,u,f,_) => f.get_depth(*u as u16),
-            Delimiter(w,_) => w.depth(),
+            Delimiter(w,_,_) => w.depth(),
             Mathop(w,_) => w.depth(),
             Mathopen(w,_) => w.depth(),
             Mathclose(w,_) => w.depth(),
@@ -517,7 +527,7 @@ impl MathKernel {
             }
             MKern(_,_) => false,
             MathChar(_,_,_,_,_) => true,
-            Delimiter(w,_) => w.has_ink(),
+            Delimiter(w,_,_) => w.has_ink(),
             Mathop(w,_) => w.has_ink(),
             Mathopen(w,_) => w.has_ink(),
             Mathclose(w,_) => w.has_ink(),
@@ -640,7 +650,7 @@ impl WIGroup {
         use WIGroup::*;
         match self {
             FontChange(_,_,_,v) => {
-                let mut ret = "\n".to_string() + &prefix + "<font TODO>";
+                let mut ret = "\n".to_string() + &prefix + "<font TODO=\"\">";
                 for c in v {
                     ret += &c.as_xml_internal(prefix.clone() + "  ")
                 }
@@ -832,7 +842,88 @@ impl SimpleWI {
             VKern(i,_) => "\n".to_string() + &prefix + "<vkern val=\"" + &dimtostr(*i) + "\"/>",
             HKern(i,_) => "\n".to_string() + &prefix + "<hkern val=\"" + &dimtostr(*i) + "\"/>",
             Indent(i,_) => "\n".to_string() + &prefix + "<indent val=\"" + &dimtostr(*i) + "\"/>",
-            _ => todo!()
+            Halign(_,_,v,_) => {
+                let mut ret = "\n".to_string() + &prefix + "<halign>";
+                for block in v { match block {
+                    AlignBlock::Noalign(nas) => {
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "<noalign>";
+                        for w in nas { ret += &w.as_xml_internal(prefix.clone() + "    ") }
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "</noalign>";
+                    }
+                    AlignBlock::Block(ls) => {
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "<row>";
+                        for (l,_) in ls {
+                            ret += "\n  ";
+                            ret += &prefix;
+                            ret += "<cell>";
+                            for w in l {
+                                ret += &w.as_xml_internal(prefix.clone() + "    ")
+                            }
+                            ret += "\n  ";
+                            ret += &prefix;
+                            ret += "</cell>";
+                        }
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "</row>";
+                    }
+                }}
+                ret + "\n" + &prefix + "</halign>"
+            },
+            Valign(_,_,v,_) => {
+                let mut ret = "\n".to_string() + &prefix + "<valign>";
+                for block in v { match block {
+                    AlignBlock::Noalign(nas) => {
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "<noalign>";
+                        for w in nas { ret += &w.as_xml_internal(prefix.clone() + "    ") }
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "</noalign>";
+                    }
+                    AlignBlock::Block(ls) => {
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "<column>";
+                        for (l,_) in ls {
+                            ret += "\n  ";
+                            ret += &prefix;
+                            ret += "<cell>";
+                            for w in l {
+                                ret += &w.as_xml_internal(prefix.clone() + "    ")
+                            }
+                            ret += "\n  ";
+                            ret += &prefix;
+                            ret += "</cell>";
+                        }
+                        ret += "\n  ";
+                        ret += &prefix;
+                        ret += "</column>";
+                    }
+                }}
+                ret + "\n" + &prefix + "</valign>"
+            },
+            Raise(d,bx,_) => {
+                let mut ret = "\n".to_string() + &prefix + "<raise by=\"" + &dimtostr(*d) + "\">";
+                ret += &bx.as_xml_internal(prefix.clone() + "  ");
+                ret + "\n" + &prefix + "</raise>"
+            },
+            Hss(_) => "<hss/>".to_string(),
+            Vss(_) => "<vss/>".to_string(),
+            MSkip(sk,_) => "<mskip skip=\"".to_string() + &sk.to_string() + "\"/>",
+            Mark(_,_) => "".to_string(),
+            Leaders(bx,_) => "<leaders>".to_string() + &bx.as_xml_internal(prefix) + "</leaders>",
+            Img(_,_) => todo!(),
+            PdfLiteral(_,_) => todo!(),
+            Pdfxform(_,_,_,_) => todo!(),
+            PdfMatrix(_,_,_,_,_) => todo!()
         }
     }
     pub fn has_ink(&self) -> bool {

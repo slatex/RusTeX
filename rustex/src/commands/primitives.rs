@@ -2813,11 +2813,12 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
 pub static DELIMITER: MathWhatsit = MathWhatsit {
     name:"delimiter",
     _get: |tk,int,_| {
-        let ret = int.read_math_whatsit(None)?;
-        match ret {
-            Some(w) => Ok(Some(MathKernel::Delimiter(Box::new(w),int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
-        }
+        let num = int.read_number()?;
+        let large = num % 4096;
+        let small = (num - large)/4096;
+        let largemc = Box::new(int.do_math_char(tk.clone(),large as u32));
+        let smallmc = Box::new(int.do_math_char(tk.clone(),small as u32));
+        Ok(Some(MathKernel::Delimiter(smallmc,largemc,int.update_reference(tk))))
     }
 };
 

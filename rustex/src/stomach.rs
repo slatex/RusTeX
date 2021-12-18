@@ -276,7 +276,19 @@ pub trait Stomach {
     }
 
     fn add_inner(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+        use crate::stomach::whatsits::SimpleWI;
         match wi {
+            Whatsit::Simple(SimpleWI::Penalty(i)) if i <= -1000 && self.is_top() => {
+                let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
+                    StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
+                    StomachGroup::Par(_) => true,
+                    StomachGroup::Top(_) => true,
+                    o => !o.get().is_empty()
+                }).unwrap();
+                last_one.push(wi);
+                self.do_floats(int);
+                Ok(())
+            }
             Whatsit::Ls(ls) => {
                 for wi in ls { self.add(int,wi)? }
                 Ok(())
@@ -418,6 +430,20 @@ pub trait Stomach {
         }
         ret += "\n</doc>";
         Ok(ret)
+    }
+    fn is_top(&self) -> bool {
+        for b in self.base().buffer.iter().rev() {
+            match b {
+                StomachGroup::Top(_) => return true,
+                StomachGroup::Other(g) if g.closesWithGroup() => (),
+                StomachGroup::TeXGroup(GroupType::Token | GroupType::Begingroup,_) => (),
+                _ => return false,
+            }
+        }
+        unreachable!()
+    }
+    fn do_floats(&mut self,int:&Interpreter) -> Result<(),TeXError> {
+        todo!()
     }
 }
 

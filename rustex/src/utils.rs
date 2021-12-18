@@ -303,11 +303,16 @@ impl TeXError {
     }
     pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
         std::io::stdout().flush();
+        use std::path::PathBuf;
         self.backtrace.resolve();
         match int {
             None => panic!("{}",self),
             Some(i) => match i.stomach.borrow_mut().final_xml(i) {
-                Ok(s) => panic!("{}\n\n{}",self,s),
+                Ok(s) => {
+                    let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
+                    file.write_all(s.as_bytes());
+                    panic!("{}\n\nLOG FILE WRITTEN\n\n",self)
+                },
                 Err(e) => e.throw(None)
             }
         }
