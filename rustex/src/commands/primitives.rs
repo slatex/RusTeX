@@ -3941,9 +3941,13 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"discretionary",
-    expandable:true,
-    _apply:|_tk,int| {
-        TeXErr!((int,None),"TODO! \\discretionary")
+    expandable:false,
+    _apply:|tk,int| {
+        let prebreak = int.read_argument()?;
+        let postbreak = int.read_argument()?;
+        let nobreak = int.read_argument()?;
+        tk.2 = postbreak;
+        Ok(())
     }
 };
 

@@ -946,12 +946,52 @@ impl SimpleWI {
             MSkip(sk,_) => "<mskip skip=\"".to_string() + &sk.to_string() + "\"/>",
             Mark(_,_) => "".to_string(),
             Leaders(bx,_) => "<leaders>".to_string() + &bx.as_xml_internal(prefix) + "</leaders>",
-            Img(_,_) => todo!(),
-            PdfLiteral(_,_) => todo!(),
+            PdfLiteral(s,_) => "<pdfliteral value=\"".to_string() + &s.to_string() + "\"/>",
+            PdfMatrix(a,b,c,d,_) => "<pdfmatrix a=\"".to_string() + &a.to_string() + "\" b=\"" + &b.to_string() + "\" c=\"" + &c.to_string() + "\" d=\"" + &d.to_string() + "\"/>",
+            Img(Pdfximage(rule,attr,pagespec,colorspace,boxspec,file,_),_) => {
+                let mut ret = "\n".to_string() + &prefix + "<pdfximage rule=\"" + &rule.to_string() + "\"";
+                match attr {
+                    None => (),
+                    Some(a) => {
+                        ret += " attr=\"";
+                        ret += &a.to_string();
+                        ret += "\""
+                    }
+                }
+                match pagespec {
+                    None => (),
+                    Some(a) => {
+                        ret += " pagespec=\"";
+                        ret += &a.to_string();
+                        ret += "\""
+                    }
+                }
+                match colorspace {
+                    None => (),
+                    Some(a) => {
+                        ret += " colorspace=\"";
+                        ret += &a.to_string();
+                        ret += "\""
+                    }
+                }
+                match boxspec {
+                    None => (),
+                    Some(a) => {
+                        ret += " boxspec=\"";
+                        ret += &a.to_string();
+                        ret += "\""
+                    }
+                }
+                ret += " file=\"";
+                ret += file.to_str().unwrap();
+                ret += "\"";
+                ret + "/>"
+            },
             Pdfxform(_,_,_,_) => todo!(),
-            PdfMatrix(_,_,_,_,_) => todo!()
         }
     }
+    //                      rule           attr            pagespec      colorspace         boxspec          file          image
+    //pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i64>,pub Option<i64>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
