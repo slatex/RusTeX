@@ -604,13 +604,13 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "figure" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
+        /*if tk.name().to_string() == "\\" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
-             unsafe {crate::LOG = true }
-        }*/
+             //unsafe {crate::LOG = true }
+        } */
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")

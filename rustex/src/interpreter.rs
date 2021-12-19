@@ -356,7 +356,8 @@ impl Interpreter<'_> {
     fn end_paragraph(&self,inner : bool) -> Result<(),TeXError> {
         if inner { self.set_mode(TeXMode::InternalVertical) } else { self.set_mode(TeXMode::Vertical) }
         self.stomach.borrow_mut().end_paragraph(self)?;
-        for w in self.state.borrow_mut().vadjust.drain(..) {
+        let vadjusts = std::mem::take(&mut self.state.borrow_mut().vadjust);
+        for w in vadjusts {
             self.stomach.borrow_mut().add(self,w)?
         }
         Ok(())

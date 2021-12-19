@@ -2412,6 +2412,10 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                     PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::EndGroup => break 'table,
                                     PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                                     PrimitiveTeXCommand::Primitive(c) if **c == CRCR => (),
+                                    PrimitiveTeXCommand::Primitive(c) if **c == NOALIGN => {
+                                        let noalign = int.read_whatsit_group(betweenmode,false)?;
+                                        boxes.push(AlignBlock::Noalign(noalign))
+                                    }
                                     _ => {
                                         int.requeue(next);
                                         break 'prelude
@@ -4115,8 +4119,10 @@ pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static VTOP: PrimitiveExecutable = PrimitiveExecutable {
     name:"vtop",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    expandable:false,
+    _apply:|_tk,int| {
+        TeXErr!((int,None),"TODO: \\vtop")
+    }
 };
 
 
