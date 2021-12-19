@@ -1663,6 +1663,13 @@ pub static VBOX: ProvidesBox = ProvidesBox {
     }
 };
 
+pub static VTOP: ProvidesBox = ProvidesBox {
+    name:"vtop",
+    _get:|tk,int| {
+        (VBOX._get)(tk,int) // TODO maybe
+    }
+};
+
 pub static VCENTER: ProvidesBox = ProvidesBox {
     name:"vcenter",
     _get: |tk,int| {
@@ -1944,6 +1951,7 @@ pub static HSKIP: SimpleWhatsit = SimpleWhatsit {
     name:"hskip",
     modes:|m| match m {
         TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     },
     _get: |tk,int| {
@@ -2298,13 +2306,50 @@ pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
 pub static CR: PrimitiveExecutable = PrimitiveExecutable {
     name:"cr",
     expandable:false,
-    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\cr")}
+    _apply:|tk,int| {
+        match int.state.borrow_mut().aligns.last_mut() {
+            Some(o@Some(_)) => {
+                let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+                endrow.cmdname = "relax".into();
+                let ret = o.take().unwrap();
+                int.requeue(endrow);
+                tk.2 = ret;
+                Ok(())
+            }
+            _ => TeXErr!((int,Some(tk.0.clone())),"Unexpected \\cr")
+        }
+    }
 };
+
+thread_local! {
+    pub static ENDROW : Token = {
+        let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+        endrow.cmdname = "relax".into();
+        endrow
+    };
+    pub static ENDTEMPLATE : Token = {
+        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+        endtemplate.cmdname = "relax".into();
+        endtemplate
+    }
+}
 
 pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
     name:"crcr",
     expandable:false,
-    _apply:|_tk,_int| {Ok(())}
+    _apply:|tk,int| {
+        let align = int.state.borrow_mut().aligns.pop();
+        int.state.borrow_mut().aligns.push(None);
+        match align {
+            Some(Some(v)) => {
+                int.insert_every(&EVERYCR);
+                int.requeue(ENDROW.try_with(|x| x.clone()).unwrap());
+                tk.2 = v;
+                Ok(())
+            }
+            _ => Ok(())
+        }
+    }
 };
 
 pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
@@ -2328,11 +2373,6 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         }
         _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
     }
-
-    let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
-    endtemplate.cmdname = "relax".into();
-    let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
-    endrow.cmdname = "relax".into();
 
     int.new_group(GroupType::Box(betweenmode));
 
@@ -2392,6 +2432,8 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     }
 
     let mut boxes : Vec<AlignBlock> = vec!();
+    let endtemplate = ENDTEMPLATE.try_with(|x| x.clone()).unwrap();
+    let endrow = ENDROW.try_with(|x| x.clone()).unwrap();
 
     'table: loop {
         'prelude: loop {
@@ -2488,15 +2530,22 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 _ => unreachable!()
             });
             int.new_group(GroupType::Box(tabmode));
+            if doheader {
+                int.state.borrow_mut().aligns.push(Some(columns.get(columnindex).unwrap().1.clone()))
+            } else {
+                int.state.borrow_mut().aligns.push(Some(vec!()))
+            }
             'cell: loop {
                 let next = int.next_token();
                 match next.catcode {
+                    /*
                     CategoryCode::AlignmentTab if !doheader => break 'cell,
                     CategoryCode::AlignmentTab if !inV => {
                         inV = true;
                         int.requeue(endtemplate.clone());
                         int.push_tokens(columns.get(columnindex).unwrap().1.clone())
                     }
+                     */
                     CategoryCode::Escape if next.char == endtemplate.char && next == endtemplate => {
                         break 'cell
                     }
@@ -2504,9 +2553,10 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                         row.push((ret,columns.get(columnindex).unwrap().2));
                         int.set_mode(_oldmode);
-                        int.insert_every(&EVERYCR);
+                        //int.insert_every(&EVERYCR);
                         break 'row
                     }
+                    /*
                     CategoryCode::Escape | CategoryCode::Active => {
                         let p = int.get_command(next.cmdname())?;
                         match &*p.orig {
@@ -2525,13 +2575,22 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             _ => int.do_top(next,true)?
                         }
                     }
+                     */
                     _ => int.do_top(next,true)?
                 }
+            }
+            match int.state.borrow_mut().aligns.pop() {
+                Some(None) => (),
+                _ => TeXErr!((int,None),"align error")
             }
             let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
             row.push((ret,columns.get(columnindex).unwrap().2));
             int.set_mode(_oldmode);
             columnindex += 1
+        }
+        match int.state.borrow_mut().aligns.pop() {
+            Some(None) => (),
+            _ => TeXErr!((int,None),"align error")
         }
         boxes.push(AlignBlock::Block(row))
     }
@@ -2825,8 +2884,8 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
         let num = int.read_number()?;
         let large = num % 4096;
         let small = (num - large)/4096;
-        let largemc = Box::new(int.do_math_char(tk.clone(),large as u32));
-        let smallmc = Box::new(int.do_math_char(tk.clone(),small as u32));
+        let largemc = Box::new(int.do_math_char(None,large as u32));
+        let smallmc = Box::new(int.do_math_char(None,small as u32));
         Ok(Some(MathKernel::Delimiter(smallmc,largemc,int.update_reference(tk))))
     }
 };
@@ -2853,10 +2912,39 @@ pub static MATHINNER: MathWhatsit = MathWhatsit {
     }
 };
 
+pub static UNDERLINE: MathWhatsit = MathWhatsit {
+    name: "underline",
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Underline(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\underline")
+        }
+    }
+};
+
+pub static OVERLINE: MathWhatsit = MathWhatsit {
+    name: "overline",
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Overline(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\overline")
+        }
+    }
+};
 
 pub static MATHACCENT: MathWhatsit = MathWhatsit {
     name:"mathaccent",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk,int,pr| {
+        let num = int.read_number()?;
+        let mc = int.do_math_char(None,num as u32);
+        let next = match int.read_math_whatsit(None)? {
+            Some(w) => w,
+            None => TeXErr!((int,None),"unfinished \\overline")
+        };
+        Ok(Some(MathKernel::MathAccent(Box::new(mc),Box::new(next),int.update_reference(tk))))
+    }
 };
 
 pub static RADICAL: MathWhatsit = MathWhatsit {
@@ -2909,9 +2997,51 @@ pub static MKERN: MathWhatsit = MathWhatsit {
     }
 };
 
+pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"discretionary",
+    expandable:false,
+    _apply:|tk,int| {
+        let prebreak = int.read_argument()?;
+        let postbreak = int.read_argument()?;
+        let nobreak = int.read_argument()?;
+        tk.2 = postbreak;
+        Ok(())
+    }
+};
+
+pub static LEFT: MathWhatsit = MathWhatsit {
+    name:"left",
+    _get: |tk,int,_| {
+        int.new_group(GroupType::LeftRight);
+        match int.read_math_whatsit(None)? {
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(Box::new(wi),int.update_reference(tk))))?,
+            None => TeXErr!((int,None),"Missing delimiter after \\left")
+        }
+        Ok(None)
+    }
+};
+
 pub static MIDDLE: MathWhatsit = MathWhatsit {
     name:"middle",
-    _get: |tk,int,_| {todo!()}
+    _get: |tk,int,_| {
+        match int.read_math_whatsit(None)? {
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(Box::new(wi),int.update_reference(tk))))?,
+            None => TeXErr!((int,None),"Missing delimiter after \\middle")
+        }
+        Ok(None)
+    }
+};
+
+pub static RIGHT: MathWhatsit = MathWhatsit {
+    name:"right",
+    _get: |tk,int,_| {
+        match int.read_math_whatsit(None)? {
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(Box::new(wi),int.update_reference(tk))))?,
+            None => TeXErr!((int,None),"Missing delimiter after \\left")
+        }
+        int.pop_group(GroupType::LeftRight)?;
+        Ok(None)
+    }
 };
 
 // REGISTERS ---------------------------------------------------------------------------------------
@@ -3949,18 +4079,6 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"discretionary",
-    expandable:false,
-    _apply:|tk,int| {
-        let prebreak = int.read_argument()?;
-        let postbreak = int.read_argument()?;
-        let nobreak = int.read_argument()?;
-        tk.2 = postbreak;
-        Ok(())
-    }
-};
-
 pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"displaystyle",
     expandable:true,
@@ -4033,12 +4151,6 @@ pub static XLEADERS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static LEFT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"left",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"medskip",
     expandable:true,
@@ -4063,32 +4175,14 @@ pub static OVER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static OVERLINE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"overline",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
     name:"overwithdelims",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static RIGHT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"right",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"smallskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNDERLINE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"underline",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4116,15 +4210,6 @@ pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
-
-pub static VTOP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vtop",
-    expandable:false,
-    _apply:|_tk,int| {
-        TeXErr!((int,None),"TODO: \\vtop")
-    }
-};
-
 
 // -------------------------------------------------------------------------------------------------
 
@@ -4244,6 +4329,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::Int(&DELCODE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VTOP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VCENTER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&LASTBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
@@ -4252,6 +4338,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCLOSE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHBIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHINNER)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&UNDERLINE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&OVERLINE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHOP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHOPEN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHORD)),
@@ -4262,6 +4350,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&DELIMITER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MATHCHAR)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MIDDLE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&LEFT)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&RIGHT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MKERN)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
@@ -4497,23 +4587,18 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
-    PrimitiveTeXCommand::Primitive(&LEFT),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&MOVELEFT),
     PrimitiveTeXCommand::Primitive(&MOVERIGHT),
     PrimitiveTeXCommand::Primitive(&NOALIGN),
     PrimitiveTeXCommand::Primitive(&NOINDENT),
     PrimitiveTeXCommand::Primitive(&OVER),
-    PrimitiveTeXCommand::Primitive(&OVERLINE),
     PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
-    PrimitiveTeXCommand::Primitive(&RIGHT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),
-    PrimitiveTeXCommand::Primitive(&UNDERLINE),
     PrimitiveTeXCommand::Primitive(&UNSKIP),
     PrimitiveTeXCommand::Primitive(&UNKERN),
     PrimitiveTeXCommand::Primitive(&UNPENALTY),
     PrimitiveTeXCommand::Primitive(&VADJUST),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
     PrimitiveTeXCommand::Primitive(&VSPLIT),
-    PrimitiveTeXCommand::Primitive(&VTOP),
 ]}

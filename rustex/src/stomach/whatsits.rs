@@ -429,6 +429,9 @@ pub enum MathKernel {
     Mathpunct(Box<Whatsit>,Option<SourceFileReference>),
     Mathrel(Box<Whatsit>,Option<SourceFileReference>),
     Mathinner(Box<Whatsit>,Option<SourceFileReference>),
+    Underline(Box<Whatsit>,Option<SourceFileReference>),
+    Overline(Box<Whatsit>,Option<SourceFileReference>),
+    MathAccent(Box<Whatsit>,Box<Whatsit>,Option<SourceFileReference>)
 }
 impl MathKernel {
     pub fn as_xml_internal(&self,prefix: String) -> String {
@@ -451,6 +454,9 @@ impl MathKernel {
             Mathpunct(bx,_) => "<mathpunct>".to_owned() + &bx.as_xml_internal(prefix) + "</mathpunct>",
             Mathrel(bx,_) => "<mathrel>".to_owned() + &bx.as_xml_internal(prefix) + "</mathrel>",
             Mathinner(bx,_) => "<mathinner>".to_owned() + &bx.as_xml_internal(prefix) + "</mathinner>",
+            Underline(bx,_) => "<underline>".to_owned() + &bx.as_xml_internal(prefix) + "</underline>",
+            Overline(bx,_) => "<underline>".to_owned() + &bx.as_xml_internal(prefix) + "</underline>",
+            MathAccent(a,w,_) => "<mathaccent>".to_owned() + &a.as_xml_internal(prefix.clone()) + &w.as_xml_internal(prefix) + "</mathaccent>",
             _ => todo!()
         }
     }
@@ -473,6 +479,9 @@ impl MathKernel {
             Mathpunct(w,_) => w.width(),
             Mathrel(w,_) => w.width(),
             Mathinner(w,_) => w.width(),
+            Underline(w,_) => w.width(),
+            Overline(w,_) => w.width(),
+            MathAccent(a,b,_) => max(a.width(),b.width())
         }
     }
     pub fn height(&self) -> i32 {
@@ -497,6 +506,9 @@ impl MathKernel {
             Mathpunct(w,_) => w.height(),
             Mathrel(w,_) => w.height(),
             Mathinner(w,_) => w.height(),
+            Underline(w,_) => w.height(),
+            Overline(w,_) => w.height(),
+            MathAccent(a,b,_) => a.height() + b.height(),
         }
     }
     pub fn depth(&self) -> i32 {
@@ -521,6 +533,9 @@ impl MathKernel {
             Mathpunct(w,_) => w.depth(),
             Mathrel(w,_) => w.depth(),
             Mathinner(w,_) => w.depth(),
+            Underline(w,_) => w.depth(),
+            Overline(w,_) => w.depth(),
+            MathAccent(_,w,_) => w.depth()
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -531,7 +546,7 @@ impl MathKernel {
                 false
             }
             MKern(_,_) => false,
-            MathChar(_,_,_,_,_) => true,
+            MathChar(_,_,_,_,_) | MathAccent(_,_,_) => true,
             Delimiter(w,_,_) => w.has_ink(),
             Mathop(w,_) => w.has_ink(),
             Mathopen(w,_) => w.has_ink(),
@@ -541,6 +556,8 @@ impl MathKernel {
             Mathpunct(w,_) => w.has_ink(),
             Mathrel(w,_) => w.has_ink(),
             Mathinner(w,_) => w.has_ink(),
+            Underline(w,_) => w.has_ink(),
+            Overline(w,_) => w.has_ink(),
         }
     }
 }
@@ -851,7 +868,10 @@ pub enum SimpleWI {
     Indent(i32,Option<SourceFileReference>),
     Mark(Vec<Token>,Option<SourceFileReference>),
     Leaders(Box<Whatsit>,Option<SourceFileReference>),
-    PdfMatrix(f32,f32,f32,f32,Option<SourceFileReference>)
+    PdfMatrix(f32,f32,f32,f32,Option<SourceFileReference>),
+    Left(Box<Whatsit>,Option<SourceFileReference>),
+    Middle(Box<Whatsit>,Option<SourceFileReference>),
+    Right(Box<Whatsit>,Option<SourceFileReference>),
 }
 impl SimpleWI {
     pub fn as_xml_internal(&self,prefix: String) -> String {
@@ -994,6 +1014,9 @@ impl SimpleWI {
                 ret + "/>"
             },
             Pdfxform(_,_,_,_) => todo!(),
+            Left(w,_) => "<left>".to_string() + &w.as_xml_internal(prefix) + "</left>",
+            Middle(w,_) => "<middle>".to_string() + &w.as_xml_internal(prefix) + "</middle>",
+            Right(w,_) => "<right>".to_string() + &w.as_xml_internal(prefix) + "</right>"
         }
     }
     //                      rule           attr            pagespec      colorspace         boxspec          file          image
@@ -1001,7 +1024,7 @@ impl SimpleWI {
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
-            VRule(_,_,_,_) | HRule(_,_,_,_) | Img(_,_) => true,
+            VRule(_,_,_,_) | HRule(_,_,_,_) | Img(_,_) | Left(_,_) | Right(_,_) | Middle(_,_) => true,
             VFil(_) | VFill(_) | VSkip(_,_) | HSkip(_,_) | HFil(_) | HFill(_) | Penalty(_) |
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
             | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => false,
@@ -1089,6 +1112,9 @@ impl SimpleWI {
             }
             Raise(_,b,_) => b.width(),
             Leaders(b,_) => b.width(), // TODO maybe
+            Left(w,_) => w.width(),
+            Right(w,_) => w.width(),
+            Middle(w,_) => w.width(),
             _ => {
                 todo!()
             }
@@ -1154,6 +1180,9 @@ impl SimpleWI {
                 height + sk.base
             }
             Raise(r,b,_) => b.height() + r,
+            Left(w,_) => w.height(),
+            Right(w,_) => w.height(),
+            Middle(w,_) => w.height(),
             _ => {
                 todo!()
             }
@@ -1170,6 +1199,9 @@ impl SimpleWI {
             HRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
             Leaders(b,_) => b.depth(),
+            Left(w,_) => w.depth(),
+            Right(w,_) => w.depth(),
+            Middle(w,_) => w.depth(),
             _ => todo!()
         }
     }

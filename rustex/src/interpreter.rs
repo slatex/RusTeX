@@ -61,6 +61,7 @@ pub struct Interpreter<'a> {
     pub stomach:RefCell<&'a mut dyn Stomach>
 }
 use crate::{TeXErr,FileEnd};
+use crate::commands::primitives::ENDTEMPLATE;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
@@ -213,6 +214,7 @@ impl Interpreter<'_> {
         use TeXMode::*;
         use PrimitiveTeXCommand::*;
         match (next.catcode,mode) {
+            (EOL,_) if next.name() == "EOF" => Ok(()),
             (Active | Escape,_) => {
                 let p = self.get_command(&next.cmdname())?;
                 if p.assignable() {
@@ -277,22 +279,34 @@ impl Interpreter<'_> {
                         Ok(())
                     }
                     _ => {
-                        let wi = self.do_math_char(next,mc as u32);
+                        let wi = self.do_math_char(Some(next),mc as u32);
                         self.stomach.borrow_mut().add(self,wi)?;
                         Ok(())
                     }
                 }
             }
             (Letter | Other | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
+            (AlignmentTab,_) => {
+                let align = self.state.borrow_mut().aligns.pop();
+                self.state.borrow_mut().aligns.push(None);
+                match align {
+                    Some(Some(v)) => {
+                        self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                        self.push_tokens(v);
+                        Ok(())
+                    }
+                    _ => TeXErr!((self,Some(next)),"Misplaced alignment tab")
+                }
+            }
             _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
         }
     }
 
-    pub fn do_math_char(&self,tk:Token,mc:u32) -> crate::stomach::Whatsit {
+    pub fn do_math_char(&self,tk:Option<Token>,mc:u32) -> crate::stomach::Whatsit {
         let mut num = mc;
         let (mut cls,mut fam,mut pos) = {
-            if num == 0 {
-                (0,1,tk.char as u32)
+            if num == 0 && tk.is_some() {
+                (0,1,tk.as_ref().unwrap().char as u32)
             } else {
                 let char = num % (16 * 16);
                 let rest = (num - char) / (16 * 16);
@@ -320,7 +334,10 @@ impl Interpreter<'_> {
             FontStyle::Scriptscript => self.state.borrow().getScriptScriptFont(fam as u8),
         };
         crate::stomach::Whatsit::Math(MathGroup::new(
-            MathKernel::MathChar(cls,fam,pos,font,self.update_reference(&tk)),
+            MathKernel::MathChar(cls,fam,pos,font,match &tk {
+                Some(tk) => self.update_reference(tk),
+                _ => None
+            }),
             self.state.borrow().display_mode()))
     }
 
@@ -592,7 +609,7 @@ impl Interpreter<'_> {
                                     self.requeue(Token::new(next.char, CategoryCode::Active, None, SourceReference::None, true))
                                 }
                                 _ => {
-                                    let wi = self.do_math_char(next, *mc);
+                                    let wi = self.do_math_char(Some(next), *mc);
                                     return Ok(Some(wi))
                                 }
                             },
@@ -608,7 +625,7 @@ impl Interpreter<'_> {
                             self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true))
                         }
                         _ => {
-                            let wi = self.do_math_char(next,mc as u32);
+                            let wi = self.do_math_char(Some(next),mc as u32);
                             return Ok(Some(wi))
                         }
                     }

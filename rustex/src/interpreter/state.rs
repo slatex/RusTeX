@@ -25,7 +25,8 @@ pub enum GroupType {
     Token,
     Begingroup,
     Box(BoxMode),
-    Math
+    Math,
+    LeftRight
 }
 impl Display for GroupType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -33,7 +34,8 @@ impl Display for GroupType {
             GroupType::Token => "{",
             GroupType::Begingroup => "\\begingroup",
             GroupType::Box(_) => "\\box",
-            GroupType::Math => "$"
+            GroupType::Math => "$",
+            GroupType::LeftRight => "\\left\\right"
         })
     }
 }
@@ -198,7 +200,8 @@ pub struct State {
     pub(in crate) vadjust:Vec<Whatsit>,
     pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
     pub(in crate) pagegoal:i32,
-    pub(in crate) pdfximages:Vec<Pdfximage>
+    pub(in crate) pdfximages:Vec<Pdfximage>,
+    pub(in crate) aligns: Vec<Option<Vec<Token>>>
 }
 
 // sudo apt install libkpathsea-dev
@@ -221,7 +224,7 @@ impl State {
             pdfxforms:vec!(),
             indocument_line:None,indocument:false,insetbox:false,
             vadjust:vec!(),inserts:HashMap::new(),
-            pagegoal:0,pdfximages:vec!()
+            pagegoal:0,pdfximages:vec!(),aligns:vec!()
         }
     }
 
