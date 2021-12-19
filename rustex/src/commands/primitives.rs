@@ -36,7 +36,7 @@ pub static CATCODE : NumAssValue = NumAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()?;
-        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i64))
+        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32))
     }
 };
 
@@ -440,7 +440,7 @@ pub static NEWLINECHAR : NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().newlinechar as i64))
+        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
     }
 };
 
@@ -454,7 +454,7 @@ pub static ENDLINECHAR : NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().endlinechar as i64))
+        Ok(Numeric::Int(int.state_catcodes().endlinechar as i32))
     }
 };
 
@@ -468,7 +468,7 @@ pub static ESCAPECHAR: NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().escapechar as i64))
+        Ok(Numeric::Int(int.state_catcodes().escapechar as i32))
     }
 };
 
@@ -508,7 +508,7 @@ pub static ENDGROUP : PrimitiveExecutable = PrimitiveExecutable {
 pub static TIME : NumericCommand = NumericCommand {
     _getvalue: |int| {
         let time = int.jobinfo.time;
-        Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i64))
+        Ok(Numeric::Int(((time.hour() * 60) + time.minute()) as i32))
     },
     name: "time"
 };
@@ -516,21 +516,21 @@ pub static TIME : NumericCommand = NumericCommand {
 pub static YEAR : NumericCommand = NumericCommand {
     name:"year",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.year() as i64))
+        Ok(Numeric::Int(int.jobinfo.time.year() as i32))
     }
 };
 
 pub static MONTH : NumericCommand = NumericCommand {
     name:"month",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.month() as i64))
+        Ok(Numeric::Int(int.jobinfo.time.month() as i32))
     }
 };
 
 pub static DAY : NumericCommand = NumericCommand {
     name:"day",
     _getvalue: |int| {
-        Ok(Numeric::Int(int.jobinfo.time.day() as i64))
+        Ok(Numeric::Int(int.jobinfo.time.day() as i32))
     }
 };
 
@@ -591,7 +591,7 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match num {
-            Numeric::Int(i) => StateChange::Register(index,i / div.get_i64(),global),
+            Numeric::Int(i) => StateChange::Register(index, i / div.get_i32(), global),
             Numeric::Dim(_) => StateChange::Dimen(index,match (num / div.as_int()) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
@@ -1328,7 +1328,7 @@ pub static LCCODE: NumAssValue = NumAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_lccode(char) as i64))
+        Ok(Numeric::Int(int.state_lccode(char) as i32))
     }
 };
 
@@ -1343,7 +1343,7 @@ pub static UCCODE: NumAssValue = NumAssValue {
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_uccode(char) as i64))
+        Ok(Numeric::Int(int.state_uccode(char) as i32))
     }
 };
 
@@ -1393,11 +1393,11 @@ pub static FONT: FontAssValue = FontAssValue {
         let ff = int.state_get_font(&name)?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
-            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f64) * match int.read_number_i(true)? {
+            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f32) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
-                Numeric::Dim(i) => (i as f64) / 65536.0,
+                Numeric::Dim(i) => (i as f32) / 65536.0,
                 _ => todo!()
-            }).round() as i64),
+            }).round() as i32),
             _ => None
         };
         let font = Font::new(ff,at,cmd.cmdname().clone());
@@ -1545,7 +1545,7 @@ pub static HYPHENCHAR: NumAssValue = NumAssValue {
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().hyphenchar as i64;
+        let x = f.inner.borrow().hyphenchar as i32;
         Ok(Numeric::Int(x))
     }
 };
@@ -1561,7 +1561,7 @@ pub static SKEWCHAR: NumAssValue = NumAssValue {
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().skewchar as i64;
+        let x = f.inner.borrow().skewchar as i32;
         Ok(Numeric::Int(x))
     }
 };
@@ -1577,7 +1577,7 @@ pub static EXPANDED: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static INPUTLINENO: NumericCommand = NumericCommand {
     _getvalue: |int| {
-        Ok(Numeric::Int(int.line_no() as i64))
+        Ok(Numeric::Int(int.line_no() as i32))
     },
     name:"inputlineno",
 };
@@ -1622,9 +1622,9 @@ pub static HBOX: ProvidesBox = ProvidesBox {
     name:"hbox",
     _get: |tk,int| {
         let (spread,width) = match int.read_keyword(vec!("to","spread"))? {
-            Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
+            Some(s) if s == "to" => (0 as i32,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
-            _ => (0 as i64,None)
+            _ => (0 as i32,None)
         };
         let ret = int.read_whatsit_group(BoxMode::H,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
@@ -1644,9 +1644,9 @@ pub static VBOX: ProvidesBox = ProvidesBox {
     name:"vbox",
     _get: |tk,int| {
         let (spread,height) = match int.read_keyword(vec!("to","spread"))? {
-            Some(s) if s == "to" => (0 as i64,Some(int.read_dimension()?)),
+            Some(s) if s == "to" => (0 as i32,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
-            _ => (0 as i64,None)
+            _ => (0 as i32,None)
         };
         let ret = int.read_whatsit_group(BoxMode::V,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
@@ -1865,9 +1865,9 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        let mut height : Option<i64> = None;
-        let mut width : Option<i64> = None;
-        let mut depth : Option<i64> = None;
+        let mut height : Option<i32> = None;
+        let mut width : Option<i32> = None;
+        let mut depth : Option<i32> = None;
         loop {
             match int.read_keyword(vec!("height","width","depth"))? {
                 Some(s) if s == "height" => height = Some(int.read_dimension()?),
@@ -1888,9 +1888,9 @@ pub static HRULE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        let mut height : Option<i64> = None;
-        let mut width : Option<i64> = None;
-        let mut depth : Option<i64> = None;
+        let mut height : Option<i32> = None;
+        let mut width : Option<i32> = None;
+        let mut depth : Option<i32> = None;
         loop {
             match int.read_keyword(vec!("height","width","depth"))? {
                 Some(s) if s == "height" => height = Some(int.read_dimension()?),
@@ -2265,7 +2265,7 @@ pub static LASTPENALTY: NumericCommand = NumericCommand {
 pub static CURRENTGROUPLEVEL: NumericCommand = NumericCommand {
     name:"currentgrouplevel",
     _getvalue:|int| {
-        Ok(Numeric::Int(int.state.borrow().stack_depth() as i64))
+        Ok(Numeric::Int(int.state.borrow().stack_depth() as i32))
     }
 };
 
@@ -2672,7 +2672,7 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
         //unsafe { crate::LOG = true }
         let num = int.read_number()?;
         log!("\\parshape: Reading 2*{} dimensions:",num);
-        let mut vals : Vec<(i64,i64)> = vec!();
+        let mut vals : Vec<(i32,i32)> = vec!();
         for i in 1..(num+1) {
             let f = int.read_dimension()?;
             log!("\\parshape: i{}={}",i,f);
@@ -2755,7 +2755,7 @@ pub static MATHCLOSE: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathclose(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathclose")
         }
     }
 };
@@ -2766,7 +2766,7 @@ pub static MATHBIN: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathbin(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathbin")
         }
     }
 };
@@ -2777,7 +2777,7 @@ pub static MATHOPEN: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathopen(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathopen")
         }
     }
 };
@@ -2788,7 +2788,7 @@ pub static MATHORD: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathord(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathord")
         }
     }
 };
@@ -2799,7 +2799,7 @@ pub static MATHPUNCT: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathpunct(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathpunct")
         }
     }
 };
@@ -2810,7 +2810,7 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathrel(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathrel")
         }
     }
 };
@@ -2833,14 +2833,20 @@ pub static MATHOP : MathWhatsit = MathWhatsit {
         let ret = int.read_math_whatsit(None)?;
         match ret {
             Some(w) => Ok(Some(MathKernel::Mathop(Box::new(w), int.update_reference(tk)))),
-            None => TeXErr!((int,None),"unfinished \\delimiter")
+            None => TeXErr!((int,None),"unfinished \\mathop")
         }
     }
 };
 
 pub static MATHINNER: MathWhatsit = MathWhatsit {
-    name:"mathinner",
-    _get: |tk,int,pr| {todo!()}
+    name: "mathinner",
+    _get: |tk, int, _| {
+        let ret = int.read_math_whatsit(None)?;
+        match ret {
+            Some(w) => Ok(Some(MathKernel::Mathinner(Box::new(w), int.update_reference(tk)))),
+            None => TeXErr!((int,None),"unfinished \\mathinner")
+        }
+    }
 };
 
 

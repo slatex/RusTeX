@@ -17,10 +17,10 @@ pub enum BoxMode { H,V,M,DM,Void }
 #[derive(Clone)]
 pub struct HBox {
     pub children:Vec<Whatsit>,
-    pub spread:i64,
-    pub _width:Option<i64>,
-    pub _height:Option<i64>,
-    pub _depth:Option<i64>,
+    pub spread:i32,
+    pub _width:Option<i32>,
+    pub _height:Option<i32>,
+    pub _depth:Option<i32>,
     pub rf : Option<SourceFileReference>
 }
 
@@ -28,10 +28,10 @@ pub struct HBox {
 pub struct VBox {
     pub children:Vec<Whatsit>,
     pub center:bool,
-    pub spread:i64,
-    pub _width:Option<i64>,
-    pub _height:Option<i64>,
-    pub _depth:Option<i64>,
+    pub spread:i32,
+    pub _width:Option<i32>,
+    pub _height:Option<i32>,
+    pub _depth:Option<i32>,
     pub rf : Option<SourceFileReference>
 }
 
@@ -132,8 +132,8 @@ impl TeXBox {
     }
 }
 
-static WIDTH_CORRECTION : i64 = 0;
-static HEIGHT_CORRECTION : i64 = 0;
+static WIDTH_CORRECTION : i32 = 0;
+static HEIGHT_CORRECTION : i32 = 0;
 
 trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
@@ -263,7 +263,7 @@ impl TeXBox {
             }
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         match self {
             TeXBox::Void => 0,
             TeXBox::H(hb) => match hb._width {
@@ -289,7 +289,7 @@ impl TeXBox {
             },
         }
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         match self {
             TeXBox::Void => 0,
             TeXBox::H(hb) =>  match hb._height {
@@ -316,7 +316,7 @@ impl TeXBox {
             },
         }
     }
-    pub fn depth(&self) -> i64 {
+    pub fn depth(&self) -> i32 {
         match self {
             TeXBox::Void => 0,
             TeXBox::H(hb) => match hb._depth {
@@ -379,7 +379,7 @@ impl MathGroup {
             kernel,subscript:None,superscript:None,limits:display
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         self.kernel.width() + match &self.superscript {
             None => 0,
             Some(k) => k.width()
@@ -388,7 +388,7 @@ impl MathGroup {
             Some(k) => k.width()
         }
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         self.kernel.height() + match &self.superscript {
             None => 0,
             Some(k) => k.height() / 2
@@ -397,7 +397,7 @@ impl MathGroup {
             Some(k) => k.height() / 2
         }
     }
-    pub fn depth(&self) -> i64 {
+    pub fn depth(&self) -> i32 {
         match &self.subscript {
             Some(s) => max(s.height() / 2,self.kernel.depth()),
             None => self.kernel.depth()
@@ -428,6 +428,7 @@ pub enum MathKernel {
     Mathord(Box<Whatsit>,Option<SourceFileReference>),
     Mathpunct(Box<Whatsit>,Option<SourceFileReference>),
     Mathrel(Box<Whatsit>,Option<SourceFileReference>),
+    Mathinner(Box<Whatsit>,Option<SourceFileReference>),
 }
 impl MathKernel {
     pub fn as_xml_internal(&self,prefix: String) -> String {
@@ -449,10 +450,11 @@ impl MathKernel {
             Mathord(bx,_) => "<mathord>".to_owned() + &bx.as_xml_internal(prefix) + "</mathord>",
             Mathpunct(bx,_) => "<mathpunct>".to_owned() + &bx.as_xml_internal(prefix) + "</mathpunct>",
             Mathrel(bx,_) => "<mathrel>".to_owned() + &bx.as_xml_internal(prefix) + "</mathrel>",
+            Mathinner(bx,_) => "<mathinner>".to_owned() + &bx.as_xml_internal(prefix) + "</mathinner>",
             _ => todo!()
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         use MathKernel::*;
         match self {
             Group(g) => {
@@ -470,9 +472,10 @@ impl MathKernel {
             Mathord(w,_) => w.width(),
             Mathpunct(w,_) => w.width(),
             Mathrel(w,_) => w.width(),
+            Mathinner(w,_) => w.width(),
         }
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         use MathKernel::*;
         match self {
             Group(g) => {
@@ -493,9 +496,10 @@ impl MathKernel {
             Mathord(w,_) => w.height(),
             Mathpunct(w,_) => w.height(),
             Mathrel(w,_) => w.height(),
+            Mathinner(w,_) => w.height(),
         }
     }
-    pub fn depth(&self) -> i64 {
+    pub fn depth(&self) -> i32 {
         use MathKernel::*;
         match self {
             Group(g) => {
@@ -516,6 +520,7 @@ impl MathKernel {
             Mathord(w,_) => w.depth(),
             Mathpunct(w,_) => w.depth(),
             Mathrel(w,_) => w.depth(),
+            Mathinner(w,_) => w.depth(),
         }
     }
     pub fn has_ink(&self) -> bool {
@@ -535,6 +540,7 @@ impl MathKernel {
             Mathord(w,_) => w.has_ink(),
             Mathpunct(w,_) => w.has_ink(),
             Mathrel(w,_) => w.has_ink(),
+            Mathinner(w,_) => w.has_ink(),
         }
     }
 }
@@ -610,7 +616,7 @@ impl Whatsit {
             Ls(_) => unreachable!()
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         use Whatsit::*;
         match self {
             Exec(_) | GroupClose(_) => 0,
@@ -626,7 +632,7 @@ impl Whatsit {
             _ => todo!()
         }
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         use Whatsit::*;
         match self {
             Exec(_) | GroupClose(_) => 0,
@@ -642,7 +648,7 @@ impl Whatsit {
             _ => todo!()
         }
     }
-    pub fn depth(&self) -> i64 {
+    pub fn depth(&self) -> i32 {
         use Whatsit::*;
         match self {
             Exec(_) | GroupClose(_) => 0,
@@ -781,13 +787,13 @@ impl WIGroup {
             ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         todo!()
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         todo!( )
     }
-    pub fn depth(&self) -> i64 { todo!( )}
+    pub fn depth(&self) -> i32 { todo!( )}
     pub fn closesWithGroup(&self) -> bool {
         match self {
             WIGroup::FontChange(_,_,b,_) => !*b,
@@ -799,12 +805,12 @@ impl WIGroup {
 #[derive(Clone)]
 pub enum ActionSpec {
     User(TeXStr),
-    GotoNum(i64),
+    GotoNum(i32),
     //    file   name    window
     File(TeXStr,TeXStr,Option<TeXStr>),
-    FilePage(TeXStr,i64,Option<TeXStr>),
+    FilePage(TeXStr,i32,Option<TeXStr>),
     Name(TeXStr),
-    Page(i64)
+    Page(i32)
 }
 
 #[derive(Clone)]
@@ -815,14 +821,14 @@ pub enum AlignBlock {
 
 //                      rule           attr            pagespec      colorspace         boxspec          file          image
 #[derive(Clone)]
-pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i64>,pub Option<i64>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
+pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i32>,pub Option<i32>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
 
 #[derive(Clone)]
 pub enum SimpleWI {
     Img(Pdfximage,Option<SourceFileReference>),
     //                                  height       width      depth
-    VRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
-    HRule(Option<SourceFileReference>,Option<i64>,Option<i64>,Option<i64>),
+    VRule(Option<SourceFileReference>,Option<i32>,Option<i32>,Option<i32>),
+    HRule(Option<SourceFileReference>,Option<i32>,Option<i32>,Option<i32>),
     VFil(Option<SourceFileReference>),
     VFill(Option<SourceFileReference>),
     VSkip(Skip,Option<SourceFileReference>),
@@ -830,19 +836,19 @@ pub enum SimpleWI {
     MSkip(MuSkip,Option<SourceFileReference>),
     HFil(Option<SourceFileReference>),
     HFill(Option<SourceFileReference>),
-    Penalty(i64),
+    Penalty(i32),
     PdfLiteral(TeXStr,Option<SourceFileReference>),
     //          attr            resource
     Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
-    Raise(i64,TeXBox,Option<SourceFileReference>),
-    VKern(i64,Option<SourceFileReference>),
-    HKern(i64,Option<SourceFileReference>),
+    Raise(i32,TeXBox,Option<SourceFileReference>),
+    VKern(i32,Option<SourceFileReference>),
+    HKern(i32,Option<SourceFileReference>),
     PdfDest(TeXStr,TeXStr,Option<SourceFileReference>),
     Halign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
     Valign(Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>,Option<SourceFileReference>),
     Hss(Option<SourceFileReference>),
     Vss(Option<SourceFileReference>),
-    Indent(i64,Option<SourceFileReference>),
+    Indent(i32,Option<SourceFileReference>),
     Mark(Vec<Token>,Option<SourceFileReference>),
     Leaders(Box<Whatsit>,Option<SourceFileReference>),
     PdfMatrix(f32,f32,f32,f32,Option<SourceFileReference>)
@@ -991,7 +997,7 @@ impl SimpleWI {
         }
     }
     //                      rule           attr            pagespec      colorspace         boxspec          file          image
-    //pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i64>,pub Option<i64>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
+    //pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i32>,pub Option<i32>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
     pub fn has_ink(&self) -> bool {
         use SimpleWI::*;
         match self {
@@ -1021,7 +1027,7 @@ impl SimpleWI {
             }
         }
     }
-    pub fn width(&self) -> i64 {
+    pub fn width(&self) -> i32 {
         use SimpleWI::*;
         match self {
             VKern(_,_) | Penalty(_) | VSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
@@ -1033,9 +1039,9 @@ impl SimpleWI {
             HSkip(sk,_) => sk.base,
             MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
-            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.width() as i64 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.width() as i32 * 65536,
             Halign(sk,_,bxs,_) => {
-                let mut width:i64 = 0;
+                let mut width:i32 = 0;
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
@@ -1047,7 +1053,7 @@ impl SimpleWI {
                             if max > width { width = max }
                         }
                         AlignBlock::Block(ls) => {
-                            let mut w:i64 = 0;
+                            let mut w:i32 = 0;
                             for (v,s) in ls {
                                 w += s.base;
                                 for c in v.iter_wi() { w += c.width() }
@@ -1059,7 +1065,7 @@ impl SimpleWI {
                 width + sk.base
             }
             Valign(_,_,bxs,_) => {
-                let mut width:i64 = 0;
+                let mut width:i32 = 0;
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
@@ -1068,7 +1074,7 @@ impl SimpleWI {
                             }
                         }
                         AlignBlock::Block(ls) => {
-                            let mut wd:i64 = 0;
+                            let mut wd:i32 = 0;
                             for (v,s) in ls {
                                 for c in v.iter_wi() {
                                     let w = c.width();
@@ -1088,20 +1094,20 @@ impl SimpleWI {
             }
         }
     }
-    pub fn height(&self) -> i64 {
+    pub fn height(&self) -> i32 {
         use SimpleWI::*;
         match self {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
                 | PdfMatrix(_,_,_,_,_)| PdfLiteral(_,_)| Pdfxform(_,_,_,_) => 0,
-            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i64 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i32 * 65536,
             VRule(_,h,_,_) => h.unwrap_or(0),
             HRule(_,h,_,_) => h.unwrap_or(26214),
             VKern(i,_) => *i,
             Leaders(b,_) => b.height(),
             VSkip(sk,_) => sk.base,
             Halign(_,_,bxs,_) => {
-                let mut height:i64 = 0;
+                let mut height:i32 = 0;
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
@@ -1110,7 +1116,7 @@ impl SimpleWI {
                             }
                         }
                         AlignBlock::Block(ls) => {
-                            let mut ht:i64 = 0;
+                            let mut ht:i32 = 0;
                             for (v,s) in ls {
                                 for c in v.iter_wi() {
                                     let h = c.height();
@@ -1124,7 +1130,7 @@ impl SimpleWI {
                 height
             }
             Valign(sk,_,bxs,_) => {
-                let mut height:i64 = 0;
+                let mut height:i32 = 0;
                 for b in bxs {
                     match b {
                         AlignBlock::Noalign(v) => {
@@ -1136,7 +1142,7 @@ impl SimpleWI {
                             if max > height { height = max }
                         }
                         AlignBlock::Block(ls) => {
-                            let mut w:i64 = 0;
+                            let mut w:i32 = 0;
                             for (v,s) in ls {
                                 w += s.base;
                                 for c in v.iter_wi() { w += c.height()}
@@ -1153,7 +1159,7 @@ impl SimpleWI {
             }
         }
     }
-    pub fn depth(&self) -> i64 {
+    pub fn depth(&self) -> i32 {
         use SimpleWI::*;
         match self {
             HKern(_,_) | VKern(_,_) | Penalty(_) | HSkip(_,_) | VSkip(_,_)
@@ -1179,24 +1185,24 @@ pub trait ExtWhatsit {
     fn reference(&self) -> Option<SourceFileReference>;
     fn children(&self) -> Vec<Whatsit>;
     fn isGroup(&self) -> bool;
-    fn height(&self) -> i64;
-    fn width(&self) -> i64;
-    fn depth(&self) -> i64;
+    fn height(&self) -> i32;
+    fn width(&self) -> i32;
+    fn depth(&self) -> i32;
     fn has_ink(&self) -> bool;
     fn as_xml_internal(&self,prefix:String) -> String;
 }
 
 #[derive(Clone)]
 pub struct Paragraph {
-    pub parskip:i64,
+    pub parskip:i32,
     pub children:Vec<Whatsit>,
-    leftskip:Option<i64>,
-    rightskip:Option<i64>,
-    hsize:Option<i64>,
-    lineheight:Option<i64>,
-    pub _width:i64,
-    pub _height:i64,
-    pub _depth:i64
+    leftskip:Option<i32>,
+    rightskip:Option<i32>,
+    hsize:Option<i32>,
+    lineheight:Option<i32>,
+    pub _width:i32,
+    pub _height:i32,
+    pub _depth:i32
     /*
     if (leftskip == null) leftskip = parser.state.getSkip(PrimitiveRegisters.leftskip.index).getOrElse(Skip(Point(0),None,None))
     if (rightskip == null) rightskip = parser.state.getSkip(PrimitiveRegisters.rightskip.index).getOrElse(Skip(Point(0),None,None))
@@ -1212,7 +1218,7 @@ impl Paragraph {
         for c in &self.children { ret += &c.as_xml_internal(prefix.clone() + "  ")}
         ret + "\n" + &prefix + "</paragraph>"
     }
-    pub fn close(&mut self,int:&Interpreter,hangindent:i64,hangafter:usize,parshape:Vec<(i64,i64)>) {
+    pub fn close(&mut self,int:&Interpreter,hangindent:i32,hangafter:usize,parshape:Vec<(i32,i32)>) {
         self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
         self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
         self.hsize.get_or_insert(int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32)));
@@ -1220,7 +1226,7 @@ impl Paragraph {
         self._width = self.hsize.unwrap() - (self.leftskip.unwrap()  + self.rightskip.unwrap());
 
         let ils = if !parshape.is_empty() {
-            let mut ilsr : Vec<(i64,i64)> = vec!();
+            let mut ilsr : Vec<(i32,i32)> = vec!();
             for (i,l) in parshape {
                 ilsr.push((i,l - (self.leftskip.unwrap() + self.rightskip.unwrap())))
             }
@@ -1231,10 +1237,10 @@ impl Paragraph {
             vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap() + self.rightskip.unwrap())))
         };
 
-        let mut currentwidth : i64 = 0;
-        let mut currentheight : i64 = 0;
-        let mut currentlineheight : i64 = 0;
-        let mut currentdepth : i64 = 0;
+        let mut currentwidth : i32 = 0;
+        let mut currentheight : i32 = 0;
+        let mut currentlineheight : i32 = 0;
+        let mut currentdepth : i32 = 0;
         let mut currline : usize = 0;
         let mut hgoal = ils.first().unwrap().1;
         let lineheight = self.lineheight.unwrap();
@@ -1270,12 +1276,12 @@ impl Paragraph {
         self._height = currentheight + currentlineheight;
         self._depth = currentdepth;
     }
-    pub fn new(parskip:i64) -> Paragraph { Paragraph {
+    pub fn new(parskip:i32) -> Paragraph { Paragraph {
         parskip,children:vec!(),
         leftskip:None,rightskip:None,hsize:None,lineheight:None,
         _width:0,_height:0,_depth:0
     }}
-    pub fn width(&self) -> i64 { self._width }
-    pub fn height(&self) -> i64 { self._height }
-    pub fn depth(&self) -> i64 { self._depth }
+    pub fn width(&self) -> i32 { self._width }
+    pub fn height(&self) -> i32 { self._height }
+    pub fn depth(&self) -> i32 { self._depth }
 }

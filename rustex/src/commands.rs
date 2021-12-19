@@ -573,8 +573,8 @@ impl PrimitiveTeXCommand {
             AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-(r.index as i32)))),
             AV(PrimMuSkip(r)) => Ok(Numeric::MuSkip(int.state_muskip(-(r.index as i32)))),
             Ext(r) => r.get_num(int),
-            Char(u) => Ok(Numeric::Int(u.char as i64)),
-            MathChar(u) => Ok(Numeric::Int(*u as i64)),
+            Char(u) => Ok(Numeric::Int(u.char as i32)),
+            MathChar(u) => Ok(Numeric::Int(*u as i32)),
             _ => unreachable!("{}",self)
         }
     }

@@ -121,7 +121,7 @@ pub static PDFMAJORVERSION: NumericCommand = NumericCommand {
     name:"pdfmajorversion",
     _getvalue: |_int| {
         use std::str::from_utf8;
-        Ok(Numeric::Int(from_utf8(&[*VERSION_INFO.pdftexversion.to_utf8().as_bytes().first().unwrap()]).unwrap().parse::<i64>().unwrap()))// texversion.to_string().parse().unwrap()))
+        Ok(Numeric::Int(from_utf8(&[*VERSION_INFO.pdftexversion.to_utf8().as_bytes().first().unwrap()]).unwrap().parse::<i32>().unwrap()))// texversion.to_string().parse().unwrap()))
     },
 };
 
@@ -135,7 +135,7 @@ pub static PDFSHELLESCAPE: NumericCommand = NumericCommand {
 pub static PDFLASTXIMAGE: NumericCommand = NumericCommand {
     name: "pdflastximage",
     _getvalue:|int| {
-        Ok(Numeric::Int(int.state.borrow().pdfximages.len() as i64 -1))
+        Ok(Numeric::Int(int.state.borrow().pdfximages.len() as i32 -1))
     }
 };
 

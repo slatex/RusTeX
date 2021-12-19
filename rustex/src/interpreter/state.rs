@@ -45,17 +45,17 @@ struct StackFrame {
     pub(crate) newlinechar: u8,
     pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<TeXStr,Option<TeXCommand>>,
-    pub(crate) registers: HashMap<i32,i64>,
-    pub(crate) dimensions: HashMap<i32,i64>,
+    pub(crate) registers: HashMap<i32,i32>,
+    pub(crate) dimensions: HashMap<i32,i32>,
     pub(crate) skips : HashMap<i32,Skip>,
     pub(crate) muskips : HashMap<i32,MuSkip>,
     pub(crate) toks : HashMap<i32,Vec<Token>>,
     pub(in crate::interpreter::state) tp : Option<GroupType>,
-    pub(crate) sfcodes : HashMap<u8,i64>,
+    pub(crate) sfcodes : HashMap<u8,i32>,
     pub(crate) lccodes : HashMap<u8,u8>,
     pub(crate) uccodes : HashMap<u8,u8>,
-    pub(crate) mathcodes : HashMap<u8,i64>,
-    pub(crate) delcodes : HashMap<u8,i64>,
+    pub(crate) mathcodes : HashMap<u8,i32>,
+    pub(crate) delcodes : HashMap<u8,i32>,
     pub(crate) boxes: HashMap<i32,TeXBox>,
     pub(crate) currfont : Rc<Font>,
     pub(crate) aftergroups : Vec<Token>,
@@ -105,14 +105,14 @@ impl StackFrame {
             let c = c.as_command();
             cmds.insert(c.name().unwrap().clone(),Some(c));
         }
-        let mut reg: HashMap<i32,i64> = HashMap::new();
+        let mut reg: HashMap<i32,i32> = HashMap::new();
         reg.insert(-(crate::commands::primitives::MAG.index as i32),1000);
 
-        let dims: HashMap<i32,i64> = HashMap::new();
+        let dims: HashMap<i32,i32> = HashMap::new();
         let skips: HashMap<i32,Skip> = HashMap::new();
         let muskips: HashMap<i32,MuSkip> = HashMap::new();
         let toks: HashMap<i32,Vec<Token>> = HashMap::new();
-        let sfcodes: HashMap<u8,i64> = HashMap::new();
+        let sfcodes: HashMap<u8,i32> = HashMap::new();
         let mut lccodes: HashMap<u8,u8> = HashMap::new();
         let mut uccodes: HashMap<u8,u8> = HashMap::new();
         for i in 97..123 {
@@ -120,8 +120,8 @@ impl StackFrame {
             lccodes.insert(i-32,i);
         }
         let boxes: HashMap<i32,TeXBox> = HashMap::new();
-        let mathcodes : HashMap<u8,i64> = HashMap::new();
-        let delcodes : HashMap<u8,i64> = HashMap::new();
+        let mathcodes : HashMap<u8,i32> = HashMap::new();
+        let delcodes : HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
@@ -141,12 +141,12 @@ impl StackFrame {
         }
     }
     pub(crate) fn new(parent: &StackFrame,tp : GroupType) -> StackFrame {
-        let reg: HashMap<i32,i64> = HashMap::new();
-        let dims: HashMap<i32,i64> = HashMap::new();
+        let reg: HashMap<i32,i32> = HashMap::new();
+        let dims: HashMap<i32,i32> = HashMap::new();
         let skips: HashMap<i32,Skip> = HashMap::new();
         let muskips: HashMap<i32,MuSkip> = HashMap::new();
         let toks: HashMap<i32,Vec<Token>> = HashMap::new();
-        let sfcodes: HashMap<u8,i64> = HashMap::new();
+        let sfcodes: HashMap<u8,i32> = HashMap::new();
         let mut lccodes: HashMap<u8,u8> = HashMap::new();
         let mut uccodes: HashMap<u8,u8> = HashMap::new();
         for i in 97..123 {
@@ -154,8 +154,8 @@ impl StackFrame {
             lccodes.insert(i-32,i);
         }
         let boxes: HashMap<i32,TeXBox> = HashMap::new();
-        let mathcodes : HashMap<u8,i64> = HashMap::new();
-        let delcodes : HashMap<u8,i64> = HashMap::new();
+        let mathcodes : HashMap<u8,i32> = HashMap::new();
+        let delcodes : HashMap<u8,i32> = HashMap::new();
         StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
@@ -197,7 +197,7 @@ pub struct State {
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
     pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
-    pub(in crate) pagegoal:i64,
+    pub(in crate) pagegoal:i32,
     pub(in crate) pdfximages:Vec<Pdfximage>
 }
 
@@ -267,7 +267,7 @@ impl State {
         }
         None
     }
-    pub fn get_register(&self, index:i32) -> i64 {
+    pub fn get_register(&self, index:i32) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.registers.get(&index) {
                 Some(r) => return *r,
@@ -276,7 +276,7 @@ impl State {
         }
         0
     }
-    pub fn get_sfcode(&self, index:u8) -> i64 {
+    pub fn get_sfcode(&self, index:u8) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.sfcodes.get(&index) {
                 Some(r) => return *r,
@@ -285,7 +285,7 @@ impl State {
         }
         0
     }
-    pub fn get_dimension(&self, index:i32) -> i64 {
+    pub fn get_dimension(&self, index:i32) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.dimensions.get(&index) {
                 Some(r) => return *r,
@@ -315,7 +315,7 @@ impl State {
         i
     }
 
-    pub (in crate::interpreter::state) fn mathcode(&self,i:u8) -> i64 {
+    pub (in crate::interpreter::state) fn mathcode(&self,i:u8) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.mathcodes.get(&i) {
                 Some(r) => return *r,
@@ -325,7 +325,7 @@ impl State {
         0
     }
 
-    pub (in crate::interpreter::state) fn delcode(&self,i:u8) -> i64 {
+    pub (in crate::interpreter::state) fn delcode(&self,i:u8) -> i32 {
         for sf in self.stacks.iter().rev() {
             match sf.delcodes.get(&i) {
                 Some(r) => return *r,
@@ -814,8 +814,8 @@ impl Interpreter<'_> {
     pub fn state_catcodes(&self) -> Ref<'_,CategoryCodeScheme> {
         self.catcodes.borrow()
     }
-    pub fn state_register(&self,i:i32) -> i64 { self.state.borrow().get_register(i) }
-    pub fn state_dimension(&self,i:i32) -> i64 {
+    pub fn state_register(&self,i:i32) -> i32 { self.state.borrow().get_register(i) }
+    pub fn state_dimension(&self,i:i32) -> i32 {
         self.state.borrow().get_dimension(i)
     }
     pub fn state_skip(&self,i:i32) -> Skip {
@@ -824,7 +824,7 @@ impl Interpreter<'_> {
     pub fn state_muskip(&self,i:i32) -> MuSkip {
         self.state.borrow().get_muskip(i)
     }
-    pub fn state_sfcode(&self,i:u8) -> i64 { self.state.borrow().get_sfcode(i) }
+    pub fn state_sfcode(&self,i:u8) -> i32 { self.state.borrow().get_sfcode(i) }
     pub fn state_tokens(&self,i:i32) -> Vec<Token> { self.state.borrow().tokens(i)}
     pub fn state_lccode(&self,i:u8) -> u8 { self.state.borrow().lccode(i) }
     pub fn state_uccode(&self,i:u8) -> u8 { self.state.borrow().uccode(i) }
@@ -876,10 +876,10 @@ impl Interpreter<'_> {
     pub fn state_get_font(&self,name:&str) -> Result<Rc<FontFile>,TeXError> {
         self.state.borrow_mut().get_font(self,name.into())
     }
-    pub fn state_get_mathcode(&self,i:u8) -> i64 {
+    pub fn state_get_mathcode(&self,i:u8) -> i32 {
         self.state.borrow().mathcode(i)
     }
-    pub fn state_get_delcode(&self,i:u8) -> i64 {
+    pub fn state_get_delcode(&self,i:u8) -> i32 {
         self.state.borrow().delcode(i)
     }
     pub fn get_mode(&self) -> TeXMode {
@@ -958,8 +958,8 @@ impl Interpreter<'_> {
 }
 
 pub enum StateChange {
-    Register(i32,i64,bool),
-    Dimen(i32,i64,bool),
+    Register(i32,i32,bool),
+    Dimen(i32,i32,bool),
     Skip(i32,Skip,bool),
     MuSkip(i32,MuSkip,bool),
     Cs(TeXStr,Option<TeXCommand>,bool),
@@ -967,13 +967,13 @@ pub enum StateChange {
     Newline(u8,bool),
     Endline(u8,bool),
     Escapechar(u8,bool),
-    Sfcode(u8,i64,bool),
+    Sfcode(u8,i32,bool),
     Tokens(i32,Vec<Token>,bool),
     Lccode(u8,u8,bool),
     Uccode(u8,u8,bool),
     Box(i32,TeXBox,bool),
-    Mathcode(u8,i64,bool),
-    Delcode(u8,i64,bool),
+    Mathcode(u8,i32,bool),
+    Delcode(u8,i32,bool),
     Font(Rc<Font>,bool),
     Pdfmatches(Vec<TeXStr>),
     Aftergroup(Token),

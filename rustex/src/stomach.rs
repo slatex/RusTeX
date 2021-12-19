@@ -90,7 +90,7 @@ pub trait Stomach {
 
     // ---------------------------------------------------------------------------------------------
 
-    fn start_paragraph(&mut self,parskip:i64) {
+    fn start_paragraph(&mut self,parskip:i32) {
         self.base_mut().buffer.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
@@ -389,7 +389,7 @@ pub trait Stomach {
         base.hangafter = 0;
         base.parshape = vec!();
     }
-    fn page_height(&self) -> i64 {
+    fn page_height(&self) -> i32 {
         self.base().pageheight
     }
     fn close_all(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>,TeXError> {
@@ -440,10 +440,10 @@ pub struct StomachBase {
     pub indocument:bool,
     pub basefont:Option<Rc<Font>>,
     pub basecolor:Option<TeXStr>,
-    pub hangindent:i64,
+    pub hangindent:i32,
     pub hangafter:usize,
-    pub pageheight:i64,
-    pub parshape:Vec<(i64,i64)>
+    pub pageheight:i32,
+    pub parshape:Vec<(i32,i32)>
 }
 
 pub struct NoShipoutRoutine {
@@ -559,9 +559,7 @@ impl Stomach for NoShipoutRoutine {
     fn on_begin_document(&mut self, int: &Interpreter) {
         self.on_begin_document_inner(int);
         self.floatlist = self.get_float_list(int);
-        let maxval = 2147483647;
-        let omax= i32::MAX;
-        println!("Here: {}",omax);
+        let maxval= i32::MAX;
         int.change_state(StateChange::Dimen(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true))
     }
 }

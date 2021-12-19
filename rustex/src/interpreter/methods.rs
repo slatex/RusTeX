@@ -372,13 +372,13 @@ impl Interpreter<'_> {
 
     fn num_do_ret(&self,ishex:bool,isoct:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
         let num = if ishex {
-            Numeric::Int(i64::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else if isoct {
-            Numeric::Int(i64::from_str_radix(&ret.to_utf8(), 8).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 8).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else if allowfloat {
-            Numeric::Float(f64::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         } else {
-            Numeric::Int(i64::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
@@ -409,7 +409,7 @@ impl Interpreter<'_> {
                         p.expand(next,self)?;
                     } else {
                         match &*p.orig {
-                            PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i64) } else { tk.char as i64 }))),
+                            PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
                             _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                         }
                     }
@@ -441,7 +441,7 @@ impl Interpreter<'_> {
                     let next = self.next_token();
                     match next.catcode {
                         CategoryCode::Escape if next.cmdname().len() == 1 => {
-                            let num = *next.cmdname().iter().first().unwrap() as i64;
+                            let num = *next.cmdname().iter().first().unwrap() as i32;
                             self.expand_until(true)?;
                             return Ok(Some(Numeric::Int(if isnegative { -num } else { num })))
                         }
@@ -453,7 +453,7 @@ impl Interpreter<'_> {
                                 match &*cmd.orig {
                                     PrimitiveTeXCommand::Char(c) => {
                                         self.expand_until(true)?;
-                                        return Ok(Some(Numeric::Int(if isnegative {-(c.char as i64)} else {c.char as i64})))
+                                        return Ok(Some(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32})))
                                     }
                                     _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
                                 }
@@ -461,7 +461,7 @@ impl Interpreter<'_> {
                         }
                         _ => {
                             self.expand_until(true)?;
-                            return Ok(Some(Numeric::Int(if isnegative {-(next.char as i64)} else {next.char as i64})))
+                            return Ok(Some(Numeric::Int(if isnegative {-(next.char as i32)} else {next.char as i32})))
                         }
                     }
                 }
@@ -481,7 +481,7 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn read_number(&self) -> Result<i64,TeXError> {
+    pub fn read_number(&self) -> Result<i32,TeXError> {
         match self.read_number_i(false)? {
             Numeric::Int(i) => Ok(i),
             Numeric::Dim(i) => Ok(i),
@@ -493,7 +493,7 @@ impl Interpreter<'_> {
 
     // Dimensions ----------------------------------------------------------------------------------
 
-    fn point_to_int(&self,f:f64,allowfills:bool) -> Result<SkipDim,TeXError> {
+    fn point_to_int(&self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let mut kws = vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px");
         if allowfills {
@@ -509,29 +509,29 @@ impl Interpreter<'_> {
             Some(s) if s == "pt" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
             Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
             Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
-            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f64 * f,istrue))),
-            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f64 * f,istrue))),
+            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f32 * f,istrue))),
+            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f32 * f,istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
             Some(o) => todo!("{}",o),
-            None => Ok(SkipDim::Pt(((self.read_dimension()? as f64) * f).round() as i64))
+            None => Ok(SkipDim::Pt(((self.read_dimension()? as f32) * f).round() as i32))
                 //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
     }
 
-    fn make_true(&self,f : f64,istrue:bool) -> i64 {
+    fn make_true(&self,f : f32,istrue:bool) -> i32 {
         use crate::commands::primitives::MAG;
         if istrue {
-            let mag = (self.state_register(-(MAG.index as i32)) as f64) / 1000.0;
-            (f * mag).round() as i64
-        } else {f.round() as i64}
+            let mag = (self.state_register(-(MAG.index as i32)) as f32) / 1000.0;
+            (f * mag).round() as i32
+        } else {f.round() as i32}
     }
 
-    pub fn read_dimension(&self) -> Result<i64,TeXError> {
+    pub fn read_dimension(&self) -> Result<i32,TeXError> {
         match match self.read_number_i(true)? {
             Numeric::Dim(i) => return Ok(i),
-            Numeric::Int(i) => self.point_to_int(i as f64,false)?,
+            Numeric::Int(i) => self.point_to_int(i as f32,false)?,
             Numeric::Float(f) => self.point_to_int(f,false)?,
             Numeric::Skip(sk) => return Ok(sk.base),
             Numeric::MuSkip(_) => TeXErr!((self,None),"Dimension expected; muskip found")
@@ -548,7 +548,7 @@ impl Interpreter<'_> {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f64,false)? {
+            Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f32,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
@@ -564,7 +564,7 @@ impl Interpreter<'_> {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_muskip(match self.point_to_muskip(f as f64)? {
+            Numeric::Int(f) => self.rest_muskip(match self.point_to_muskip(f as f32)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
@@ -575,22 +575,22 @@ impl Interpreter<'_> {
 
 
 
-    fn point_to_muskip(&self,f:f64) -> Result<MuSkipDim,TeXError> {
+    fn point_to_muskip(&self,f:f32) -> Result<MuSkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let kws = vec!("mu","fil","fill","filll");
         //let istrue = self.read_keyword(vec!("true"))?.is_some();
         match self.read_keyword(kws)? {
-            Some(s) if s == "mu" => Ok(MuSkipDim::Mu(pt(f).round() as i64)),
-            Some(s) if s == "fil" => Ok(MuSkipDim::Fil(pt(f).round() as i64)),
-            Some(s) if s == "fill" => Ok(MuSkipDim::Fill(pt(f).round() as i64)),
-            Some(s) if s == "filll" => Ok(MuSkipDim::Filll(pt(f).round() as i64)),
+            Some(s) if s == "mu" => Ok(MuSkipDim::Mu(pt(f).round() as i32)),
+            Some(s) if s == "fil" => Ok(MuSkipDim::Fil(pt(f).round() as i32)),
+            Some(s) if s == "fill" => Ok(MuSkipDim::Fill(pt(f).round() as i32)),
+            Some(s) if s == "filll" => Ok(MuSkipDim::Filll(pt(f).round() as i32)),
             None => Ok(MuSkipDim::Mu(self.read_dimension()?)),
             _ => unreachable!()
             //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
     }
 
-    fn rest_skip(&self,dim:i64,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
+    fn rest_skip(&self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(Skip {
                 base: dim,
@@ -632,7 +632,7 @@ impl Interpreter<'_> {
     }
 
 
-    fn rest_muskip(&self,dim:i64,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
+    fn rest_muskip(&self,dim:i32,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(MuSkip {
                 base: dim,
@@ -676,7 +676,7 @@ impl Interpreter<'_> {
     fn read_skipdim(&self) -> Result<SkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(SkipDim::Pt(i)),
-            Numeric::Int(i) => self.point_to_int(i as f64,true),
+            Numeric::Int(i) => self.point_to_int(i as f32,true),
             Numeric::Float(f) => self.point_to_int(f,true),
             Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base)),
             Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
@@ -686,7 +686,7 @@ impl Interpreter<'_> {
     fn read_muskipdim(&self) -> Result<MuSkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(MuSkipDim::Mu(i)),
-            Numeric::Int(i) => self.point_to_muskip(i as f64),
+            Numeric::Int(i) => self.point_to_muskip(i as f32),
             Numeric::Float(f) => self.point_to_muskip(f),
             Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
             Numeric::MuSkip(sk) => Ok(MuSkipDim::Mu(sk.base))
