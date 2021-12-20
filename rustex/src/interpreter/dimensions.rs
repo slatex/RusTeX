@@ -275,6 +275,7 @@ impl std::ops::Add for Numeric {
             (Int(i),Int(j)) => Int(i+j),
             (Dim(i),Int(j)) => Int(i+j),
             (Dim(i),Dim(j)) => Dim(i+j),
+            (Int(i),Dim(j)) => Int(i+j),
             (Skip(sk),Dim(i)) => Skip(crate::interpreter::dimensions::Skip {
                 base:sk.base + i,stretch:sk.stretch,shrink:sk.shrink
             }),

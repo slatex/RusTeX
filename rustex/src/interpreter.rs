@@ -268,9 +268,8 @@ impl Interpreter<'_> {
                 let rf = self.update_reference(&next);
                 self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(next.char,font,rf))
             }
-            (MathShift, Horizontal | RestrictedHorizontal) => {
-                self.do_math(inner)
-            }
+            (MathShift, Horizontal) => self.do_math(false),
+            (MathShift, RestrictedHorizontal) => self.do_math(true),
             (Letter | Other, Math | Displaymath) => {
                 let mc = self.state_get_mathcode(next.char as u8);
                 match mc {
@@ -408,15 +407,49 @@ impl Interpreter<'_> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
-                MathShift if self.get_mode() == TeXMode::Displaymath => todo!(),
+                MathShift if mode == TeXMode::Displaymath => {
+                    let nnext = self.next_token();
+                    match nnext.catcode {
+                        MathShift => {
+                            self.set_mode(_oldmode);
+                            for g in mathgroup.take() {
+                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                            }
+                            let mut ret = self.get_whatsit_group(GroupType::Math)?;
+                            {
+                                let mut first : Vec<WI> = vec!();
+                                let mut second : Vec<WI> = vec!();
+                                for x in ret.drain(0..) {
+                                    if !second.is_empty() {
+                                        second.push(x)
+                                    } else {
+                                        match x {
+                                            WI::MathInfix(_) => second.push(x),
+                                            _ => first.push(x)
+                                        }
+                                    }
+                                }
+                                if !second.is_empty() {
+                                    let head = second.remove(0);
+                                    match head {
+                                        WI::MathInfix(mi) => ret = vec!(WI::MathInfix(mi.set(first,second))),
+                                        _ => unreachable!()
+                                    }
+                                }
+                            }
+                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),true)));
+                            return Ok(())
+                        }
+                        _ => TeXErr!((self,Some(nnext)),"displaymode must be closed with $$")
+                    }
+                },
                 MathShift => {
-                    let mode = self.state.borrow().display_mode();
                     self.set_mode(_oldmode);
                     for g in mathgroup.take() {
                         self.stomach.borrow_mut().add(self,WI::Math(g))?
                     }
                     let ret = self.get_whatsit_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),mode)));
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),false)));
                     return Ok(())
                 }
                 EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
@@ -488,7 +521,28 @@ impl Interpreter<'_> {
                                 for g in mathgroup.take() {
                                     self.stomach.borrow_mut().add(self,WI::Math(g))?
                                 }
-                                let ret = self.get_whatsit_group(GroupType::Math)?;
+                                let mut ret = self.get_whatsit_group(GroupType::Math)?;
+                                {
+                                    let mut first : Vec<WI> = vec!();
+                                    let mut second : Vec<WI> = vec!();
+                                    for x in ret.drain(0..) {
+                                        if !second.is_empty() {
+                                            second.push(x)
+                                        } else {
+                                            match x {
+                                                WI::MathInfix(_) => second.push(x),
+                                                _ => first.push(x)
+                                            }
+                                        }
+                                    }
+                                    if !second.is_empty() {
+                                        let head = second.remove(0);
+                                        match head {
+                                            WI::MathInfix(mi) => ret = vec!(WI::MathInfix(mi.set(first,second))),
+                                            _ => unreachable!()
+                                        }
+                                    }
+                                }
                                 return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(ret),self.state.borrow().display_mode()))))
                             }
                             _ => {

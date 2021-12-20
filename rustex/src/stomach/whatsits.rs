@@ -414,7 +414,6 @@ impl MathGroup {
     }
 }
 
-
 #[derive(Clone)]
 pub enum MathKernel {
     Group(Vec<Whatsit>),
@@ -563,6 +562,24 @@ impl MathKernel {
 }
 
 #[derive(Clone)]
+pub enum MathInfix {
+    Over(Vec<Whatsit>,Vec<Whatsit>,Option<SourceFileReference>)
+}
+impl MathInfix {
+    pub fn as_xml_internal(&self,prefix: String) -> String {
+        todo!()
+    }
+    pub fn set(self,first:Vec<Whatsit>,second:Vec<Whatsit>) -> MathInfix {
+        use MathInfix::*;
+        match self {
+            Over(a,b,o) => {
+                Over(first,second,o)
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum Whatsit {
     Exec(Rc<ExecutableWhatsit>),
     Box(TeXBox),
@@ -572,6 +589,7 @@ pub enum Whatsit {
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
     Math(MathGroup),
+    MathInfix(MathInfix),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
     Par(Paragraph),
@@ -594,6 +612,7 @@ impl Whatsit {
             Par(p) => p.as_xml_internal(prefix),
             Box(b) => b.as_xml_internal(prefix),
             Char(u,_,_) => TeXStr::new(&[*u]).to_string(),
+            MathInfix(i) => i.as_xml_internal(prefix),
             Inserts(vs) => {
                 let mut ret = "\n".to_string() + &prefix + "<inserts>";
                 for v in vs {
@@ -628,7 +647,7 @@ impl Whatsit {
             GroupOpen(w) => w.has_ink(),
             Grouped(w) => w.has_ink(),
             Simple(s) => s.has_ink(),
-            Char(_,_,_) | Par(_) | Float(_) | Inserts(_) => true,
+            Char(_,_,_) | Par(_) | Float(_) | Inserts(_) | MathInfix(_) => true,
             Math(m) => m.has_ink(),
             Ls(_) => unreachable!()
         }

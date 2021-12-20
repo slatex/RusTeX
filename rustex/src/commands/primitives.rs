@@ -351,7 +351,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
-use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathInfix, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -547,6 +547,7 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
 use crate::utils::u8toi16;
 fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
+    int.expand_until(true);
     let cmd = int.read_command_token()?;
     let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) => {
@@ -2727,6 +2728,25 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static OVER: SimpleWhatsit = SimpleWhatsit {
+    name:"over",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        Ok(Whatsit::MathInfix(MathInfix::Over(vec!(),vec!(),int.update_reference(tk))))
+    }
+};
+
+pub static OVERWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
+    name:"overwithdelims",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        todo!()
+    }
+};
 
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
@@ -2994,6 +3014,40 @@ pub static MKERN: MathWhatsit = MathWhatsit {
     _get: |tk,int,_| {
         let kern = int.read_muskip()?;
         Ok(Some(MathKernel::MKern(kern,int.update_reference(tk))))
+    }
+};
+
+pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"displaystyle",
+    expandable:false,
+    _apply:|tk,int| {
+        match int.get_mode() {
+            TeXMode::Math | TeXMode::Displaymath => (),
+            _ => TeXErr!((int,Some(tk.0.clone())),"\\displaymode only allowed in math mode")
+        }
+        int.state.borrow_mut().mode = TeXMode::Displaymath;
+        Ok(())
+    }
+};
+pub static LIMITS: MathWhatsit = MathWhatsit {
+    name:"limits",
+    _get: |tk,int,last| {
+        match last {
+            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\limits here"),
+            Some(s) => s.limits = true
+        }
+        Ok(None)
+    }
+};
+
+pub static NOLIMITS: MathWhatsit = MathWhatsit {
+    name:"nolimits",
+    _get: |tk,int,last| {
+        match last {
+            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\nolimits here"),
+            Some(s) => s.limits = false
+        }
+        Ok(None)
     }
 };
 
@@ -4079,24 +4133,6 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"displaystyle",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LIMITS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"limits",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static NOLIMITS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"nolimits",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmark",
     expandable:true,
@@ -4165,18 +4201,6 @@ pub static MOVELEFT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static MOVERIGHT: PrimitiveExecutable = PrimitiveExecutable {
     name:"moveright",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static OVER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"over",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static OVERWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"overwithdelims",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4285,6 +4309,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MARK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEADERS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MATHCHOICE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVER)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVERWITHDELIMS)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4353,6 +4379,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&LEFT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&RIGHT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&MKERN)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&LIMITS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(&NOLIMITS)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PRETOLERANCE)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TOLERANCE)),
@@ -4574,8 +4602,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BIGSKIP),
     PrimitiveTeXCommand::Primitive(&DISCRETIONARY),
     PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
-    PrimitiveTeXCommand::Primitive(&LIMITS),
-    PrimitiveTeXCommand::Primitive(&NOLIMITS),
     PrimitiveTeXCommand::Primitive(&TOPMARK),
     PrimitiveTeXCommand::Primitive(&FIRSTMARK),
     PrimitiveTeXCommand::Primitive(&BOTMARK),
@@ -4592,8 +4618,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MOVERIGHT),
     PrimitiveTeXCommand::Primitive(&NOALIGN),
     PrimitiveTeXCommand::Primitive(&NOINDENT),
-    PrimitiveTeXCommand::Primitive(&OVER),
-    PrimitiveTeXCommand::Primitive(&OVERWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),
     PrimitiveTeXCommand::Primitive(&UNSKIP),
     PrimitiveTeXCommand::Primitive(&UNKERN),

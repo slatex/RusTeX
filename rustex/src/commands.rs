@@ -475,6 +475,14 @@ impl PrimitiveTeXCommand {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
+            AV(AssignableValue::PrimDim(p)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
+            AV(AssignableValue::PrimSkip(p)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + p.name.into()
+            },
             Cond(c) => {
                 let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + c.name.into()
@@ -492,6 +500,10 @@ impl PrimitiveTeXCommand {
                 ret += "mathchar\"".to_owned() + &format!("{:X}", i);
                 ret
             }
+            Whatsit(ProvidesWhatsit::Simple(s)) => {
+                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + s.name.into()
+            },
             _ => todo!("{}",self)
         };
         ret
@@ -604,13 +616,13 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "\\" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
+        /*if tk.name().to_string() == "trule" || tk.name().to_string() == "[" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
              //unsafe {crate::LOG = true }
-        } */
+        }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
             print!("")
