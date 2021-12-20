@@ -2539,14 +2539,6 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             'cell: loop {
                 let next = int.next_token();
                 match next.catcode {
-                    /*
-                    CategoryCode::AlignmentTab if !doheader => break 'cell,
-                    CategoryCode::AlignmentTab if !inV => {
-                        inV = true;
-                        int.requeue(endtemplate.clone());
-                        int.push_tokens(columns.get(columnindex).unwrap().1.clone())
-                    }
-                     */
                     CategoryCode::Escape if next.char == endtemplate.char && next == endtemplate => {
                         break 'cell
                     }
@@ -2554,29 +2546,8 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                         row.push((ret,columns.get(columnindex).unwrap().2));
                         int.set_mode(_oldmode);
-                        //int.insert_every(&EVERYCR);
                         break 'row
                     }
-                    /*
-                    CategoryCode::Escape | CategoryCode::Active => {
-                        let p = int.get_command(next.cmdname())?;
-                        match &*p.orig {
-                            PrimitiveTeXCommand::Primitive(p) if (**p == CR || **p == CRCR) && !doheader => {
-                                let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
-                                row.push((ret,columns.get(columnindex).unwrap().2));
-                                int.set_mode(_oldmode);
-                                int.insert_every(&EVERYCR);
-                                break 'row
-                            }
-                            PrimitiveTeXCommand::Primitive(p) if (**p == CR || **p == CRCR) && !inV => {
-                                inV = true;
-                                int.requeue(endrow.clone());
-                                int.push_tokens(columns.get(columnindex).unwrap().1.clone())
-                            }
-                            _ => int.do_top(next,true)?
-                        }
-                    }
-                     */
                     _ => int.do_top(next,true)?
                 }
             }
@@ -2623,6 +2594,14 @@ pub static VALIGN: SimpleWhatsit = SimpleWhatsit {
         };
         let (skip,template,columns) = do_align(int,BoxMode::V,BoxMode::H)?;
         Ok(Whatsit::Simple(SimpleWI::Valign(skip,template,columns,int.update_reference(tk))))
+    }
+};
+
+pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"/",
+    expandable:false,
+    _apply:|_tk,_int| {
+        Ok(()) // TODO maybe
     }
 };
 
@@ -4165,12 +4144,6 @@ pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"italiccorr",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

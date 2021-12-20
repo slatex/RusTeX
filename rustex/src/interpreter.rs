@@ -684,9 +684,17 @@ impl Interpreter<'_> {
                         }
                     }
                 }
-                Superscript | Subscript => {
-                    self.requeue(next);
-                    return Ok(None)
+                AlignmentTab => {
+                    let align = self.state.borrow_mut().aligns.pop();
+                    self.state.borrow_mut().aligns.push(None);
+                    match align {
+                        Some(Some(v)) => {
+                            self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                            self.push_tokens(v);
+                            ()
+                        }
+                        _ => TeXErr!((self,Some(next)),"Misplaced alignment tab")
+                    }
                 }
                 _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
             }

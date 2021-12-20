@@ -177,8 +177,8 @@ impl FontFile {
         } else {
             dimen.insert(1,0.0);
         }
-        for _ in 2..(np+1) {
-            dimen.insert(1,read_float(state.borrow_mut()));
+        for i in 2..(np+1) {
+            dimen.insert(i,read_float(state.borrow_mut()));
         }
 
         let factor = match dimen.get(&6) {
