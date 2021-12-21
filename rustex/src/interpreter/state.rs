@@ -832,27 +832,32 @@ impl Interpreter<'_> {
     pub fn state_lccode(&self,i:u8) -> u8 { self.state.borrow().lccode(i) }
     pub fn state_uccode(&self,i:u8) -> u8 { self.state.borrow().uccode(i) }
 
-    pub fn pushcondition(&self) -> u8 {
+    pub fn pushcondition(&self) -> usize {
         let mut state = self.state.borrow_mut();
         state.conditions.push(None);
-        (state.conditions.len() - 1) as u8
+        if state.conditions.len() > 200 {
+            //println!("Here: >>{}",self.current_line());
+            unsafe {crate::LOG = true}
+        }
+        state.conditions.len() - 1
     }
-    pub fn setcondition(&self,c : u8,val : bool) -> Result<u8,TeXError> {
+    pub fn setcondition(&self,c : usize,val : bool) -> Result<usize,TeXError> {
         let conds = &mut self.state.borrow_mut().conditions;
-        if c as usize >= conds.len() {
+        if c >= conds.len() {
             TeXErr!((self,None),"This should not happen!")
         }
-        conds.remove(c as usize);
-        conds.insert(c as usize,Some(val));
-        Ok((conds.len() as u8) - 1 - c)
+        conds[c] = Some(val);
+        //conds.remove(c as usize);
+        //conds.insert(c as usize,Some(val));
+        Ok(conds.len() - (c + 1))
     }
     pub fn popcondition(&self) {
         self.state.borrow_mut().conditions.pop();
     }
-    pub fn getcondition(&self) -> Option<(u8,Option<bool>)> {
+    pub fn getcondition(&self) -> Option<(usize,Option<bool>)> {
         let conds = &self.state.borrow().conditions;
         match conds.last() {
-            Some(p) => Some((conds.len() as u8 - 1,*p)),
+            Some(p) => Some((conds.len() - 1,*p)),
             None => None
         }
     }

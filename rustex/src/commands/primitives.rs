@@ -352,6 +352,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
 use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathInfix, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::SimpleWI::Penalty;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1605,6 +1606,32 @@ pub static LASTKERN: NumericCommand = NumericCommand {
             _ => Ok(Numeric::Dim(0))
         }
     },
+};
+
+pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unkern",
+    expandable:false,
+    _apply:|tk,int| {
+        let lastwi = int.stomach.borrow().last_whatsit();
+        match lastwi {
+            Some(Whatsit::Simple(SimpleWI::VKern(_,_) | SimpleWI::HKern(_,_))) => int.stomach.borrow_mut().drop_last(),
+            _ => ()
+        }
+        Ok(())
+    }
+};
+
+pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
+    name:"unpenalty",
+    expandable:false,
+    _apply:|tk,int| {
+        let lastwi = int.stomach.borrow().last_whatsit();
+        match lastwi {
+            Some(Whatsit::Simple(SimpleWI::Penalty(_))) => int.stomach.borrow_mut().drop_last(),
+            _ => ()
+        }
+        Ok(())
+    }
 };
 
 pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
@@ -4180,18 +4207,6 @@ pub static MOVERIGHT: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"smallskip",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unkern",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
-    name:"unpenalty",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

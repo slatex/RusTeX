@@ -734,19 +734,22 @@ impl Interpreter<'_> {
         self.mouths.borrow_mut().end_input()
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
-        match &*tk.reference {
-            SourceReference::File(f,s,e) => {
-                let end = self.mouths.borrow().line_no();
-                Some(SourceFileReference {
-                    file: f.clone(),
-                    start: s.clone(),
-                    end: end
-                })
+        let mut rf = &*tk.reference;
+        loop {
+            match rf {
+                SourceReference::File(f, s, e) => {
+                    let end = self.mouths.borrow().line_no();
+                    return Some(SourceFileReference {
+                        file: f.clone(),
+                        start: s.clone(),
+                        end: end
+                    })
+                }
+                SourceReference::Exp(er) => {
+                    rf = &*er.0.reference;
+                }
+                _ => return None
             }
-            SourceReference::Exp(er) => {
-                self.update_reference(&er.0)
-            }
-            _ => None
         }
     }
 }

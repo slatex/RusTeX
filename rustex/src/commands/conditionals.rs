@@ -7,7 +7,7 @@ use crate::log;
 use crate::stomach::whatsits::TeXBox;
 
 
-pub fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+pub fn dotrue(int: &Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
     if unless {
         dofalse(int,cond,false)
     } else {
@@ -18,7 +18,7 @@ pub fn dotrue(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
 
 use crate::FileEnd;
 
-pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeXError> {
+pub fn false_loop(int:&Interpreter,initifs:usize,allowelse : bool) -> Result<(),TeXError> {
     use PrimitiveTeXCommand::*;
     let mut inifs = initifs;
     //log!("false loop: {}",inifs);
@@ -50,7 +50,7 @@ pub fn false_loop(int:&Interpreter,initifs:u8,allowelse : bool) -> Result<(),TeX
     FileEnd!(int)
 }
 
-pub fn dofalse(int: &Interpreter,cond:u8,unless:bool) -> Result<(),TeXError> {
+pub fn dofalse(int: &Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
     if unless {
         dotrue(int,cond,false)
     } else {
@@ -221,7 +221,7 @@ pub static IFEOF : Conditional = Conditional {
 
 use crate::ontology::Token;
 
-fn get_if_token(cond:u8,int:&Interpreter) -> Result<Option<Token>,TeXError> {
+fn get_if_token(cond:usize,int:&Interpreter) -> Result<Option<Token>,TeXError> {
     while int.has_next() {
         let next = int.next_token();
         match next.catcode {

@@ -65,7 +65,7 @@ impl Interpreter<'_> {
                     if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
-                        tokens.push(next);
+                        self.requeue(next);
                         break
                     }
                 },

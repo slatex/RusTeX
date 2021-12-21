@@ -334,7 +334,7 @@ impl TeXBox {
                 let dp = match vb._depth {
                     Some(d) => d,
                     None => {
-                        match vb.children.last() {
+                        match self.iter().last() {
                             None => 0,
                             Some(c) => c.depth()
                         }

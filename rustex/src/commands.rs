@@ -25,7 +25,7 @@ impl PrimitiveExecutable {
 }
 pub struct Conditional {
     pub name: &'static str,
-    _apply:fn(int:&Interpreter,cond:u8,unless:bool) -> Result<(),TeXError>
+    _apply:fn(int:&Interpreter,cond:usize,unless:bool) -> Result<(),TeXError>
 }
 impl Conditional {
     pub fn expand(&self,int:&Interpreter) -> Result<(),TeXError> {
@@ -616,12 +616,13 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.name().to_string() == "trule" || tk.name().to_string() == "[" {// && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31639") {
+        /*if tk.name().to_string() == "lsthk@PreInit" && int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
+             //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
-             //unsafe {crate::LOG = true }
+             unsafe {crate::LOG = true }
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
