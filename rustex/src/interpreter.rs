@@ -712,9 +712,9 @@ impl Interpreter<'_> {
         self.mouths.borrow().line_no().0
     }
 
-    pub fn assert_has_next(&self) -> Result<(),TeXError> {
+    /*pub fn assert_has_next(&self) -> Result<(),TeXError> {
         if self.has_next() {Ok(())} else  {
             FileEnd!(self)
         }
-    }
+    } */
 }

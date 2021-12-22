@@ -835,10 +835,6 @@ impl Interpreter<'_> {
     pub fn pushcondition(&self) -> usize {
         let mut state = self.state.borrow_mut();
         state.conditions.push(None);
-        if state.conditions.len() > 200 {
-            //println!("Here: >>{}",self.current_line());
-            unsafe {crate::LOG = true}
-        }
         state.conditions.len() - 1
     }
     pub fn setcondition(&self,c : usize,val : bool) -> Result<usize,TeXError> {

@@ -314,7 +314,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                 })
             }
             CategoryCode::Parameter => {
-                int.assert_has_next()?;
+                //int.assert_has_next()?;
                 let inext = int.next_token();
                 match inext.catcode {
                     CategoryCode::BeginGroup => {
@@ -832,7 +832,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name: "write",
     _get: |_tk, int| {
         let num = int.read_number()? as u8;
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\write")
@@ -868,7 +868,7 @@ pub static NOEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     name:"noexpand",
     expandable:true,
     _apply:|_cs,int| {
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let next = int.next_token();
         int.requeue(next.deexpand());
         Ok(())
@@ -879,9 +879,9 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"expandafter",
     expandable:true,
     _apply:|rf,int| {
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let tmp = int.next_token();
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
@@ -919,7 +919,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
     name:"meaning",
     expandable:true,
     _apply:|rf,int| {
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let next = int.next_token();
         let string = match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
@@ -939,7 +939,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
     name:"string",
     expandable:true,
     _apply:|rf,int| {
-        int.assert_has_next()?;
+        //int.assert_has_next()?;
         let next = int.next_token();
         log!("\\string: {}",next);
         rf.2 = match next.catcode {
@@ -2352,10 +2352,8 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         match int.state.borrow_mut().aligns.last_mut() {
             Some(o@Some(_)) => {
-                let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
-                endrow.cmdname = "relax".into();
                 let ret = o.take().unwrap();
-                int.requeue(endrow);
+                ENDROW.try_with(|x| int.requeue(x.clone()));
                 tk.2 = ret;
                 Ok(())
             }
@@ -2367,12 +2365,12 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
 thread_local! {
     pub static ENDROW : Token = {
         let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
-        endrow.cmdname = "relax".into();
+        endrow.name_opt = "relax".into();
         endrow
     };
     pub static ENDTEMPLATE : Token = {
         let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
-        endtemplate.cmdname = "relax".into();
+        endtemplate.name_opt = "relax".into();
         endtemplate
     }
 }

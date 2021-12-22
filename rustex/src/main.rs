@@ -5,6 +5,9 @@ use rustex::interpreter::Interpreter;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXString;
 
+// 1m14,902 / 1m11,366
+// 1m30,370 / 1m26,295
+
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();

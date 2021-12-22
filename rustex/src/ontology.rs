@@ -22,8 +22,8 @@ pub struct ExpansionRef(pub(crate) Token,pub(crate) Rc<TeXCommand>);
 pub struct Token {
     pub char : u8,
     pub catcode : CategoryCode,
-    name_opt: TeXStr,
-    pub(in crate) cmdname : TeXStr,
+    pub(in crate) name_opt: TeXStr,
+    //pub(in crate) cmdname : TeXStr,
     pub reference: Rc<SourceReference>,
     pub(in crate) expand:bool
 }
@@ -62,7 +62,7 @@ impl Token {
             char:self.char,
             catcode:self.catcode,
             name_opt: self.name_opt,
-            cmdname:self.cmdname,
+            //cmdname:self.cmdname,
             reference: self.reference,
             expand:false
         }
@@ -71,16 +71,19 @@ impl Token {
     pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:SourceReference,expand:bool) -> Token {
         let name = match name_opt {
             Some(uv) => uv,
-            None => TeXStr::new(&[char])
+            None => match catcode {
+                CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
+                _ => TeXStr::new(&[char])
+            }
         };
         Token {
             char,
             catcode,
-            cmdname: match catcode {
+            /*cmdname: match catcode {
                 CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
                 CategoryCode::Escape => name.clone(),
                 _ => TeXStr::new(&[])
-            },
+            },*/
             name_opt: name,
             reference: Rc::new(rf),
             expand
@@ -90,7 +93,15 @@ impl Token {
         &self.name_opt
     }
     pub fn cmdname(&self) -> &TeXStr {
-        &self.cmdname
+        &self.name_opt
+        /*match self.name_opt {
+            Some(n) => n,
+            None => match self.catcode {
+                CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,self.char]),
+                _ => TeXStr::new(&[])
+            }
+        }
+        &self.cmdname */
     }
 
     pub fn dummy() -> Token {
@@ -100,7 +111,7 @@ impl Token {
         Token {
             char:self.char,
             catcode:self.catcode,
-            cmdname:self.cmdname.clone(),
+            //cmdname:self.cmdname.clone(),
             name_opt:self.name_opt.clone(),
             reference:self.reference.clone(),
             expand:true
@@ -111,7 +122,7 @@ impl Token {
             Token {
                 char:self.char,
                 catcode:self.catcode,
-                cmdname:self.cmdname.clone(),
+                //cmdname:self.cmdname.clone(),
                 name_opt:self.name_opt.clone(),
                 reference:Rc::new(SourceReference::Exp(er)),
                 expand:true
@@ -121,7 +132,7 @@ impl Token {
             Token {
                 char:self.char,
                 catcode:self.catcode,
-                cmdname:self.cmdname.clone(),
+                //cmdname:self.cmdname.clone(),
                 name_opt:self.name_opt.clone(),
                 reference:self.reference.clone(),
                 expand:true

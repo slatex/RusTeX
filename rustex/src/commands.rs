@@ -637,7 +637,7 @@ impl PrimitiveTeXCommand {
         while i < d.sig.elems.len() {
             match d.sig.elems.get(i).unwrap() {
                 ParamToken::Token(tk) => {
-                    int.assert_has_next()?;
+                    //int.assert_has_next()?;
                     let next = int.next_token();
                     if *tk != next {
                         TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})\n{}  >>{}",tk,next,d,int.current_line(),int.preview())
@@ -650,7 +650,7 @@ impl PrimitiveTeXCommand {
                         None if d.sig.endswithbrace => {
                             let mut retarg : Vec<Token> = vec!();
                             loop {
-                                int.assert_has_next()?;
+                                //int.assert_has_next()?;
                                 let next = int.next_token();
                                 match next.catcode {
                                     CategoryCode::BeginGroup => {
@@ -699,7 +699,7 @@ impl PrimitiveTeXCommand {
                                 retarg.push(next);
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
                             }
-                            int.assert_has_next()?;
+                            //int.assert_has_next()?;
                             for _ in 0..delim.len() { retarg.pop(); }
                             if totalgroups == 1 &&
                                 match retarg.first() {Some(tk) => tk.catcode == CategoryCode::BeginGroup, _ => false} &&
