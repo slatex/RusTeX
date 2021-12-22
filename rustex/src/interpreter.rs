@@ -385,7 +385,10 @@ impl Interpreter<'_> {
         use crate::stomach::Whatsit as WI;
         use crate::commands::ProvidesWhatsit;
         self.new_group(GroupType::Math);
-        let mode = if inner { TeXMode::Math } else {
+        let mode = if inner {
+            self.insert_every(&crate::commands::primitives::EVERYMATH);
+            TeXMode::Math
+        } else {
             let next = self.next_token();
             match next.catcode {
                 MathShift => {

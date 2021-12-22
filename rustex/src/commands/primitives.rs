@@ -11,6 +11,21 @@ use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
 
+pub static SPACE: SimpleWhatsit = SimpleWhatsit {
+    name:" ",
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal | TeXMode::Math | TeXMode::Displaymath => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        match int.get_mode() {
+            TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Char(32,int.get_font(),int.update_reference(tk))),
+            _ => Ok(Whatsit::Math(MathGroup::new(
+                MathKernel::MathChar(0,0,32,int.state.borrow().getTextFont(0),int.update_reference(tk)),int.state.borrow().display_mode())))
+        }
+    }
+};
+
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
@@ -4299,6 +4314,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MATHCHOICE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVERWITHDELIMS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&SPACE)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
