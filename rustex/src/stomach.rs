@@ -6,9 +6,137 @@ use crate::{Interpreter, TeXErr, Token};
 use crate::commands::DefMacro;
 use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::{GroupType, StateChange};
+use crate::references::SourceFileReference;
 use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::WIGroup;
-use crate::stomach::whatsits::Paragraph;
+use crate::stomach::whatsits::{Paragraph,SimpleWI};
+
+
+pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
+    let mut currentheight : i32 = 0;
+    let mut marks: Vec<(Vec<Token>,Option<SourceFileReference>)> = vec!();
+    let mut presplit : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
+    let mut input : Vec<StomachGroup> = vec!(StomachGroup::Top(vlist));
+    let first = loop {
+        match input.last_mut() {
+            None => break None,
+            Some(StomachGroup::Top(sg)) if sg.is_empty() => {
+                input.pop();
+                break None
+            },
+            Some(sg) if sg.get().is_empty() => {
+                let pop = presplit.pop();
+                match pop {
+                    Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
+                    Some(StomachGroup::Other(wg)) => presplit.last_mut().unwrap().push(Whatsit::Grouped(wg)),
+                    _ => {
+                        unreachable!()
+                    }
+                }
+                input.pop();
+            }
+            Some(sg) => {
+                let next = sg.get_mut().remove(0);
+                match next {
+                    Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                        todo!()
+                    },
+                    Whatsit::Grouped(wg) => {
+                        presplit.push(StomachGroup::Other(wg.new_from()));
+                        input.push(StomachGroup::Other(wg))
+                    },
+                    Whatsit::Par(p) => {
+                        let ht = p.height();
+                        if currentheight + ht > target {
+                            if currentheight + p.lineheight.unwrap() > target {
+                                break Some(Whatsit::Par(p))
+                            }
+                            let (f,s) = p.split(target - currentheight,int);
+                            presplit.last_mut().unwrap().push(Whatsit::Par(f));
+                            break Some(Whatsit::Par(s))
+                        } else {
+                            currentheight += ht;
+                            presplit.last_mut().unwrap().push(Whatsit::Par(p))
+                        }
+                    },
+                    next => {
+                        let ht = next.height();
+                        if currentheight + ht > target {
+                            break Some(next)
+                        } else {
+                            currentheight += ht;
+                            presplit.last_mut().unwrap().push(next)
+                        }
+                    }
+                }
+            }
+        }
+    };
+    match first {
+        None => {
+            assert!(input.is_empty());
+            match presplit.pop() {
+                Some(StomachGroup::Top(v)) => (v,vec!()),
+                _ => unreachable!()
+            }
+        }
+        Some(f) => {
+            while match presplit.last() {
+                Some(StomachGroup::Top(_)) => false,
+                _ => true
+            } {
+                let last = match presplit.pop().unwrap() {
+                    StomachGroup::Other(wg) => wg,
+                    _ => unreachable!()
+                };
+                presplit.last_mut().unwrap().push(Whatsit::Grouped(last))
+            }
+            let mut second : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
+            for g in &input[1..] {
+                second.push(g.new_from())
+            }
+            loop {
+                match input.last_mut() {
+                    None => break,
+                    Some(StomachGroup::Top(sg)) if sg.is_empty() => {
+                        input.pop();
+                        break
+                    },
+                    Some(sg) if sg.get().is_empty() => {
+                        let pop = second.pop();
+                        match pop {
+                            Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
+                            Some(StomachGroup::Other(wg)) => second.last_mut().unwrap().push(Whatsit::Grouped(wg)),
+                            _ => {
+                                unreachable!()
+                            }
+                        }
+                        input.pop();
+                    }
+                    Some(sg) => {
+                        let next = sg.get_mut().remove(0);
+                        match next {
+                            Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                                todo!()
+                            },
+                            next => {
+                                second.last_mut().unwrap().push(next)
+                                }
+                            }
+                        }
+                    }
+                }
+            let sec = match second.pop() {
+                Some(StomachGroup::Top(v)) => v,
+                _ => unreachable!()
+            };
+            match presplit.pop() {
+                Some(StomachGroup::Top(v)) => (v,sec),
+                _ => unreachable!()
+            }
+        }
+    }
+}
 
 pub mod whatsits;
 

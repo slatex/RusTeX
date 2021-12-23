@@ -1713,6 +1713,46 @@ pub static VTOP: ProvidesBox = ProvidesBox {
     }
 };
 
+pub static VSPLIT: ProvidesBox = ProvidesBox {
+    name:"vsplit",
+    _get:|tk,int| {
+        let boxnum = int.read_number()?;
+        match int.read_keyword(vec!("to"))? {
+            Some(_) => (),
+            None => TeXErr!((int,None),"Expected \"to\" after \\vsplit")
+        }
+        let target = int.read_dimension()?;
+        let vbox = match int.state_get_box(boxnum) {
+            TeXBox::Void => return Ok(TeXBox::Void),
+            TeXBox::V(vb) => vb,
+            _ => TeXErr!((int,None),"Cannot \\vsplit horizontal box")
+        };
+        let mut ret = VBox {
+            children: vec!(),
+            center: vbox.center,
+            spread: vbox.spread,
+            _width: vbox._width,
+            _height: Some(target),
+            _depth: vbox._depth,
+            rf: None
+        };
+        let mut rest = VBox {
+            children: vec!(),
+            center: vbox.center,
+            spread: vbox.spread,
+            _width: vbox._width,
+            _height: None,
+            _depth: vbox._depth,
+            rf: None
+        };
+        let (first,second) = crate::stomach::split_vertical(vbox.children,target,int);
+        ret.children = first;
+        rest.children = second;
+        int.change_state(StateChange::Box(boxnum,TeXBox::V(rest),false));
+        Ok((TeXBox::V(ret)))
+    }
+};
+
 pub static VCENTER: ProvidesBox = ProvidesBox {
     name:"vcenter",
     _get: |tk,int| {
@@ -2838,6 +2878,36 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
         }
         Ok(())
     }
+};
+
+pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"topmark",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static FIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"firstmark",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static BOTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"botmark",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITFIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitfirstmark",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
+};
+
+pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
+    name:"splitbotmark",
+    expandable:false,
+    _apply:|_tk,_int| {todo!()}
 };
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
@@ -4152,35 +4222,6 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"topmark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static FIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"firstmark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static BOTMARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"botmark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SPLITFIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"splitfirstmark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"splitbotmark",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
 
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
@@ -4226,12 +4267,6 @@ pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"vfilneg",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static VSPLIT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"vsplit",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4358,6 +4393,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&HBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VTOP)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VSPLIT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&VCENTER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&LASTBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(&BOX)),
@@ -4626,5 +4662,4 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&UNPENALTY),
     PrimitiveTeXCommand::Primitive(&VADJUST),
     PrimitiveTeXCommand::Primitive(&VFILNEG),
-    PrimitiveTeXCommand::Primitive(&VSPLIT),
 ]}

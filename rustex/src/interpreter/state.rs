@@ -201,7 +201,12 @@ pub struct State {
     pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
     pub(in crate) pagegoal:i32,
     pub(in crate) pdfximages:Vec<Pdfximage>,
-    pub(in crate) aligns: Vec<Option<Vec<Token>>>
+    pub(in crate) aligns: Vec<Option<Vec<Token>>>,
+    pub(in crate) topmark : Vec<Token>,
+    pub(in crate) firstmark : Vec<Token>,
+    pub(in crate) botmark : Vec<Token>,
+    pub(in crate) splitfirstmark : Vec<Token>,
+    pub(in crate) splitbotmark : Vec<Token>,
 }
 
 // sudo apt install libkpathsea-dev
@@ -224,7 +229,8 @@ impl State {
             pdfxforms:vec!(),
             indocument_line:None,indocument:false,insetbox:false,
             vadjust:vec!(),inserts:HashMap::new(),
-            pagegoal:0,pdfximages:vec!(),aligns:vec!()
+            pagegoal:0,pdfximages:vec!(),aligns:vec!(),
+            topmark:vec!(),botmark:vec!(),firstmark:vec!(),splitbotmark:vec!(),splitfirstmark:vec!()
         }
     }
 
