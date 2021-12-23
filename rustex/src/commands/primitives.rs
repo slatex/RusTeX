@@ -2101,6 +2101,34 @@ pub static RAISE: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static MOVELEFT: SimpleWhatsit = SimpleWhatsit {
+    name:"moveleft",
+    modes:|m| {match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        let bx = int.read_box()?;
+        let rf = int.update_reference(tk);
+        Ok(Whatsit::Simple(SimpleWI::MoveRight(-dim,bx,rf)))
+    }
+};
+
+pub static MOVERIGHT: SimpleWhatsit = SimpleWhatsit {
+    name:"moveright",
+    modes:|m| {match m {
+        TeXMode::Vertical | TeXMode::InternalVertical => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        let bx = int.read_box()?;
+        let rf = int.update_reference(tk);
+        Ok(Whatsit::Simple(SimpleWI::MoveRight(dim,bx,rf)))
+    }
+};
+
 pub static KERN: SimpleWhatsit = SimpleWhatsit {
     name:"kern",
     modes:|m| { true },
@@ -4247,18 +4275,6 @@ pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static MOVELEFT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"moveleft",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static MOVERIGHT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"moveright",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"smallskip",
     expandable:true,
@@ -4332,6 +4348,8 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LOWER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MOVELEFT)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MOVERIGHT)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&KERN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNHBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNHCOPY)),
@@ -4652,8 +4670,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&CLEADERS),
     PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
-    PrimitiveTeXCommand::Primitive(&MOVELEFT),
-    PrimitiveTeXCommand::Primitive(&MOVERIGHT),
     PrimitiveTeXCommand::Primitive(&NOALIGN),
     PrimitiveTeXCommand::Primitive(&NOINDENT),
     PrimitiveTeXCommand::Primitive(&SMALLSKIP),

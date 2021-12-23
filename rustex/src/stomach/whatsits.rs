@@ -878,6 +878,7 @@ pub enum SimpleWI {
     //          attr            resource
     Pdfxform(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>),
     Raise(i32,TeXBox,Option<SourceFileReference>),
+    MoveRight(i32,TeXBox,Option<SourceFileReference>),
     VKern(i32,Option<SourceFileReference>),
     HKern(i32,Option<SourceFileReference>),
     PdfDest(TeXStr,TeXStr,Option<SourceFileReference>),
@@ -987,6 +988,11 @@ impl SimpleWI {
                 ret += &bx.as_xml_internal(prefix.clone() + "  ");
                 ret + "\n" + &prefix + "</raise>"
             },
+            MoveRight(d,bx,_) => {
+                let mut ret = "\n".to_string() + &prefix + "<moveright by=\"" + &dimtostr(*d) + "\">";
+                ret += &bx.as_xml_internal(prefix.clone() + "  ");
+                ret + "\n" + &prefix + "</moveright>"
+            },
             Hss(_) => "<hss/>".to_string(),
             Vss(_) => "<vss/>".to_string(),
             MSkip(sk,_) => "<mskip skip=\"".to_string() + &sk.to_string() + "\"/>",
@@ -1049,6 +1055,7 @@ impl SimpleWI {
             PdfLiteral(_,_) | Pdfxform(_,_,_,_) | VKern(_,_) | HKern(_,_) | PdfDest(_,_,_)
             | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | Mark(_,_) | PdfMatrix(_,_,_,_,_) => false,
             Raise(_,bx,_) => bx.has_ink(),
+            MoveRight(_,bx,_) => bx.has_ink(),
             Leaders(w,_) => w.has_ink(),
             Halign(_,_,ab,_) => {
                 for v in ab {
@@ -1131,6 +1138,7 @@ impl SimpleWI {
                 width
             }
             Raise(_,b,_) => b.width(),
+            MoveRight(i,n,_) => min(0,n.width() + i),
             Leaders(b,_) => b.width(), // TODO maybe
             Left(w,_) => w.width(),
             Right(w,_) => w.width(),
@@ -1199,7 +1207,8 @@ impl SimpleWI {
                 }
                 height + sk.base
             }
-            Raise(r,b,_) => b.height() + r,
+            Raise(r,b,_) => min(0,b.height() + r),
+            MoveRight(_,b,_) => b.height(),
             Left(w,_) => w.height(),
             Right(w,_) => w.height(),
             Middle(w,_) => w.height(),
@@ -1218,6 +1227,7 @@ impl SimpleWI {
             VRule(_,_,_,d) => d.unwrap_or(0),
             HRule(_,_,_,d) => d.unwrap_or(0),
             Raise(r,b,_) => max(b.depth() - r,0),
+            MoveRight(_,b,_) => b.depth(),
             Leaders(b,_) => b.depth(),
             Left(w,_) => w.depth(),
             Right(w,_) => w.depth(),
