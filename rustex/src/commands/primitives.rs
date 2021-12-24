@@ -2047,6 +2047,7 @@ pub static HFIL: SimpleWhatsit = SimpleWhatsit {
     name:"hfil",
     modes:|m| match m {
         TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     },
     _get: |tk,int| {
@@ -2058,6 +2059,7 @@ pub static HFILL: SimpleWhatsit = SimpleWhatsit {
     name:"hfill",
     modes:|m| match m {
         TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     },
     _get: |tk,int| {
@@ -2418,9 +2420,11 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
     name:"cr",
     expandable:false,
     _apply:|tk,int| {
-        match int.state.borrow_mut().aligns.last_mut() {
-            Some(o@Some(_)) => {
-                let ret = o.take().unwrap();
+        let align = int.state.borrow_mut().aligns.pop();
+        int.state.borrow_mut().aligns.push(None);
+        match align {
+            Some(Some(ret)) => {
+                int.insert_every(&EVERYCR);
                 ENDROW.try_with(|x| int.requeue(x.clone()));
                 tk.2 = ret;
                 Ok(())
@@ -2482,6 +2486,11 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         }
         _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
     }
+
+    /*if int.get_mode() == TeXMode::Displaymath {
+        unsafe { crate::LOG = true }
+        println!("Here!")
+    }*/
 
     int.new_group(GroupType::Box(betweenmode));
 
@@ -2681,7 +2690,9 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
 pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
     name:"halign",
-    modes: |x|  {x == TeXMode::Vertical || x == TeXMode::InternalVertical },
+    modes: |x|  {x == TeXMode::Vertical || x == TeXMode::InternalVertical
+        || x == TeXMode::Displaymath // only allowed if it's the only whatsit in the math list
+    },
     _get:|tk,int| {
         let width = match int.read_keyword(vec!("to"))? {
             Some(_) => Some(int.read_dimension()?),

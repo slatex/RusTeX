@@ -1,6 +1,7 @@
 pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
+pub mod pgfsvg;
 
 use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
@@ -616,13 +617,12 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
+        /*if tk.cmdname().to_string() == "add@amp" { //int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
              print!("");
-             unsafe {crate::LOG = true }
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
             println!("Here! {}",int.preview());
@@ -822,13 +822,45 @@ impl PrimitiveTeXCommand {
                 },
                 AssignableValue::Toks(i) => {
                     int.read_eq();
-                    let toks = int.read_balanced_argument(false,false,false,true)?;
+                    int.expand_until(false);
+                    let next = int.next_token();
+                    let toks = match next.catcode {
+                        CategoryCode::BeginGroup => {
+                            int.requeue(next);
+                            int.read_balanced_argument(false,false,false,true)?
+                        }
+                        CategoryCode::Escape | CategoryCode::Active => {
+                            let cmd = int.get_command(next.cmdname())?;
+                            match &*cmd.orig {
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),
+                                _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                            }
+                        }
+                        _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                    };
                     int.change_state(StateChange::Tokens(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
                     int.read_eq();
-                    let toks = int.read_balanced_argument(false,false,false,true)?;
+                    int.expand_until(false);
+                    let next = int.next_token();
+                    let toks = match next.catcode {
+                        CategoryCode::BeginGroup => {
+                            int.requeue(next);
+                            int.read_balanced_argument(false,false,false,true)?
+                        }
+                        CategoryCode::Escape | CategoryCode::Active => {
+                            let cmd = int.get_command(next.cmdname())?;
+                            match &*cmd.orig {
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),
+                                _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                            }
+                        }
+                        _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                    };
                     int.change_state(StateChange::Tokens(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global));
                     Ok(())
                 },

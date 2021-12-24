@@ -637,6 +637,7 @@ impl State {
 
 
 pub fn default_pdf_latex_state() -> State {
+    use crate::commands::pgfsvg::pgf_commands;
     let mut st = State::new();
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
@@ -646,18 +647,10 @@ pub fn default_pdf_latex_state() -> State {
     st = Interpreter::do_file_with_state(&pdftex_cfg,st);
     st = Interpreter::do_file_with_state(&latex_ltx,st);
     if crate::PGF_AS_SVG {
-        st.stacks.first_mut().unwrap().commands.insert("pgfsysdriver".into(), Some(PrimitiveTeXCommand::Def(
-            DefMacro {
-                long: false,
-                protected: false,
-                sig: Signature {
-                    arity: 0,
-                    endswithbrace: false,
-                    elems: vec!()
-                },
-                ret: crate::interpreter::string_to_tokens("pgfsys-scala.def".into())
-            }
-        ).as_command()));
+        for c in pgf_commands() {
+            let c = c.as_command();
+            st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
+        }
     }
     st
     /*
@@ -924,7 +917,7 @@ impl Interpreter<'_> {
     }
     pub fn state_color_push(&self,i:usize,color:TeXStr) {
         let stack = &mut self.state.borrow_mut().pdfcolorstacks;
-        let len = stack.len();
+        //let len = stack.len();
         stack.get_mut(i).unwrap().push(color);
     }
     pub fn state_color_push_stack(&self) -> usize {

@@ -100,7 +100,7 @@ impl TeXString {
 
 impl Display for TeXString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{}",self.to_string())
+        write!(f,"{}",display(self.0.as_slice()))
     }
 }
 impl From<Vec<u8>> for TeXString {

@@ -612,7 +612,18 @@ impl Whatsit {
             Grouped(g) => g.as_xml_internal(prefix),
             Par(p) => p.as_xml_internal(prefix),
             Box(b) => b.as_xml_internal(prefix),
-            Char(u,_,_) => TeXStr::new(&[*u]).to_string(),
+            Char(u,_,_) => {
+                let ret = if *u == 60 {
+                    TeXStr::new(&[38,108,116,59])
+                } else if *u == 62 {
+                    TeXStr::new(&[38,103,116,59])
+                } else if *u == 38 {
+                    TeXStr::new(&[38,97,109,112,59])
+                } else {
+                    TeXStr::new(&[*u])
+                };
+                ret.to_string()
+            },
             MathInfix(i) => i.as_xml_internal(prefix),
             Inserts(vs) => {
                 let mut ret = "\n".to_string() + &prefix + "<inserts>";

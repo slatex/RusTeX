@@ -1,11 +1,13 @@
-\ProvidesFileRCS{pgfsys-scala.def}
+\ProvidesFileRCS{pgfsys-rust.def}
 
-\def\scalatex@register#1{\expandafter\let\csname#1\expandafter\endcsname\csname scalatex!#1\endcsname}
+\def\rustex@register#1{\expandafter\let\csname pgfsys@#1\expandafter\endcsname\csname rustex!pgf!#1\endcsname}
 
-\scalatex@register{pgfsys@beginpicture}
-\scalatex@register{pgfsys@endpicture}
-\scalatex@register{pgfsys@hbox}
-\scalatex@register{pgfsys@typesetpicturebox}
+\rustex@register{beginpicture}
+\rustex@register{endpicture}
+\rustex@register{hbox}
+\rustex@register{typesetpicturebox}
+
+\expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
 
 
 % Copyright 2019 by Till Tantau
@@ -446,7 +448,7 @@
   \ifpgfpicture\pgf@sys@svg@gs{#1}\fi%
 }
 
-\def\pgf@sys@svg@colorpop{\special{color pop}}
+\def\pgf@sys@svg@colorpop{\pdfcolorstack 0 pop}
 
 
 % RGB
@@ -459,7 +461,7 @@
     \pgf@sys@svg@color@rgb#1,#2,#3\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push rgb #1 #2 #3}%
+    \pdfcolorstack 0 push{rg #1 #2 #3 rg #1 #2 #3}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@rgb#1#2#3{%
@@ -468,7 +470,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push rgb #1 #2 #3}%
+    \pdfcolorstack 0 push {rg #1 #2 #3 rg #1 #2 #3}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -482,7 +484,7 @@
     \pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push cmyk #1 #2 #3 #4}%
+    \pdfcolorstack 0 push {k #1 #2 #3 #4 k #1 #2 #3 #4}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@cmyk#1#2#3#4{%
@@ -491,7 +493,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push cmyk #1 #2 #3 #4}%
+    \pdfcolorstack 0 push {k #1 #2 #3 #4 k #1 #2 #3 #4}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -505,7 +507,7 @@
     \pgf@sys@svg@color@cmy#1,#2,#3\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}
   \else%
-    \special{color push cmyk #1 #2 #3 0}%
+    \pdfcolorstack 0 push {k #1 #2 #3 0 k #1 #2 #3 0}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@cmy#1#2#3{%
@@ -514,7 +516,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push cmyk #1 #2 #3 0}%
+    \pdfcolorstack 0 push {k #1 #2 #3 0 k #1 #2 #3 0}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -528,7 +530,7 @@
     \pgf@sys@svg@color@gray#1\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push gray #1}%
+    \pdfcolorstack 0 push{g #1 g #1}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@gray#1{%
@@ -537,7 +539,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \special{color push gray #1}%
+    \pdfcolorstack 0 push{g #1 g #1}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
