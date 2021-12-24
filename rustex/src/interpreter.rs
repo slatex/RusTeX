@@ -209,10 +209,15 @@ impl Interpreter<'_> {
     pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
         use crate::stomach::Whatsit as WI;
-        let mode = self.get_mode();
         use crate::catcodes::CategoryCode::*;
         use TeXMode::*;
         use PrimitiveTeXCommand::*;
+
+        let mode = self.get_mode();
+        /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/lf/lfx/subtyping.tex (207, 13)") {
+            unsafe { crate::LOG = true }
+            println!("Here!: {}",self.preview())
+        }*/
         match (next.catcode,mode) {
             (EOL,_) if next.name() == "EOF" => Ok(()),
             (Active | Escape,_) => {

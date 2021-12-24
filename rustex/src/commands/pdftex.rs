@@ -499,8 +499,13 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
             Ok(x) => x,
             _ => TeXErr!((int,None),"Error reading image {}",filename)
         }.decode() {
-            Ok(x) => x,
-            _ => TeXErr!((int,None),"Error decoding image {}",filename)
+            Ok(x) => Some(x),
+            _ => {
+                match file.extension() {
+                    Some(s) if s == "pdf" => None,
+                    _ => TeXErr!((int,None),"Error decoding image {}",filename)
+                }
+            }
         };
         int.state.borrow_mut().pdfximages.push(
             Pdfximage(rule.as_str().into(),attr,pagespec,colorspace,boxspec,file,image)

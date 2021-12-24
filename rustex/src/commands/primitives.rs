@@ -367,7 +367,6 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
 use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathInfix, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
-use crate::stomach::whatsits::SimpleWI::Penalty;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1769,8 +1768,34 @@ pub static VCENTER: ProvidesBox = ProvidesBox {
 
 pub static LASTBOX: ProvidesBox = ProvidesBox {
     _get: |_tk,int| {
-        match int.stomach.borrow().last_whatsit() {
-            Some(Whatsit::Box(tb)) => Ok(tb),
+        let last = int.stomach.borrow().last_whatsit();
+        match last {
+            Some(Whatsit::Box(tb)) => {
+                int.stomach.borrow_mut().drop_last();
+                Ok(tb)
+            },
+            Some(Whatsit::Simple(SimpleWI::Halign(skip,template,mut rows,source))) => {
+                int.stomach.borrow_mut().drop_last();
+                match rows.pop() {
+                    Some(AlignBlock::Block(mut v)) => {
+                        let mut ch : Vec<Whatsit> = vec!();
+                        for (mut c,s) in v {
+                            ch.append(&mut c);
+                            ch.push(Whatsit::Simple(SimpleWI::HSkip(s,None)))
+                        }
+                        int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Halign(skip,template,rows,source)));
+                        Ok(TeXBox::H(HBox {
+                            children: ch,
+                            spread: 0,
+                            _width: None,
+                            _height: None,
+                            _depth: None,
+                            rf: None
+                        }))
+                    }
+                    _ => todo!()
+                }
+            }
             _ => Ok(TeXBox::Void)
         }
     },
@@ -2444,8 +2469,30 @@ thread_local! {
         let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
         endtemplate.name_opt = "relax".into();
         endtemplate
-    }
+    };
+    pub static ENDTEMPLATESPAN : Token = {
+        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplatespan".into()),SourceReference::None,false);
+        endtemplate.name_opt = "relax".into();
+        endtemplate
+    };
 }
+
+pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
+    name:"span",
+    expandable:false,
+    _apply:|tk,int| {
+        let align = int.state.borrow_mut().aligns.pop();
+        int.state.borrow_mut().aligns.push(None);
+        match align {
+            Some(Some(v)) => {
+                int.requeue(ENDTEMPLATESPAN.try_with(|x| x.clone()).unwrap());
+                int.push_tokens(v);
+                Ok(())
+            }
+            _ => TeXErr!((int,Some(tk.0.clone())),"Misplaced \\span")
+        }
+    }
+};
 
 pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
     name:"crcr",
@@ -2551,6 +2598,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
     let mut boxes : Vec<AlignBlock> = vec!();
     let endtemplate = ENDTEMPLATE.try_with(|x| x.clone()).unwrap();
+    let endtemplatespan = ENDTEMPLATESPAN.try_with(|x| x.clone()).unwrap();
     let endrow = ENDROW.try_with(|x| x.clone()).unwrap();
 
     'table: loop {
@@ -2658,6 +2706,18 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 match next.catcode {
                     CategoryCode::Escape if next.char == endtemplate.char && next == endtemplate => {
                         break 'cell
+                    }
+                    CategoryCode::Escape if next.char == endtemplatespan.char && next == endtemplatespan => {
+                        columnindex += 1;
+                        if columns.len() <= columnindex {
+                            match recindex {
+                                Some(i) => columnindex = i,
+                                None => TeXErr!((int,None),"Invalid column index in align")
+                            }
+                        }
+                        if doheader {
+                            int.push_tokens(columns.get(columnindex).unwrap().0.clone())
+                        }
                     }
                     CategoryCode::Escape if next.char == endrow.char && next == endrow => {
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
@@ -3879,7 +3939,16 @@ pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontname",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|tk,int| {
+        let font = read_font(int)?;
+        let name = &font.file.name;
+        let str = match font.at {
+            None => name.to_string(),
+            Some(s) => name.to_string() + " at " + &dimtostr(s)
+        };
+        tk.2 = crate::interpreter::string_to_tokens(str.into());
+        Ok(())
+    }
 };
 
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
@@ -3974,12 +4043,6 @@ pub static SHOWLISTS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
     name:"showthe",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
-    name:"span",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };

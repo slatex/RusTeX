@@ -617,7 +617,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "add@amp" { //int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
+        /*if tk.cmdname().to_string() == "measure@" { //int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");

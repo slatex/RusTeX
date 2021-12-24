@@ -869,7 +869,7 @@ pub enum AlignBlock {
 
 //                      rule           attr            pagespec      colorspace         boxspec          file          image
 #[derive(Clone)]
-pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i32>,pub Option<i32>,pub Option<TeXStr>,pub PathBuf,pub DynamicImage);
+pub struct Pdfximage(pub TeXStr,pub Option<TeXStr>,pub Option<i32>,pub Option<i32>,pub Option<TeXStr>,pub PathBuf,pub Option<DynamicImage>);
 
 #[derive(Clone)]
 pub enum SimpleWI {
@@ -1100,7 +1100,8 @@ impl SimpleWI {
             HSkip(sk,_) => sk.base,
             MSkip(sk,_) => sk.base,
             Indent(i,_) => *i,
-            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.width() as i32 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,Some(img)),_) => img.width() as i32 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,_),_) => 65536,
             Halign(sk,_,bxs,_) => {
                 let mut width:i32 = 0;
                 for b in bxs {
@@ -1165,7 +1166,8 @@ impl SimpleWI {
             HKern(_,_) | Penalty(_) | HSkip(_,_) | HFill(_) | HFil(_) | VFil(_) | VFill(_)
                 | Hss(_) | Vss(_) | Indent(_,_) | MSkip(_,_) | PdfDest(_,_,_) | Mark(_,_)
                 | PdfMatrix(_,_,_,_,_)| PdfLiteral(_,_)| Pdfxform(_,_,_,_) => 0,
-            Img(Pdfximage(_,_,_,_,_,_,img),_) => img.height() as i32 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,Some(img)),_) => img.height() as i32 * 65536,
+            Img(Pdfximage(_,_,_,_,_,_,_),_) => 65536,
             VRule(_,h,_,_) => h.unwrap_or(0),
             HRule(_,h,_,_) => h.unwrap_or(26214),
             VKern(i,_) => *i,
