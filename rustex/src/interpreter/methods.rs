@@ -75,7 +75,7 @@ impl Interpreter<'_> {
                         kws = kws.iter().filter(|s| s.starts_with(&ret2)).map(|x| *x).collect();
                         ret = ret2;
                         tokens.push(next);
-                        if kws.is_empty() { break }
+                        //if kws.is_empty() { break }
                         if kws.len() == 1 && kws.contains(&ret.as_str()) { break }
                     } else {
                         if kws.len() == 1 && kws.contains(&ret.as_str()) {
@@ -89,6 +89,7 @@ impl Interpreter<'_> {
             }
         }
         if kws.len() >= 1 && kws.contains(&ret.as_str()) {
+            self.push_tokens(tokens[ret.len()..].to_vec());
             Ok(Some(ret))
         } else {
             self.push_tokens(tokens);
@@ -257,10 +258,17 @@ impl Interpreter<'_> {
     }
 
     pub fn read_balanced_argument(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
-        self.expand_until(false)?;
+        self.expand_until(true)?;
         let next = self.next_token();
         match next.catcode {
             CategoryCode::BeginGroup => {}
+            CategoryCode::Active | CategoryCode::Escape => {
+                let p = self.get_command(next.cmdname())?;
+                match &*p.orig {
+                    PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => {},
+                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+                }
+            }
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
         }
         self.read_token_list(expand, protect,the,allowunknowns)
@@ -509,6 +517,7 @@ impl Interpreter<'_> {
             Some(s) if s == "pt" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
             Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
             Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
+            Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
             Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f32 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f32 * f,istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),

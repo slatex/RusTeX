@@ -42,6 +42,7 @@ pub struct Jobinfo {
 
 impl Jobinfo {
     pub fn new(p : PathBuf) -> Jobinfo {
+        //let p = pathdiff::diff_paths(p.as_path(),std::env::current_dir().unwrap().as_path()).unwrap();
         Jobinfo {
             path:p,
             time:Local::now()
@@ -56,7 +57,7 @@ pub struct Interpreter<'a> {
     pub (in crate) state:RefCell<State>,
     pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
-    filestore:RefCell<FileStore>,
+    pub (in crate) filestore:RefCell<FileStore>,
     catcodes:RefCell<CategoryCodeScheme>,
     pub stomach:RefCell<&'a mut dyn Stomach>
 }
@@ -214,7 +215,7 @@ impl Interpreter<'_> {
         use PrimitiveTeXCommand::*;
 
         let mode = self.get_mode();
-        /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/lf/lfx/subtyping.tex (207, 13)") {
+        /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/img/int-partial-biview.tex (14, 65)") {
             unsafe { crate::LOG = true }
             println!("Here!: {}",self.preview())
         }*/

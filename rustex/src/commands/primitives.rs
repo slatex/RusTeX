@@ -489,11 +489,23 @@ pub static ESCAPECHAR: NumAssValue = NumAssValue {
 
 pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"input",
-    expandable:false,
-    _apply:|_rf,int| {
+    expandable:true,
+    _apply:|rf,int| {
+        use std::process::Command;
+        use std::{str,env};
         let filename = int.read_string()?;
         if filename.starts_with("|kpsewhich ") {
-            todo!()
+            let pwd = int.jobinfo.in_file().display().to_string();
+            let args = filename[11..].split(" ");
+            let out = Command::new("kpsewhich").current_dir(&pwd)
+                .env("PWD",&pwd).env("CD",&pwd)
+                .args(args.collect::<Vec<&str>>()).output().expect("kpsewhich not found!")
+                .stdout;
+            let ret = std::str::from_utf8(out.as_slice()).unwrap().trim();
+            int.requeue(int.eof_token());
+            int.insert_every(&EVERYEOF);
+            rf.2 = crate::interpreter::string_to_tokens(ret.into());
+            Ok(())
         } else {
             let file = int.get_file(&filename)?;
             int.push_file(file);
@@ -724,8 +736,8 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
         int.read_eq();
         let filename = int.read_string()?;
-        let file = int.get_file(&filename)?;
-
+        let mut file = int.get_file(&filename)?;
+        file.string = Some(TeXString(vec!()));
         Ok(ExecutableWhatsit {
             _apply: Box::new(move |nint: &Interpreter| {
                 nint.file_openout(num,file)
@@ -1030,9 +1042,10 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
-    _apply:|_,int| {
+    _apply:|tk,int| {
         use ansi_term::Colour::*;
         println!("Error: {}",int.preview());
+        TeXErr!((int,Some(tk.0.clone())),"Debug");
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\message")
@@ -2268,11 +2281,11 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"scantokens",
-    expandable:false,
+    expandable:true,
     _apply:|tk,int| {
         let tks = int.read_balanced_argument(false,false,false,true)?;
         let str = int.tokens_to_string(&tks);
-        int.push_string(tk.clone(),str);
+        int.push_string(tk.clone(),str,true);
         Ok(())
     }
 };

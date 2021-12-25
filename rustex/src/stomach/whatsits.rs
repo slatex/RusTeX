@@ -578,6 +578,36 @@ impl MathInfix {
             }
         }
     }
+    pub fn width(&self) -> i32 {
+        use MathInfix::*;
+        match self {
+            Over(a,b,o) => {
+                let mut upper : i32 = 0;
+                let mut lower : i32 = 0;
+                for w in a {upper += w.width()}
+                for w in b {lower += w.width()}
+                max(upper,lower)
+            }
+        }
+    }
+    pub fn height(&self) -> i32 {
+        use MathInfix::*;
+        match self {
+            Over(a,b,o) => {
+                let mut upper : i32 = 0;
+                let mut lower : i32 = 0;
+                for w in a {upper = max(upper,w.height())}
+                for w in b {lower += max(lower,w.height())}
+                upper + lower
+            }
+        }
+    }
+    pub fn depth(&self) -> i32 {
+        use MathInfix::*;
+        match self {
+            Over(a,b,o) => { 0 } // todo
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -676,8 +706,11 @@ impl Whatsit {
             Char(u,f,_) => f.get_width(*u as u16),
             Math(m) => m.width(),
             Par(p) => p.width(),
+            Float(s) => s.width(),
+            Inserts(s) => todo!(),
+            MathInfix(m) => m.width(),
             Ls(_) => unreachable!(),
-            _ => todo!()
+
         }
     }
     pub fn height(&self) -> i32 {
@@ -693,6 +726,9 @@ impl Whatsit {
             Math(m) => m.height(),
             Par(p) => p.height(),
             Ls(_) => unreachable!(),
+            Float(s) => s.height(),
+            Inserts(s) => todo!(),
+            MathInfix(m) => m.height(),
             _ => todo!()
         }
     }
@@ -709,6 +745,9 @@ impl Whatsit {
             Math(m) => m.depth(),
             Par(p) => p.depth(),
             Ls(_) => unreachable!(),
+            Float(s) => s.depth(),
+            Inserts(s) => todo!(),
+            MathInfix(m) => m.depth(),
             _ => todo!()
         }
     }

@@ -617,11 +617,12 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "measure@" { //int.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/sections/prelim/surface.tex (22,") {
+        /*if int.current_line().starts_with("/home/jazzpirate/work/Software/ext/sTeX/doc/stextest.tst (1, 26") && tk.cmdname().to_string() == "__stex_symdecl_get_symbol_from_string:n" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
+             unsafe{crate::LOG = true}
              print!("");
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {

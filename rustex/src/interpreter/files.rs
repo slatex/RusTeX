@@ -20,8 +20,8 @@ extern crate pathdiff;
 
 use std::collections::HashMap;
 
-pub(in crate::interpreter) struct FileStore {
-    pub files: HashMap<TeXStr,VFile>
+pub(in crate) struct FileStore {
+    pub files: HashMap<String,VFile>
 }
 
 use std::cell::RefMut;
@@ -37,7 +37,7 @@ impl VFile {
         } else {
             pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_ascii_uppercase()
         }).as_str().into();
-        let opt = filestore.files.remove(&simplename);
+        let opt = filestore.files.remove(&simplename.to_string());
         match opt {
             Some(vf) => vf,
             _ => {

@@ -711,7 +711,7 @@ impl Interpreter<'_> {
             TeXErr!((self,None),"File already open at {}",index)
         }*/
         let mouth = StringMouth::new_from_file(&self.catcodes.borrow(),&file);
-        self.filestore.borrow_mut().files.insert(file.id.clone(),file);
+        self.filestore.borrow_mut().files.insert(file.id.to_string(),file);
         state.infiles.insert(index,mouth);
         Ok(())
     }
@@ -757,9 +757,12 @@ impl Interpreter<'_> {
              _ => {
                  let mut state = self.state.borrow_mut();
                  match state.outfiles.get_mut(&index) {
-                     Some(f) => match f.string.borrow_mut() {
-                         x@None => *x = Some(s),
-                         Some(st) => *st += s
+                     Some(f) => {
+                         let string = f.string.borrow_mut();
+                         match string {
+                             None => f.string = Some(s),
+                             Some(st) => *st += s
+                         }
                      }
                      None => TeXErr!((self,None),"No file open at index {}",index)
                  }
@@ -769,8 +772,12 @@ impl Interpreter<'_> {
     }
     pub fn file_closeout(&self,index:u8) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
-        match state.outfiles.remove(&index) {
-            Some(vf) => {self.filestore.borrow_mut().files.insert(vf.id.clone(),vf);}
+        let file = state.outfiles.remove(&index);
+        match file {
+            Some(vf) => {
+                let mut fs = self.filestore.borrow_mut();
+                fs.files.insert(vf.id.to_string(),vf);
+            }
             None => ()//TeXErr!(self,"No file open at index {}",index)
         }
         Ok(())

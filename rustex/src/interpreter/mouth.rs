@@ -548,8 +548,11 @@ impl Mouths {
                                     }
                                     return Err(EOF {})
                                 }
-                                Mouth::File(_) | Mouth::FileLike(_) => {
+                                Mouth::File(_) => {
                                     print!(")");
+                                    return Err(EOF {})
+                                }
+                                Mouth::FileLike(_) => {
                                     return Err(EOF {})
                                 }
                                 _ => {}
@@ -599,12 +602,16 @@ impl Mouths {
         }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
     }
-    pub(in crate::interpreter::mouth) fn push_string(&mut self,catcodes:&CategoryCodeScheme,exp:Expansion,string : TeXString) {
+    pub(in crate::interpreter::mouth) fn push_string(&mut self,catcodes:&CategoryCodeScheme,exp:Expansion,string : TeXString,filelike:bool) {
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
         }
-        self.mouths.push(Mouth::Str(StringMouth::new(catcodes.newlinechar,exp,string)))
+        if filelike {
+            self.mouths.push(Mouth::FileLike(StringMouth::new(catcodes.newlinechar,exp,string)))
+        } else {
+            self.mouths.push(Mouth::Str(StringMouth::new(catcodes.newlinechar,exp,string)))
+        }
     }
 
     pub(in crate::interpreter) fn requeue(&mut self, tk : Token) {
@@ -685,10 +692,10 @@ impl Interpreter<'_> {
             });
         }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
-        self.filestore.borrow_mut().files.insert(file.id.clone(),file);
+        self.filestore.borrow_mut().files.insert(file.id.to_string(),file);
     }
-    pub fn push_string(&self,exp:Expansion,str:TeXString) {
-        self.mouths.borrow_mut().push_string(&self.state_catcodes(),exp,str)
+    pub fn push_string(&self,exp:Expansion,str:TeXString,filelike:bool) {
+        self.mouths.borrow_mut().push_string(&self.state_catcodes(),exp,str,filelike)
     }
     pub fn push_expansion(&self,exp:Expansion) {
         self.mouths.borrow_mut().push_expansion(exp)
@@ -727,7 +734,7 @@ impl Interpreter<'_> {
         self.insert_every(&crate::commands::primitives::EVERYEOF)
     }
 
-    fn eof_token(&self) -> Token {
+    pub fn eof_token(&self) -> Token {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
     }
     pub fn end_input(&self) {
