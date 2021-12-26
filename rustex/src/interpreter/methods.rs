@@ -279,6 +279,27 @@ impl Interpreter<'_> {
         self.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false));
     }
 
+    pub fn eat_relax(&self) {
+        use crate::commands::primitives::RELAX;
+        if self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    match self.state_get_command(&next.cmdname()).map(|x| x.orig) {
+                        Some(p)  => match &*p {
+                            PrimitiveTeXCommand::Primitive(r) if **r == RELAX => (),
+                            _ => self.requeue(next)
+                        }
+                        _ => self.requeue(next)
+                    }
+                }
+                _ => {
+                    self.requeue(next)
+                }
+            }
+        }
+    }
+
     // Boxes & Whatsits ----------------------------------------------------------------------------
 
     pub fn read_whatsit_group(&self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {

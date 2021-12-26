@@ -507,12 +507,22 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
             rf.2 = crate::interpreter::string_to_tokens(ret.into());
             Ok(())
         } else {
+           /* let log = unsafe{LOGSOON}.clone();
+            if filename.contains("stex.aux") {
+                if log > 0 {
+                    unsafe{crate::LOG = true}
+                } else {
+                    unsafe{LOGSOON +=1}
+                }
+            }*/
             let file = int.get_file(&filename)?;
             int.push_file(file);
             Ok(())
         }
     }
 };
+
+//pub static mut LOGSOON : u8 = 0;
 
 pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"begingroup",
@@ -721,7 +731,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
                 (wi._apply)(int)?;
                 Ok(())
             }
-            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM => {
+            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM || *x==PDFOBJ => {
                 int.requeue(next);
                 Ok(())
             }
@@ -737,7 +747,6 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         int.read_eq();
         let filename = int.read_string()?;
         let mut file = int.get_file(&filename)?;
-        file.string = Some(TeXString(vec!()));
         Ok(ExecutableWhatsit {
             _apply: Box::new(move |nint: &Interpreter| {
                 nint.file_openout(num,file)
@@ -820,6 +829,9 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
             None => TeXErr!((int,None),"\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
+        /*if int.current_line() == "/home/jazzpirate/work/Software/ext/sTeX/doc/manual.tex (157, 1)" {
+            unsafe { crate::LOG = true }
+        }*/
         let toks = int.file_read_line(index)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
@@ -848,9 +860,15 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\write")
         }
+        /*match int.state.borrow().outfiles.get(&num) {
+            Some(vf) if vf.id.to_string().to_uppercase().contains(".AUX") => {
+                println!("Here!")
+            }
+            _ => ()
+        }*/
 
-        let ret = int.read_token_list(true,true,false,true)?;
-        let string = int.tokens_to_string(&ret);
+        let ret = int.read_token_list(true,true,true,true)?;
+        let string = int.tokens_to_string(&ret) + "\n".into();
         return Ok(ExecutableWhatsit {
             _apply: Box::new(move |int| {
                 int.file_write(num,string)
@@ -1044,7 +1062,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         use ansi_term::Colour::*;
-        println!("Error: {}",int.preview());
+        //println!("Error: {}",int.preview());
         TeXErr!((int,Some(tk.0.clone())),"Debug");
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
@@ -1053,7 +1071,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
         let mut eh = int.state_tokens(-(ERRHELP.index as i32));
-        println!("Errhelp: {}",TokenList(&eh));
+       // println!("Errhelp: {}",TokenList(&eh));
         let rethelp = if !eh.is_empty() {
             eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
             //eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
@@ -1154,33 +1172,13 @@ fn expr_loop_inner(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric
     }
 }
 
-fn eatrelax(int : &Interpreter) {
-    if int.has_next() {
-        let next = int.next_token();
-        match next.catcode {
-            CategoryCode::Escape | CategoryCode::Active => {
-                match int.state_get_command(&next.cmdname()).map(|x| x.orig) {
-                    Some(p)  => match &*p {
-                        PrimitiveTeXCommand::Primitive(r) if **r == RELAX => (),
-                        _ => int.requeue(next)
-                    }
-                    _ => int.requeue(next)
-                }
-            }
-            _ => {
-                int.requeue(next)
-            }
-        }
-    }
-}
-
 pub static NUMEXPR: NumericCommand = NumericCommand {
     name:"numexpr",
     _getvalue: |int| {
         //println!("\\numexpr starts: >{}",int.preview());
         log!("\\numexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| i.read_number_i(false))?;
-        eatrelax(int);
+        int.eat_relax();
         //println!("\\numexpr: {}",ret);
         log!("\\numexpr: {}",ret);
         Ok(ret)
@@ -1193,7 +1191,7 @@ pub static DIMEXPR: NumericCommand = NumericCommand {
         //println!("\\dimexpr starts: >{}",int.preview());
         log!("\\dimexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
-        eatrelax(int);
+        int.eat_relax();
         //println!("\\dimexpr: {}",ret);
         log!("\\dimexpr: {}",ret);
         Ok(ret)
@@ -1206,7 +1204,7 @@ pub static GLUEEXPR: NumericCommand = NumericCommand {
         //println!("\\glueexpr starts: >{}",int.preview());
         log!("\\glueexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
-        eatrelax(int);
+        int.eat_relax();
         //println!("\\glueexpr: {}",ret);
         log!("\\glueexpr: {}",ret);
         Ok(ret)
@@ -1219,7 +1217,7 @@ pub static MUEXPR: NumericCommand = NumericCommand {
         //println!("\\muexpr starts: >{}",int.preview());
         log!("\\muexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
-        eatrelax(int);
+        int.eat_relax();
         //println!("\\muexpr: {}",ret);
         log!("\\muexpr: {}",ret);
         Ok(ret)
@@ -1681,6 +1679,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
         };
+        int.eat_relax();
         let ret = int.read_whatsit_group(BoxMode::H,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::H(HBox {
@@ -1703,6 +1702,7 @@ pub static VBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
         };
+        int.eat_relax();
         let ret = int.read_whatsit_group(BoxMode::V,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::V(VBox {

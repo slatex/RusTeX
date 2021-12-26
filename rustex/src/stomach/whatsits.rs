@@ -568,7 +568,17 @@ pub enum MathInfix {
 }
 impl MathInfix {
     pub fn as_xml_internal(&self,prefix: String) -> String {
-        todo!()
+        use MathInfix::*;
+        match self {
+            Over(a,b,_) => {
+                let mut ret = "<over><first>".to_string();
+                for w in a { ret += &w.as_xml_internal(prefix.clone())}
+                ret += "</first><second>";
+                for w in b { ret += &w.as_xml_internal(prefix.clone())}
+                ret += "</second></over>";
+                ret
+            }
+        }
     }
     pub fn set(self,first:Vec<Whatsit>,second:Vec<Whatsit>) -> MathInfix {
         use MathInfix::*;

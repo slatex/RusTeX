@@ -178,13 +178,12 @@ pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
             unsafe { crate::LOG = true };
         }*/
         let file = int.get_file(&str.to_utf8())?;
-        match &file.string {
+        match &*file.string.borrow() {
             None => (),
             Some(s) => rf.2 = crate::interpreter::tokenize(
                 s.len().to_string().into(),&crate::catcodes::OTHER_SCHEME
             )
         };
-        int.filestore.borrow_mut().files.insert(file.id.to_string(),file);
         Ok(())
     }
 };
@@ -563,14 +562,19 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
         }
         let tks = int.read_balanced_argument(true,false,false,false)?;
         let str = int.tokens_to_string(&tks);
-        let file = int.get_file(&str.to_utf8())?;
-        match &file.string {
-            None => todo!(),
+        //let file = int.get_file(&str.to_utf8())?;
+        let file = int.get_file(&str.to_string())?;
+        match &*int.get_file(&str.to_utf8())?.string.borrow() {
+            None => {
+                let md = md5::compute("");
+                let str = format!("{:X}", md);
+                rf.2 = crate::interpreter::string_to_tokens(str.into());
+                Ok(())
+            },
             Some(s) => {
                 let md = md5::compute(s.to_utf8());
                 let str = format!("{:X}", md);
                 rf.2 = crate::interpreter::string_to_tokens(str.into());
-                int.filestore.borrow_mut().files.insert(file.id.to_string(),file);
                 Ok(())
             }
         }

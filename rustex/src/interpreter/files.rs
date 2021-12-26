@@ -12,7 +12,7 @@ pub enum VFileBase {
 #[derive(Clone)]
 pub struct VFile {
     pub source:VFileBase,
-    pub(in crate) string: Option<TeXString>,
+    pub(in crate) string: RefCell<Option<TeXString>>,
     pub(in crate) id : TeXStr
 }
 
@@ -20,43 +20,41 @@ extern crate pathdiff;
 
 use std::collections::HashMap;
 
-pub(in crate) struct FileStore {
-    pub files: HashMap<String,VFile>
-}
 
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
+use std::rc::Rc;
 use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
 
 impl VFile {
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut RefMut<FileStore>) -> VFile {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut HashMap<TeXStr,Rc<VFile>>) -> Rc<VFile> {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename : TeXStr = (if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else if fp.to_str().unwrap().starts_with("nul:") {
             fp.to_str().unwrap().into()
         } else {
-            pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_ascii_uppercase()
+            pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_string()//.to_ascii_uppercase()
         }).as_str().into();
-        let opt = filestore.files.remove(&simplename.to_string());
-        match opt {
-            Some(vf) => vf,
+        let opt = filestore.get(&simplename);
+        let vfile = match opt {
+            Some(vf) => return vf.clone(),
             _ => {
                 if simplename.to_string() == "<texmf>/LANGUAGE.DAT" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:Some(LANGUAGE_DAT.into()),
+                        string:RefCell::new(Some(LANGUAGE_DAT.into())),
                         id:simplename,
                     }
                 } else if simplename.to_string() == "<texmf>/HYPHEN.CFG" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:Some(HYPHEN_CFG.into()),
+                        string:RefCell::new(Some(HYPHEN_CFG.into())),
                         id:simplename
                     }
-                } else if simplename.to_string().contains("PGFSYS-RUST.DEF") && crate::PGF_AS_SVG {
+                } else if simplename.to_string().contains("pgfsys-rust.def") && crate::PGF_AS_SVG {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:Some(PGFSYS_RUST.into()),
+                        string:RefCell::new(Some(PGFSYS_RUST.into())),
                         id:"<texmf>/PGFSYS-RUST.DEF".into()
                     }
                 } /* else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
@@ -68,17 +66,19 @@ impl VFile {
                 } */ else {
                     VFile {
                         source:VFileBase::Real(fp.to_str().unwrap().into()),
-                        string:if fp.exists() {
+                        string:RefCell::new(if fp.exists() {
                             fs::read(fp).ok().map(|x| x.into())
                         } else if simplename.to_string() == "nul:" {
                             Some("".into())
-                        } else {None},
+                        } else {None}),
                         id:simplename
                     }
                 }
             }
-        }
-
+        };
+        let ret = Rc::new(vfile);
+        filestore.insert(ret.id.clone(),ret.clone());
+        ret
         /*
         int.state.as_mut().expect("Interpreter currently has no state!").files.entry(simplename.clone()).or_insert_with(||{
 

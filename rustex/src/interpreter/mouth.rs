@@ -2,6 +2,7 @@
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
+use std::rc::Rc;
 use std::str::from_utf8;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
@@ -111,24 +112,28 @@ pub struct StringMouth {
 
 impl StringMouth {
     pub(in crate::interpreter) fn is_eof(&self) -> bool {
-        self.peekbuffer.is_none() && self.charbuffer.is_none() && (self.string.is_none() || self.string.as_ref().unwrap().is_empty()) && self.allstrings.is_empty()
+        self.iseof//self.peekbuffer.is_none() && self.charbuffer.is_none() && (self.string.is_none()/* || self.string.as_ref().unwrap().is_empty()*/) && self.allstrings.is_empty()
     }
     pub(in crate::interpreter) fn read_line(&mut self, catcodes:&CategoryCodeScheme) -> Vec<Token> {
         match &self.string {
             None => {
-                if self.allstrings.is_empty() { vec!() } else {
+                if self.allstrings.is_empty() {
+                    self.iseof = true;
+                    vec!()
+                } else {
                     let string = self.allstrings.pop().unwrap();
                     self.string = Some(string);
                     self.read_line(catcodes)
                 }
             }
-            Some(s) if s.is_empty() => {
+            /*Some(s) if s.is_empty() => {
+                self.string = None;
                 if self.allstrings.is_empty() { vec!() } else {
                     let string = self.allstrings.pop().unwrap();
                     self.string = Some(string);
                     self.read_line(catcodes)
                 }
-            }
+            }*/
             Some(s) => {
                 let mut ret : Vec<Token> = vec!();
                 for c in s.0.iter() {
@@ -169,51 +174,69 @@ impl StringMouth {
         }
         match ret.last() {
             Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
-            Some(tk) if tk.char == 0 && match tk.name() {s if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();}
+            Some(tk) if tk.char == 0 && match tk.name() {s if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();self.iseof=true}
+            None => self.iseof = true,
             _ => ()
         }
         ret
     }
-    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&VFile) -> StringMouth {
+    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&Rc<VFile>) -> StringMouth {
         use crate::interpreter::files::VFileBase;
         let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
             VFileBase::Real(p) => p.clone(),
             VFileBase::Virtual => file.id.clone()
         });
-        let string : TeXString = match &file.string {
-            Some(s) => s.clone(),
-            None => "".into()
+        let string = match &*file.string.borrow() {
+            Some(s) => Some(s.clone()),
+            None => None
         };
         StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(newlinechar:u8, source:Expansion, string : TeXString) -> StringMouth {
-        StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),string)
+        StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),Some(string))
     }
-    fn new_i(newlinechar:u8, source:StringMouthSource, string : TeXString) -> StringMouth {
-        let it = if string.is_empty() {
-            vec![]
-        } else if newlinechar==u8::MAX {
-            vec![string]
-        } else {
-            let mut ret = string.split(newlinechar);
-            /*match ret.last() {
-                Some(s) if s.is_empty() => { ret.pop(); }
-                _ => (),
-            }*/
-            ret.reverse();
-            ret
-        };
-        StringMouth {
-            mouth_state:MouthState::N,
-            allstrings:it,
-            string:None,
-            peekbuffer:None,
-            atendofline:None,
-            line:0,
-            pos:0,
-            charbuffer: None,
-            source,
-            iseof: false
+    fn new_i(newlinechar:u8, source:StringMouthSource, string : Option<TeXString>) -> StringMouth {
+        match string {
+            Some(string) => {
+                let it = if string.is_empty() {
+                    vec![]
+                } else if newlinechar==u8::MAX {
+                    vec![string]
+                } else {
+                    let mut ret = string.split(newlinechar);
+                    /*match ret.last() {
+                        Some(s) if s.is_empty() => { ret.pop(); }
+                        _ => (),
+                    }*/
+                    ret.reverse();
+                    ret
+                };
+                StringMouth {
+                    mouth_state:MouthState::N,
+                    allstrings:it,
+                    string:None,
+                    peekbuffer:None,
+                    atendofline:None,
+                    line:0,
+                    pos:0,
+                    charbuffer: None,
+                    source,
+                    iseof: false
+                }
+            }
+            None =>
+                StringMouth {
+                    mouth_state:MouthState::N,
+                    allstrings:vec!(),
+                    string:None,
+                    peekbuffer:None,
+                    atendofline:None,
+                    line:0,
+                    pos:0,
+                    charbuffer: None,
+                    source,
+                    iseof: true
+                }
         }
     }
     fn do_line(&mut self,endlinechar:u8) -> bool {
@@ -595,7 +618,7 @@ impl Mouths {
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&VFile) {
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&Rc<VFile>) {
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
@@ -683,7 +706,7 @@ impl Interpreter<'_> {
             None => "".into()
         }
     }
-    pub fn push_file(&self,file:VFile) {
+    pub fn push_file(&self,file:Rc<VFile>) {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
             print!("\n{}", match file.source {
@@ -692,7 +715,7 @@ impl Interpreter<'_> {
             });
         }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
-        self.filestore.borrow_mut().files.insert(file.id.to_string(),file);
+        //self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
     pub fn push_string(&self,exp:Expansion,str:TeXString,filelike:bool) {
         self.mouths.borrow_mut().push_string(&self.state_catcodes(),exp,str,filelike)

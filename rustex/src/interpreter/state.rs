@@ -184,7 +184,7 @@ use std::rc::Rc;
 pub struct State {
     stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>,
-    pub(in crate) outfiles:HashMap<u8,VFile>,
+    pub(in crate) outfiles:HashMap<u8,Rc<VFile>>,
     pub(in crate) infiles:HashMap<u8,StringMouth>,
     pub(in crate) incs : u8,
     fontfiles: HashMap<TeXStr,Rc<FontFile>>,
@@ -207,6 +207,7 @@ pub struct State {
     pub(in crate) botmark : Vec<Token>,
     pub(in crate) splitfirstmark : Vec<Token>,
     pub(in crate) splitbotmark : Vec<Token>,
+    pub (in crate) filestore:HashMap<TeXStr,Rc<VFile>>,
 }
 
 // sudo apt install libkpathsea-dev
@@ -230,7 +231,8 @@ impl State {
             indocument_line:None,indocument:false,insetbox:false,
             vadjust:vec!(),inserts:HashMap::new(),
             pagegoal:0,pdfximages:vec!(),aligns:vec!(),
-            topmark:vec!(),botmark:vec!(),firstmark:vec!(),splitbotmark:vec!(),splitfirstmark:vec!()
+            topmark:vec!(),botmark:vec!(),firstmark:vec!(),splitbotmark:vec!(),splitfirstmark:vec!(),
+            filestore:HashMap::new()
         }
     }
 
@@ -383,7 +385,7 @@ impl State {
     pub fn tokens(&self,index:i32) -> Vec<Token> {
         for sf in self.stacks.iter().rev() {
             match sf.toks.get(&index) {
-                Some(r) => return r.clone(),
+                Some(r) => return r.iter().map(|x| x.cloned()).collect(),
                 _ => {}
             }
         }
@@ -705,13 +707,12 @@ impl Interpreter<'_> {
             }
         }
     }
-    pub fn file_openin(&self,index:u8,file:VFile) -> Result<(),TeXError> {
+    pub fn file_openin(&self,index:u8,file:Rc<VFile>) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         /*if state.infiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
         }*/
         let mouth = StringMouth::new_from_file(&self.catcodes.borrow(),&file);
-        self.filestore.borrow_mut().files.insert(file.id.to_string(),file);
         state.infiles.insert(index,mouth);
         Ok(())
     }
@@ -725,8 +726,9 @@ impl Interpreter<'_> {
         }
         Ok(())
     }
-    pub fn file_openout(&self,index:u8,file:VFile) -> Result<(),TeXError> {
+    pub fn file_openout(&self,index:u8,file:Rc<VFile>) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
+        file.string.borrow_mut().take();
         /*if state.outfiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
         }*/
@@ -747,20 +749,20 @@ impl Interpreter<'_> {
             }
             18 => todo!("{}",index),
             255 => {
-                println!("{}",Black.on(Blue).paint(s.to_utf8()));
+                print!("{}",Black.on(Blue).paint(s.to_utf8()));
                 Ok(())
             }
             i if !self.state.borrow().outfiles.contains_key(&i) => {
-                println!("{}",Black.on(Blue).paint(s.to_utf8()));
+                print!("{}",Black.on(Blue).paint(s.to_utf8()));
                 Ok(())
             }
              _ => {
                  let mut state = self.state.borrow_mut();
                  match state.outfiles.get_mut(&index) {
                      Some(f) => {
-                         let string = f.string.borrow_mut();
-                         match string {
-                             None => f.string = Some(s),
+                         let mut string = f.string.borrow_mut();
+                         match &mut*string {
+                             None => {string.insert(s);},
                              Some(st) => *st += s
                          }
                      }
@@ -774,9 +776,9 @@ impl Interpreter<'_> {
         let mut state = self.state.borrow_mut();
         let file = state.outfiles.remove(&index);
         match file {
-            Some(vf) => {
-                let mut fs = self.filestore.borrow_mut();
-                fs.files.insert(vf.id.to_string(),vf);
+            Some(_) => {
+                //let mut fs = self.state.borrow_mut().filestore.borrow_mut();
+                //fs.files.insert(vf.id.clone(),vf);
             }
             None => ()//TeXErr!(self,"No file open at index {}",index)
         }

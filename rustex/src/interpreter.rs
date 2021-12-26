@@ -12,7 +12,7 @@ use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
 use std::path::{Path, PathBuf};
 use crate::commands::{TeXCommand,PrimitiveTeXCommand};
-use crate::interpreter::files::{FileStore, VFile};
+use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State, StateChange};
 use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich};
@@ -57,7 +57,6 @@ pub struct Interpreter<'a> {
     pub (in crate) state:RefCell<State>,
     pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
-    pub (in crate) filestore:RefCell<FileStore>,
     catcodes:RefCell<CategoryCodeScheme>,
     pub stomach:RefCell<&'a mut dyn Stomach>
 }
@@ -114,10 +113,16 @@ impl Interpreter<'_> {
         kpsewhich(filename,self.jobinfo.in_file())
     }
 
-    pub fn get_file(&self,filename : &str) -> Result<VFile,TeXError> {
+    pub fn get_file(&self,filename : &str) -> Result<Rc<VFile>,TeXError> {
+        /*if filename.contains("tetrapod") {
+            unsafe {crate::LOG = true}
+            println!("Here!")
+        }*/
         match self.kpsewhich(filename) {
             None =>TeXErr!((self,None),"File {} not found",filename),
-            Some(p) => Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut()))
+            Some(p) => {
+                Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore))
+            }
         }
     }
     pub fn with_state(s : State,stomach: &mut dyn Stomach) -> Interpreter {
@@ -126,16 +131,13 @@ impl Interpreter<'_> {
             state:RefCell::new(s),
             jobinfo:Jobinfo::new(PathBuf::new()),
             mouths:RefCell::new(Mouths::new()),
-            filestore:RefCell::new(FileStore {
-                files:HashMap::new()
-            }),
             catcodes:RefCell::new(catcodes),
             stomach:RefCell::new(stomach)
         }
     }
     pub fn do_file(&mut self,p:&Path) {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:VFile  = VFile::new(p,self.jobinfo.in_file(),&mut self.filestore.borrow_mut());
+        let vf:Rc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         while self.has_next() {
@@ -165,7 +167,7 @@ impl Interpreter<'_> {
         let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut());
         int.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:VFile  = VFile::new(p,int.jobinfo.in_file(),&mut int.filestore.borrow_mut());
+        let vf:Rc<VFile>  = VFile::new(p,int.jobinfo.in_file(),&mut int.state.borrow_mut().filestore);
         int.push_file(vf);
         int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
@@ -197,6 +199,11 @@ impl Interpreter<'_> {
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
         match self.state.borrow().get_command(s) {
             Some(p) => Ok(p),
+            None if s.len() == 0 => {
+                let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
+                let tk = Token::new(self.catcodes.borrow().endlinechar,catcode,None,SourceReference::None,true);
+                Ok(PrimitiveTeXCommand::Char(tk).as_command())
+            }
             None if s.len() == 1 => {
                 let char = *s.iter().first().unwrap();
                 let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
