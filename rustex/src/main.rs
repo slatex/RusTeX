@@ -1,5 +1,6 @@
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
+use std::ops::Mul;
 use std::path::{Path, PathBuf};
 use rustex::interpreter::dimensions::{dimtostr, round_f};
 use rustex::interpreter::Interpreter;
@@ -83,9 +84,13 @@ fn main() {
                 str.push(' ')
             } else { break }
         }
+        //use fixed::types::I0F32;
         do_other(&str)
         /*for i in 1..100 {
-            println!("{}  {}",dimtostr(i),dimtostr(round_f(i as f32 / 2.0)))
+            let div = i / 5;
+            let numexp = ((i as f32) / 5.0).round() as i32;
+            let dot = (((0.2 as f32 * 65536.0).floor() * (i as f32)) / 65536.0).floor() as i32;
+            println!("{} {} {} {} {} {} {}",i,div,numexp,dot,dimtostr(dot),dimtostr(div),dimtostr(numexp))
         }*/
     }
     //do_thesis()

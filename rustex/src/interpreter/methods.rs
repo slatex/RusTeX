@@ -547,7 +547,7 @@ impl Interpreter<'_> {
             Some(o) => todo!("{}",o),
             None => {
                 let r = self.read_dimension()?;
-                Ok(SkipDim::Pt(round_f(r as f32 * f)))
+                Ok(SkipDim::Pt(((r as f32 * (f * 65536.0).floor()) / 65536.0).floor() as i32))
             }
                 //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
@@ -617,7 +617,10 @@ impl Interpreter<'_> {
             Some(s) if s == "fil" => Ok(MuSkipDim::Fil(round_f(pt(f)))),
             Some(s) if s == "fill" => Ok(MuSkipDim::Fill(round_f(pt(f)))),
             Some(s) if s == "filll" => Ok(MuSkipDim::Filll(round_f(pt(f)))),
-            None => Ok(MuSkipDim::Mu(self.read_dimension()?)),
+            None => {
+                let r = self.read_dimension()?;
+                Ok(MuSkipDim::Mu(((r as f32 * (f * 65536.0).floor()) / 65536.0).floor() as i32))
+            }
             _ => unreachable!()
             //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }

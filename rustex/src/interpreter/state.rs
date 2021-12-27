@@ -467,6 +467,9 @@ impl State {
                 }
             }
             StateChange::Cs(name,cmd,global) => {
+                if name.to_string() == "blx@dorangecmds" {
+                    println!("Here!")
+                }
                 if global {
                     for s in self.stacks.iter_mut() {
                         s.commands.remove(&name);

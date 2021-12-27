@@ -629,11 +629,8 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match num {
-            Numeric::Int(i) => StateChange::Register(index, ((i as f32) / (div.get_i32() as f32)).floor() as i32, global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match (num / div.as_int()) {
-                Numeric::Dim(i) => i,
-                _ => unreachable!()
-            },global),
+            Numeric::Int(i) => StateChange::Register(index, i / div.get_i32(), global),
+            Numeric::Dim(i) => StateChange::Dimen(index, i / div.get_i32(),global),
             _ => todo!()
         };
         int.change_state(ch);

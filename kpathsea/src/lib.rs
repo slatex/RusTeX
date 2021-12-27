@@ -106,7 +106,7 @@ impl Kpaths {
         let alt_suffix_cstr = unsafe { CStr::from_ptr(*alt_suffix_ptr) };
         let alt_suffix = alt_suffix_cstr.to_str().unwrap();
 
-        if filename.get(filename.len()-alt_suffix.len()..) == Some(alt_suffix) {
+        if filename.len() >= alt_suffix.len() && filename.get(filename.len()-alt_suffix.len()..) == Some(alt_suffix) {
           return format_type as kpse_file_format_type;
         }
 

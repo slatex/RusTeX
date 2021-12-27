@@ -198,7 +198,7 @@ pub fn round(input : i32) -> f64 {
     }
 }
 pub fn round_f(f:f32) -> i32 {
-    f.floor() as i32//if f < 1.0 {0} else {f.round() as i32 }
+    f.round() as i32//floor() as i32//if f < 1.0 {0} else {f.round() as i32 }
 }
 impl Numeric {
     fn as_string(&self) -> String {
