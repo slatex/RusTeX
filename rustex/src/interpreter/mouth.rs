@@ -112,7 +112,7 @@ pub struct StringMouth {
 
 impl StringMouth {
     pub(in crate::interpreter) fn is_eof(&self) -> bool {
-        self.iseof//self.peekbuffer.is_none() && self.charbuffer.is_none() && (self.string.is_none()/* || self.string.as_ref().unwrap().is_empty()*/) && self.allstrings.is_empty()
+        self.iseof
     }
     pub(in crate::interpreter) fn read_line(&mut self, catcodes:&CategoryCodeScheme) -> Vec<Token> {
         match &self.string {
@@ -126,14 +126,6 @@ impl StringMouth {
                     self.read_line(catcodes)
                 }
             }
-            /*Some(s) if s.is_empty() => {
-                self.string = None;
-                if self.allstrings.is_empty() { vec!() } else {
-                    let string = self.allstrings.pop().unwrap();
-                    self.string = Some(string);
-                    self.read_line(catcodes)
-                }
-            }*/
             Some(s) => {
                 let mut ret : Vec<Token> = vec!();
                 for c in s.0.iter() {
@@ -413,6 +405,7 @@ impl StringMouth {
             let (char,l,p) = self.next_char(catcodes.endlinechar).unwrap();
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
+                    self.mouth_state = MouthState::M;
                     match &self.string {
                         Some(s) => {
                             if self.pos == s.len() {
@@ -495,11 +488,6 @@ impl StringMouth {
             }
             ret
         }
-    }
-    fn peek(&mut self,catcodes:&CategoryCodeScheme) -> Token {
-        let next = self.pop_next(catcodes,true);
-        self.peekbuffer = Some(next.clone());
-        next
     }
     fn preview(&self) -> TeXString {
         let mut rest : Vec<u8> = match self.string.as_ref() {
