@@ -10,6 +10,7 @@ use crate::stomach::whatsits::{ActionSpec, Pdfximage, SimpleWI, Whatsit, WIGroup
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    int.expand_until(true);
     let ret = match int.read_keyword(vec!("attr"))? {
         Some(_) => {
             int.skip_ws();
@@ -21,13 +22,14 @@ fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
 }
 
 fn read_rule_spec(int:&Interpreter )-> Result<String,TeXError> {
-    int.skip_ws();
+    int.expand_until(true);
     match int.read_keyword(vec!("width", "height", "depth"))? {
         Some(s) => Ok((s + " " + &dimtostr(int.read_dimension()?) + " " + &read_rule_spec(int)?.to_string()).into()),
         None => Ok("".into())
     }
 }
 fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+    int.expand_until(true);
     let ret = match int.read_keyword(vec!("resources"))? {
         Some(_) => {
             int.skip_ws();
@@ -476,6 +478,8 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfximage",
     expandable:false,
     _apply:|tk,int| {
+        //println!("Here! >>{}",int.preview());
+        //unsafe {crate::LOG = true}
         let rule = read_rule_spec(int)?;
         let attr = read_attrspec(int)?;
         let pagespec = match int.read_keyword(vec!("page"))? {

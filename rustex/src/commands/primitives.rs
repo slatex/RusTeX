@@ -1496,7 +1496,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
 pub fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
     int.expand_until(true)?;
     let tk = int.read_command_token()?;
-    let cmd = int.get_command(tk.cmdname())?;
+    let cmd = int.get_command(&tk.cmdname())?;
     match &*cmd.orig {
         PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
             Ok(f.clone()),
@@ -1950,7 +1950,7 @@ pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => (),
                 CategoryCode::Escape | CategoryCode::Active => {
-                    let p = int.state_get_command(next.cmdname());
+                    let p = int.state_get_command(&next.cmdname());
                     match p {
                         Some(p) if p.expandable(true) => {
                             p.expand(next,int)?;
@@ -2535,7 +2535,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     match bg.catcode {
         CategoryCode::BeginGroup => (),
         CategoryCode::Escape | CategoryCode::Active => {
-            let cmd = int.get_command(bg.cmdname())?;
+            let cmd = int.get_command(&bg.cmdname())?;
             match &*cmd.orig {
                 PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::BeginGroup => (),
                 _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
@@ -2569,7 +2569,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             CategoryCode::Parameter if !inV => inV = true,
             CategoryCode::Parameter => TeXErr!((int,Some(next)),"Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
-                let proc = int.state_get_command(next.cmdname());
+                let proc = int.state_get_command(&next.cmdname());
                 match proc {
                     None => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
                     Some(p) => match &*p.orig {
@@ -2588,7 +2588,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             let next = int.next_token();
                             match next.catcode {
                                 CategoryCode::Escape | CategoryCode::Active => {
-                                    let p = int.get_command(next.cmdname())?;
+                                    let p = int.get_command(&next.cmdname())?;
                                     if p.expandable(true) {
                                         p.expand(next,int)?
                                     } else {
@@ -2618,7 +2618,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 CategoryCode::EndGroup => break 'table,
                 CategoryCode::Space => (),
                 CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = int.state_get_command(next.cmdname());
+                    let cmd = int.state_get_command(&next.cmdname());
                     match cmd {
                         None => {
                             int.requeue(next);
@@ -2661,7 +2661,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 match next.catcode {
                     CategoryCode::Space => (),
                     CategoryCode::Active | CategoryCode::Escape => {
-                        let cmd = int.state_get_command(next.cmdname());
+                        let cmd = int.state_get_command(&next.cmdname());
                         match cmd {
                             None => {
                                 int.requeue(next);
@@ -2832,7 +2832,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
             Some(_) => todo!(),
             None => {
                 let cmdtk = int.read_command_token()?;
-                let cmd = int.get_command(cmdtk.cmdname())?;
+                let cmd = int.get_command(&cmdtk.cmdname())?;
                 let content = match &*cmd.orig {
                     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == HBOX => {
                         Whatsit::Box((HBOX._get)(&cmdtk,int)?)

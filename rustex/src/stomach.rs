@@ -607,7 +607,7 @@ impl NoShipoutRoutine {
                 let mut freefloats: Vec<TeXStr> = vec!();
                 for tk in &df.ret {
                     match (tk.catcode, tk.cmdname()) {
-                        (_, s) if s == "@elt" => (),
+                        (_, s) if &s == "@elt" => (),
                         (Escape, o) => freefloats.push(o.clone()),
                         _ => ()
                     }
@@ -637,9 +637,9 @@ impl NoShipoutRoutine {
             PrimitiveTeXCommand::Def(df) => {
                 for tk in &df.ret {
                     match (tk.catcode, tk.cmdname()) {
-                        (_, s) if s == "@elt" => (),
+                        (_, s) if &s == "@elt" => (),
                         (Escape, o) => {
-                            let p = &*int.state_get_command(o).unwrap().orig;
+                            let p = &*int.state_get_command(&o).unwrap().orig;
                             match p {
                                 PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
                                 _ => panic!("Weird float setup")

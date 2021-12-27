@@ -138,7 +138,7 @@ pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
 pub fn getChar(tk:Token,int:&Interpreter) -> Token {
     match tk.catcode {
         CategoryCode::Active | CategoryCode::Escape => {
-            match int.state_get_command(tk.cmdname()) {
+            match int.state_get_command(&tk.cmdname()) {
                 Some(p) => match &*p.orig {
                     PrimitiveTeXCommand::Char(t) => {
                         getChar(t.clone(),int)

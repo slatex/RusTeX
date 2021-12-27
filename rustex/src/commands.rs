@@ -617,7 +617,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if /*int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31587") &&*/ tk.cmdname().to_string() == "DeclareRangeCommands" { // {
+        /*if /*int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31587") &&*/ tk.cmdname().to_string() == "beamer@@decodefind" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");
@@ -831,7 +831,7 @@ impl PrimitiveTeXCommand {
                             int.read_balanced_argument(false,false,false,true)?
                         }
                         CategoryCode::Escape | CategoryCode::Active => {
-                            let cmd = int.get_command(next.cmdname())?;
+                            let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
                                 PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
                                 PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),
@@ -853,7 +853,7 @@ impl PrimitiveTeXCommand {
                             int.read_balanced_argument(false,false,false,true)?
                         }
                         CategoryCode::Escape | CategoryCode::Active => {
-                            let cmd = int.get_command(next.cmdname())?;
+                            let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
                                 PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
                                 PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),

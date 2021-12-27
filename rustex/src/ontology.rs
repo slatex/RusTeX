@@ -71,10 +71,10 @@ impl Token {
     pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:SourceReference,expand:bool) -> Token {
         let name = match name_opt {
             Some(uv) => uv,
-            None => match catcode {
+            None => TeXStr::new(&[char]) /*match catcode {
                 CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
                 _ => TeXStr::new(&[char])
-            }
+            } */
         };
         Token {
             char,
@@ -92,16 +92,11 @@ impl Token {
     pub fn name(&self) -> &TeXStr {
         &self.name_opt
     }
-    pub fn cmdname(&self) -> &TeXStr {
-        &self.name_opt
-        /*match self.name_opt {
-            Some(n) => n,
-            None => match self.catcode {
-                CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,self.char]),
-                _ => TeXStr::new(&[])
-            }
+    pub fn cmdname(&self) -> TeXStr {
+        match self.catcode {
+            CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,self.char]),
+            _ => self.name_opt.clone()
         }
-        &self.cmdname */
     }
 
     pub fn dummy() -> Token {

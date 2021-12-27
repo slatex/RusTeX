@@ -150,7 +150,7 @@ impl Interpreter<'_> {
                         self.stomach.borrow_mut().on_begin_document(self)
                     }
                     _ => match next.catcode {
-                        CategoryCode::Escape if next.cmdname() == "document" => {
+                        CategoryCode::Escape if &next.cmdname() == "document" => {
                             self.state.borrow_mut().indocument_line = Some(self.line_no())
                         }
                         _ => ()
@@ -180,7 +180,7 @@ impl Interpreter<'_> {
                         int.stomach.borrow_mut().on_begin_document(&int)
                     }
                     _ => match next.catcode {
-                        CategoryCode::Escape if next.cmdname() == "document" => {
+                        CategoryCode::Escape if &next.cmdname() == "document" => {
                             int.state.borrow_mut().indocument_line = Some(int.line_no())
                         }
                         _ => ()
@@ -356,7 +356,7 @@ impl Interpreter<'_> {
     fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
         let indent = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                let pr = self.get_command(next.cmdname())?;
+                let pr = self.get_command(&next.cmdname())?;
                 match &*pr.orig {
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::NOINDENT => 0,
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::INDENT =>
