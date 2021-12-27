@@ -129,7 +129,7 @@ impl FontFile {
         assert_eq!(lf,6+lh+(ec-bc+1)+nw+nh+nd+ni+nk+nl+ne+np);
         skip(state.borrow_mut(),1);
 
-        size = ((size as f32) * read_float(state.borrow_mut())).round() as i32;
+        size = round_f((size as f32) * read_float(state.borrow_mut())) ;
 
         if lh >= 12 {
             let mut sv : Vec<u8> = vec!();
@@ -222,6 +222,7 @@ impl FontFile {
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;
 
 pub struct FontInner {
@@ -266,10 +267,10 @@ impl Font {
         match self.inner.borrow().dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
-                Some(f) => ((*f as f32) * (match self.at {
+                Some(f) => round_f((*f as f32) * (match self.at {
                     Some(a) => a as f32,
                     None => self.file.size as f32
-                })).round() as i32,
+                })),
                 None => 0
             }
         }
@@ -277,25 +278,25 @@ impl Font {
     pub fn get_width(&self,i:u16) -> i32 {
         match self.file.widths.get(&i) {
             None => 0,
-            Some(f) => ((self.get_at() as f32) * (*f as f32)).round() as i32
+            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
         }
     }
     pub fn get_height(&self,i:u16) -> i32 {
         match self.file.heights.get(&i) {
             None => 0,
-            Some(f) => ((self.get_at() as f32) * (*f as f32)).round() as i32
+            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
         }
     }
     pub fn get_depth(&self,i:u16) -> i32 {
         match self.file.depths.get(&i) {
             None => 0,
-            Some(f) => ((self.get_at() as f32) * (*f as f32)).round() as i32
+            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
         }
     }
     pub fn get_ic(&self,i:u16) -> i32 {
         match self.file.ics.get(&i) {
             None => 0,
-            Some(f) => ((self.get_at() as f32) * (*f as f32)).round() as i32
+            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
         }
     }
     pub fn get_lp(&self,i:u16) -> i32 {

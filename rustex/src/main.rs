@@ -1,6 +1,7 @@
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use rustex::interpreter::dimensions::{dimtostr, round_f};
 use rustex::interpreter::Interpreter;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXString;
@@ -83,6 +84,9 @@ fn main() {
             } else { break }
         }
         do_other(&str)
+        /*for i in 1..100 {
+            println!("{}  {}",dimtostr(i),dimtostr(round_f(i as f32 / 2.0)))
+        }*/
     }
     //do_thesis()
     //do_other()

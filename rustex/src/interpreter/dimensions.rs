@@ -170,7 +170,7 @@ impl Numeric {
     }
 }
 pub fn numtostr(dim : i32,suff:&str) -> String {
-    let mut ret = format!("{:.8}",round(dim)).to_string();
+    let mut ret = format!("{:.5}",round(dim)).to_string();
     loop {
         if ret.ends_with("0") {
             ret.pop();
@@ -197,6 +197,9 @@ pub fn round(input : i32) -> f64 {
         }
     }
 }
+pub fn round_f(f:f32) -> i32 {
+    f.floor() as i32//if f < 1.0 {0} else {f.round() as i32 }
+}
 impl Numeric {
     fn as_string(&self) -> String {
         use Numeric::*;
@@ -213,7 +216,7 @@ impl Numeric {
         match self {
             Int(_) => self.clone(),
             Dim(i) => Int(*i),
-            Float(f) => Int(f.round() as i32),
+            Float(f) => Int(round_f(*f)),
             Skip(sk) => Int(sk.base),
             MuSkip(ms) => Int(ms.base)
         }
@@ -223,7 +226,7 @@ impl Numeric {
         match self {
             Int(i) => *i,
             Dim(i) => *i,
-            Float(f) => f.round() as i32,
+            Float(f) => round_f(*f),
             Skip(sk) => sk.base,
             MuSkip(ms) => ms.base
         }
@@ -235,10 +238,10 @@ impl std::ops::Div for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(((i as f32)/(j as f32)).round() as i32),
-            (Int(i),Float(f)) => Int(((i as f32) / f).round() as i32),
-            (Dim(i),Dim(f)) => Dim(((i as f32) / (f as f32 / 65536.0)).round() as i32),
-            (Dim(i),Skip(f)) => Dim(((i as f32) / (f.base as f32 / 65536.0)).round() as i32),
-            (Dim(i),Int(f)) => Dim(((i as f32) / (f as f32)).round() as i32),
+            (Int(i),Float(f)) => Int(round_f((i as f32)/f)),
+            (Dim(i),Dim(f)) => Dim(round_f((i as f32)/((f as f32) / 65536.0))),
+            (Dim(i),Skip(f)) => Dim(round_f((i as f32)/(f.base as f32 / 65536.0))),
+            (Dim(i),Int(j)) => Dim(round_f((i as f32)/(j as f32))),
             _ => todo!("{}/{}",self,rhs)
         }
     }
@@ -249,13 +252,13 @@ impl std::ops::Mul for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i*j),
-            (Int(i),Float(j)) => Int(((i as f32)*j).round() as i32),
+            (Int(i),Float(j)) => Int(round_f((i as f32)*j)),
             (Float(i),Int(j)) => Float(i*(j as f32)),
             (Float(i),Float(j)) => Float(i*j),
-            (Dim(i),Dim(f)) => Dim(((i as f32) * (f as f32 / 65536.0)).round() as i32),
-            (Dim(i),Skip(f)) => Dim(((i as f32) * (f.base as f32 / 65536.0)).round() as i32),
+            (Dim(i),Dim(f)) => Dim(round_f((i as f32) * (f as f32 / 65536.0))),
+            (Dim(i),Skip(f)) => Dim(round_f((i as f32) * (f.base as f32 / 65536.0))),
             (Dim(i),Int(f)) => Dim(i * f),
-            (Dim(i),Float(f)) => Dim(((i as f32) * f).round() as i32),
+            (Dim(i),Float(f)) => Dim(round_f((i as f32) * f)),
             _ => todo!("{}*{}",self,rhs)
         }
     }

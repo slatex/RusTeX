@@ -365,7 +365,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
     Ok(())
 }
 
-use crate::interpreter::dimensions::{dimtostr, Numeric, Skip};
+use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathInfix, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
@@ -629,7 +629,7 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
         let ch = match num {
-            Numeric::Int(i) => StateChange::Register(index, i / div.get_i32(), global),
+            Numeric::Int(i) => StateChange::Register(index, ((i as f32) / (div.get_i32() as f32)).floor() as i32, global),
             Numeric::Dim(_) => StateChange::Dimen(index,match (num / div.as_int()) {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
@@ -1420,11 +1420,11 @@ pub static FONT: FontAssValue = FontAssValue {
         let ff = int.state_get_font(&name)?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
-            Some(s) if s == "scaled" => Some(((ff.as_ref().size as f32) * match int.read_number_i(true)? {
+            Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f32) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
                 Numeric::Dim(i) => (i as f32) / 65536.0,
                 _ => todo!()
-            }).round() as i32),
+            })),
             _ => None
         };
         let font = Font::new(ff,at,cmd.cmdname().clone());
@@ -3299,6 +3299,14 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
     }
 };
 
+pub static END: PrimitiveExecutable = PrimitiveExecutable {
+    name:"end",
+    expandable:false,
+    _apply:|_tk,int| {
+        TeXErr!((int,None),"finished (TODO)")
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -3924,12 +3932,6 @@ pub static EVERYEOF : TokReference = TokReference {
 
 
 // TODO --------------------------------------------------------------------------------------------
-
-pub static END: PrimitiveExecutable = PrimitiveExecutable {
-    name:"end",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
 
 pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"batchmode",

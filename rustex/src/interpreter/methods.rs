@@ -6,7 +6,7 @@ use std::str::FromStr;
 use crate::commands::{TokReference, PrimitiveTeXCommand, TokenList};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
-use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip};
+use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceReference;
 use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
@@ -545,7 +545,10 @@ impl Interpreter<'_> {
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
             Some(o) => todo!("{}",o),
-            None => Ok(SkipDim::Pt(((self.read_dimension()? as f32) * f).round() as i32))
+            None => {
+                let r = self.read_dimension()?;
+                Ok(SkipDim::Pt(round_f(r as f32 * f)))
+            }
                 //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
     }
@@ -554,8 +557,8 @@ impl Interpreter<'_> {
         use crate::commands::primitives::MAG;
         if istrue {
             let mag = (self.state_register(-(MAG.index as i32)) as f32) / 1000.0;
-            (f * mag).round() as i32
-        } else {f.round() as i32}
+            round_f(f * mag)
+        } else { round_f(f) }
     }
 
     pub fn read_dimension(&self) -> Result<i32,TeXError> {
@@ -610,10 +613,10 @@ impl Interpreter<'_> {
         let kws = vec!("mu","fil","fill","filll");
         //let istrue = self.read_keyword(vec!("true"))?.is_some();
         match self.read_keyword(kws)? {
-            Some(s) if s == "mu" => Ok(MuSkipDim::Mu(pt(f).round() as i32)),
-            Some(s) if s == "fil" => Ok(MuSkipDim::Fil(pt(f).round() as i32)),
-            Some(s) if s == "fill" => Ok(MuSkipDim::Fill(pt(f).round() as i32)),
-            Some(s) if s == "filll" => Ok(MuSkipDim::Filll(pt(f).round() as i32)),
+            Some(s) if s == "mu" => Ok(MuSkipDim::Mu(round_f(pt(f)))),
+            Some(s) if s == "fil" => Ok(MuSkipDim::Fil(round_f(pt(f)))),
+            Some(s) if s == "fill" => Ok(MuSkipDim::Fill(round_f(pt(f)))),
+            Some(s) if s == "filll" => Ok(MuSkipDim::Filll(round_f(pt(f)))),
             None => Ok(MuSkipDim::Mu(self.read_dimension()?)),
             _ => unreachable!()
             //TeXErr!((self,None),"expected unit for dimension : {}",f)
