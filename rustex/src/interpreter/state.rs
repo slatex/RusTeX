@@ -674,7 +674,8 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{BoxMode, Pdfximage, SimpleWI, TeXBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{Pdfximage, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::boxes::{BoxMode,TeXBox};
 
 impl Interpreter<'_> {
     pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {

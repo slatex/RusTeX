@@ -10,6 +10,7 @@ use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
+use crate::stomach::whatsits::WhatsitTrait;
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -21,7 +22,10 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
         match int.get_mode() {
             TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Char(32,int.get_font(),int.update_reference(tk))),
             _ => Ok(Whatsit::Math(MathGroup::new(
-                MathKernel::MathChar(0,0,32,int.state.borrow().getTextFont(0),int.update_reference(tk)),int.state.borrow().display_mode())))
+                MathKernel::MathChar(MathChar {
+                    class:0,family:0,position:0,font:int.state.borrow().getTextFont(0),
+                    sourceref:int.update_reference(tk)
+                }),int.state.borrow().display_mode())))
         }
     }
 };
@@ -366,7 +370,9 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
-use crate::stomach::whatsits::{AlignBlock, BoxMode, ExecutableWhatsit, HBox, MathGroup, MathInfix, MathKernel, SimpleWI, TeXBox, VBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, ExecutableWhatsit, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInfix, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Over, Overline, Underline};
+use crate::stomach::boxes::{BoxMode,TeXBox,HBox,VBox};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -2939,7 +2945,10 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        Ok(Whatsit::MathInfix(MathInfix::Over(vec!(),vec!(),None,int.update_reference(tk))))
+        Ok(Over {
+            top:vec!(),bottom:vec!(),delimiters:None,
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -2960,7 +2969,10 @@ pub static ABOVE: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         let dim = int.read_dimension()?;
-        Ok(Whatsit::MathInfix(MathInfix::Above(vec!(),vec!(),dim,None,int.update_reference(tk))))
+        Ok(Above {
+            top:vec!(),bottom:vec!(),thickness:dim,delimiters:None,
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -2980,7 +2992,10 @@ pub static ATOP: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        Ok(Whatsit::MathInfix(MathInfix::Above(vec!(),vec!(),0,None,int.update_reference(tk))))
+        Ok(Above {
+            top:vec!(),bottom:vec!(),thickness:0,delimiters:None,
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -3113,7 +3128,11 @@ pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathclose(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathClose(MathClose {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathclose")
         }
     }
@@ -3124,7 +3143,11 @@ pub static MATHBIN: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathbin(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathBin(MathBin {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathbin")
         }
     }
@@ -3135,7 +3158,11 @@ pub static MATHOPEN: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathopen(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathOpen(MathOpen {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathopen")
         }
     }
@@ -3146,7 +3173,11 @@ pub static MATHORD: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathord(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathOrd(MathOrd {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathord")
         }
     }
@@ -3157,7 +3188,11 @@ pub static MATHPUNCT: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathpunct(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathPunct(MathPunct {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathpunct")
         }
     }
@@ -3168,7 +3203,11 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathrel(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathRel(MathRel {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathrel")
         }
     }
@@ -3180,9 +3219,15 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
         let num = int.read_number()?;
         let large = num % 4096;
         let small = (num - large)/4096;
-        let largemc = Box::new(int.do_math_char(None,large as u32));
-        let smallmc = Box::new(int.do_math_char(None,small as u32));
-        Ok(Some(MathKernel::Delimiter(smallmc,largemc,int.update_reference(tk))))
+        let largemc = int.do_math_char(None,large as u32);
+        let smallmc = int.do_math_char(None,small as u32);
+        let delim = Delimiter {
+            small: smallmc,
+            large: largemc,
+            sourceref: int.update_reference(tk)
+        };
+
+        Ok(Some(MathKernel::Delimiter(delim)))
     }
 };
 
@@ -3191,7 +3236,11 @@ pub static MATHOP : MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathop(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathOp(MathOp {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathop")
         }
     }
@@ -3202,7 +3251,11 @@ pub static MATHINNER: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Mathinner(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::MathInner(MathInner {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\mathinner")
         }
     }
@@ -3213,7 +3266,11 @@ pub static UNDERLINE: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Underline(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::Underline(Underline {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\underline")
         }
     }
@@ -3224,7 +3281,11 @@ pub static OVERLINE: MathWhatsit = MathWhatsit {
     _get: |tk, int, _| {
         let ret = int.read_math_whatsit(None)?;
         match ret {
-            Some(w) => Ok(Some(MathKernel::Overline(Box::new(w), int.update_reference(tk)))),
+            Some(w) => Ok(
+                Some(MathKernel::Overline(Overline {
+                    content:Box::new(w),
+                    sourceref:int.update_reference(tk)
+                }))),
             None => TeXErr!((int,None),"unfinished \\overline")
         }
     }
@@ -3237,9 +3298,14 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
         let mc = int.do_math_char(None,num as u32);
         let next = match int.read_math_whatsit(None)? {
             Some(w) => w,
-            None => TeXErr!((int,None),"unfinished \\overline")
+            None => TeXErr!((int,None),"unfinished \\mathaccent")
         };
-        Ok(Some(MathKernel::MathAccent(Box::new(mc),Box::new(next),int.update_reference(tk))))
+        let accent = MathAccent {
+            content:Box::new(next),
+            accent:mc,
+            sourceref:int.update_reference(tk)
+        };
+        Ok(Some(MathKernel::MathAccent(accent)))
     }
 };
 
@@ -3251,37 +3317,9 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
 pub static MATHCHAR: MathWhatsit = MathWhatsit {
     name:"mathchar",
     _get: |tk,int,_| {
-        let mut num = int.read_number()? as u32;
-        let (mut cls,mut fam,mut pos) = {
-            if num == 0 {
-                (0,1,tk.char as u32)
-            } else {
-                let char = num % (16 * 16);
-                let rest = (num - char) / (16 * 16);
-                let fam = rest % 16;
-                (((rest - fam) / 16) % 16, fam, char)
-            }
-        };
-        if cls == 7 {
-            match int.state_register(-(FAM.index as i32)) {
-                i if i < 0 || i > 15 => {
-                    cls = 0;
-                    num = 256 * fam + pos
-                }
-                i => {
-                    cls = 0;
-                    fam = i as u32;
-                    num = 256 * fam + pos
-                }
-            }
-        }
-        let mode = int.state.borrow().font_style();
-        let font = match mode {
-            FontStyle::Text => int.state.borrow().getTextFont(fam as u8),
-            FontStyle::Script => int.state.borrow().getScriptFont(fam as u8),
-            FontStyle::Scriptscript => int.state.borrow().getScriptScriptFont(fam as u8),
-        };
-        Ok(Some(MathKernel::MathChar(cls,fam,pos,font,int.update_reference(tk))))
+        let num = int.read_number()? as u32;
+        let mc = int.do_math_char(None,num);
+        Ok(Some(MathKernel::MathChar(mc)))
     }
 };
 
@@ -3289,7 +3327,10 @@ pub static MKERN: MathWhatsit = MathWhatsit {
     name:"mkern",
     _get: |tk,int,_| {
         let kern = int.read_muskip()?;
-        Ok(Some(MathKernel::MKern(kern,int.update_reference(tk))))
+        Ok(Some(MathKernel::MKern(MKern {
+            sk:kern,
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 

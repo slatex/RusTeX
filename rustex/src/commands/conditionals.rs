@@ -4,7 +4,7 @@ use crate::utils::TeXError;
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::read_font;
 use crate::log;
-use crate::stomach::whatsits::TeXBox;
+use crate::stomach::boxes::TeXBox;
 
 
 pub fn dotrue(int: &Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {

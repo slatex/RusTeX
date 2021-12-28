@@ -139,6 +139,8 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
 }
 
 pub mod whatsits;
+pub mod boxes;
+pub mod math;
 
 pub enum StomachGroup {
     Top(Vec<Whatsit>),

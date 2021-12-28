@@ -147,7 +147,9 @@ impl PartialEq for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, MathGroup, MathKernel, SimpleWI, TeXBox, Whatsit, WIGroup};
+use crate::stomach::whatsits::{ExecutableWhatsit, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::math::{MathGroup,MathKernel};
+use crate::stomach::boxes::{BoxMode,TeXBox};
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,

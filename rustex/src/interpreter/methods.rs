@@ -9,7 +9,8 @@ use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceReference;
-use crate::stomach::whatsits::{BoxMode, TeXBox, Whatsit};
+use crate::stomach::whatsits::Whatsit;
+use crate::stomach::boxes::{BoxMode,TeXBox};
 use crate::utils::u8toi16;
 
 impl Interpreter<'_> {

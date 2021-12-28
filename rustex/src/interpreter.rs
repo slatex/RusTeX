@@ -100,7 +100,8 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach, Whatsit};
-use crate::stomach::whatsits::{MathGroup, MathKernel, SimpleWI};
+use crate::stomach::whatsits::SimpleWI;
+use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
 
 impl Interpreter<'_> {
@@ -298,7 +299,10 @@ impl Interpreter<'_> {
                     }
                     _ => {
                         let wi = self.do_math_char(Some(next),mc as u32);
-                        self.stomach.borrow_mut().add(self,wi)?;
+                        self.stomach.borrow_mut().add(self,
+                          crate::stomach::Whatsit::Math(MathGroup::new(
+                              crate::stomach::math::MathKernel::MathChar(wi),
+                              self.state.borrow().display_mode())))?;
                         Ok(())
                     }
                 }
@@ -320,7 +324,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn do_math_char(&self,tk:Option<Token>,mc:u32) -> crate::stomach::Whatsit {
+    pub fn do_math_char(&self,tk:Option<Token>,mc:u32) -> MathChar {
         let mut num = mc;
         let (mut cls,mut fam,mut pos) = {
             if num == 0 && tk.is_some() {
@@ -351,12 +355,13 @@ impl Interpreter<'_> {
             FontStyle::Script => self.state.borrow().getScriptFont(fam as u8),
             FontStyle::Scriptscript => self.state.borrow().getScriptScriptFont(fam as u8),
         };
-        crate::stomach::Whatsit::Math(MathGroup::new(
-            MathKernel::MathChar(cls,fam,pos,font,match &tk {
+        crate::stomach::math::MathChar {
+            class:cls,family:fam,position:pos,font,
+            sourceref:match &tk {
                 Some(tk) => self.update_reference(tk),
                 _ => None
-            }),
-            self.state.borrow().display_mode()))
+            }
+        }
     }
 
     fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
@@ -452,14 +457,17 @@ impl Interpreter<'_> {
                                     }
                                 }
                                 if !second.is_empty() {
-                                    let head = second.remove(0);
+                                    let mut head = second.remove(0);
                                     match head {
-                                        WI::MathInfix(mi) => ret = vec!(WI::MathInfix(mi.set(first,second))),
+                                        WI::MathInfix(mut mi) => {
+                                            mi.set(first,second);
+                                            ret = vec!(WI::MathInfix(mi))
+                                        },
                                         _ => unreachable!()
                                     }
                                 }
                             }
-                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),true)));
+                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)));
                             return Ok(())
                         }
                         _ => TeXErr!((self,Some(nnext)),"displaymode must be closed with $$")
@@ -471,7 +479,7 @@ impl Interpreter<'_> {
                         self.stomach.borrow_mut().add(self,WI::Math(g))?
                     }
                     let ret = self.get_whatsit_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(ret),false)));
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)));
                     return Ok(())
                 }
                 EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
@@ -558,14 +566,17 @@ impl Interpreter<'_> {
                                         }
                                     }
                                     if !second.is_empty() {
-                                        let head = second.remove(0);
+                                        let mut head = second.remove(0);
                                         match head {
-                                            WI::MathInfix(mi) => ret = vec!(WI::MathInfix(mi.set(first,second))),
+                                            WI::MathInfix(mut mi) => {
+                                                mi.set(first,second);
+                                                ret = vec!(WI::MathInfix(mi))
+                                            },
                                             _ => unreachable!()
                                         }
                                     }
                                 }
-                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(ret),self.state.borrow().display_mode()))))
+                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.borrow().display_mode()))))
                             }
                             _ => {
                                 self.requeue(next);
@@ -624,7 +635,7 @@ impl Interpreter<'_> {
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(vec!()),self.state.borrow().display_mode());
+                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
                             mg.superscript.insert(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
@@ -644,7 +655,7 @@ impl Interpreter<'_> {
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(vec!()),self.state.borrow().display_mode());
+                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
                             mg.subscript.insert(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
@@ -685,8 +696,11 @@ impl Interpreter<'_> {
                                     self.requeue(Token::new(next.char, CategoryCode::Active, None, SourceReference::None, true))
                                 }
                                 _ => {
-                                    let wi = self.do_math_char(Some(next), *mc);
-                                    return Ok(Some(wi))
+                                    let wi = self.do_math_char(Some(next),*mc);
+                                    let ret = crate::stomach::Whatsit::Math(MathGroup::new(
+                                        crate::stomach::math::MathKernel::MathChar(wi),
+                                        self.state.borrow().display_mode()));
+                                    return Ok(Some(ret))
                                 }
                             },
                             _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
@@ -702,7 +716,10 @@ impl Interpreter<'_> {
                         }
                         _ => {
                             let wi = self.do_math_char(Some(next),mc as u32);
-                            return Ok(Some(wi))
+                            let ret = crate::stomach::Whatsit::Math(MathGroup::new(
+                                crate::stomach::math::MathKernel::MathChar(wi),
+                                self.state.borrow().display_mode()));
+                            return Ok(Some(ret))
                         }
                     }
                 }
