@@ -390,7 +390,10 @@ impl PrimitiveTeXCommand {
         use PrimitiveTeXCommand::*;
         let ret = match self {
             Char(c) => match c.catcode {
-                CategoryCode::Space => "blank space ".into(),
+                CategoryCode::Space => {
+                    let s : TeXString = "blank space ".into();
+                    s + c.char.into()
+                },
                 CategoryCode::Letter => {
                     let s : TeXString = "the letter ".into();
                     s + c.char.into()
@@ -405,6 +408,14 @@ impl PrimitiveTeXCommand {
                 }
                 CategoryCode::EndGroup => {
                     let s : TeXString = "end-group character ".into();
+                    s + c.char.into()
+                }
+                CategoryCode::MathShift => {
+                    let s : TeXString = "math shift character ".into();
+                    s + c.char.into()
+                }
+                CategoryCode::AlignmentTab => {
+                    let s : TeXString = "alignment tab character ".into();
                     s + c.char.into()
                 }
                 _ => todo!("{}",self)
@@ -617,7 +628,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if /*int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3-code.tex (31587") &&*/ tk.cmdname().to_string() == "beamer@@decodefind" { // {
+        /*if int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/GenCS/source/legal/mod/creativecommons.en.tex (24") && tk.cmdname().to_string() == "peek_analysis_map_inline:n" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");

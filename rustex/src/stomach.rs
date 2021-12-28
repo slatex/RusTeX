@@ -246,7 +246,7 @@ pub trait Stomach {
                     self.base_mut().buffer.push(StomachGroup::TeXGroup(gt,vec!()));
                     Ok(ret)
                 }
-                StomachGroup::Other(g) if g.closesWithGroup() => {
+                StomachGroup::Other(g) => {
                     let ng = StomachGroup::Other(g.new_from());
                     self.add(int,Whatsit::Grouped(g))?;
                     let ret = self.end_paragraph_loop(int)?;

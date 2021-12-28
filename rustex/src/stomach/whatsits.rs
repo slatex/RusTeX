@@ -564,13 +564,14 @@ impl MathKernel {
 
 #[derive(Clone)]
 pub enum MathInfix {
-    Over(Vec<Whatsit>,Vec<Whatsit>,Option<SourceFileReference>)
+    Over(Vec<Whatsit>,Vec<Whatsit>,Option<Box<(Whatsit,Whatsit)>>,Option<SourceFileReference>),
+    Above(Vec<Whatsit>,Vec<Whatsit>,i32,Option<Box<(Whatsit,Whatsit)>>,Option<SourceFileReference>),
 }
 impl MathInfix {
     pub fn as_xml_internal(&self,prefix: String) -> String {
         use MathInfix::*;
         match self {
-            Over(a,b,_) => {
+            Over(a,b,_,_) => {
                 let mut ret = "<over><first>".to_string();
                 for w in a { ret += &w.as_xml_internal(prefix.clone())}
                 ret += "</first><second>";
@@ -578,20 +579,38 @@ impl MathInfix {
                 ret += "</second></over>";
                 ret
             }
+            Above(a,b,_,_,_) => {
+                let mut ret = "<above><first>".to_string();
+                for w in a { ret += &w.as_xml_internal(prefix.clone())}
+                ret += "</first><second>";
+                for w in b { ret += &w.as_xml_internal(prefix.clone())}
+                ret += "</second></above>";
+                ret
+            }
         }
     }
     pub fn set(self,first:Vec<Whatsit>,second:Vec<Whatsit>) -> MathInfix {
         use MathInfix::*;
         match self {
-            Over(a,b,o) => {
-                Over(first,second,o)
+            Over(a,b,d,o) => {
+                Over(first,second,d,o)
+            }
+            Above(a,b,di,d,o) => {
+                Above(first,second,di,d,o)
             }
         }
     }
     pub fn width(&self) -> i32 {
         use MathInfix::*;
         match self {
-            Over(a,b,o) => {
+            Over(a,b,_,_) => {
+                let mut upper : i32 = 0;
+                let mut lower : i32 = 0;
+                for w in a {upper += w.width()}
+                for w in b {lower += w.width()}
+                max(upper,lower)
+            }
+            Above(a,b,_,_,_) => {
                 let mut upper : i32 = 0;
                 let mut lower : i32 = 0;
                 for w in a {upper += w.width()}
@@ -603,7 +622,14 @@ impl MathInfix {
     pub fn height(&self) -> i32 {
         use MathInfix::*;
         match self {
-            Over(a,b,o) => {
+            Over(a,b,_,_) => {
+                let mut upper : i32 = 0;
+                let mut lower : i32 = 0;
+                for w in a {upper = max(upper,w.height())}
+                for w in b {lower += max(lower,w.height())}
+                upper + lower
+            }
+            Above(a,b,_,_,_) => {
                 let mut upper : i32 = 0;
                 let mut lower : i32 = 0;
                 for w in a {upper = max(upper,w.height())}
@@ -615,7 +641,8 @@ impl MathInfix {
     pub fn depth(&self) -> i32 {
         use MathInfix::*;
         match self {
-            Over(a,b,o) => { 0 } // todo
+            Over(_,_,_,_) => { 0 } // todo
+            Above(_,_,_,_,_) => { 0 } // todo
         }
     }
 }

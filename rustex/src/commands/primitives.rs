@@ -1060,10 +1060,10 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         use ansi_term::Colour::*;
         //println!("Error: {}",int.preview());
-        TeXErr!((int,Some(tk.0.clone())),"Debug");
+        //TeXErr!((int,Some(tk.0.clone())),"Debug");
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\message")
+            TeXErr!((int,Some(next)),"Begin group token expected after \\errmessage")
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
@@ -2755,7 +2755,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     }
 
     int.pop_group(GroupType::Box(betweenmode))?;
-    Ok((firsttabskip, columns,boxes))
+    Ok((firsttabskip, columns, boxes))
 }
 
 pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
@@ -2768,7 +2768,20 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             Some(_) => Some(int.read_dimension()?),
             None => None
         };
-        let (skip,template,rows) = do_align(int,BoxMode::H,BoxMode::V)?;
+        let (skip,template,mut rows) = do_align(int,BoxMode::H,BoxMode::V)?;
+        match rows.pop() {
+            Some(AlignBlock::Noalign(v)) => {
+                let mut ret : Vec<Whatsit> = vec!(
+                    Whatsit::Simple(SimpleWI::Halign(skip, template, rows, int.update_reference(tk)))
+                );
+                for w in v {ret.push(w)}
+                return Ok(Whatsit::Ls(ret))
+            }
+            Some(o) => {
+                rows.push(o)
+            }
+            _ => ()
+        }
         Ok(Whatsit::Simple(SimpleWI::Halign(skip,template,rows,int.update_reference(tk))))
     }
 };
@@ -2813,6 +2826,18 @@ pub static MSKIP: SimpleWhatsit = SimpleWhatsit {
         let ms = int.read_muskip()?;
         Ok(Whatsit::Simple(SimpleWI::MSkip(ms,int.update_reference(tk))))
     }
+};
+
+pub static EQNO: SimpleWhatsit = SimpleWhatsit {
+    name:"eqno",
+    modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))}
+};
+
+pub static LEQNO: SimpleWhatsit = SimpleWhatsit {
+    name:"leqno",
+    modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))} // TODO maybe
 };
 
 pub static MARK: SimpleWhatsit = SimpleWhatsit {
@@ -2860,6 +2885,18 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static CLEADERS: SimpleWhatsit = SimpleWhatsit {
+    name: "cleaders",
+    modes: |x| { true },
+    _get: |tk, int| { (LEADERS._get)(tk,int)} // TODO maybe
+};
+
+pub static XLEADERS: SimpleWhatsit = SimpleWhatsit {
+    name: "xleaders",
+    modes: |x| { true },
+    _get: |tk, int| { (LEADERS._get)(tk,int)} // TODO maybe
+};
+
 pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
     name:"mathchoice",
     modes: |x| {x == TeXMode::Math || x == TeXMode::Displaymath},
@@ -2902,12 +2939,53 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        Ok(Whatsit::MathInfix(MathInfix::Over(vec!(),vec!(),int.update_reference(tk))))
+        Ok(Whatsit::MathInfix(MathInfix::Over(vec!(),vec!(),None,int.update_reference(tk))))
     }
 };
 
 pub static OVERWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
     name:"overwithdelims",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        todo!()
+    }
+};
+
+pub static ABOVE: SimpleWhatsit = SimpleWhatsit {
+    name:"above",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        let dim = int.read_dimension()?;
+        Ok(Whatsit::MathInfix(MathInfix::Above(vec!(),vec!(),dim,None,int.update_reference(tk))))
+    }
+};
+
+pub static ABOVEWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
+    name:"abovewithdelims",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        todo!()
+    }
+};
+
+pub static ATOP: SimpleWhatsit = SimpleWhatsit {
+    name:"atop",
+    modes: |x| {
+        x == TeXMode::Math || x == TeXMode::Displaymath
+    },
+    _get: |tk,int| {
+        Ok(Whatsit::MathInfix(MathInfix::Above(vec!(),vec!(),0,None,int.update_reference(tk))))
+    }
+};
+
+pub static ATOPWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
+    name:"atopwithdelims",
     modes: |x| {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
@@ -3301,6 +3379,14 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_tk,int| {
         TeXErr!((int,None),"finished (TODO)")
+    }
+};
+
+pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
+    name:"nonscript",
+    expandable:false,
+    _apply:|_tk,_int| {
+        Ok(()) // todo?
     }
 };
 
@@ -3942,12 +4028,6 @@ pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static EQNO: PrimitiveExecutable = PrimitiveExecutable {
-    name:"eqno",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"fontname",
     expandable:true,
@@ -3975,20 +4055,8 @@ pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"nonscript",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"holdinginserts",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static LEQNO: PrimitiveExecutable = PrimitiveExecutable {
-    name:"leqno",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4300,32 +4368,8 @@ pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static ABOVE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"above",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ABOVEWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"abovewithdelims",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static ACCENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"accent",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ATOP: PrimitiveExecutable = PrimitiveExecutable {
-    name:"atop",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ATOPWITHDELIMS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"atopwithdelims",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4339,18 +4383,6 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static CLEADERS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"cleaders",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static XLEADERS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"xleaders",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4448,10 +4480,18 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MSKIP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MARK)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEADERS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&CLEADERS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&XLEADERS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MATHCHOICE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVERWITHDELIMS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ATOP)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ATOPWITHDELIMS)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ABOVE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ABOVEWITHDELIMS)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&SPACE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&EQNO)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEQNO)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4659,7 +4699,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&DETOKENIZE),
     PrimitiveTeXCommand::Primitive(&DUMP),
     PrimitiveTeXCommand::Primitive(&ENDINPUT),
-    PrimitiveTeXCommand::Primitive(&EQNO),
     PrimitiveTeXCommand::Primitive(&ERRMESSAGE),
     PrimitiveTeXCommand::Primitive(&ERRORSTOPMODE),
     PrimitiveTeXCommand::Primitive(&EXPANDED),
@@ -4678,7 +4717,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&SPECIAL),
     PrimitiveTeXCommand::Primitive(&NONSCRIPT),
     PrimitiveTeXCommand::Primitive(&HOLDINGINSERTS),
-    PrimitiveTeXCommand::Primitive(&LEQNO),
     PrimitiveTeXCommand::Primitive(&LOOSENESS),
     PrimitiveTeXCommand::Primitive(&NOBOUNDARY),
     PrimitiveTeXCommand::Primitive(&SCROLLMODE),
@@ -4736,11 +4774,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
-    PrimitiveTeXCommand::Primitive(&ABOVE),
-    PrimitiveTeXCommand::Primitive(&ABOVEWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&ACCENT),
-    PrimitiveTeXCommand::Primitive(&ATOP),
-    PrimitiveTeXCommand::Primitive(&ATOPWITHDELIMS),
     PrimitiveTeXCommand::Primitive(&BIGSKIP),
     PrimitiveTeXCommand::Primitive(&DISCRETIONARY),
     PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
@@ -4753,8 +4787,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
-    PrimitiveTeXCommand::Primitive(&CLEADERS),
-    PrimitiveTeXCommand::Primitive(&XLEADERS),
     PrimitiveTeXCommand::Primitive(&MEDSKIP),
     PrimitiveTeXCommand::Primitive(&NOALIGN),
     PrimitiveTeXCommand::Primitive(&NOINDENT),
