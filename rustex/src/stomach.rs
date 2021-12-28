@@ -7,10 +7,14 @@ use crate::commands::DefMacro;
 use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceFileReference;
+use crate::stomach::paragraph::Paragraph;
 use crate::utils::{TeXError, TeXStr};
-use crate::stomach::whatsits::WIGroup;
-use crate::stomach::whatsits::{Paragraph,SimpleWI};
+use crate::stomach::whatsits::{WIGroup,SimpleWI};
 
+pub mod whatsits;
+pub mod boxes;
+pub mod math;
+pub mod paragraph;
 
 pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
     let mut currentheight : i32 = 0;
@@ -137,10 +141,6 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
         }
     }
 }
-
-pub mod whatsits;
-pub mod boxes;
-pub mod math;
 
 pub enum StomachGroup {
     Top(Vec<Whatsit>),
