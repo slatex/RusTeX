@@ -142,16 +142,19 @@ impl Interpreter<'_> {
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         while self.has_next() {
             let next = self.next_token();
-            if !self.state.borrow().indocument {
-                let line = self.state.borrow().indocument_line;
-                match line {
-                    Some(i) if self.line_no() > i => {
-                        self.state.borrow_mut().indocument_line = None;
-                        self.stomach.borrow_mut().on_begin_document(self)
-                    }
-                    _ => match next.catcode {
+            let indoc = self.state.borrow().indocument;
+            if !indoc {
+                let isline = match self.state.borrow().indocument_line.as_ref() {
+                    Some((f,i)) if self.current_file() == *f && self.line_no() > *i => true,
+                    _ => false
+                };
+                if isline {
+                    self.state.borrow_mut().indocument_line = None;
+                    self.stomach.borrow_mut().on_begin_document(self)
+                } else {
+                    match next.catcode {
                         CategoryCode::Escape if &next.cmdname() == "document" => {
-                            self.state.borrow_mut().indocument_line = Some(self.line_no())
+                            self.state.borrow_mut().indocument_line = Some((self.current_file(), self.line_no()))
                         }
                         _ => ()
                     }
@@ -172,16 +175,19 @@ impl Interpreter<'_> {
         int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
             let next = int.next_token();
-            if !int.state.borrow().indocument {
-                let line = int.state.borrow().indocument_line;
-                match line {
-                    Some(i) if int.line_no() > i => {
-                        int.state.borrow_mut().indocument_line = None;
-                        int.stomach.borrow_mut().on_begin_document(&int)
-                    }
-                    _ => match next.catcode {
+            let indoc = int.state.borrow().indocument;
+            if !indoc {
+                let isline = match int.state.borrow().indocument_line.as_ref() {
+                    Some((f,i)) if int.current_file() == *f && int.line_no() > *i => true,
+                    _ => false
+                };
+                if isline {
+                    int.state.borrow_mut().indocument_line = None;
+                    int.stomach.borrow_mut().on_begin_document(&int)
+                } else {
+                    match next.catcode {
                         CategoryCode::Escape if &next.cmdname() == "document" => {
-                            int.state.borrow_mut().indocument_line = Some(int.line_no())
+                            int.state.borrow_mut().indocument_line = Some((int.current_file(), int.line_no()))
                         }
                         _ => ()
                     }
@@ -716,13 +722,6 @@ impl Interpreter<'_> {
             }
         }
         FileEnd!(self)
-    }
-
-    pub fn current_line(&self) -> String {
-        self.mouths.borrow().current_line()
-    }
-    pub fn line_no(&self) -> usize {
-        self.mouths.borrow().line_no().0
     }
 
     /*pub fn assert_has_next(&self) -> Result<(),TeXError> {

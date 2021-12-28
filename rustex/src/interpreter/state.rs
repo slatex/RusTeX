@@ -194,7 +194,7 @@ pub struct State {
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
     pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
     pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>,
-    pub(in crate) indocument_line:Option<usize>,
+    pub(in crate) indocument_line:Option<(TeXStr,usize)>,
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,

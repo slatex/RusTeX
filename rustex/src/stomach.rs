@@ -480,13 +480,15 @@ pub trait Stomach {
         }
         return None
     }
-    fn on_begin_document_inner(&mut self, _: &Interpreter) {
+    fn on_begin_document_inner(&mut self, int: &Interpreter) {
+        int.state.borrow_mut().indocument = true;
         let base = self.base_mut();
         base.indocument = true;
         let mut groups : Vec<GroupType> = vec!();
         let stack = &mut base.buffer;
         loop {
-            match stack.pop() {
+            let pop = stack.pop();
+            match pop {
                 Some(StomachGroup::Top(v)) => {
                     stack.push(StomachGroup::Top(v));
                     break

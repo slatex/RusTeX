@@ -646,6 +646,23 @@ impl Mouths {
         }
     }
 
+    pub fn current_file(&self) -> TeXStr {
+        match self.mouths.iter().rev().find(|m| match m {
+            Mouth::File(_sm) => true,
+            _ => false
+        }) {
+            Some(Mouth::File(m)) => {
+                match &m.source {
+                    StringMouthSource::File(lf) => {
+                        lf.path.as_ref().unwrap().clone()
+                    }
+                    _ => "".into()
+                }
+            }
+            _ => "".into()
+        }
+    }
+
     pub fn current_line(&self) -> String {
         match self.mouths.iter().rev().find(|m| match m {
             Mouth::File(_sm) => true,
@@ -769,6 +786,15 @@ impl Interpreter<'_> {
                 _ => return None
             }
         }
+    }
+    pub fn current_line(&self) -> String {
+        self.mouths.borrow().current_line()
+    }
+    pub fn line_no(&self) -> usize {
+        self.mouths.borrow().line_no().0
+    }
+    pub fn current_file(&self) -> TeXStr {
+        self.mouths.borrow().current_file()
     }
 }
 
