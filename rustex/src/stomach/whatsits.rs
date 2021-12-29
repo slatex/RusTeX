@@ -85,6 +85,7 @@ pub trait WhatsitTrait {
 }
 
 use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::groups::{GroupClose, WIGroup, WIGroupTrait};
 use crate::stomach::math::{MathGroup, MathInfix};
 use crate::stomach::paragraph::Paragraph;
 
@@ -96,7 +97,7 @@ pub enum Whatsit {
     Box(TeXBox),
     Ext(Rc<dyn ExtWhatsit>),
     GroupOpen(WIGroup),
-    GroupClose(WIGroup),
+    GroupClose(GroupClose),
     Simple(SimpleWI),
     Char(u8,Rc<Font>,Option<SourceFileReference>),
     Math(MathGroup),
@@ -123,16 +124,20 @@ impl Whatsit {
             Par(p) => p.as_xml_internal(prefix),
             Box(b) => b.as_xml_internal(prefix),
             Char(u,_,_) => {
-                let ret = if *u == 60 {
-                    TeXStr::new(&[38,108,116,59])
+                fn is_ascii(u:&u8) -> bool {
+                    (32 <= *u && *u <= 126) || *u > 160
+                }
+                if *u == 60 {
+                    "&lt;".to_string()
                 } else if *u == 62 {
-                    TeXStr::new(&[38,103,116,59])
+                    "&gt;".to_string()
                 } else if *u == 38 {
-                    TeXStr::new(&[38,97,109,112,59])
+                    "&amp;".to_string()
+                } else if is_ascii(u) {
+                    std::char::from_u32(*u as u32).unwrap().to_string()
                 } else {
-                    TeXStr::new(&[*u])
-                };
-                ret.to_string()
+                    "<char value=\"".to_string() + &u.to_string() + "\"/>"
+                }
             },
             MathInfix(i) => i.as_xml_internal(prefix),
             Inserts(vs) => {
@@ -229,142 +234,6 @@ impl Whatsit {
             Inserts(s) => todo!(),
             MathInfix(m) => m.depth(),
             _ => todo!()
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum WIGroup {
-    FontChange(Rc<Font>,Option<SourceFileReference>,bool,Vec<Whatsit>),
-    ColorChange(TeXStr,Option<SourceFileReference>,Vec<Whatsit>),
-    //       rule   attr  action
-    PDFLink(TeXStr,TeXStr,ActionSpec,Option<SourceFileReference>,Vec<Whatsit>),
-    PdfMatrixSave(Option<SourceFileReference>,bool,Vec<Whatsit>),
-    PdfRestore(Option<SourceFileReference>),
-    LinkEnd(Option<SourceFileReference>),
-    ColorEnd(Option<SourceFileReference>),
-}
-impl WIGroup {
-    pub fn as_xml_internal(&self,prefix: String) -> String {
-        use WIGroup::*;
-        match self {
-            FontChange(_,_,_,v) => {
-                let mut ret = "\n".to_string() + &prefix + "<font TODO=\"\">";
-                for c in v {
-                    ret += &c.as_xml_internal(prefix.clone() + "  ")
-                }
-                ret + "\n" + &prefix + "</font>"
-            }
-            ColorChange(c,_,v) => {
-                let mut ret = "\n".to_string() + &prefix + "<color color=\"" + c.to_string().as_str() + "\">";
-                for c in v {
-                    ret += &c.as_xml_internal(prefix.clone() + "  ")
-                }
-                ret + "\n" + &prefix + "</color>"
-            }
-            PDFLink(a,b,_,_,v) => {
-                let mut ret = "\n".to_string() + &prefix + "<link a=\"" + a.to_string().as_str() + "\" b=\"" + b.to_string().as_str() + "\">";
-                for c in v {
-                    ret += &c.as_xml_internal(prefix.clone() + "  ")
-                }
-                ret + "\n" + &prefix + "</link>"
-            }
-            PdfMatrixSave(_,_,v) => {
-                let mut ret = "\n".to_string() + &prefix + "<pdfmatrix>";
-                for c in v {
-                    ret += &c.as_xml_internal(prefix.clone() + "  ")
-                }
-                ret + "\n" + &prefix + "</pdfmatrix>"
-            }
-            _ => todo!()
-        }
-    }
-    pub fn opaque(&self) -> bool {
-        use WIGroup::*;
-        match self {
-            PdfMatrixSave(_,_,_) => true,
-            _ => false
-        }
-    }
-    pub fn push(&mut self,wi:Whatsit) {
-        use WIGroup::*;
-        match self {
-            FontChange(_,_,_,v) => v.push(wi),
-            ColorChange(_,_,v) => v.push(wi),
-            PDFLink(_,_,_,_,v) => v.push(wi),
-            PdfMatrixSave(_,_,v) => v.push(wi),
-            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!(),
-        }
-    }
-    pub fn priority(&self) -> i16 {
-        use WIGroup::*;
-        match self {
-            FontChange(_,_,true,_) => 25,
-            FontChange(_,_,_,_) => 2,
-            ColorChange(_,_,_) | ColorEnd(_) => 50,
-            PDFLink(_,_,_,_,_) | LinkEnd(_) => 60,
-            PdfMatrixSave(_,_,_) | PdfRestore(_) => 70
-        }
-    }
-    pub fn has_ink(&self) -> bool {
-        use WIGroup::*;
-        match self {
-            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => false,
-            _ => {
-                for x in self.children() { if x.has_ink() {return true} }
-                false
-            }
-        }
-    }
-    pub fn children_d(self) -> Vec<Whatsit> {
-        use WIGroup::*;
-        match self {
-            FontChange(_,_,_,v) => v,
-            ColorChange(_,_,v) => v,
-            PDFLink(_,_,_,_,v) => v,
-            PdfMatrixSave(_,_,v) => v,
-            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
-        }
-    }
-    pub fn children(&self) -> &Vec<Whatsit> {
-        use WIGroup::*;
-        match self {
-            FontChange(_,_,_,v) => v,
-            ColorChange(_,_,v) => v,
-            PDFLink(_,_,_,_,v) => v,
-            PdfMatrixSave(_,_,v) => v,
-            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
-        }
-    }
-    pub fn new_from(&self) -> WIGroup {
-        use WIGroup::*;
-        match self {
-            FontChange(f,r,b,_) => FontChange(f.clone(),r.clone(),*b,vec!()),
-            ColorChange(c,r,_) => ColorChange(c.clone(),r.clone(),vec!()),
-            PDFLink(a,b,c,d,_) => PDFLink(a.clone(),b.clone(),c.clone(),d.clone(),vec!()),
-            PdfMatrixSave(r,b,v) => {
-                match v.iter().find(|x| match x {
-                    Whatsit::Simple(SimpleWI::PdfMatrix(a,b,c,d,o)) => true,
-                    _ => false
-                }) {
-                    None => PdfMatrixSave(r.clone(),*b,vec!()),
-                    Some(p) => PdfMatrixSave(r.clone(),*b,vec!(p.clone()))
-                }
-            }
-            ColorEnd(_) | LinkEnd(_) | PdfRestore(_) => unreachable!()
-        }
-    }
-    pub fn width(&self) -> i32 {
-        todo!()
-    }
-    pub fn height(&self) -> i32 {
-        todo!( )
-    }
-    pub fn depth(&self) -> i32 { todo!( )}
-    pub fn closesWithGroup(&self) -> bool {
-        match self {
-            WIGroup::FontChange(_,_,b,_) => !*b,
-            _ => false
         }
     }
 }

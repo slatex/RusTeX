@@ -7,14 +7,16 @@ use crate::commands::DefMacro;
 use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceFileReference;
+use crate::stomach::groups::{EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
 use crate::utils::{TeXError, TeXStr};
-use crate::stomach::whatsits::{WIGroup,SimpleWI};
+use crate::stomach::whatsits::{SimpleWI, WhatsitTrait};
 
 pub mod whatsits;
 pub mod boxes;
 pub mod math;
 pub mod paragraph;
+pub mod groups;
 
 pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
     let mut currentheight : i32 = 0;
@@ -193,9 +195,9 @@ impl StomachGroup {
             Top(t) => t.borrow_mut(),
             TeXGroup(_,t) => t.borrow_mut(),
             Par(t) => t.children.borrow_mut(),
-            Other(WIGroup::FontChange(_,_,_,t)) => t.borrow_mut(),
-            Other(WIGroup::ColorChange(_,_,t)) => t.borrow_mut(),
-            Other(WIGroup::PDFLink(_,_,_,_,t)) => t.borrow_mut(),
+            Other(WIGroup::FontChange(fc)) => fc.children_mut(),
+            Other(WIGroup::ColorChange(cc)) => cc.children_mut(),
+            Other(WIGroup::PDFLink(l)) => l.children_mut(),
             _ => todo!()
         }
     }
@@ -205,7 +207,7 @@ impl StomachGroup {
             Top(t) => t,
             TeXGroup(_,t) => t,
             Par(t) => t.children,
-            Other(w) => w.children_d(),
+            Other(w) => w.children_prim(),
             _ => todo!()
         }
     }
@@ -271,12 +273,12 @@ pub trait Stomach {
             match ret {
                 StomachGroup::TeXGroup(_,v) => Ok(v),
                 StomachGroup::Other(g) => {
-                    let repushes = if g.closesWithGroup() {None} else {Some(g.new_from())};
+                    let repushes = if g.closes_with_group() {None} else {Some(g.new_from())};
                     if g.has_ink() {
                         self.base_mut().buffer.last_mut().unwrap().push(Whatsit::Grouped(g));
                     } else {
                         let buf = self.base_mut().buffer.last_mut().unwrap();
-                        for c in g.children_d() {buf.push(c)}
+                        for c in g.children_prim() {buf.push(c)}
                     }
                     let ret = self.pop_group(int)?;
                     for c in repushes {
@@ -298,12 +300,12 @@ pub trait Stomach {
         let mut cwgs: Vec<WIGroup> = vec!();
         for bg in self.base().buffer.iter().rev() {
             match bg {
-                StomachGroup::Other(w) if w.closesWithGroup() => cwgs.push(w.new_from()),
+                StomachGroup::Other(w) if w.closes_with_group() => cwgs.push(w.new_from()),
                 StomachGroup::TeXGroup(_,_) => break,
                 _ => ()
             }
         }
-        for c in cwgs { self._close_stomach_group(int,c)?; }
+        for _ in cwgs { self._close_stomach_group(int,GroupClose::EndGroup(EndGroup{sourceref:None}))?; }
 
         let top = self.base_mut().buffer.pop();
         match top {
@@ -314,10 +316,10 @@ pub trait Stomach {
                 for c in v { self.add(int,c)? }
                 Ok(())
             }
-            Some(StomachGroup::Other(g)) if g.closesWithGroup() => {
+            Some(StomachGroup::Other(g)) if g.closes_with_group() => {
                 self.close_group(int)?;
                 let mut ng = g.new_from();
-                let mut nv = g.children_d();
+                let mut nv = g.children_prim();
                 let mut latter : Vec<Whatsit> = vec!();
                 loop {
                     match nv.last() {
@@ -341,7 +343,7 @@ pub trait Stomach {
         }
     }
 
-    fn _close_stomach_group(&mut self, int:&Interpreter, wi:WIGroup) -> Result<(),TeXError> {
+    fn _close_stomach_group(&mut self, int:&Interpreter, wi:GroupClose) -> Result<(),TeXError> {
         let top = match self.base_mut().buffer.pop() {
             None => TeXErr!((int,None),"Error in Stomach: Stomach empty"),
             Some(p) => p
@@ -414,16 +416,8 @@ pub trait Stomach {
                 Ok(())
             }
             Whatsit::GroupOpen(ref g) => {
-                match g {
-                    WIGroup::FontChange(_, _, b, _) if !b => {
-                        self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
-                        Ok(())
-                    }
-                    _ => {
-                        self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
-                        Ok(())
-                    },
-                }
+                self.base_mut().buffer.push(StomachGroup::Other(g.clone()));
+                Ok(())
             }
             Whatsit::GroupClose(g) => {
                 self._close_stomach_group(int,g)
@@ -500,13 +494,13 @@ pub trait Stomach {
                     groups.push(gt);
                     for c in v {stack.last_mut().unwrap().push(c)}
                 }
-                Some(StomachGroup::Other(WIGroup::FontChange(f,_,_,v))) => {
-                    base.basefont.get_or_insert(f);
-                    for c in v {stack.last_mut().unwrap().push(c)}
+                Some(StomachGroup::Other(WIGroup::FontChange(f))) => {
+                    base.basefont.get_or_insert(f.font);
+                    for c in f.children {stack.last_mut().unwrap().push(c)}
                 }
-                Some(StomachGroup::Other(WIGroup::ColorChange(s,_,v))) => {
-                    base.basecolor.get_or_insert(s);
-                    for c in v {stack.last_mut().unwrap().push(c)}
+                Some(StomachGroup::Other(WIGroup::ColorChange(cc))) => {
+                    base.basecolor.get_or_insert(cc.color);
+                    for c in cc.children {stack.last_mut().unwrap().push(c)}
                 }
                 _ => panic!("This shouldn't happen")
             }
@@ -558,7 +552,7 @@ pub trait Stomach {
         for b in self.base().buffer.iter().rev() {
             match b {
                 StomachGroup::Top(_) => return true,
-                StomachGroup::Other(g) if g.closesWithGroup() => (),
+                StomachGroup::Other(g) if g.closes_with_group() => (),
                 StomachGroup::TeXGroup(GroupType::Token | GroupType::Begingroup,_) => (),
                 _ => return false,
             }

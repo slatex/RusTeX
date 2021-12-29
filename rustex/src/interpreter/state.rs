@@ -674,7 +674,7 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{Pdfximage, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::whatsits::{Pdfximage, SimpleWI, Whatsit};
 use crate::stomach::boxes::{BoxMode,TeXBox};
 
 impl Interpreter<'_> {

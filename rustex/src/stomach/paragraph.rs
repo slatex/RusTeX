@@ -1,14 +1,16 @@
 use std::cmp::max;
 use crate::Interpreter;
+use crate::interpreter::dimensions::Skip;
 use crate::stomach::{StomachGroup, Whatsit};
 use crate::stomach::whatsits::{HasWhatsitIter, SimpleWI};
+use crate::stomach::groups::WIGroupTrait;
 
 #[derive(Clone)]
 pub struct Paragraph {
     pub parskip:i32,
     pub children:Vec<Whatsit>,
-    leftskip:Option<i32>,
-    rightskip:Option<i32>,
+    leftskip:Option<Skip>,
+    rightskip:Option<Skip>,
     hsize:Option<i32>,
     pub lineheight:Option<i32>,
     pub _width:i32,
@@ -184,22 +186,22 @@ impl Paragraph {
         (p1,p2)
     }
     pub fn close(&mut self,int:&Interpreter,hangindent:i32,hangafter:usize,parshape:Vec<(i32,i32)>) {
-        self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
-        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)).base);
+        self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)));
+        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)));
         self.hsize.get_or_insert(int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32)));
         self.lineheight.get_or_insert(int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
-        self._width = self.hsize.unwrap() - (self.leftskip.unwrap()  + self.rightskip.unwrap());
+        self._width = self.hsize.unwrap() - (self.leftskip.unwrap().base  + self.rightskip.unwrap().base);
 
         self.lines.get_or_insert(if !parshape.is_empty() {
             let mut ilsr : Vec<(i32,i32)> = vec!();
             for (i,l) in parshape {
-                ilsr.push((i,l - (self.leftskip.unwrap() + self.rightskip.unwrap())))
+                ilsr.push((i,l - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))
             }
             ilsr
         } else if hangindent != 0 && hangafter != 0 {
             todo!()
         } else {
-            vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap() + self.rightskip.unwrap())))
+            vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))
         });
         let lines = self.lines.as_ref().unwrap();
 

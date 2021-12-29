@@ -47,6 +47,11 @@ impl From<TeXString> for TeXStr {
         TeXStr(Rc::new(ts.0))
     }
 }
+impl From<String> for TeXStr {
+    fn from(s: String) -> Self {
+        TeXStr(Rc::new(s.as_bytes().to_vec()))
+    }
+}
 impl PartialEq<str> for TeXStr {
     fn eq(&self, other: &str) -> bool {
         self.0.deref() == other.as_bytes()
@@ -59,6 +64,10 @@ impl Display for TeXStr {
     }
 }
 
+fn is_ascii(u:&u8) -> bool {
+    32 <= *u && *u <= 126
+}
+
 fn display(us:&[u8]) -> String {
     let mut ret : Vec<u8> = vec!();
     for u in us { match u {
@@ -66,7 +75,7 @@ fn display(us:&[u8]) -> String {
             ret.push(*x)
         }
         13 => ret.push(10),
-        _ if u.is_ascii() => {
+        _ if is_ascii(u) => {
             ret.push(*u)
         }
         _ => {

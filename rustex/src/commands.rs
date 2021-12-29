@@ -147,7 +147,7 @@ impl PartialEq for DefMacro {
     }
 }
 
-use crate::stomach::whatsits::{ExecutableWhatsit, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::whatsits::{ExecutableWhatsit, SimpleWI, Whatsit, WhatsitTrait};
 use crate::stomach::math::{MathGroup,MathKernel};
 use crate::stomach::boxes::{BoxMode,TeXBox};
 
@@ -231,6 +231,7 @@ impl AssignableValue {
 use crate::TeXErr;
 
 use crate::interpreter::state::StateChange;
+use crate::stomach::groups::FontChange;
 
 pub trait ExternalCommand {
     fn expandable(&self) -> bool;
@@ -794,9 +795,12 @@ impl PrimitiveTeXCommand {
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
                     int.change_state(StateChange::Font(f.clone(),global));
-                    int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(
-                        WIGroup::FontChange(f.clone(),int.update_reference(&rf.0),global,vec!())
-                    ))
+                    int.stomach.borrow_mut().add(int,FontChange {
+                        font: f.clone(),
+                        closes_with_group: !global,
+                        children: vec!(),
+                        sourceref: None
+                    }.as_whatsit())
                 },
                 AssignableValue::Dim(i) => {
                     int.read_eq();

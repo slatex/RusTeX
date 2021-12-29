@@ -6,7 +6,8 @@ use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
-use crate::stomach::whatsits::{ActionSpec, Pdfximage, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
+use crate::stomach::whatsits::{ActionSpec, Pdfximage, SimpleWI, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
@@ -273,18 +274,30 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
         match prestring {
             Some(s) if s == "pop" => {
                 int.state_color_pop(num as usize);
-                int.stomach.borrow_mut().add(int,Whatsit::GroupClose(WIGroup::ColorEnd(int.update_reference(&tk.0))))?
+                int.stomach.borrow_mut().add(int,ColorEnd {
+                    sourceref:int.update_reference(&tk.0)
+                }.as_whatsit())?
             },
             Some(s) if s == "set" => {
                 let color: TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
                 int.state_color_set(num as usize,color.clone());
-                int.stomach.borrow_mut().add(int,Whatsit::GroupClose(WIGroup::ColorEnd(int.update_reference(&tk.0))))?;
-                int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(WIGroup::ColorChange(color, int.update_reference(&tk.0), vec!())))?
+                int.stomach.borrow_mut().add(int,ColorEnd{
+                    sourceref:int.update_reference(&tk.0)
+                }.as_whatsit())?;
+                int.stomach.borrow_mut().add(int,ColorChange {
+                    color,
+                    children: vec![],
+                    sourceref: int.update_reference(&tk.0)
+                }.as_whatsit())?
             }
             Some(s) if s == "push" => {
                 let color : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
                 int.state_color_push(num as usize,color.clone());
-                int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(WIGroup::ColorChange(color, int.update_reference(&tk.0), vec!())))?
+                int.stomach.borrow_mut().add(int,ColorChange {
+                    color,
+                    children: vec![],
+                    sourceref: int.update_reference(&tk.0)
+                }.as_whatsit())?
             }
             Some(s) if s == "current" => todo!(),
             _ => TeXErr!((int,None),"Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")
@@ -408,8 +421,13 @@ pub static PDFSTARTLINK: SimpleWhatsit = SimpleWhatsit {
             Some(s) => s,
             None => "".into()
         };
-        let act = read_action_spec(int)?;
-        Ok(Whatsit::GroupOpen(WIGroup::PDFLink(rule.as_str().into(),attr,act,int.update_reference(tk),vec!())))
+        let action = read_action_spec(int)?;
+        Ok(PDFLink {
+            rule:rule.into(),
+            attr,action,
+            sourceref:int.update_reference(tk),
+            children:vec!()
+        }.as_whatsit())
     }
 };
 
@@ -417,7 +435,9 @@ pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
     name:"pdfendlink",
     modes: |x| {true},
     _get:|tk,int| {
-        Ok(Whatsit::GroupClose(WIGroup::LinkEnd(int.update_reference(tk))))
+        Ok(LinkEnd {
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -444,10 +464,14 @@ pub static PDFSAVE: SimpleWhatsit = SimpleWhatsit {
     modes: |x| {true},
     _get:|tk,int| {
         use crate::interpreter::TeXMode;
-        Ok(Whatsit::GroupOpen(WIGroup::PdfMatrixSave(int.update_reference(tk),match int.get_mode() {
-            TeXMode::Vertical | TeXMode::InternalVertical => true,
-            _ => false
-        },vec!())))
+        Ok(PDFMatrixSave {
+            is_vertical:match int.get_mode() {
+                TeXMode::Vertical | TeXMode::InternalVertical => true,
+                _ => false
+            },
+            children:vec!(),
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -455,7 +479,9 @@ pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrestore",
     modes: |x| {true},
     _get:|tk,int| {
-        Ok(Whatsit::GroupClose(WIGroup::PdfRestore(int.update_reference(tk))))
+        Ok(PDFRestore {
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 

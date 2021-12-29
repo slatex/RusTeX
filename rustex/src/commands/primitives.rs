@@ -370,9 +370,10 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
-use crate::stomach::whatsits::{AlignBlock, ExecutableWhatsit, SimpleWI, Whatsit, WIGroup};
+use crate::stomach::whatsits::{AlignBlock, ExecutableWhatsit, SimpleWI, Whatsit};
 use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInfix, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Over, Overline, Underline};
 use crate::stomach::boxes::{BoxMode,TeXBox,HBox,VBox};
+use crate::stomach::groups::FontChange;
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1911,9 +1912,12 @@ pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
         int.change_state(StateChange::Font(Nullfont.try_with(|x| x.clone()).unwrap(),global));
-        int.stomach.borrow_mut().add(int,Whatsit::GroupOpen(
-            WIGroup::FontChange(Nullfont.try_with(|x| x.clone()).unwrap(),int.update_reference(&rf.0),global,vec!())
-        ))
+        int.stomach.borrow_mut().add(int,FontChange {
+            font: Nullfont.try_with(|x| x.clone()).unwrap(),
+            closes_with_group: !global,
+            children: vec![],
+            sourceref: int.update_reference(&rf.0)
+        }.as_whatsit())
     }
 };
 
