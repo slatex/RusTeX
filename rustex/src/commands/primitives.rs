@@ -10,7 +10,7 @@ use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
-use crate::stomach::whatsits::WhatsitTrait;
+use crate::stomach::whatsits::{PrintChar, WhatsitTrait};
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -20,7 +20,12 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         match int.get_mode() {
-            TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Char(32,int.get_font(),int.update_reference(tk))),
+            TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Char(
+                PrintChar {
+                    char: 32,
+                    font: int.get_font(),
+                    sourceref: int.update_reference(tk)
+                })),
             _ => Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {
                     class:0,family:0,position:0,font:int.state.borrow().getTextFont(0),

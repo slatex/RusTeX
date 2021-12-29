@@ -1,4 +1,5 @@
 use std::cmp::{max, min, Ordering};
+use std::ops::Deref;
 use std::path::PathBuf;
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
@@ -96,147 +97,55 @@ use crate::stomach::simple::SimpleWI;
 pub enum Whatsit {
     Exec(Rc<ExecutableWhatsit>),
     Box(TeXBox),
-    Ext(Rc<dyn ExtWhatsit>),
     GroupOpen(WIGroup),
     GroupClose(GroupClose),
     Simple(SimpleWI),
-    Char(u8,Rc<Font>,Option<SourceFileReference>),
+    Char(PrintChar),
     Math(MathGroup),
     MathInfix(MathInfix),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
     Par(Paragraph),
-    Inserts(Vec<Vec<Whatsit>>),
+    Inserts(Insert),
     Float(TeXBox)
 }
 
-impl Whatsit {
-    pub fn as_xml(&self) -> String {
-        self.as_xml_internal("".to_string())
-    }
-    pub fn as_xml_internal(&self,prefix: String) -> String {
-        use Whatsit::*;
-        match self {
-            Exec(_) | GroupOpen(_) | GroupClose(_) => "".to_string(),
-            Ext(e) => e.as_xml_internal(prefix),
-            Math(m) => m.as_xml_internal(prefix),
-            Simple(s) => s.as_xml_internal(prefix),
-            Grouped(g) => g.as_xml_internal(prefix),
-            Par(p) => p.as_xml_internal(prefix),
-            Box(b) => b.as_xml_internal(prefix),
-            Char(u,_,_) => {
-                fn is_ascii(u:&u8) -> bool {
-                    (32 <= *u && *u <= 126) || *u > 160
-                }
-                if *u == 60 {
-                    "&lt;".to_string()
-                } else if *u == 62 {
-                    "&gt;".to_string()
-                } else if *u == 38 {
-                    "&amp;".to_string()
-                } else if is_ascii(u) {
-                    std::char::from_u32(*u as u32).unwrap().to_string()
-                } else {
-                    "<char value=\"".to_string() + &u.to_string() + "\"/>"
-                }
-            },
-            MathInfix(i) => i.as_xml_internal(prefix),
-            Inserts(vs) => {
-                let mut ret = "\n".to_string() + &prefix + "<inserts>";
-                for v in vs {
-                    ret += "\n  ";
-                    ret += &prefix;
-                    ret += "<insert>";
-                    for w in v {
-                        ret  += &w.as_xml_internal(prefix.clone() + "    ")
-                    }
-                    ret += "\n  ";
-                    ret += &prefix;
-                    ret += "</insert>";
-                }
-                ret + "\n" + &prefix + "</inserts>"
-            }
-            Float(bx) => {
-                let mut ret = "\n".to_string() + &prefix + "<float>";
-                ret  += &bx.as_xml_internal(prefix.clone() + "  ");
-                ret + "\n" + &prefix + "</float>"
-            }
-            Ls(_) => unreachable!(),
-            _ => todo!()
+macro_rules! pass_on {
+    ($s:tt,$e:ident$(,$tl:expr)*) => (match $s {
+        Whatsit::Exec(g) => WhatsitTrait::$e(g $(,$tl)*),
+        Whatsit::Box(g) => TeXBox::$e(g $(,$tl)*),
+        Whatsit::GroupOpen(g) => WIGroup::$e(g $(,$tl)*),
+        Whatsit::GroupClose(g) => GroupClose::$e(g $(,$tl)*),
+        Whatsit::Simple(g) => SimpleWI::$e(g $(,$tl)*),
+        Whatsit::Char(g) => PrintChar::$e(g $(,$tl)*),
+        Whatsit::Math(g) => MathGroup::$e(g $(,$tl)*),
+        Whatsit::MathInfix(g) => MathInfix::$e(g $(,$tl)*),
+        Whatsit::Ls(_) => panic!("Should never happen!"),
+        Whatsit::Grouped(g) => WIGroup::$e(g $(,$tl)*),
+        Whatsit::Par(g) => Paragraph::$e(g $(,$tl)*),
+        Whatsit::Inserts(g) => Insert::$e(g $(,$tl)*),
+        Whatsit::Float(g) => TeXBox::$e(g $(,$tl)*),
         }
+    )
+}
 
-    }
-    pub fn has_ink(&self) -> bool {
-        use Whatsit::*;
+impl WhatsitTrait for Whatsit {
+    /*fn test(&self) {
         match self {
-            Exec(_) | GroupClose(_) => false,
-            Box(b) => b.has_ink(),
-            Ext(e) => e.has_ink(),
-            GroupOpen(w) => w.has_ink(),
-            Grouped(w) => w.has_ink(),
-            Simple(s) => s.has_ink(),
-            Char(_,_,_) | Par(_) | Float(_) | Inserts(_) | MathInfix(_) => true,
-            Math(m) => m.has_ink(),
-            Ls(_) => unreachable!()
+            Whatsit::Exec(e) => {
+                let test = e.deref();
+            }
+            _ => ()
         }
+    }*/
+    fn as_whatsit(self) -> Whatsit { self }
+    fn width(&self) -> i32 { pass_on!(self,width) }
+    fn height(&self) -> i32 { pass_on!(self,height) }
+    fn depth(&self) -> i32 { pass_on!(self,depth) }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        pass_on!(self,as_xml_internal,prefix)
     }
-    pub fn width(&self) -> i32 {
-        use Whatsit::*;
-        match self {
-            Exec(_) | GroupClose(_) => 0,
-            Box(b) => b.width(),
-            Ext(e) => e.width(),
-            GroupOpen(w) => w.width(),
-            Grouped(w) => w.width(),
-            Simple(s) => s.width(),
-            Char(u,f,_) => f.get_width(*u as u16),
-            Math(m) => m.width(),
-            Par(p) => p.width(),
-            Float(s) => s.width(),
-            Inserts(s) => todo!(),
-            MathInfix(m) => m.width(),
-            Ls(_) => unreachable!(),
-
-        }
-    }
-    pub fn height(&self) -> i32 {
-        use Whatsit::*;
-        match self {
-            Exec(_) | GroupClose(_) => 0,
-            Box(b) => b.height(),
-            Ext(e) => e.height(),
-            GroupOpen(w) => w.height(),
-            Grouped(w) => w.height(),
-            Simple(s) => s.height(),
-            Char(u,f,_) => f.get_height(*u as u16),
-            Math(m) => m.height(),
-            Par(p) => p.height(),
-            Ls(_) => unreachable!(),
-            Float(s) => s.height(),
-            Inserts(s) => todo!(),
-            MathInfix(m) => m.height(),
-            _ => todo!()
-        }
-    }
-    pub fn depth(&self) -> i32 {
-        use Whatsit::*;
-        match self {
-            Exec(_) | GroupClose(_) => 0,
-            Box(b) => b.depth(),
-            Ext(e) => e.depth(),
-            GroupOpen(w) => w.depth(),
-            Grouped(w) => w.depth(),
-            Simple(s) => s.depth(),
-            Char(u,f,_) => f.get_depth(*u as u16),
-            Math(m) => m.depth(),
-            Par(p) => p.depth(),
-            Ls(_) => unreachable!(),
-            Float(s) => s.depth(),
-            Inserts(s) => todo!(),
-            MathInfix(m) => m.depth(),
-            _ => todo!()
-        }
-    }
+    fn has_ink(&self) -> bool { pass_on!(self,has_ink) }
 }
 
 #[derive(Clone)]
@@ -249,19 +158,90 @@ pub enum ActionSpec {
     Name(TeXStr),
     Page(i32)
 }
+impl ActionSpec {
+    pub fn as_xml(&self) -> String {
+        use ActionSpec::*;
+        match self {
+            User(s) => " user=\"".to_string() + &s.to_string() + "\"",
+            GotoNum(s) => " goto=\"#".to_string() + &s.to_string() + "\"",
+            File(s,t,_) => " file=\"".to_string() + &s.to_string() +
+                "#" + &t.to_string() + "\"",
+            FilePage(s,t,_) => " filepage=\"".to_string() + &s.to_string() +
+                "#" + &t.to_string() + "\"",
+            Name(s) => " name=\"".to_string() + &s.to_string() + "\"",
+            Page(s) => " page=\"".to_string() + &s.to_string() + "\"",
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
 
 pub struct ExecutableWhatsit {
     pub _apply : Box<dyn FnOnce(&Interpreter) -> Result<(),TeXError>>
 }
+impl ExecutableWhatsit {
+    pub fn as_whatsit(self) -> Whatsit {
+        Whatsit::Exec(Rc::new(self))
+    }
+}
+impl WhatsitTrait for Rc<ExecutableWhatsit> {
+    fn as_whatsit(self) -> Whatsit {
+        Whatsit::Exec(self)
+    }
+    fn width(&self) -> i32 { 0 }
+    fn height(&self) -> i32 { 0 }
+    fn depth(&self) -> i32 { 0 }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "".to_string()
+    }
+    fn has_ink(&self) -> bool { false }
+}
 
-pub trait ExtWhatsit {
-    fn name(&self) -> TeXStr;
-    fn reference(&self) -> Option<SourceFileReference>;
-    fn children(&self) -> Vec<Whatsit>;
-    fn isGroup(&self) -> bool;
-    fn height(&self) -> i32;
-    fn width(&self) -> i32;
-    fn depth(&self) -> i32;
-    fn has_ink(&self) -> bool;
-    fn as_xml_internal(&self,prefix:String) -> String;
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct PrintChar {
+    pub char : u8,
+    pub font : Rc<Font>,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for PrintChar {
+    fn as_whatsit(self) -> Whatsit { Whatsit::Char(self) }
+    fn width(&self) -> i32 { self.font.get_width(self.char as u16) }
+    fn height(&self) -> i32 { self.font.get_height(self.char as u16) }
+    fn depth(&self) -> i32 { self.font.get_depth(self.char as u16) }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        fn is_ascii(u:u8) -> bool {
+            (32 <= u && u <= 126) || u > 160
+        }
+        if self.char == 60 {
+            "&lt;".to_string()
+        } else if self.char == 62 {
+            "&gt;".to_string()
+        } else if self.char == 38 {
+            "&amp;".to_string()
+        } else if is_ascii(self.char) {
+            std::char::from_u32(self.char as u32).unwrap().to_string()
+        } else {
+            "<char value=\"".to_string() + &self.char.to_string() + "\"/>"
+        }
+    }
+    fn has_ink(&self) -> bool { true }
+}
+
+#[derive(Clone)]
+pub struct Insert(pub Vec<Vec<Whatsit>>);
+impl WhatsitTrait for Insert {
+    fn as_whatsit(self) -> Whatsit { Whatsit::Inserts(self) }
+    fn width(&self) -> i32 { todo!() }
+    fn height(&self) -> i32 { todo!() }
+    fn depth(&self) -> i32 { todo!() }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        let mut ret = "<inserts>".to_string();
+        for v in &self.0 {
+            for w in v {ret += &w.as_xml_internal(prefix.clone())}
+        }
+        ret + "</inserts"
+    }
+    fn has_ink(&self) -> bool { true }
 }

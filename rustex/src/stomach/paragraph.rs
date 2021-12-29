@@ -2,7 +2,7 @@ use std::cmp::max;
 use crate::Interpreter;
 use crate::interpreter::dimensions::Skip;
 use crate::stomach::{StomachGroup, Whatsit};
-use crate::stomach::whatsits::HasWhatsitIter;
+use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 use crate::stomach::groups::WIGroupTrait;
 use crate::stomach::simple::SimpleWI;
 
@@ -20,12 +20,20 @@ pub struct Paragraph {
     lines : Option<Vec<(i32,i32)>>
 }
 
-impl Paragraph {
-    pub fn as_xml_internal(&self,prefix: String) -> String {
+impl WhatsitTrait for Paragraph {
+    fn as_xml_internal(&self,prefix: String) -> String {
         let mut ret = "\n".to_owned() + &prefix + "<paragraph>";
         for c in &self.children { ret += &c.as_xml_internal(prefix.clone() + "  ")}
         ret + "\n" + &prefix + "</paragraph>"
     }
+    fn width(&self) -> i32 { self._width }
+    fn height(&self) -> i32 { self._height }
+    fn depth(&self) -> i32 { self._depth }
+    fn has_ink(&self) -> bool { true }
+    fn as_whatsit(self) -> Whatsit { Whatsit::Par(self) }
+}
+
+impl Paragraph {
     pub fn split(self,target:i32,int:&Interpreter) -> (Paragraph,Paragraph) {
         let mut presplit : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
         let mut currentwidth : i32 = 0;
@@ -91,7 +99,7 @@ impl Paragraph {
                                 hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                             }
                             currentlineheight = max(currentlineheight,match wi {
-                                Whatsit::Char(_,_,_) => max(wi.height(),lineheight),
+                                Whatsit::Char(_) => max(wi.height(),lineheight),
                                 _ => wi.height()
                             });
                             currentdepth = max(currentdepth,wi.depth());
@@ -234,7 +242,7 @@ impl Paragraph {
                         hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                     }
                     currentlineheight = max(currentlineheight,match wi {
-                        Whatsit::Char(_,_,_) => max(wi.height(),lineheight),
+                        Whatsit::Char(_) => max(wi.height(),lineheight),
                         _ => wi.height()
                     });
                     currentdepth = max(currentdepth,wi.depth());
@@ -250,7 +258,4 @@ impl Paragraph {
         leftskip:None,rightskip:None,hsize:None,lineheight:None,
         _width:0,_height:0,_depth:0,lines:None
     }}
-    pub fn width(&self) -> i32 { self._width }
-    pub fn height(&self) -> i32 { self._height }
-    pub fn depth(&self) -> i32 { self._depth }
 }

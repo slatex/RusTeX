@@ -197,7 +197,9 @@ impl WhatsitTrait for PDFLink {
     fn height(&self) -> i32 { todo!() }
     fn depth(&self) -> i32 { todo!() }
     fn as_xml_internal(&self, prefix: String) -> String {
-        let mut ret = "\n".to_string() + &prefix + "<link rule=\"" + self.rule.to_string().as_str() + "\" attr=\"" + self.attr.to_string().as_str() + "\">";
+        let mut ret = "\n".to_string() + &prefix + "<link rule=\"" +
+            self.rule.to_string().as_str() + "\" attr=\"" +
+            self.attr.to_string().as_str() + &self.action.as_xml() + "\">";
         for c in &self.children {
             ret += &c.as_xml_internal(prefix.clone() + "  ")
         }
@@ -303,7 +305,7 @@ macro_rules! pass_on_close {
         GroupClose::EndGroup(g) => EndGroup::$e(g $(,$tl)*)
     })
 }
-pub trait WIGroupCloseTrait {
+pub trait WIGroupCloseTrait : WhatsitTrait {
     fn priority(&self) -> i16;
     fn as_whatsit_i(self) -> Whatsit;
 }
@@ -315,8 +317,7 @@ impl WIGroupCloseTrait for GroupClose {
         pass_on_close!(self,as_whatsit_i)
     }
 }
-
-impl<A> WhatsitTrait for A where A:WIGroupCloseTrait {
+impl WhatsitTrait for GroupClose {
     fn as_whatsit(self) -> Whatsit {
         WIGroupCloseTrait::as_whatsit_i(self)
     }
@@ -326,6 +327,7 @@ impl<A> WhatsitTrait for A where A:WIGroupCloseTrait {
     fn as_xml_internal(&self, prefix: String) -> String { "".to_string() }
     fn has_ink(&self) -> bool { false }
 }
+
 macro_rules! groupclose {
     ($e:ident,$p:expr) => (
         #[derive(Clone)]
@@ -337,6 +339,16 @@ macro_rules! groupclose {
             fn as_whatsit_i(self) -> Whatsit {
                 Whatsit::GroupClose(GroupClose::$e(self))
             }
+        }
+        impl WhatsitTrait for $e {
+            fn as_whatsit(self) -> Whatsit {
+                WIGroupCloseTrait::as_whatsit_i(self)
+            }
+            fn width(&self) -> i32 { 0 }
+            fn height(&self) -> i32 { 0 }
+            fn depth(&self) -> i32 { 0 }
+            fn as_xml_internal(&self, prefix: String) -> String { "".to_string() }
+            fn has_ink(&self) -> bool { false }
         }
     )
 }

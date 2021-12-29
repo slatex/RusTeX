@@ -10,8 +10,9 @@ use crate::references::SourceFileReference;
 use crate::stomach::groups::{EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::SimpleWI;
+use crate::stomach::Whatsit::Inserts;
 use crate::utils::{TeXError, TeXStr};
-use crate::stomach::whatsits::WhatsitTrait;
+use crate::stomach::whatsits::{Insert, WhatsitTrait};
 
 pub mod whatsits;
 pub mod boxes;
@@ -424,7 +425,6 @@ pub trait Stomach {
             Whatsit::GroupClose(g) => {
                 self._close_stomach_group(int,g)
             },
-            Whatsit::Ext(e) if e.isGroup() => todo!(),
             o if o.has_ink() => {
                 self.base_mut().buffer.last_mut().unwrap().push(o);
                 Ok(())
@@ -617,7 +617,7 @@ impl NoShipoutRoutine {
             _ => vec!()
         };
         if !inserts.is_empty() {
-            self.add(int,Whatsit::Inserts(inserts))?
+            self.add(int,Whatsit::Inserts(Insert(inserts)))?
         }
         if !floatregs.is_empty() {
             int.change_state(StateChange::Cs("@freelist".into(),

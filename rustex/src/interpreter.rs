@@ -103,7 +103,7 @@ use crate::stomach::{NoShipoutRoutine, Stomach, Whatsit};
 use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
 use crate::stomach::simple::Indent;
-use crate::stomach::whatsits::WhatsitTrait;
+use crate::stomach::whatsits::{PrintChar, WhatsitTrait};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -287,7 +287,10 @@ impl Interpreter<'_> {
             (Letter | Other | Space, Horizontal | RestrictedHorizontal) => {
                 let font = self.get_font();
                 let rf = self.update_reference(&next);
-                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(next.char,font,rf))
+                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(PrintChar {
+                    char:next.char,
+                    font,sourceref:rf
+                }))
             }
             (MathShift, Horizontal) => self.do_math(false),
             (MathShift, RestrictedHorizontal) => self.do_math(true),
