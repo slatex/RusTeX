@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 use crate::fonts::Font;
 use crate::references::SourceFileReference;
@@ -13,13 +14,15 @@ pub enum WIGroup {
     //       rule   attr  action
     PDFLink(PDFLink),
     PDFMatrixSave(PDFMatrixSave),
+    External(Rc<dyn ExternalWhatsitGroup>,Vec<Whatsit>)
 }
 macro_rules! pass_on {
-    ($s:tt,$e:ident$(,$tl:expr)*) => (match $s {
+    ($s:tt,$e:ident,($ext:ident,$ch:ident) => $exp:expr $(,$tl:expr)*) => (match $s {
         WIGroup::FontChange(g) => FontChange::$e(g $(,$tl)*),
         WIGroup::ColorChange(g) => ColorChange::$e(g $(,$tl)*),
         WIGroup::PDFLink(g) => PDFLink::$e(g $(,$tl)*),
-        WIGroup::PDFMatrixSave(g) => PDFMatrixSave::$e(g $(,$tl)*)
+        WIGroup::PDFMatrixSave(g) => PDFMatrixSave::$e(g $(,$tl)*),
+        WIGroup::External($ext,$ch) => $exp
     })
 }
 
@@ -29,7 +32,7 @@ pub trait WIGroupTrait : WhatsitTrait {
     fn children_prim(self) -> Vec<Whatsit>;
     fn opaque(&self) -> bool;
     fn priority(&self) -> i16;
-    fn new_from(&self) -> Self;
+    //fn new_from(&self) -> Self;
     fn closes_with_group(&self) -> bool;
     fn as_wi_group(self) -> WIGroup;
 
@@ -38,47 +41,65 @@ pub trait WIGroupTrait : WhatsitTrait {
     }
 }
 
+pub trait ExternalWhatsitGroup {
+    fn name(&self) -> &str;
+    fn params(&self,name:&str) -> Option<&str>;
+    fn width(&self,ch:&Vec<Whatsit>) -> i32;
+    fn height(&self,ch:&Vec<Whatsit>) -> i32;
+    fn depth(&self,ch:&Vec<Whatsit>) -> i32;
+    fn as_xml_internal(&self,ch:&Vec<Whatsit>, prefix: String) -> String;
+    fn has_ink(&self,ch:&Vec<Whatsit>) -> bool;
+    fn opaque(&self) -> bool;
+    fn priority(&self) -> i16;
+    fn closes_with_group(&self) -> bool;
+}
+
 impl WhatsitTrait for WIGroup {
     fn as_whatsit(self) -> Whatsit {
         Whatsit::GroupOpen(self)
     }
-    fn width(&self) -> i32 { pass_on!(self,width) }
-    fn height(&self) -> i32 { pass_on!(self,height) }
-    fn depth(&self) -> i32 { pass_on!(self,depth) }
+    fn width(&self) -> i32 {
+        pass_on!(self,width,(e,ch)=>e.width(ch))
+    }
+    fn height(&self) -> i32 { pass_on!(self,height,(e,ch)=>e.height(ch)) }
+    fn depth(&self) -> i32 { pass_on!(self,depth,(e,ch)=>e.depth(ch)) }
     fn as_xml_internal(&self, prefix: String) -> String {
-        pass_on!(self,as_xml_internal,prefix)
+        pass_on!(self,as_xml_internal,(e,ch)=>e.as_xml_internal(ch,prefix),prefix)
     }
     fn has_ink(&self) -> bool {
-        pass_on!(self,has_ink)
+        pass_on!(self,has_ink,(e,ch)=>e.has_ink(ch))
     }
 }
-impl WIGroupTrait for WIGroup {
-    fn children(&self) -> &Vec<Whatsit> {
-        pass_on!(self,children)
-    }
-    fn children_mut(&mut self) -> &mut Vec<Whatsit> {
-        pass_on!(self,children_mut)
-    }
-    fn children_prim(self) -> Vec<Whatsit> {
-        pass_on!(self,children_prim)
-    }
-    fn opaque(&self) -> bool {
-        pass_on!(self,opaque)
-    }
-    fn priority(&self) -> i16 {
-        pass_on!(self,priority)
-    }
-    fn new_from(&self) -> Self {
+impl WIGroup {
+    pub fn new_from(&self) -> Self {
         match self {
             WIGroup::FontChange(g) => WIGroup::FontChange(g.new_from()),
             WIGroup::ColorChange(g) => WIGroup::ColorChange(g.new_from()),
             WIGroup::PDFLink(g) => WIGroup::PDFLink(g.new_from()),
-            WIGroup::PDFMatrixSave(g) => WIGroup::PDFMatrixSave(g.new_from())
+            WIGroup::PDFMatrixSave(g) => WIGroup::PDFMatrixSave(g.new_from()),
+            WIGroup::External(e,_) => WIGroup::External(e.clone(),vec!())
         }
+    }
+}
+impl WIGroupTrait for WIGroup {
+    fn children(&self) -> &Vec<Whatsit> {
+        pass_on!(self,children,(e,ch)=>ch)
+    }
+    fn children_mut(&mut self) -> &mut Vec<Whatsit> {
+        pass_on!(self,children_mut,(e,ch)=>ch)
+    }
+    fn children_prim(self) -> Vec<Whatsit> {
+        pass_on!(self,children_prim,(e,ch)=>ch)
+    }
+    fn opaque(&self) -> bool {
+        pass_on!(self,opaque,(e,ch)=>e.opaque())
+    }
+    fn priority(&self) -> i16 {
+        pass_on!(self,priority,(e,ch)=>e.priority())
     }
     fn as_wi_group(self) -> WIGroup { self }
     fn closes_with_group(&self) -> bool {
-        pass_on!(self,closes_with_group)
+        pass_on!(self,closes_with_group,(e,ch)=>e.closes_with_group())
     }
 }
 
@@ -112,6 +133,17 @@ impl WhatsitTrait for FontChange {
         return false
     }
 }
+impl FontChange {
+    pub fn new_from(&self) -> Self {
+        FontChange {
+            font: self.font.clone(),
+            closes_with_group: self.closes_with_group,
+            children: vec![],
+            sourceref: self.sourceref.clone()
+        }
+    }
+
+}
 impl WIGroupTrait for FontChange {
     fn children(&self) -> &Vec<Whatsit> { &self.children }
     fn children_prim(self) -> Vec<Whatsit> { self.children }
@@ -120,14 +152,6 @@ impl WIGroupTrait for FontChange {
     fn opaque(&self) -> bool { false }
     fn priority(&self) -> i16 {
         if self.closes_with_group { 25 } else { 2 }
-    }
-    fn new_from(&self) -> Self {
-        FontChange {
-            font: self.font.clone(),
-            closes_with_group: self.closes_with_group,
-            children: vec![],
-            sourceref: self.sourceref.clone()
-        }
     }
     fn closes_with_group(&self) -> bool {
         self.closes_with_group
@@ -162,19 +186,21 @@ impl WhatsitTrait for ColorChange {
         return false
     }
 }
-impl WIGroupTrait for ColorChange {
-    fn children(&self) -> &Vec<Whatsit> { &self.children }
-    fn children_prim(self) -> Vec<Whatsit> { self.children }
-    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
-    fn opaque(&self) -> bool { false }
-    fn priority(&self) -> i16 { 50 }
-    fn new_from(&self) -> Self {
+impl ColorChange {
+    pub fn new_from(&self) -> Self {
         ColorChange {
             color: self.color.clone(),
             children: vec![],
             sourceref: self.sourceref.clone()
         }
     }
+}
+impl WIGroupTrait for ColorChange {
+    fn children(&self) -> &Vec<Whatsit> { &self.children }
+    fn children_prim(self) -> Vec<Whatsit> { self.children }
+    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
+    fn opaque(&self) -> bool { false }
+    fn priority(&self) -> i16 { 50 }
     fn closes_with_group(&self) -> bool { false }
     fn as_wi_group(self) -> WIGroup {
         WIGroup::ColorChange(self)
@@ -212,13 +238,8 @@ impl WhatsitTrait for PDFLink {
         return false
     }
 }
-impl WIGroupTrait for PDFLink {
-    fn children(&self) -> &Vec<Whatsit> { &self.children }
-    fn children_prim(self) -> Vec<Whatsit> { self.children }
-    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
-    fn opaque(&self) -> bool { false }
-    fn priority(&self) -> i16 { 60 }
-    fn new_from(&self) -> Self {
+impl PDFLink {
+    pub fn new_from(&self) -> Self {
         PDFLink {
             rule:self.rule.clone(),
             attr:self.attr.clone(),
@@ -227,6 +248,13 @@ impl WIGroupTrait for PDFLink {
             sourceref: self.sourceref.clone()
         }
     }
+}
+impl WIGroupTrait for PDFLink {
+    fn children(&self) -> &Vec<Whatsit> { &self.children }
+    fn children_prim(self) -> Vec<Whatsit> { self.children }
+    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
+    fn opaque(&self) -> bool { false }
+    fn priority(&self) -> i16 { 60 }
     fn closes_with_group(&self) -> bool { false }
     fn as_wi_group(self) -> WIGroup {
         WIGroup::PDFLink(self)
@@ -260,13 +288,8 @@ impl WhatsitTrait for PDFMatrixSave {
         return false
     }
 }
-impl WIGroupTrait for PDFMatrixSave {
-    fn children(&self) -> &Vec<Whatsit> { &self.children }
-    fn children_prim(self) -> Vec<Whatsit> { self.children }
-    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
-    fn opaque(&self) -> bool { true }
-    fn priority(&self) -> i16 { 70 }
-    fn new_from(&self) -> Self {
+impl PDFMatrixSave {
+    pub fn new_from(&self) -> Self {
         match self.children.iter_wi().find(|x| match x {
             Whatsit::Simple(SimpleWI::PDFMatrix(_)) => true,
             _ => false
@@ -283,6 +306,13 @@ impl WIGroupTrait for PDFMatrixSave {
             }
         }
     }
+}
+impl WIGroupTrait for PDFMatrixSave {
+    fn children(&self) -> &Vec<Whatsit> { &self.children }
+    fn children_prim(self) -> Vec<Whatsit> { self.children }
+    fn children_mut(&mut self) -> &mut Vec<Whatsit> { self.children.as_mut() }
+    fn opaque(&self) -> bool { true }
+    fn priority(&self) -> i16 { 70 }
     fn closes_with_group(&self) -> bool { false }
     fn as_wi_group(self) -> WIGroup { WIGroup::PDFMatrixSave(self) }
 }
@@ -290,19 +320,27 @@ impl WIGroupTrait for PDFMatrixSave {
 
 // -------------------------------------------------------------------------------------------------
 
+pub trait ExternalWhatsitGroupEnd {
+    fn name(&self) -> &str;
+    fn params(&self,name:&str) -> Option<&str>;
+    fn priority(&self) -> i16;
+}
+
 #[derive(Clone)]
 pub enum GroupClose {
     PDFRestore(PDFRestore),
     LinkEnd(LinkEnd),
     ColorEnd(ColorEnd),
-    EndGroup(EndGroup)
+    EndGroup(EndGroup),
+    External(Rc<dyn ExternalWhatsitGroupEnd>)
 }
 macro_rules! pass_on_close {
-    ($s:tt,$e:ident$(,$tl:expr)*) => (match $s {
+    ($s:tt,$e:ident,$ext:ident => $exp:expr $(,$tl:expr)*) => (match $s {
         GroupClose::PDFRestore(g) => PDFRestore::$e(g $(,$tl)*),
         GroupClose::LinkEnd(g) => LinkEnd::$e(g $(,$tl)*),
         GroupClose::ColorEnd(g) => ColorEnd::$e(g $(,$tl)*),
-        GroupClose::EndGroup(g) => EndGroup::$e(g $(,$tl)*)
+        GroupClose::EndGroup(g) => EndGroup::$e(g $(,$tl)*),
+        GroupClose::External($ext) => $exp
     })
 }
 pub trait WIGroupCloseTrait : WhatsitTrait {
@@ -311,10 +349,10 @@ pub trait WIGroupCloseTrait : WhatsitTrait {
 }
 impl WIGroupCloseTrait for GroupClose {
     fn priority(&self) -> i16 {
-        pass_on_close!(self,priority)
+        pass_on_close!(self,priority,e => e.priority())
     }
     fn as_whatsit_i(self) -> Whatsit {
-        pass_on_close!(self,as_whatsit_i)
+        pass_on_close!(self,as_whatsit_i,e=>Whatsit::GroupClose(GroupClose::External(e)))
     }
 }
 impl WhatsitTrait for GroupClose {
@@ -324,7 +362,7 @@ impl WhatsitTrait for GroupClose {
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
-    fn as_xml_internal(&self, prefix: String) -> String { "".to_string() }
+    fn as_xml_internal(&self, _: String) -> String { "".to_string() }
     fn has_ink(&self) -> bool { false }
 }
 

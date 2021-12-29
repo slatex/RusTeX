@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::path::PathBuf;
+use std::rc::Rc;
 use image::{DynamicImage, GenericImageView};
 use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
@@ -40,6 +41,7 @@ pub enum SimpleWI {
     Left(Left),
     Middle(Middle),
     Right(Right),
+    External(Rc<dyn ExternalWhatsit>)
 }
 
 macro_rules! pass_on {
@@ -73,11 +75,12 @@ macro_rules! pass_on {
         SimpleWI::Left(g) => Left::$e(g $(,$tl)*),
         SimpleWI::Middle(g) => Middle::$e(g $(,$tl)*),
         SimpleWI::Right(g) => Right::$e(g $(,$tl)*),
+        SimpleWI::External(e) => e.$e($($tl),*)
     })
 }
 
 impl WhatsitTrait for SimpleWI {
-    fn as_whatsit(self) -> Whatsit { pass_on!(self,as_whatsit) }
+    fn as_whatsit(self) -> Whatsit { Whatsit::Simple(self) }
     fn width(&self) -> i32 { pass_on!(self,width) }
     fn height(&self) -> i32 { pass_on!(self,height) }
     fn depth(&self) -> i32 { pass_on!(self,depth) }
@@ -94,6 +97,11 @@ pub enum AlignBlock {
 }
 
 // -------------------------------------------------------------------------------------------------
+
+pub trait ExternalWhatsit:WhatsitTrait {
+    fn name(&self) -> &str;
+    fn params(&self,name:&str) -> Option<&str>;
+}
 
 #[derive(Clone)]
 pub struct PDFXImage{
