@@ -7,7 +7,8 @@ use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::interpreter::state::StateChange;
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
-use crate::stomach::whatsits::{ActionSpec, Pdfximage, SimpleWI, Whatsit, WhatsitTrait};
+use crate::stomach::simple::{PDFDest, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
+use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
@@ -352,12 +353,17 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         let attr = read_attrspec(int)?;
-        let resources = read_resource_spec(int)?;
+        let resource = read_resource_spec(int)?;
         let ind = int.read_number()?;
         let bx = int.state_get_box(ind as i32);
         let lastform = int.state_register(-(PDFLASTXFORM.index as i32));
         int.change_state(StateChange::Register(-(PDFLASTXFORM.index as i32),lastform + 1,true));
-        int.state_set_pdfxform(attr,resources,bx,int.update_reference(&tk.0));
+        int.state_set_pdfxform(PDFXForm {
+            attr,
+            resource,
+            content: bx,
+            sourceref: int.update_reference(&tk.0)
+        });
         Ok(())
     }
 };
@@ -367,7 +373,7 @@ pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
     modes: |_| {true},
     _get: |tk,int| {
         let num = int.read_number()?;
-        Ok(Whatsit::Simple(int.state_get_pdfxform(num as usize)?))
+        Ok(Whatsit::Simple(SimpleWI::PDFXForm(int.state_get_pdfxform(num as usize)?)))
     }
 };
 
@@ -377,8 +383,9 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     _get: |tk, int| {
         int.read_keyword(vec!("direct","page"));
         let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::PdfLiteral(str,rf)))
+        Ok(Whatsit::Simple(SimpleWI::PDFLiteral(PDFLiteral{
+            literal:str,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -408,7 +415,10 @@ pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
             Some(s) => s,
             None => TeXErr!((int,None),"Expected \"xyz\", \"XYZ\", \"fitr\", \"fitbh\", \"fitbv\", \"fitb\", \"fith\", \"fitv\" or \"fit\" in \\pdfdest")
         };
-        Ok(Whatsit::Simple(SimpleWI::PdfDest(target.as_str().into(),dest.as_str().into(),int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::PDFDest(PDFDest {
+            target:target.into(),dest:dest.into(),
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -455,7 +465,13 @@ pub static PDFSETMATRIX: SimpleWhatsit = SimpleWhatsit {
             }
         }).collect::<Result<Vec<f32>,TeXError>>()?;
         assert_eq!(nums.len(),4);
-        Ok(Whatsit::Simple(SimpleWI::PdfMatrix(nums[0],nums[1],nums[2],nums[3],int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::PDFMatrix(PDFMatrix {
+            scale: nums[0],
+            rotate: nums[1],
+            skewx: nums[2],
+            skewy: nums[3],
+            sourceref: int.update_reference(tk)
+        })))
     }
 };
 
@@ -496,7 +512,7 @@ pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
             None => TeXErr!((int,Some(tk.clone())),"No image as index {}",num)
         };
         //unsafe {crate::LOG = true}
-        Ok(Whatsit::Simple(SimpleWI::Img(img,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::PDFXImage(img)))
     }
 };
 
@@ -538,7 +554,16 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
             }
         };
         int.state.borrow_mut().pdfximages.push(
-            Pdfximage(rule.as_str().into(),attr,pagespec,colorspace,boxspec,file,image)
+            PDFXImage {
+                rule:rule.into(),
+                attr,
+                pagespec,
+                colorspace,
+                boxspec,
+                filename: file,
+                image,
+                sourceref: int.update_reference(&tk.0)
+            }
         );
         Ok(())
     }

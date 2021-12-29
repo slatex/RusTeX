@@ -100,9 +100,10 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach, Whatsit};
-use crate::stomach::whatsits::SimpleWI;
 use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
+use crate::stomach::simple::Indent;
+use crate::stomach::whatsits::WhatsitTrait;
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -388,7 +389,10 @@ impl Interpreter<'_> {
         let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
         self.stomach.borrow_mut().start_paragraph(parskip.base);
         if indent != 0 {
-            self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Simple(SimpleWI::Indent(indent,None)))?
+            self.stomach.borrow_mut().add(self, Indent {
+                dim: indent,
+                sourceref: None
+            }.as_whatsit())?
         }
         Ok(())
     }

@@ -9,6 +9,22 @@ pub static PGFSYSDRIVER : PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static COLORPUSH : PrimitiveExecutable = PrimitiveExecutable {
+    expandable:false,
+    name:"rustex!pgf!colorpush",
+    _apply:|xp, int| {
+        todo!()
+    }
+};
+
+pub static COLORPOP : PrimitiveExecutable = PrimitiveExecutable {
+    expandable:false,
+    name:"rustex!pgf!colorpop",
+    _apply:|xp, int| {
+        todo!()
+    }
+};
+
 pub static BEGINPICTURE : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"rustex!pgf!beginpicture",
@@ -59,4 +75,6 @@ pub fn pgf_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PGFHBOX),
     PrimitiveTeXCommand::Primitive(&TYPESETPICTUREBOX),
     PrimitiveTeXCommand::Primitive(&PGFLITERAL),
+    PrimitiveTeXCommand::Primitive(&COLORPUSH),
+    PrimitiveTeXCommand::Primitive(&COLORPOP),
 ]}

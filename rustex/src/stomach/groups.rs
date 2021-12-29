@@ -1,8 +1,9 @@
 use std::rc::Rc;
 use crate::fonts::Font;
 use crate::references::SourceFileReference;
+use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::{ActionSpec, HasWhatsitIter, SimpleWI, WhatsitTrait};
+use crate::stomach::whatsits::{ActionSpec, HasWhatsitIter, WhatsitTrait};
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -265,7 +266,7 @@ impl WIGroupTrait for PDFMatrixSave {
     fn priority(&self) -> i16 { 70 }
     fn new_from(&self) -> Self {
         match self.children.iter_wi().find(|x| match x {
-            Whatsit::Simple(SimpleWI::PdfMatrix(a, b, c, d, o)) => true,
+            Whatsit::Simple(SimpleWI::PDFMatrix(_)) => true,
             _ => false
         }) {
             None => PDFMatrixSave {

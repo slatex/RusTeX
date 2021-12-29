@@ -9,14 +9,16 @@ use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceFileReference;
 use crate::stomach::groups::{EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
+use crate::stomach::simple::SimpleWI;
 use crate::utils::{TeXError, TeXStr};
-use crate::stomach::whatsits::{SimpleWI, WhatsitTrait};
+use crate::stomach::whatsits::WhatsitTrait;
 
 pub mod whatsits;
 pub mod boxes;
 pub mod math;
 pub mod paragraph;
 pub mod groups;
+pub mod simple;
 
 pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
     let mut currentheight : i32 = 0;
@@ -44,7 +46,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
             Some(sg) => {
                 let next = sg.get_mut().remove(0);
                 match next {
-                    Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                    Whatsit::Simple(SimpleWI::Mark(_)) => {
                         todo!()
                     },
                     Whatsit::Grouped(wg) => {
@@ -122,7 +124,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                     Some(sg) => {
                         let next = sg.get_mut().remove(0);
                         match next {
-                            Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                            Whatsit::Simple(SimpleWI::Mark(_)) => {
                                 todo!()
                             },
                             next => {
@@ -664,9 +666,8 @@ impl Stomach for NoShipoutRoutine {
         &self.base
     }
     fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
-        use crate::stomach::whatsits::SimpleWI;
         match wi {
-            Whatsit::Simple(SimpleWI::Penalty(i)) if i <= -1000 && self.is_top() && self.base().indocument => {
+            Whatsit::Simple(SimpleWI::Penalty(ref p)) if p.penalty <= -1000 && self.is_top() && self.base().indocument => {
                 let last_one = self.base_mut().buffer.iter_mut().rev().find(|x| match x {
                     StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
                     StomachGroup::Par(_) => true,

@@ -193,14 +193,14 @@ pub struct State {
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
     pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
-    pub(in crate) pdfxforms: Vec<(Option<TeXStr>,Option<TeXStr>,TeXBox,Option<SourceFileReference>)>,
+    pub(in crate) pdfxforms: Vec<PDFXForm>,
     pub(in crate) indocument_line:Option<(TeXStr,usize)>,
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
     pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
     pub(in crate) pagegoal:i32,
-    pub(in crate) pdfximages:Vec<Pdfximage>,
+    pub(in crate) pdfximages:Vec<PDFXImage>,
     pub(in crate) aligns: Vec<Option<Vec<Token>>>,
     pub(in crate) topmark : Vec<Token>,
     pub(in crate) firstmark : Vec<Token>,
@@ -674,8 +674,9 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
 use crate::references::SourceFileReference;
-use crate::stomach::whatsits::{Pdfximage, SimpleWI, Whatsit};
+use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::simple::{PDFXForm, PDFXImage, SimpleWI};
 
 impl Interpreter<'_> {
     pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {
@@ -957,15 +958,15 @@ impl Interpreter<'_> {
         }
         TeXBox::Void
     }
-    pub fn state_set_pdfxform(&self,attr:Option<TeXStr>,resources:Option<TeXStr>,content:TeXBox,rf:Option<SourceFileReference>) {
-        self.state.borrow_mut().pdfxforms.push((attr,resources,content,rf))
+    pub fn state_set_pdfxform(&self,p:PDFXForm) {
+        self.state.borrow_mut().pdfxforms.push(p)
     }
-    pub fn state_get_pdfxform(&self,index:usize) -> Result<SimpleWI,TeXError> {
+    pub fn state_get_pdfxform(&self,index:usize) -> Result<PDFXForm,TeXError> {
         let state = self.state.borrow();
         match state.pdfxforms.get(state.pdfxforms.len() - index) {
             None => TeXErr!((self,None),"No \\pdfxform at index {}",index),
-            Some((a,b,c,d)) =>
-                Ok(SimpleWI::Pdfxform(a.clone(),b.clone(),c.clone(),d.clone()))
+            Some(f) =>
+                Ok(f.clone())
         }
     }
 }

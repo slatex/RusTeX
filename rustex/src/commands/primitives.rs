@@ -370,10 +370,11 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 }
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
-use crate::stomach::whatsits::{AlignBlock, ExecutableWhatsit, SimpleWI, Whatsit};
+use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
 use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInfix, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Over, Overline, Underline};
 use crate::stomach::boxes::{BoxMode,TeXBox,HBox,VBox};
 use crate::stomach::groups::FontChange;
+use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSkip, Hss, Indent, Leaders, Left, Mark, Middle, MoveRight, MSkip, Penalty, Raise, Right, SimpleWI, VAlign, VFil, VFill, VKern, VRule, VSkip, Vss};
 
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
@@ -1617,8 +1618,8 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
     name:"lastskip",
     _getvalue: |int| {
         match int.stomach.borrow().last_whatsit() {
-            Some(Whatsit::Simple(SimpleWI::VSkip(s,_))) => Ok(Numeric::Skip(s)),
-            Some(Whatsit::Simple(SimpleWI::HSkip(s,_))) => Ok(Numeric::Skip(s)),
+            Some(Whatsit::Simple(SimpleWI::VSkip(s))) => Ok(Numeric::Skip(s.skip)),
+            Some(Whatsit::Simple(SimpleWI::HSkip(s))) => Ok(Numeric::Skip(s.skip)),
             _ => Ok(Numeric::Skip(Skip {
                 base:0,stretch:None,shrink:None
             }))
@@ -1630,8 +1631,8 @@ pub static LASTKERN: NumericCommand = NumericCommand {
     name:"lastkern",
     _getvalue: |int| {
         match int.stomach.borrow().last_whatsit() {
-            Some(Whatsit::Simple(SimpleWI::VKern(s,_))) => Ok(Numeric::Dim(s)),
-            Some(Whatsit::Simple(SimpleWI::HKern(s,_))) => Ok(Numeric::Dim(s)),
+            Some(Whatsit::Simple(SimpleWI::VKern(s))) => Ok(Numeric::Dim(s.dim)),
+            Some(Whatsit::Simple(SimpleWI::HKern(s))) => Ok(Numeric::Dim(s.dim)),
             _ => Ok(Numeric::Dim(0))
         }
     },
@@ -1643,7 +1644,7 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         let lastwi = int.stomach.borrow().last_whatsit();
         match lastwi {
-            Some(Whatsit::Simple(SimpleWI::VKern(_,_) | SimpleWI::HKern(_,_))) => int.stomach.borrow_mut().drop_last(),
+            Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => int.stomach.borrow_mut().drop_last(),
             _ => ()
         }
         Ok(())
@@ -1791,16 +1792,20 @@ pub static LASTBOX: ProvidesBox = ProvidesBox {
                 int.stomach.borrow_mut().drop_last();
                 Ok(tb)
             },
-            Some(Whatsit::Simple(SimpleWI::Halign(skip,template,mut rows,source))) => {
+            Some(Whatsit::Simple(SimpleWI::HAlign(HAlign{ skip, template,mut rows,sourceref}))) => {
                 int.stomach.borrow_mut().drop_last();
                 match rows.pop() {
                     Some(AlignBlock::Block(mut v)) => {
                         let mut ch : Vec<Whatsit> = vec!();
-                        for (mut c,s) in v {
+                        for (mut c,s,_) in v {
                             ch.append(&mut c);
-                            ch.push(Whatsit::Simple(SimpleWI::HSkip(s,None)))
+                            ch.push(HSkip {
+                                skip:s,sourceref:None
+                            }.as_whatsit())
                         }
-                        int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Halign(skip,template,rows,source)));
+                        int.stomach.borrow_mut().add(int,HAlign{
+                            skip,template,rows,sourceref
+                        }.as_whatsit());
                         Ok(TeXBox::H(HBox {
                             children: ch,
                             spread: 0,
@@ -1825,7 +1830,7 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,int| {
         let lw = int.stomach.borrow().last_whatsit();
         match lw {
-            Some(Whatsit::Simple(SimpleWI::HSkip(_,_) | SimpleWI::VSkip(_,_))) => {
+            Some(Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_))) => {
                 int.stomach.borrow_mut().drop_last()
             },
             _ => ()
@@ -2011,8 +2016,9 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
                 _ => break
             }
         }
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::VRule(rf,height,width,depth)))
+        Ok(Whatsit::Simple(SimpleWI::VRule(VRule {
+            height,width,depth,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2034,8 +2040,9 @@ pub static HRULE: SimpleWhatsit = SimpleWhatsit {
                 _ => break
             }
         }
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::HRule(rf,height,width,depth)))
+        Ok(Whatsit::Simple(SimpleWI::HRule(HRule {
+            width,height,depth,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2047,7 +2054,7 @@ pub static VFIL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(Whatsit::Simple(SimpleWI::VFil(int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::VFil(VFil(int.update_reference(tk)))))
     }
 };
 
@@ -2058,7 +2065,7 @@ pub static VFILL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(Whatsit::Simple(SimpleWI::VFill(int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::VFill(VFill(int.update_reference(tk)))))
     }
 };
 
@@ -2071,7 +2078,10 @@ pub static VSKIP: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         log!("\\vskip >{}",int.preview());
         let sk = int.read_skip()?;
-        Ok(Whatsit::Simple(SimpleWI::VSkip(sk,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::VSkip(VSkip {
+            skip:sk,
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2084,7 +2094,9 @@ pub static HSKIP: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         let sk = int.read_skip()?;
-        Ok(Whatsit::Simple(SimpleWI::HSkip(sk,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::HSkip(HSkip {
+            skip:sk,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2096,7 +2108,7 @@ pub static HFIL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(Whatsit::Simple(SimpleWI::HFil(int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::HFil(HFil(int.update_reference(tk)))))
     }
 };
 
@@ -2108,7 +2120,7 @@ pub static HFILL: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        Ok(Whatsit::Simple(SimpleWI::HFill(int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::HFill(HFill(int.update_reference(tk)))))
     }
 };
 
@@ -2116,7 +2128,10 @@ pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
     name:"penalty",
     modes:|_| true,
     _get: |tk,int| {
-        Ok(Whatsit::Simple(SimpleWI::Penalty(int.read_number()?)))
+        Ok(Whatsit::Simple(SimpleWI::Penalty(Penalty {
+            penalty:int.read_number()?,
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2129,8 +2144,11 @@ pub static LOWER: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::Raise(-dim,bx,rf)))
+        Ok(Whatsit::Simple(SimpleWI::Raise(Raise {
+            dim:-dim,
+            content: bx,
+            sourceref: int.update_reference(tk)
+        })))
     }
 };
 
@@ -2143,8 +2161,11 @@ pub static RAISE: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::Raise(dim,bx,rf)))
+        Ok(Whatsit::Simple(SimpleWI::Raise(Raise {
+            dim,
+            content: bx,
+            sourceref: int.update_reference(tk)
+        })))
     }
 };
 
@@ -2157,8 +2178,11 @@ pub static MOVELEFT: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
-        let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::MoveRight(-dim,bx,rf)))
+        Ok(Whatsit::Simple(SimpleWI::MoveRight(MoveRight {
+            dim:-dim,
+            content:bx,
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2172,7 +2196,11 @@ pub static MOVERIGHT: SimpleWhatsit = SimpleWhatsit {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
         let rf = int.update_reference(tk);
-        Ok(Whatsit::Simple(SimpleWI::MoveRight(dim,bx,rf)))
+        Ok(Whatsit::Simple(SimpleWI::MoveRight(MoveRight {
+            dim,
+            content:bx,
+            sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2184,9 +2212,15 @@ pub static KERN: SimpleWhatsit = SimpleWhatsit {
         let rf = int.update_reference(tk);
         match int.get_mode() {
             TeXMode::Vertical | TeXMode::InternalVertical =>
-                Ok(Whatsit::Simple(SimpleWI::VKern(dim,rf))),
+                Ok(Whatsit::Simple(SimpleWI::VKern(VKern {
+                    dim,
+                    sourceref: rf
+                }))),
             _ =>
-                Ok(Whatsit::Simple(SimpleWI::HKern(dim,rf)))
+                Ok(Whatsit::Simple(SimpleWI::HKern(HKern {
+                    dim,
+                    sourceref: rf
+                }))),
         }
     }
 };
@@ -2422,7 +2456,7 @@ pub static LASTPENALTY: NumericCommand = NumericCommand {
     name:"lastpenalty",
     _getvalue: |int| {
         match int.stomach.borrow().last_whatsit() {
-            Some(Whatsit::Simple(SimpleWI::Penalty(i))) => Ok(Numeric::Int(i)),
+            Some(Whatsit::Simple(SimpleWI::Penalty(p))) => Ok(Numeric::Int(p.penalty)),
             _ => Ok(Numeric::Int(0))
         }
     }
@@ -2661,7 +2695,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         }
 
         let mut columnindex : usize = 0;
-        let mut row:Vec<(Vec<Whatsit>,Skip)> = vec!();
+        let mut row:Vec<(Vec<Whatsit>,Skip,usize)> = vec!();
 
         'row: loop {
             let mut doheader = true;
@@ -2721,6 +2755,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             } else {
                 int.state.borrow_mut().aligns.push(Some(vec!()))
             }
+            let mut cells:usize =1;
             'cell: loop {
                 let next = int.next_token();
                 match next.catcode {
@@ -2729,6 +2764,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                     }
                     CategoryCode::Escape if next.char == endtemplatespan.char && next == endtemplatespan => {
                         columnindex += 1;
+                        cells += 1;
                         if columns.len() <= columnindex {
                             match recindex {
                                 Some(i) => columnindex = i,
@@ -2741,7 +2777,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                     }
                     CategoryCode::Escape if next.char == endrow.char && next == endrow => {
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
-                        row.push((ret,columns.get(columnindex).unwrap().2));
+                        row.push((ret,columns.get(columnindex).unwrap().2,cells));
                         int.set_mode(_oldmode);
                         break 'row
                     }
@@ -2753,7 +2789,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 _ => TeXErr!((int,None),"align error")
             }
             let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
-            row.push((ret,columns.get(columnindex).unwrap().2));
+            row.push((ret,columns.get(columnindex).unwrap().2,cells));
             int.set_mode(_oldmode);
             columnindex += 1
         }
@@ -2782,7 +2818,9 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
         match rows.pop() {
             Some(AlignBlock::Noalign(v)) => {
                 let mut ret : Vec<Whatsit> = vec!(
-                    Whatsit::Simple(SimpleWI::Halign(skip, template, rows, int.update_reference(tk)))
+                    Whatsit::Simple(SimpleWI::HAlign(HAlign {
+                        skip,template,rows,sourceref:int.update_reference(tk)
+                    }))
                 );
                 for w in v {ret.push(w)}
                 return Ok(Whatsit::Ls(ret))
@@ -2792,7 +2830,9 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             }
             _ => ()
         }
-        Ok(Whatsit::Simple(SimpleWI::Halign(skip,template,rows,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::HAlign(HAlign {
+            skip,template,rows,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2805,7 +2845,9 @@ pub static VALIGN: SimpleWhatsit = SimpleWhatsit {
             None => None
         };
         let (skip,template,columns) = do_align(int,BoxMode::V,BoxMode::H)?;
-        Ok(Whatsit::Simple(SimpleWI::Valign(skip,template,columns,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::VAlign(VAlign {
+            skip,template,columns,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
@@ -2820,13 +2862,13 @@ pub static ITALICCORR: PrimitiveExecutable = PrimitiveExecutable {
 pub static HSS: SimpleWhatsit = SimpleWhatsit {
     name:"hss",
     modes: |x|  {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal },
-    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))}
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(Hss(int.update_reference(tk)))))}
 };
 
 pub static VSS: SimpleWhatsit = SimpleWhatsit {
     name:"vss",
     modes: |x|  {x == TeXMode::Vertical || x == TeXMode::InternalVertical },
-    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Vss(int.update_reference(tk))))}
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Vss(Vss(int.update_reference(tk)))))}
 };
 
 pub static MSKIP: SimpleWhatsit = SimpleWhatsit {
@@ -2834,28 +2876,33 @@ pub static MSKIP: SimpleWhatsit = SimpleWhatsit {
     modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
     _get:|tk,int| {
         let ms = int.read_muskip()?;
-        Ok(Whatsit::Simple(SimpleWI::MSkip(ms,int.update_reference(tk))))
+        Ok(Whatsit::Simple(SimpleWI::MSkip(MSkip {
+            skip:ms,sourceref:int.update_reference(tk)
+        })))
     }
 };
 
 pub static EQNO: SimpleWhatsit = SimpleWhatsit {
     name:"eqno",
     modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
-    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))}
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(Hss(int.update_reference(tk)))))} // TODO maybe
 };
 
 pub static LEQNO: SimpleWhatsit = SimpleWhatsit {
     name:"leqno",
     modes: |x|  {x == TeXMode::Math || x == TeXMode::Displaymath },
-    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(int.update_reference(tk))))} // TODO maybe
+    _get:|tk,int| {Ok(Whatsit::Simple(SimpleWI::Hss(Hss(int.update_reference(tk)))))} // TODO maybe
 };
 
 pub static MARK: SimpleWhatsit = SimpleWhatsit {
     name:"mark",
     modes: |x| { true },
     _get:|tk,int| {
-        let cnt = int.read_balanced_argument(true,false,false,true)?;
-        Ok(Whatsit::Simple(SimpleWI::Mark(cnt,int.update_reference(tk))))
+        let toks = int.read_balanced_argument(true,false,false,true)?;
+        Ok(Whatsit::Simple(SimpleWI::Mark(Mark {
+            toks,
+            sourceref: int.update_reference(tk)
+        })))
     }
 };
 
@@ -2889,7 +2936,10 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
                     }
                     _ => TeXErr!((int,Some(cmdtk)),"Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
                 };
-                Ok(Whatsit::Simple(SimpleWI::Leaders(Box::new(content),int.update_reference(tk))))
+                Ok(Whatsit::Simple(SimpleWI::Leaders(Leaders {
+                    bx: Box::new((content)),
+                    sourceref: int.update_reference(tk)
+                })))
             }
         }
     }
@@ -3058,8 +3108,10 @@ pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Indent(
-            int.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),int.update_reference(&tk.0)
-        )))?;
+            Indent {
+                dim:int.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),
+                sourceref:int.update_reference(&tk.0)
+            })))?;
         Ok(())
     }
 };
@@ -3389,7 +3441,11 @@ pub static LEFT: MathWhatsit = MathWhatsit {
     _get: |tk,int,_| {
         int.new_group(GroupType::LeftRight);
         match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(Box::new(wi),int.update_reference(tk))))?,
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
+                Left {
+                    bx:Some(Box::new(wi)), // TODO check for .
+                    sourceref:int.update_reference(tk)
+                })))?,
             None => TeXErr!((int,None),"Missing delimiter after \\left")
         }
         Ok(None)
@@ -3400,7 +3456,11 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
     name:"middle",
     _get: |tk,int,_| {
         match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(Box::new(wi),int.update_reference(tk))))?,
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(
+                Middle {
+                    bx:Some(Box::new(wi)), // TODO check for .
+                    sourceref:int.update_reference(tk)
+                })))?,
             None => TeXErr!((int,None),"Missing delimiter after \\middle")
         }
         Ok(None)
@@ -3411,8 +3471,12 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
     name:"right",
     _get: |tk,int,_| {
         match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(Box::new(wi),int.update_reference(tk))))?,
-            None => TeXErr!((int,None),"Missing delimiter after \\left")
+            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
+                Right {
+                    bx:Some(Box::new(wi)), // TODO check for .
+                    sourceref:int.update_reference(tk)
+                })))?,
+            None => TeXErr!((int,None),"Missing delimiter after \\right")
         }
         int.pop_group(GroupType::LeftRight)?;
         Ok(None)

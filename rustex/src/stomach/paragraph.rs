@@ -2,8 +2,9 @@ use std::cmp::max;
 use crate::Interpreter;
 use crate::interpreter::dimensions::Skip;
 use crate::stomach::{StomachGroup, Whatsit};
-use crate::stomach::whatsits::{HasWhatsitIter, SimpleWI};
+use crate::stomach::whatsits::HasWhatsitIter;
 use crate::stomach::groups::WIGroupTrait;
+use crate::stomach::simple::SimpleWI;
 
 #[derive(Clone)]
 pub struct Paragraph {
@@ -58,14 +59,14 @@ impl Paragraph {
                 Some(sg) => {
                     let next = sg.get_mut().remove(0);
                     match next {
-                        Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                        Whatsit::Simple(SimpleWI::Mark(_)) => {
                             todo!()
                         },
                         Whatsit::Grouped(wg) => {
                             presplit.push(StomachGroup::Other(wg.new_from()));
                             input.push(StomachGroup::Other(wg))
                         },
-                        Whatsit::Simple(SimpleWI::Penalty(i)) if i <= -10000 => {
+                        Whatsit::Simple(SimpleWI::Penalty(ref p)) if p.penalty <= -10000 => {
                             if currentheight + currentlineheight + lineheight > target {
                                 break Some(next)
                             }
@@ -161,7 +162,7 @@ impl Paragraph {
                         Some(sg) => {
                             let next = sg.get_mut().remove(0);
                             match next {
-                                Whatsit::Simple(m@SimpleWI::Mark(_,_)) => {
+                                Whatsit::Simple(SimpleWI::Mark(_)) => {
                                     todo!()
                                 },
                                 next => {
@@ -214,7 +215,7 @@ impl Paragraph {
         let lineheight = self.lineheight.unwrap();
         for wi in self.children.iter_wi() {
             match wi {
-                Whatsit::Simple(SimpleWI::Penalty(i)) if *i <= -10000 => {
+                Whatsit::Simple(SimpleWI::Penalty(p)) if p.penalty <= -10000 => {
                     currentwidth = 0;
                     currentheight += currentlineheight;
                     currentlineheight = 0;
