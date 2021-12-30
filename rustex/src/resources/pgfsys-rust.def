@@ -2,8 +2,9 @@
 
 \def\rustex@register#1{\expandafter\let\csname pgfsys@#1\expandafter\endcsname\csname rustex!pgf!#1\endcsname}
 
-\rustex@register{beginpicture}
-\rustex@register{endpicture}
+\let\pgfsys@beginpicture\relax\let\pgfsys@endpicture\relax
+%\rustex@register{beginpicture}
+%\rustex@register{endpicture}
 \rustex@register{hbox}
 \rustex@register{typesetpicturebox}
 
@@ -1613,7 +1614,7 @@
 
 
 \def\pgfsys@invoke#1{\pgf@sys@fail{svg code in preamble}}
-\def\pgfsys@body@invoke#1{\HCode{#1}}
+\def\pgfsys@body@invoke#1{\csname rustex!pgf!literal\endcsname{#1}}
 
 \newcount\pgf@sys@svg@picnum
 
@@ -1660,8 +1661,8 @@
 % % \Configure{()}{$}{$}
 % \Configure{$$}{}{}{}%$$
 % \Configure{$}{}{}{}%$
-%  \Configure{SUB}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
-%  \Configure{SUP}{\HCode{<tspan baseline-shift="sub">}}{\HCode{</tspan>}}
+%  \Configure{SUB}{\csname rustex!pgf!literal\endcsname{<tspan baseline-shift="sub">}}{\csname rustex!pgf!literal\endcsname{</tspan>}}
+%  \Configure{SUP}{\csname rustex!pgf!literal\endcsname{<tspan baseline-shift="sub">}}{\csname rustex!pgf!literal\endcsname{</tspan>}}
 %  \Configure{SUBSUP}{}{}{}
 %  \Configure{htf}
 %    {0}{+}{<tspan font-family="}
@@ -1725,7 +1726,7 @@
 \def\pgfsys@foreignobject@hbox#1{%
   % Compute box y translation  (x translation is correct).
   \pgf@y=-\ht#1\relax
-  \HCode{<g transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
+  \csname rustex!pgf!literal\endcsname{<g transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
     scale(0.5,0.5)">\Hnewline}% scaling work around (damn dumb browsers !)
   % Compute box size (scaled 2 times)
   % this is necessary to make the browser scale the font down 50% (the STUPID browsers won't make font-size:50% happen,
@@ -1749,7 +1750,7 @@
     \pgf@t=2\pgf@t\relax
   \fi
   %
-  \HCode{<foreignObject x="0" y="\pgf@sys@tonumber{\pgf@t}"
+  \csname rustex!pgf!literal\endcsname{<foreignObject x="0" y="\pgf@sys@tonumber{\pgf@t}"
     width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}">}%
   % this is to make use of the css, class and id options through which you can control the way things display
   \pgfkeys{%
@@ -1757,7 +1758,7 @@
     /pgf/tex4ht node/class/.get=\pgfsys@foreignobject@class,%
     /pgf/tex4ht node/id/.get=\pgfsys@foreignobject@id
   }%
-  \HCode{<head>\Hnewline
+  \csname rustex!pgf!literal\endcsname{<head>\Hnewline
     <link rel="stylesheet" type="text/css" href="\pgfsys@foreignobject@css.css" />\Hnewline
     </head>\Hnewline
     % I'll have to look into this, perhaps there are better
@@ -1768,15 +1769,15 @@
     <div>\Hnewline
   }%
   \box#1%
-  \HCode{%
+  \csname rustex!pgf!literal\endcsname{%
     </div>\Hnewline
     </body>\Hnewline
     </foreignObject>\Hnewline
   }%
   % debug positioning not needed but it would be nice to let it there to control things later on
-  % \HCode{<rect x="0" y="0" width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}"
+  % \csname rustex!pgf!literal\endcsname{<rect x="0" y="0" width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}"
   %   style="fill:yellow;stroke:red; fill-opacity:0.5;stroke-opacity:0.5"/>}
-  \HCode{</g>\Hnewline}%
+  \csname rustex!pgf!literal\endcsname{</g>\Hnewline}%
   \global\advance\pgf@sys@svg@nodenum by 1\relax
 }%
 

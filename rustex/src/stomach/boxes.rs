@@ -27,6 +27,13 @@ impl TeXBox {
             TeXBox::V(vb) => vb.children.iter_wi(),
         }
     }
+    pub fn children(self) -> Vec<Whatsit> {
+        match self {
+            TeXBox::Void => vec!(),
+            TeXBox::H(hb) => hb.children,
+            TeXBox::V(vb) => vb.children
+        }
+    }
 }
 
 macro_rules! pass_on {

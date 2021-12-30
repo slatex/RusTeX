@@ -97,10 +97,15 @@ pub enum AlignBlock {
 }
 
 // -------------------------------------------------------------------------------------------------
+pub enum ExternalParam{
+    String(TeXStr),
+    Whatsits(Vec<Whatsit>)
+}
 
 pub trait ExternalWhatsit:WhatsitTrait {
-    fn name(&self) -> &str;
-    fn params(&self,name:&str) -> Option<&str>;
+    fn name(&self) -> TeXStr;
+    fn params(&self,name:&str) -> Option<ExternalParam>;
+    fn sourceref(&self) -> &Option<SourceFileReference>;
 }
 
 #[derive(Clone)]

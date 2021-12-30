@@ -42,8 +42,8 @@ pub trait WIGroupTrait : WhatsitTrait {
 }
 
 pub trait ExternalWhatsitGroup {
-    fn name(&self) -> &str;
-    fn params(&self,name:&str) -> Option<&str>;
+    fn name(&self) -> TeXStr;
+    fn params(&self,name:&str) -> Option<TeXStr>;
     fn width(&self,ch:&Vec<Whatsit>) -> i32;
     fn height(&self,ch:&Vec<Whatsit>) -> i32;
     fn depth(&self,ch:&Vec<Whatsit>) -> i32;
@@ -52,6 +52,7 @@ pub trait ExternalWhatsitGroup {
     fn opaque(&self) -> bool;
     fn priority(&self) -> i16;
     fn closes_with_group(&self) -> bool;
+    fn sourceref(&self) -> &Option<SourceFileReference>;
 }
 
 impl WhatsitTrait for WIGroup {
@@ -194,6 +195,30 @@ impl ColorChange {
             sourceref: self.sourceref.clone()
         }
     }
+    pub fn as_html(color:TeXStr) -> String {
+        fn tostr(c:f32) -> String {
+            let s = format!("{:X}", (c.round() as i32));
+            if s.len() == 1 {"0".to_string() + &s} else { s }
+        }
+        let ls: Vec<String> = color.to_string().split(' ').map(|x| x.to_string()).collect();
+        if ls.contains(&"k".to_string()) {
+            let third = 1.0 - str::parse::<f32>(ls[3].as_str()).unwrap();
+            let r = 255.0*(1.0 - str::parse::<f32>(ls[0].as_str()).unwrap()) * third;
+            let g = 255.0*(1.0 - str::parse::<f32>(ls[1].as_str()).unwrap()) * third;
+            let b = 255.0*(1.0 - str::parse::<f32>(ls[2].as_str()).unwrap()) * third;
+            tostr(r) + &tostr(g) + &tostr(b)
+        } else if ls.contains(&"rg".to_string()) {
+            let r = 255.0 * str::parse::<f32>(ls[0].as_str()).unwrap();
+            let g = 255.0 * str::parse::<f32>(ls[1].as_str()).unwrap();
+            let b = 255.0 * str::parse::<f32>(ls[2].as_str()).unwrap();
+            tostr(r) + &tostr(g) + &tostr(b)
+        } else if ls.contains(&"g".to_string()) {
+            let r = 255.0 * str::parse::<f32>(ls[0].as_str()).unwrap();
+            tostr(r) + &tostr(r) + &tostr(r)
+        } else {
+            panic!("Malformed color string: {}",color)
+        }
+    }
 }
 impl WIGroupTrait for ColorChange {
     fn children(&self) -> &Vec<Whatsit> { &self.children }
@@ -321,9 +346,10 @@ impl WIGroupTrait for PDFMatrixSave {
 // -------------------------------------------------------------------------------------------------
 
 pub trait ExternalWhatsitGroupEnd {
-    fn name(&self) -> &str;
-    fn params(&self,name:&str) -> Option<&str>;
+    fn name(&self) -> TeXStr;
+    fn params(&self,name:&str) -> Option<TeXStr>;
     fn priority(&self) -> i16;
+    fn sourceref(&self) -> &Option<SourceFileReference>;
 }
 
 #[derive(Clone)]
