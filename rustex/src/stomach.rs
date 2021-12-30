@@ -13,6 +13,8 @@ use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit::Inserts;
 use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::{Insert, WhatsitTrait};
+use std::sync::{Arc, mpsc};
+use std::sync::mpsc::Sender;
 
 pub mod whatsits;
 pub mod boxes;
@@ -216,7 +218,12 @@ impl StomachGroup {
     }
 }
 
-pub trait Stomach {
+pub enum StomachMessage {
+    End,
+    WI(Whatsit)
+}
+
+pub trait Stomach : Send {
     fn base_mut(&mut self) -> &mut StomachBase;
     fn base(&self) -> &StomachBase;
     fn ship_whatsit(&mut self, wi:Whatsit);
@@ -510,7 +517,22 @@ pub trait Stomach {
         for gt in groups.iter().rev() {
             stack.push(StomachGroup::TeXGroup(*gt,vec!()))
         }
+        let (sender,receiver) = mpsc::channel::<StomachMessage>();
+        /*self.base_mut().sender = Some(sender);
+        std::thread::spawn(move || {
+            for msg in receiver {
+                match msg {
+                    StomachMessage::End => todo!(),
+                    StomachMessage::WI(w) => self.ship_whatsit(w)
+                }
+            }
+        });*/
     }
+
+    fn normalize_whatsit(&self, wi:Whatsit) {
+        todo!()
+    }
+
     fn reset_par(&mut self) {
         let base = self.base_mut();
         base.hangindent = 0;
@@ -566,12 +588,13 @@ pub trait Stomach {
 pub struct StomachBase {
     pub buffer:Vec<StomachGroup>,
     pub indocument:bool,
-    pub basefont:Option<Rc<Font>>,
+    pub basefont:Option<Arc<Font>>,
     pub basecolor:Option<TeXStr>,
     pub hangindent:i32,
     pub hangafter:usize,
     pub pageheight:i32,
-    pub parshape:Vec<(i32,i32)>
+    pub parshape:Vec<(i32,i32)>,
+    pub sender:Option<Sender<StomachMessage>>
 }
 
 pub struct NoShipoutRoutine {
@@ -590,7 +613,8 @@ impl NoShipoutRoutine {
                 hangindent: 0,
                 hangafter: 0,
                 parshape: vec!(),
-                pageheight: 0
+                pageheight: 0,
+                sender:None
             },
             floatlist: vec!(),
             floatcmd:None
@@ -658,6 +682,8 @@ impl NoShipoutRoutine {
     }
 }
 
+unsafe impl Send for NoShipoutRoutine {}
+
 impl Stomach for NoShipoutRoutine {
     fn base_mut(&mut self) -> &mut StomachBase {
         self.base.borrow_mut()
@@ -678,7 +704,7 @@ impl Stomach for NoShipoutRoutine {
                 self.do_floats(int);
                 Ok(())
             }
-            Whatsit::Exec(e) => (std::rc::Rc::try_unwrap(e).ok().unwrap()._apply)(int),
+            Whatsit::Exec(e) => (std::sync::Arc::try_unwrap(e).ok().unwrap()._apply)(int),
             _ => self.add_inner(int,wi)
         }
     }

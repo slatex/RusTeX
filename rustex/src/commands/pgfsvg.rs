@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::Arc;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::{Interpreter, TeXErr};
 use crate::interpreter::dimensions::numtostr;
@@ -23,6 +24,8 @@ pub struct PGFColor {
     pub color:TeXStr,
     pub sourceref:Option<SourceFileReference>
 }
+unsafe impl Send for PGFColor {}
+unsafe impl Sync for PGFColor {}
 impl ExternalWhatsitGroup for PGFColor {
     fn name(&self) -> TeXStr { "pgfcolor".into() }
     fn params(&self, name: &str) -> Option<TeXStr> {
@@ -49,7 +52,7 @@ pub static COLORPUSH : SimpleWhatsit = SimpleWhatsit {
     _get: |tk, int| {
         let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         Ok(
-            Whatsit::GroupOpen(WIGroup::External(Rc::new(PGFColor {
+            Whatsit::GroupOpen(WIGroup::External(Arc::new(PGFColor {
             color:ColorChange::as_html(color.into()).into(),
             sourceref:int.update_reference(tk)
         }),vec!())))
@@ -59,6 +62,7 @@ pub static COLORPUSH : SimpleWhatsit = SimpleWhatsit {
 pub struct PGFColorEnd {
     pub sourceref:Option<SourceFileReference>
 }
+unsafe impl Send for PGFColorEnd {}
 impl ExternalWhatsitGroupEnd for PGFColorEnd {
     fn name(&self) -> TeXStr { "pgfcolor".into() }
     fn params(&self, _: &str) -> Option<TeXStr> { None }
@@ -70,7 +74,7 @@ pub static COLORPOP : SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!colorpop",
     modes: |x| {true},
     _get: |tk, int| {
-        Ok(Whatsit::GroupClose(GroupClose::External(Rc::new(PGFColorEnd { sourceref: int.update_reference(tk)}))))
+        Ok(Whatsit::GroupClose(GroupClose::External(Arc::new(PGFColorEnd { sourceref: int.update_reference(tk)}))))
     },
 };
 
@@ -84,12 +88,14 @@ impl WhatsitTrait for PGFEscape {
     fn height(&self) -> i32 { 0 }
     fn width(&self) -> i32 { 0 }
     fn as_whatsit(self) -> Whatsit {
-        Whatsit::Simple(SimpleWI::External(Rc::new(self)))
+        Whatsit::Simple(SimpleWI::External(Arc::new(self)))
     }
     fn as_xml_internal(&self, prefix: String) -> String {
         "<escape>".to_string() + &self.bx.as_xml_internal(prefix) + "</escape>"
     }
 }
+unsafe impl Send for PGFEscape {}
+unsafe impl Sync for PGFEscape {}
 impl ExternalWhatsit for PGFEscape {
     fn name(&self) -> TeXStr { "pgfescape".into() }
     fn params(&self, name: &str) -> Option<ExternalParam> {
@@ -117,13 +123,14 @@ pub struct PGFBox {
     maxx:i32,
     maxy:i32
 }
+unsafe impl Send for PGFBox {}
 impl WhatsitTrait for PGFBox {
     fn has_ink(&self) -> bool { true }
     fn depth(&self) -> i32 { 0 }
     fn height(&self) -> i32 { self.maxy - self.miny }
     fn width(&self) -> i32 { self.maxx - self.minx }
     fn as_whatsit(self) -> Whatsit {
-        Whatsit::Simple(SimpleWI::External(Rc::new(self)))
+        Whatsit::Simple(SimpleWI::External(Arc::new(self)))
     }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut str ="\n".to_string() + &prefix + "<svg xmlns=\"http://www.w3.org/2000/svg\"";
@@ -182,7 +189,7 @@ pub struct PGFLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for PGFLiteral {
-    fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Rc::new(self)))}
+    fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Arc::new(self)))}
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 use crate::fonts::Font;
 use crate::references::SourceFileReference;
 use crate::stomach::simple::SimpleWI;
@@ -14,7 +15,7 @@ pub enum WIGroup {
     //       rule   attr  action
     PDFLink(PDFLink),
     PDFMatrixSave(PDFMatrixSave),
-    External(Rc<dyn ExternalWhatsitGroup>,Vec<Whatsit>)
+    External(Arc<dyn ExternalWhatsitGroup>,Vec<Whatsit>)
 }
 macro_rules! pass_on {
     ($s:tt,$e:ident,($ext:ident,$ch:ident) => $exp:expr $(,$tl:expr)*) => (match $s {
@@ -41,7 +42,7 @@ pub trait WIGroupTrait : WhatsitTrait {
     }
 }
 
-pub trait ExternalWhatsitGroup {
+pub trait ExternalWhatsitGroup : Send+Sync {
     fn name(&self) -> TeXStr;
     fn params(&self,name:&str) -> Option<TeXStr>;
     fn width(&self,ch:&Vec<Whatsit>) -> i32;
@@ -108,7 +109,7 @@ impl WIGroupTrait for WIGroup {
 
 #[derive(Clone)]
 pub struct FontChange {
-    pub font:Rc<Font>,
+    pub font:Arc<Font>,
     pub closes_with_group:bool,
     pub children:Vec<Whatsit>,
     pub sourceref:Option<SourceFileReference>
@@ -345,7 +346,7 @@ impl WIGroupTrait for PDFMatrixSave {
 
 // -------------------------------------------------------------------------------------------------
 
-pub trait ExternalWhatsitGroupEnd {
+pub trait ExternalWhatsitGroupEnd : Send + Sync {
     fn name(&self) -> TeXStr;
     fn params(&self,name:&str) -> Option<TeXStr>;
     fn priority(&self) -> i16;
@@ -358,7 +359,7 @@ pub enum GroupClose {
     LinkEnd(LinkEnd),
     ColorEnd(ColorEnd),
     EndGroup(EndGroup),
-    External(Rc<dyn ExternalWhatsitGroupEnd>)
+    External(Arc<dyn ExternalWhatsitGroupEnd>)
 }
 macro_rules! pass_on_close {
     ($s:tt,$e:ident,$ext:ident => $exp:expr $(,$tl:expr)*) => (match $s {

@@ -5,6 +5,7 @@ use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::rc::Rc;
 use std::str::from_utf8;
+use std::sync::Arc;
 use image::{DynamicImage, GenericImageView};
 use crate::commands::MathWhatsit;
 use crate::fonts::Font;
@@ -95,7 +96,7 @@ use crate::stomach::simple::SimpleWI;
 
 #[derive(Clone)]
 pub enum Whatsit {
-    Exec(Rc<ExecutableWhatsit>),
+    Exec(Arc<ExecutableWhatsit>),
     Box(TeXBox),
     GroupOpen(WIGroup),
     GroupClose(GroupClose),
@@ -177,14 +178,14 @@ impl ActionSpec {
 // -------------------------------------------------------------------------------------------------
 
 pub struct ExecutableWhatsit {
-    pub _apply : Box<dyn FnOnce(&Interpreter) -> Result<(),TeXError>>
+    pub _apply : Box<dyn (Fn(&Interpreter) -> Result<(),TeXError>) + Send + Sync>
 }
 impl ExecutableWhatsit {
     pub fn as_whatsit(self) -> Whatsit {
-        Whatsit::Exec(Rc::new(self))
+        Whatsit::Exec(Arc::new(self))
     }
 }
-impl WhatsitTrait for Rc<ExecutableWhatsit> {
+impl WhatsitTrait for Arc<ExecutableWhatsit> {
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Exec(self)
     }
@@ -202,7 +203,7 @@ impl WhatsitTrait for Rc<ExecutableWhatsit> {
 #[derive(Clone)]
 pub struct PrintChar {
     pub char : u8,
-    pub font : Rc<Font>,
+    pub font : Arc<Font>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PrintChar {

@@ -2,6 +2,7 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
@@ -756,10 +757,10 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
         int.read_eq();
         let filename = int.read_string()?;
-        let mut file = int.get_file(&filename)?;
+        let file = int.get_file(&filename)?;
         Ok(ExecutableWhatsit {
             _apply: Box::new(move |nint: &Interpreter| {
-                nint.file_openout(num,file)
+                nint.file_openout(num,file.clone())
             })
         })
     }
@@ -881,7 +882,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let string = int.tokens_to_string(&ret) + "\n".into();
         return Ok(ExecutableWhatsit {
             _apply: Box::new(move |int| {
-                int.file_write(num,string)
+                int.file_write(num,string.clone())
             })
         });
     }
@@ -1506,7 +1507,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
 };
 
 
-pub fn read_font<'a>(int : &Interpreter) -> Result<Rc<Font>,TeXError> {
+pub fn read_font<'a>(int : &Interpreter) -> Result<Arc<Font>,TeXError> {
     int.expand_until(true)?;
     let tk = int.read_command_token()?;
     let cmd = int.get_command(&tk.cmdname())?;
@@ -1577,12 +1578,12 @@ pub static HYPHENCHAR: NumAssValue = NumAssValue {
         let f = read_font(int)?;
         int.read_eq();
         let d = int.read_number()?;
-        f.inner.borrow_mut().hyphenchar = d as u16;
+        f.inner.write().unwrap().hyphenchar = d as u16;
         Ok(())
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().hyphenchar as i32;
+        let x = f.inner.read().unwrap().hyphenchar as i32;
         Ok(Numeric::Int(x))
     }
 };
@@ -1593,12 +1594,12 @@ pub static SKEWCHAR: NumAssValue = NumAssValue {
         let f = read_font(int)?;
         int.read_eq();
         let d = int.read_number()?;
-        f.inner.borrow_mut().skewchar = d as u16;
+        f.inner.write().unwrap().skewchar = d as u16;
         Ok(())
     },
     _getvalue: |int| {
         let f = read_font(int)?;
-        let x = f.inner.borrow().skewchar as i32;
+        let x = f.inner.read().unwrap().skewchar as i32;
         Ok(Numeric::Int(x))
     }
 };

@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::rc::Rc;
+use std::sync::Arc;
 use crate::fonts::Font;
 use crate::interpreter::dimensions::MuSkip;
 use crate::references::SourceFileReference;
@@ -238,7 +239,7 @@ pub struct MathChar {
     pub class:u32,
     pub family:u32,
     pub position:u32,
-    pub font:Rc<Font>,
+    pub font:Arc<Font>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MathChar {

@@ -182,7 +182,7 @@ pub static PDFFILESIZE: PrimitiveExecutable = PrimitiveExecutable {
             unsafe { crate::LOG = true };
         }*/
         let file = int.get_file(&str.to_utf8())?;
-        match &*file.string.borrow() {
+        match &*file.string.read().unwrap() {
             None => (),
             Some(s) => rf.2 = crate::interpreter::tokenize(
                 s.len().to_string().into(),&crate::catcodes::OTHER_SCHEME
@@ -619,7 +619,7 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
         let str = int.tokens_to_string(&tks);
         //let file = int.get_file(&str.to_utf8())?;
         let file = int.get_file(&str.to_string())?;
-        match &*int.get_file(&str.to_utf8())?.string.borrow() {
+        match &*int.get_file(&str.to_utf8())?.string.read().unwrap() {
             None => {
                 let md = md5::compute("");
                 let str = format!("{:X}", md);

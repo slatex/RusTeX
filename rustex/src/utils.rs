@@ -5,13 +5,14 @@ use std::ops::{AddAssign, Deref};
 use std::path::{Path, PathBuf};
 use std::str::{from_utf8, from_utf8_unchecked};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn u8toi16(i : u8) -> i16 {
     i16::from(i)
 }
 
 #[derive(Clone)]
-pub struct TeXStr(Rc<Vec<u8>>);
+pub struct TeXStr(Arc<Vec<u8>>);
 impl PartialEq for TeXStr {
     fn eq(&self, other: &Self) -> bool {
         *self.0.deref() == *other.0.deref()
@@ -31,7 +32,7 @@ impl TeXStr {
         self.0.deref()
     }
     pub fn new(chars: &[u8]) -> TeXStr {
-        TeXStr(Rc::new(chars.to_vec()))
+        TeXStr(Arc::new(chars.to_vec()))
     }
     pub fn len(&self) -> usize {
         self.0.deref().len()
@@ -39,17 +40,17 @@ impl TeXStr {
 }
 impl From<&str> for TeXStr {
     fn from(s: &str) -> Self {
-        TeXStr(Rc::new(s.as_bytes().to_vec()))
+        TeXStr(Arc::new(s.as_bytes().to_vec()))
     }
 }
 impl From<TeXString> for TeXStr {
     fn from(ts: TeXString) -> Self {
-        TeXStr(Rc::new(ts.0))
+        TeXStr(Arc::new(ts.0))
     }
 }
 impl From<String> for TeXStr {
     fn from(s: String) -> Self {
-        TeXStr(Rc::new(s.as_bytes().to_vec()))
+        TeXStr(Arc::new(s.as_bytes().to_vec()))
     }
 }
 impl PartialEq<str> for TeXStr {

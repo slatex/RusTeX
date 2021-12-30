@@ -9,6 +9,7 @@ use crate::interpreter::{Interpreter, TeXMode};
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
+use std::sync::Arc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
@@ -56,7 +57,7 @@ use crate::fonts::Font;
 pub struct FontAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<Rc<Font>,TeXError>
+    pub _getvalue: fn(int: &Interpreter) -> Result<Arc<Font>,TeXError>
 }
 impl PartialEq for FontAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -202,7 +203,7 @@ pub enum AssignableValue {
     Int(&'static NumAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
-    FontRef(Rc<Font>),
+    FontRef(Arc<Font>),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -233,7 +234,7 @@ use crate::TeXErr;
 use crate::interpreter::state::StateChange;
 use crate::stomach::groups::FontChange;
 
-pub trait ExternalCommand {
+pub trait ExternalCommand : Send + Sync {
     fn expandable(&self) -> bool;
     fn assignable(&self) -> bool;
     fn has_num(&self) -> bool;
@@ -354,7 +355,7 @@ impl ProvidesWhatsit {
         use ProvidesWhatsit::*;
         match self {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
-            Exec(e) => Ok(Whatsit::Exec(Rc::new((e._get)(tk,int)?))),
+            Exec(e) => Ok(Whatsit::Exec(Arc::new((e._get)(tk,int)?))),
             Math(m) => {
                 unreachable!()
             },//Ok(Whatsit::Math((m._get)(tk,int)?)),
@@ -366,7 +367,7 @@ impl ProvidesWhatsit {
 pub enum PrimitiveTeXCommand {
     Primitive(&'static PrimitiveExecutable),
     AV(AssignableValue),
-    Ext(Rc<dyn ExternalCommand>),
+    Ext(Arc<dyn ExternalCommand>),
     Cond(&'static Conditional),
     Num(&'static NumericCommand),
     Char(Token),
@@ -379,13 +380,13 @@ pub enum PrimitiveTeXCommand {
 impl PrimitiveTeXCommand {
     pub fn as_ref(self,rf:ExpansionRef) -> TeXCommand {
         TeXCommand {
-            orig: Rc::new(self),
+            orig: Arc::new(self),
             rf:Some(rf)
         }
     }
     pub fn as_command(self) -> TeXCommand {
         TeXCommand {
-            orig: Rc::new(self),
+            orig: Arc::new(self),
             rf: None
         }
     }
@@ -605,7 +606,7 @@ impl PrimitiveTeXCommand {
             _ => unreachable!("{}",self)
         }
     }
-    pub fn get_expansion(&self,tk:Token,int:&Interpreter,cmd:Rc<TeXCommand>) -> Result<Option<Expansion>,TeXError> {
+    pub fn get_expansion(&self,tk:Token,int:&Interpreter,cmd:Arc<TeXCommand>) -> Result<Option<Expansion>,TeXError> {
         use PrimitiveTeXCommand::*;
         log!("Expanding {}",tk);
         match self {
@@ -624,13 +625,13 @@ impl PrimitiveTeXCommand {
             _ => unreachable!()
         }
     }
-    pub fn expand(&self,tk:Token,int:&Interpreter,cmd:Rc<TeXCommand>) -> Result<(),TeXError> {
+    pub fn expand(&self,tk:Token,int:&Interpreter,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
         match self.get_expansion(tk,int,cmd)? {
             Some(exp) => Ok(int.push_expansion(exp)),
             None => Ok(())
         }
     }
-    fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Rc<TeXCommand>) -> Result<Expansion,TeXError> {
+    fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
         /*if int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/GenCS/source/legal/mod/creativecommons.en.tex (24") && tk.cmdname().to_string() == "peek_analysis_map_inline:n" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
@@ -765,7 +766,7 @@ impl PrimitiveTeXCommand {
         }
         Ok(exp)
     }
-    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Rc<TeXCommand>) -> Result<(),TeXError> {
+    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
         use crate::utils::u8toi16;
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
@@ -907,7 +908,7 @@ impl PrimitiveTeXCommand {
 
 #[derive(Clone)]
 pub struct TeXCommand {
-    pub orig:Rc<PrimitiveTeXCommand>,
+    pub orig:Arc<PrimitiveTeXCommand>,
     pub rf:Option<ExpansionRef>
 }
 
@@ -968,8 +969,8 @@ impl TeXCommand {
     pub fn as_ref(self,tk:Token) -> TeXCommand {
         if COPY_COMMANDS_FULL {
             TeXCommand {
-                orig:Rc::clone(&self.orig),
-                rf:Some(ExpansionRef(tk,Rc::new(self)))
+                orig:Arc::clone(&self.orig),
+                rf:Some(ExpansionRef(tk,Arc::new(self)))
             }
         } else { self }
     }
@@ -986,12 +987,12 @@ impl TeXCommand {
     pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> { self.orig.get_num(int) }
     pub fn get_expansion(self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
         let o = self.orig.clone();
-        o.get_expansion(tk,int,Rc::new(self))
+        o.get_expansion(tk,int,Arc::new(self))
     }
     pub fn expand(self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
-        self.orig.clone().expand(tk,int,Rc::new(self))
+        self.orig.clone().expand(tk,int,Arc::new(self))
     }
     pub fn assign(self,tk:Token,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
-        self.orig.clone().assign(tk,int,globally,Rc::new(self))
+        self.orig.clone().assign(tk,int,globally,Arc::new(self))
     }
 }

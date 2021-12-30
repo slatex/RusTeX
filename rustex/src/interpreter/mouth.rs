@@ -4,6 +4,7 @@ enum MouthState { N,S,M }
 use std::borrow::{Borrow, BorrowMut};
 use std::rc::Rc;
 use std::str::from_utf8;
+use std::sync::Arc;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::{SourceFileReference, SourceReference};
@@ -172,13 +173,13 @@ impl StringMouth {
         }
         ret
     }
-    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&Rc<VFile>) -> StringMouth {
+    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&Arc<VFile>) -> StringMouth {
         use crate::interpreter::files::VFileBase;
         let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
             VFileBase::Real(p) => p.clone(),
             VFileBase::Virtual => file.id.clone()
         });
-        let string = match &*file.string.borrow() {
+        let string = match &*file.string.read().unwrap() {
             Some(s) => Some(s.clone()),
             None => None
         };
@@ -606,7 +607,7 @@ impl Mouths {
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&Rc<VFile>) {
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&Arc<VFile>) {
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
@@ -711,7 +712,7 @@ impl Interpreter<'_> {
             None => "".into()
         }
     }
-    pub fn push_file(&self,file:Rc<VFile>) {
+    pub fn push_file(&self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
             print!("\n{}", match file.source {

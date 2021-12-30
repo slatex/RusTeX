@@ -17,6 +17,7 @@ use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State, StateChange};
 use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod mouth;
 pub mod state;
@@ -115,7 +116,7 @@ impl Interpreter<'_> {
         kpsewhich(filename,self.jobinfo.in_file())
     }
 
-    pub fn get_file(&self,filename : &str) -> Result<Rc<VFile>,TeXError> {
+    pub fn get_file(&self,filename : &str) -> Result<Arc<VFile>,TeXError> {
         /*if filename.contains("tetrapod") {
             unsafe {crate::LOG = true}
             println!("Here!")
@@ -139,7 +140,7 @@ impl Interpreter<'_> {
     }
     pub fn do_file(&mut self,p:&Path) {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:Rc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
+        let vf:Arc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         while self.has_next() {
@@ -172,7 +173,7 @@ impl Interpreter<'_> {
         let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut());
         int.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:Rc<VFile>  = VFile::new(p,int.jobinfo.in_file(),&mut int.state.borrow_mut().filestore);
+        let vf:Arc<VFile>  = VFile::new(p,int.jobinfo.in_file(),&mut int.state.borrow_mut().filestore);
         int.push_file(vf);
         int.insert_every(&crate::commands::primitives::EVERYJOB);
         while int.has_next() {
@@ -253,7 +254,7 @@ impl Interpreter<'_> {
                     }
                     (Primitive(p),Horizontal) if **p == primitives::PAR => self.end_paragraph(inner),
                     (Primitive(np),_) => {
-                        let mut exp = Expansion(next,Rc::new(p.clone()),vec!());
+                        let mut exp = Expansion(next,Arc::new(p.clone()),vec!());
                         np.apply(&mut exp,self)?;
                         if !exp.2.is_empty() {
                             self.push_expansion(exp)
@@ -677,7 +678,7 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             Primitive(np) => {
-                                let mut exp = Expansion(next, Rc::new(p.clone()), vec!());
+                                let mut exp = Expansion(next, Arc::new(p.clone()), vec!());
                                 np.apply(&mut exp, self)?;
                                 if !exp.2.is_empty() {
                                     self.push_expansion(exp)

@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use image::{DynamicImage, GenericImageView};
 use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
@@ -41,7 +42,7 @@ pub enum SimpleWI {
     Left(Left),
     Middle(Middle),
     Right(Right),
-    External(Rc<dyn ExternalWhatsit>)
+    External(Arc<dyn ExternalWhatsit>)
 }
 
 macro_rules! pass_on {
@@ -102,7 +103,7 @@ pub enum ExternalParam{
     Whatsits(Vec<Whatsit>)
 }
 
-pub trait ExternalWhatsit:WhatsitTrait {
+pub trait ExternalWhatsit:WhatsitTrait+Send+Sync {
     fn name(&self) -> TeXStr;
     fn params(&self,name:&str) -> Option<ExternalParam>;
     fn sourceref(&self) -> &Option<SourceFileReference>;

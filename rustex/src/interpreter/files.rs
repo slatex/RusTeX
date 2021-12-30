@@ -12,7 +12,7 @@ pub enum VFileBase {
 #[derive(Clone)]
 pub struct VFile {
     pub source:VFileBase,
-    pub(in crate) string: RefCell<Option<TeXString>>,
+    pub(in crate) string: Arc<RwLock<Option<TeXString>>>,
     pub(in crate) id : TeXStr
 }
 
@@ -23,10 +23,11 @@ use std::collections::HashMap;
 
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
 
 impl VFile {
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut HashMap<TeXStr,Rc<VFile>>) -> Rc<VFile> {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut HashMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename : TeXStr = (if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
@@ -42,19 +43,19 @@ impl VFile {
                 if simplename.to_string() == "<texmf>/LANGUAGE.DAT" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:RefCell::new(Some(LANGUAGE_DAT.into())),
+                        string:Arc::new(RwLock::new(Some(LANGUAGE_DAT.into()))),
                         id:simplename,
                     }
                 } else if simplename.to_string() == "<texmf>/HYPHEN.CFG" {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:RefCell::new(Some(HYPHEN_CFG.into())),
+                        string:Arc::new(RwLock::new(Some(HYPHEN_CFG.into()))),
                         id:simplename
                     }
                 } else if simplename.to_string().contains("pgfsys-rust.def") && crate::PGF_AS_SVG {
                     VFile {
                         source:VFileBase::Virtual,
-                        string:RefCell::new(Some(PGFSYS_RUST.into())),
+                        string:Arc::new(RwLock::new(Some(PGFSYS_RUST.into()))),
                         id:"<texmf>/PGFSYS-RUST.DEF".into()
                     }
                 } /* else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
@@ -66,17 +67,17 @@ impl VFile {
                 } */ else {
                     VFile {
                         source:VFileBase::Real(fp.to_str().unwrap().into()),
-                        string:RefCell::new(if fp.exists() {
+                        string:Arc::new(RwLock::new(if fp.exists() {
                             fs::read(fp).ok().map(|x| x.into())
                         } else if simplename.to_string() == "nul:" {
                             Some("".into())
-                        } else {None}),
+                        } else {None})),
                         id:simplename
                     }
                 }
             }
         };
-        let ret = Rc::new(vfile);
+        let ret = Arc::new(vfile);
         filestore.insert(ret.id.clone(),ret.clone());
         ret
         /*

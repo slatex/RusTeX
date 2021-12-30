@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use crate::references::SourceReference;
 use std::rc::Rc;
+use std::sync::Arc;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::commands::TeXCommand;
@@ -9,14 +10,14 @@ use crate::COPY_TOKENS_FULL;
 use crate::utils::{TeXString,TeXStr};
 
 #[derive(Clone)]
-pub struct Expansion(pub Token,pub Rc<TeXCommand>,pub Vec<Token>);
+pub struct Expansion(pub Token,pub Arc<TeXCommand>,pub Vec<Token>);
 
 impl Expansion {
-    pub fn get_ref(&self) -> ExpansionRef { ExpansionRef(self.0.clone(),Rc::clone(&self.1)) }
+    pub fn get_ref(&self) -> ExpansionRef { ExpansionRef(self.0.clone(),Arc::clone(&self.1)) }
 }
 
 #[derive(Clone)]
-pub struct ExpansionRef(pub(crate) Token,pub(crate) Rc<TeXCommand>);
+pub struct ExpansionRef(pub(crate) Token,pub(crate) Arc<TeXCommand>);
 
 #[derive(Clone)]
 pub struct Token {
@@ -24,7 +25,7 @@ pub struct Token {
     pub catcode : CategoryCode,
     pub(in crate) name_opt: TeXStr,
     //pub(in crate) cmdname : TeXStr,
-    pub reference: Rc<SourceReference>,
+    pub reference: Arc<SourceReference>,
     pub(in crate) expand:bool
 }
 impl PartialEq for Token {
@@ -85,7 +86,7 @@ impl Token {
                 _ => TeXStr::new(&[])
             },*/
             name_opt: name,
-            reference: Rc::new(rf),
+            reference: Arc::new(rf),
             expand
         }
     }
@@ -119,7 +120,7 @@ impl Token {
                 catcode:self.catcode,
                 //cmdname:self.cmdname.clone(),
                 name_opt:self.name_opt.clone(),
-                reference:Rc::new(SourceReference::Exp(er)),
+                reference:Arc::new(SourceReference::Exp(er)),
                 expand:true
             }
             //Token::new(self.char,self.catcode,Some(self.name_opt.clone()),SourceReference::Exp(er),true)

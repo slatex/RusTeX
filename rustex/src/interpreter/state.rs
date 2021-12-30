@@ -59,16 +59,16 @@ struct StackFrame {
     pub(crate) mathcodes : HashMap<u8,i32>,
     pub(crate) delcodes : HashMap<u8,i32>,
     pub(crate) boxes: HashMap<i32,TeXBox>,
-    pub(crate) currfont : Rc<Font>,
+    pub(crate) currfont : Arc<Font>,
     pub(crate) aftergroups : Vec<Token>,
     pub(crate) fontstyle : FontStyle,
-    pub(crate) textfonts: [Rc<Font>;16],
-    pub(crate) scriptfonts: [Rc<Font>;16],
-    pub(crate) scriptscriptfonts: [Rc<Font>;16],
+    pub(crate) textfonts: [Arc<Font>;16],
+    pub(crate) scriptfonts: [Arc<Font>;16],
+    pub(crate) scriptscriptfonts: [Arc<Font>;16],
     pub(crate) displaymode: bool
 }
 
-fn newfonts() -> [Rc<Font>;16] {
+fn newfonts() -> [Arc<Font>;16] {
     [
         Nullfont.try_with(|x|x.clone()).unwrap(),
         Nullfont.try_with(|x|x.clone()).unwrap(),
@@ -184,10 +184,10 @@ use std::rc::Rc;
 pub struct State {
     stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>,
-    pub(in crate) outfiles:HashMap<u8,Rc<VFile>>,
+    pub(in crate) outfiles:HashMap<u8,Arc<VFile>>,
     pub(in crate) infiles:HashMap<u8,StringMouth>,
     pub(in crate) incs : u8,
-    fontfiles: HashMap<TeXStr,Rc<FontFile>>,
+    fontfiles: HashMap<TeXStr,Arc<FontFile>>,
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
@@ -207,14 +207,14 @@ pub struct State {
     pub(in crate) botmark : Vec<Token>,
     pub(in crate) splitfirstmark : Vec<Token>,
     pub(in crate) splitbotmark : Vec<Token>,
-    pub (in crate) filestore:HashMap<TeXStr,Rc<VFile>>,
+    pub (in crate) filestore:HashMap<TeXStr,Arc<VFile>>,
 }
 
 // sudo apt install libkpathsea-dev
 
 impl State {
     pub fn new() -> State {
-        let fonts: HashMap<TeXStr,Rc<FontFile>> = HashMap::new();
+        let fonts: HashMap<TeXStr,Arc<FontFile>> = HashMap::new();
         State {
             stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![],
@@ -240,15 +240,15 @@ impl State {
         self.stacks.len() - 1
     }
 
-    pub fn get_font(&mut self,int:&Interpreter,name:TeXStr) -> Result<Rc<FontFile>,TeXError> {
+    pub fn get_font(&mut self,int:&Interpreter,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
         match self.fontfiles.get(&name) {
-            Some(ff) => Ok(Rc::clone(ff)),
+            Some(ff) => Ok(Arc::clone(ff)),
             None => {
                 let ret = unsafe{int.kpsewhich(from_utf8_unchecked(name.iter()))};
                 match ret {
                     Some(pb) if pb.exists() => {
-                        let f = Rc::new(FontFile::new(pb));
-                        self.fontfiles.insert(name,Rc::clone(&f));
+                        let f = Arc::new(FontFile::new(pb));
+                        self.fontfiles.insert(name,Arc::clone(&f));
                         Ok(f)
                     }
                     _ => {
@@ -620,14 +620,14 @@ impl State {
         }
     }
 
-    pub fn getTextFont(&self,i : u8) -> Rc<Font> {
-        Rc::clone(self.stacks.last().unwrap().textfonts.get(i as usize).unwrap())
+    pub fn getTextFont(&self,i : u8) -> Arc<Font> {
+        Arc::clone(self.stacks.last().unwrap().textfonts.get(i as usize).unwrap())
     }
-    pub fn getScriptFont(&self,i : u8) -> Rc<Font> {
-        Rc::clone(self.stacks.last().unwrap().scriptfonts.get(i as usize).unwrap())
+    pub fn getScriptFont(&self,i : u8) -> Arc<Font> {
+        Arc::clone(self.stacks.last().unwrap().scriptfonts.get(i as usize).unwrap())
     }
-    pub fn getScriptScriptFont(&self,i : u8) -> Rc<Font> {
-        Rc::clone(self.stacks.last().unwrap().scriptscriptfonts.get(i as usize).unwrap())
+    pub fn getScriptScriptFont(&self,i : u8) -> Arc<Font> {
+        Arc::clone(self.stacks.last().unwrap().scriptscriptfonts.get(i as usize).unwrap())
     }
     pub fn font_style(&self) -> FontStyle {
         self.stacks.last().unwrap().fontstyle
@@ -668,6 +668,7 @@ pub fn default_pdf_latex_state() -> State {
 use std::cell::Ref;
 use std::fmt::{Display, Formatter};
 use std::str::from_utf8_unchecked;
+use std::sync::Arc;
 use crate::fonts::{Font, FontFile, Nullfont};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
@@ -709,7 +710,7 @@ impl Interpreter<'_> {
             }
         }
     }
-    pub fn file_openin(&self,index:u8,file:Rc<VFile>) -> Result<(),TeXError> {
+    pub fn file_openin(&self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
         /*if state.infiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
@@ -728,9 +729,9 @@ impl Interpreter<'_> {
         }
         Ok(())
     }
-    pub fn file_openout(&self,index:u8,file:Rc<VFile>) -> Result<(),TeXError> {
+    pub fn file_openout(&self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
         let mut state = self.state.borrow_mut();
-        file.string.borrow_mut().take();
+        file.string.write().unwrap().take();
         /*if state.outfiles.contains_key(&index) {
             TeXErr!((self,None),"File already open at {}",index)
         }*/
@@ -762,7 +763,7 @@ impl Interpreter<'_> {
                  let mut state = self.state.borrow_mut();
                  match state.outfiles.get_mut(&index) {
                      Some(f) => {
-                         let mut string = f.string.borrow_mut();
+                         let mut string = f.string.write().unwrap();
                          match &mut*string {
                              None => {string.insert(s);},
                              Some(st) => *st += s
@@ -887,7 +888,7 @@ impl Interpreter<'_> {
     pub fn state_get_command(&self,s:&TeXStr) -> Option<TeXCommand> {
         self.state.borrow().get_command(s)
     }
-    pub fn state_get_font(&self,name:&str) -> Result<Rc<FontFile>,TeXError> {
+    pub fn state_get_font(&self,name:&str) -> Result<Arc<FontFile>,TeXError> {
         self.state.borrow_mut().get_font(self,name.into())
     }
     pub fn state_get_mathcode(&self,i:u8) -> i32 {
@@ -911,7 +912,7 @@ impl Interpreter<'_> {
             _ => ()
         }
     }
-    pub fn get_font(&self) -> Rc<Font> {
+    pub fn get_font(&self) -> Arc<Font> {
         self.state.borrow().stacks.last().unwrap().currfont.clone()
     }
     pub fn state_color_pop(&self,i:usize) {
@@ -988,12 +989,12 @@ pub enum StateChange {
     Box(i32,TeXBox,bool),
     Mathcode(u8,i32,bool),
     Delcode(u8,i32,bool),
-    Font(Rc<Font>,bool),
+    Font(Arc<Font>,bool),
     Pdfmatches(Vec<TeXStr>),
     Aftergroup(Token),
     Fontstyle(FontStyle),
-    Textfont(usize,Rc<Font>,bool),
-    Scriptfont(usize,Rc<Font>,bool),
-    Scriptscriptfont(usize,Rc<Font>,bool),
+    Textfont(usize,Arc<Font>,bool),
+    Scriptfont(usize,Arc<Font>,bool),
+    Scriptscriptfont(usize,Arc<Font>,bool),
     Displaymode(bool)
 }

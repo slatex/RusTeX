@@ -222,6 +222,7 @@ impl FontFile {
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex, RwLock};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;
 
@@ -234,9 +235,9 @@ pub struct FontInner {
 }
 
 pub struct Font {
-    pub file:Rc<FontFile>,
+    pub file:Arc<FontFile>,
     pub at:Option<i32>,
-    pub inner: RefCell<FontInner>,
+    pub inner: RwLock<FontInner>,
     pub name:TeXStr
 }
 impl Font {
@@ -246,12 +247,12 @@ impl Font {
             None => self.file.size as i32
         }
     }
-    pub fn new(file:Rc<FontFile>,at:Option<i32>,name:TeXStr) -> Rc<Font> {
+    pub fn new(file:Arc<FontFile>,at:Option<i32>,name:TeXStr) -> Arc<Font> {
         let hc = file.hyphenchar;
         let sc = file.skewchar;
-        Rc::new(Font {
+        Arc::new(Font {
             file,at,name,
-            inner:RefCell::new(FontInner {
+            inner:RwLock::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:hc,
                 skewchar:sc,
@@ -261,10 +262,10 @@ impl Font {
         })
     }
     pub fn set_dimen(&self,i : u16,vl : i32) {
-        self.inner.borrow_mut().dimen.insert(i,vl);
+        self.inner.write().unwrap().dimen.insert(i,vl);
     }
     pub fn get_dimen(&self,i:u16) -> i32 {
-        match self.inner.borrow().dimen.get(&i) {
+        match self.inner.read().unwrap().dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
                 Some(f) => round_f((*f as f32) * (match self.at {
@@ -300,7 +301,7 @@ impl Font {
         }
     }
     pub fn get_lp(&self,i:u16) -> i32 {
-        match self.inner.borrow().lps.get(&i) {
+        match self.inner.read().unwrap().lps.get(&i) {
             None => match self.file.lps.get(&i) {
                 None => 0,
                 Some(u) => *u as i32
@@ -309,7 +310,7 @@ impl Font {
         }
     }
     pub fn get_rp(&self,i:u16) -> i32 {
-        match self.inner.borrow().rps.get(&i) {
+        match self.inner.read().unwrap().rps.get(&i) {
             None => match self.file.rps.get(&i) {
                 None => 0,
                 Some(u) => *u as i32
@@ -318,15 +319,15 @@ impl Font {
         }
     }
     pub fn set_lp(&self,i:u16,v:u8) {
-        self.inner.borrow_mut().lps.insert(i,v);
+        self.inner.write().unwrap().lps.insert(i,v);
     }
     pub fn set_rp(&self,i:u16,v:u8) {
-        self.inner.borrow_mut().rps.insert(i,v);
+        self.inner.write().unwrap().rps.insert(i,v);
     }
 }
 
 thread_local! {
-    pub static Nullfontfile : Rc<FontFile> = Rc::new(FontFile {
+    pub static Nullfontfile : Arc<FontFile> = Arc::new(FontFile {
         hyphenchar : 45,
         skewchar : 255,
         dimen : HashMap::new(),
@@ -341,9 +342,9 @@ thread_local! {
         ligs : HashMap::new(),
         name : TeXStr::new("Nullfont".as_bytes())
     });
-    pub static Nullfont : Rc<Font> = Rc::new(Font {
+    pub static Nullfont : std::sync::Arc<Font> = std::sync::Arc::new(Font {
             file:Nullfontfile.try_with(|x| x.clone()).unwrap(),at:Some(0),
-            inner:RefCell::new(FontInner {
+            inner:RwLock::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:45,
                 skewchar:255,lps:HashMap::new(),rps:HashMap::new()
