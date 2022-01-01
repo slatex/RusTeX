@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 use crate::fonts::Font;
+use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;
 use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit;
@@ -15,7 +16,8 @@ pub enum WIGroup {
     //       rule   attr  action
     PDFLink(PDFLink),
     PDFMatrixSave(PDFMatrixSave),
-    External(Arc<dyn ExternalWhatsitGroup>,Vec<Whatsit>)
+    External(Arc<dyn ExternalWhatsitGroup>,Vec<Whatsit>),
+    GroupOpen(GroupType)
 }
 macro_rules! pass_on {
     ($s:tt,$e:ident,($ext:ident,$ch:ident) => $exp:expr $(,$tl:expr)*) => (match $s {
@@ -23,7 +25,8 @@ macro_rules! pass_on {
         WIGroup::ColorChange(g) => ColorChange::$e(g $(,$tl)*),
         WIGroup::PDFLink(g) => PDFLink::$e(g $(,$tl)*),
         WIGroup::PDFMatrixSave(g) => PDFMatrixSave::$e(g $(,$tl)*),
-        WIGroup::External($ext,$ch) => $exp
+        WIGroup::External($ext,$ch) => $exp,
+        WIGroup::GroupOpen(_) => unreachable!()
     })
 }
 
@@ -79,7 +82,8 @@ impl WIGroup {
             WIGroup::ColorChange(g) => WIGroup::ColorChange(g.new_from()),
             WIGroup::PDFLink(g) => WIGroup::PDFLink(g.new_from()),
             WIGroup::PDFMatrixSave(g) => WIGroup::PDFMatrixSave(g.new_from()),
-            WIGroup::External(e,_) => WIGroup::External(e.clone(),vec!())
+            WIGroup::External(e,_) => WIGroup::External(e.clone(),vec!()),
+            WIGroup::GroupOpen(_) => unreachable!()
         }
     }
 }

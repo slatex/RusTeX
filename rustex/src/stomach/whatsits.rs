@@ -102,6 +102,7 @@ pub enum Whatsit {
     GroupClose(GroupClose),
     Simple(SimpleWI),
     Char(PrintChar),
+    Space(SpaceChar),
     Math(MathGroup),
     MathInfix(MathInfix),
     Ls(Vec<Whatsit>),
@@ -119,6 +120,7 @@ macro_rules! pass_on {
         Whatsit::GroupClose(g) => GroupClose::$e(g $(,$tl)*),
         Whatsit::Simple(g) => SimpleWI::$e(g $(,$tl)*),
         Whatsit::Char(g) => PrintChar::$e(g $(,$tl)*),
+        Whatsit::Space(g) => SpaceChar::$e(g $(,$tl)*),
         Whatsit::Math(g) => MathGroup::$e(g $(,$tl)*),
         Whatsit::MathInfix(g) => MathInfix::$e(g $(,$tl)*),
         Whatsit::Ls(_) => panic!("Should never happen!"),
@@ -199,6 +201,22 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
 }
 
 // -------------------------------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct SpaceChar {
+    pub sourceref:Option<SourceFileReference>,
+    pub font : Arc<Font>,
+}
+impl WhatsitTrait for SpaceChar {
+    fn as_whatsit(self) -> Whatsit { Whatsit::Space(self) }
+    fn width(&self) -> i32 { self.font.get_width(32) }
+    fn height(&self) -> i32 { self.font.get_height(32) }
+    fn depth(&self) -> i32 { self.font.get_depth(32) }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        " ".to_string()
+    }
+    fn has_ink(&self) -> bool { false }
+}
 
 #[derive(Clone)]
 pub struct PrintChar {

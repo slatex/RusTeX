@@ -278,7 +278,7 @@ pub trait Stomach : Send {
     }
 
     fn new_group(&mut self,tp:GroupType) {
-        self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(tp, vec!()))
+        self.base_mut().buffer.push(Whatsit::GroupOpen(WIGroup::GroupOpen(tp)))
     }
     fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
         self.flush(int);
@@ -550,6 +550,10 @@ pub trait Stomach : Send {
 
     fn add_inner_actually(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
+            Whatsit::GroupOpen(WIGroup::GroupOpen(tp)) => {
+                self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(tp, vec!()));
+                Ok(())
+            }
             Whatsit::GroupOpen(ref g) => {
                 self.base_mut().stomachgroups.push(StomachGroup::Other(g.clone()));
                 Ok(())
@@ -601,7 +605,12 @@ pub trait Stomach : Send {
         let mut repush : Vec<Whatsit> = vec!();
         loop {
             match self.base_mut().buffer.pop() {
+                Some(r@Whatsit::GroupOpen(WIGroup::GroupOpen(_))) => {
+                    repush.push(r);
+                    break
+                }
                 Some(r@Whatsit::GroupOpen(_)) => repush.push(r),
+                //Some(r@Whatsit::Simple(SimpleWI::Penalty(_))) => repush.push(r),
                 Some(Whatsit::Box(tb)) => {
                     repush.reverse();
                     for r in repush { self.base_mut().buffer.push(r) }
@@ -627,7 +636,10 @@ pub trait Stomach : Send {
                                         match rows.pop() {
                                             Some(AlignBlock::Noalign(mut v)) => {
                                                 for w in v.drain(..).rev() {
-                                                    repush.push(w)
+                                                    /*match w {
+                                                        Whatsit::Simple(SimpleWI::Penalty(_)) => (),
+                                                        _ =>*/ repush.push(w)
+                                                    //}
                                                 }
                                             }
                                             _ => unreachable!()
@@ -693,6 +705,7 @@ pub trait Stomach : Send {
         return None */
         for w in self.base().buffer.iter().rev() {
             match w {
+                Whatsit::GroupOpen(WIGroup::GroupOpen(_)) => return None,
                 Whatsit::GroupOpen(_) => (),
                 r => return Some(r)
             }

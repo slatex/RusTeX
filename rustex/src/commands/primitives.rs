@@ -11,7 +11,7 @@ use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
-use crate::stomach::whatsits::{PrintChar, WhatsitTrait};
+use crate::stomach::whatsits::{PrintChar, SpaceChar, WhatsitTrait};
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -21,9 +21,8 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         match int.get_mode() {
-            TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Char(
-                PrintChar {
-                    char: 32,
+            TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Space(
+                SpaceChar {
                     font: int.get_font(),
                     sourceref: int.update_reference(tk)
                 })),
@@ -2552,6 +2551,7 @@ pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
 
 fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         (Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>),TeXError> {
+    //println!("Here! Vsize: {}",crate::interpreter::dimensions::dimtostr(crate::commands::pgfsvg::get_dimen("vsize",int)?));
     int.expand_until(false)?;
     let bg = int.next_token();
     match bg.catcode {
@@ -2792,6 +2792,7 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             None => None
         };
         let (skip,template,mut rows) = do_align(int,BoxMode::H,BoxMode::V)?;
+        //unsafe { crate::LOG = true }
         match rows.pop() {
             Some(AlignBlock::Noalign(v)) => {
                 let mut ret : Vec<Whatsit> = vec!(

@@ -106,7 +106,7 @@ use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
 use crate::stomach::colon::Colon;
 use crate::stomach::simple::Indent;
-use crate::stomach::whatsits::{PrintChar, WhatsitTrait};
+use crate::stomach::whatsits::{PrintChar, SpaceChar, WhatsitTrait};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
@@ -305,12 +305,19 @@ impl Interpreter<'_> {
             (BeginGroup,_) => Ok(self.new_group(GroupType::Token)),
             (EndGroup,_) => self.pop_group(GroupType::Token),
             (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
-            (Letter | Other | Space, Horizontal | RestrictedHorizontal) => {
+            (Space | EOL, Horizontal | RestrictedHorizontal) => {
                 let font = self.get_font();
-                let rf = self.update_reference(&next);
+                let sourceref = self.update_reference(&next);
+                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Space(SpaceChar {
+                    font,sourceref
+                }))
+            }
+            (Letter | Other , Horizontal | RestrictedHorizontal) => {
+                let font = self.get_font();
+                let sourceref = self.update_reference(&next);
                 self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(PrintChar {
                     char:next.char,
-                    font,sourceref:rf
+                    font,sourceref
                 }))
             }
             (MathShift, Horizontal) => self.do_math(false),
