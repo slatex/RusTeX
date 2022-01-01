@@ -1,7 +1,7 @@
 use crate::catcodes::CategoryCode;
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
-use crate::utils::{TeXError, TeXString};
+use crate::utils::{TeXError, TeXStr, TeXString};
 use std::str::FromStr;
 use crate::commands::{TokReference, PrimitiveTeXCommand, TokenList};
 use crate::{TeXErr,FileEnd,log};

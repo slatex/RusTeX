@@ -18,6 +18,7 @@ use crate::interpreter::state::{GroupType, State, StateChange};
 use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::thread::JoinHandle;
 
 pub mod mouth;
 pub mod state;
@@ -100,9 +101,10 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
     ret.into()
 }
 
-use crate::stomach::{NoShipoutRoutine, Stomach, Whatsit};
+use crate::stomach::{NoShipoutRoutine, Stomach, StomachMessage, Whatsit};
 use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
+use crate::stomach::colon::Colon;
 use crate::stomach::simple::Indent;
 use crate::stomach::whatsits::{PrintChar, WhatsitTrait};
 
@@ -138,11 +140,22 @@ impl Interpreter<'_> {
             stomach:RefCell::new(stomach)
         }
     }
-    pub fn do_file(&mut self,p:&Path) {
+    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> Result<B,TeXError> where A:Colon<B>,B: Send {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:Arc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
+        let receiver = self.stomach.borrow_mut().init();
+        let colonthread = std::thread::spawn(move || {
+            for msg in receiver {
+                match msg {
+                    StomachMessage::Start(a,b) => colon.initialize(a,b),
+                    StomachMessage::End => return colon.close(),
+                    StomachMessage::WI(w) => colon.ship_whatsit(w)
+                }
+            }
+            return colon.close() // sender dropped => TeXError somewhere
+        });
         while self.has_next() {
             let next = self.next_token();
             let indoc = self.state.borrow().indocument;
@@ -153,7 +166,8 @@ impl Interpreter<'_> {
                 };
                 if isline {
                     self.state.borrow_mut().indocument_line = None;
-                    self.stomach.borrow_mut().on_begin_document(self)
+                    self.stomach.borrow_mut().on_begin_document(self);
+                    //colon.initialize(self,receiver,basefont,basecolor);
                 } else {
                     match next.catcode {
                         CategoryCode::Escape if &next.cmdname() == "document" => {
@@ -168,10 +182,15 @@ impl Interpreter<'_> {
                 Err(s) => s.throw(Some(&self))
             }
         }
+        self.stomach.borrow_mut().finish(self);
+        match colonthread.join() {
+            Ok(r) => return Ok(r),
+            Err(e) => TeXErr!((self,None),"Error in colon thread")
+        }
     }
-    pub fn do_file_with_state(p : &Path, s : State) -> State {
+    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A) -> Result<(State,B),TeXError> where A:Colon<B>,B:Send {
         let mut stomach = NoShipoutRoutine::new();
-        let mut int = Interpreter::with_state(s,stomach.borrow_mut());
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut()); /*
         int.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:Arc<VFile>  = VFile::new(p,int.jobinfo.in_file(),&mut int.state.borrow_mut().filestore);
         int.push_file(vf);
@@ -200,9 +219,10 @@ impl Interpreter<'_> {
                 Ok(_) => {},
                 Err(s) => s.throw(Some(&int))
             }
-        }
-        let ret = int.state.borrow().clone();
-        ret.close(int)
+        } */
+        let ret = int.do_file(p,colon);
+        let st = int.state.borrow().clone();
+        Ok((st.close(int),ret?))
     }
 
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {

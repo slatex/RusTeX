@@ -1648,11 +1648,11 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"unkern",
     expandable:false,
     _apply:|tk,int| {
-        let lastwi = int.stomach.borrow().last_whatsit();
-        match lastwi {
-            Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => int.stomach.borrow_mut().drop_last(),
-            _ => ()
-        }
+        let remove = match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => true,
+            _ => false
+        };
+        if remove {int.stomach.borrow_mut().drop_last()}
         Ok(())
     }
 };
@@ -1661,11 +1661,11 @@ pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
     expandable:false,
     _apply:|tk,int| {
-        let lastwi = int.stomach.borrow().last_whatsit();
-        match lastwi {
-            Some(Whatsit::Simple(SimpleWI::Penalty(_))) => int.stomach.borrow_mut().drop_last(),
-            _ => ()
-        }
+        let remove = match int.stomach.borrow().last_whatsit() {
+            Some(Whatsit::Simple(SimpleWI::Penalty(_))) => true,
+            _ => false
+        };
+        if remove {int.stomach.borrow_mut().drop_last()}
         Ok(())
     }
 };
@@ -1792,38 +1792,10 @@ pub static VCENTER: ProvidesBox = ProvidesBox {
 
 pub static LASTBOX: ProvidesBox = ProvidesBox {
     _get: |_tk,int| {
-        let last = int.stomach.borrow().last_whatsit();
-        match last {
-            Some(Whatsit::Box(tb)) => {
-                int.stomach.borrow_mut().drop_last();
+        match int.stomach.borrow_mut().last_box(int)? {
+            Some(tb) => {
                 Ok(tb)
             },
-            Some(Whatsit::Simple(SimpleWI::HAlign(HAlign{ skip, template,mut rows,sourceref}))) => {
-                int.stomach.borrow_mut().drop_last();
-                match rows.pop() {
-                    Some(AlignBlock::Block(mut v)) => {
-                        let mut ch : Vec<Whatsit> = vec!();
-                        for (mut c,s,_) in v {
-                            ch.append(&mut c);
-                            ch.push(HSkip {
-                                skip:s,sourceref:None
-                            }.as_whatsit())
-                        }
-                        int.stomach.borrow_mut().add(int,HAlign{
-                            skip,template,rows,sourceref
-                        }.as_whatsit());
-                        Ok(TeXBox::H(HBox {
-                            children: ch,
-                            spread: 0,
-                            _width: None,
-                            _height: None,
-                            _depth: None,
-                            rf: None
-                        }))
-                    }
-                    _ => todo!()
-                }
-            }
             _ => Ok(TeXBox::Void)
         }
     },
@@ -1834,13 +1806,13 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"unskip",
     expandable:false,
     _apply:|_tk,int| {
-        let lw = int.stomach.borrow().last_whatsit();
-        match lw {
+        let remove = match int.stomach.borrow().last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_))) => {
-                int.stomach.borrow_mut().drop_last()
+                true
             },
-            _ => ()
-        }
+            _ => false
+        };
+        if remove {int.stomach.borrow_mut().drop_last()}
         Ok(())
     }
 };
@@ -2660,6 +2632,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     let endtemplate = ENDTEMPLATE.try_with(|x| x.clone()).unwrap();
     let endtemplatespan = ENDTEMPLATESPAN.try_with(|x| x.clone()).unwrap();
     let endrow = ENDROW.try_with(|x| x.clone()).unwrap();
+    let mut inspan : bool = false;
 
     'table: loop {
         'prelude: loop {
@@ -2702,6 +2675,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
         let mut columnindex : usize = 0;
         let mut row:Vec<(Vec<Whatsit>,Skip,usize)> = vec!();
+        let mut cells:usize =1;
 
         'row: loop {
             let mut doheader = true;
@@ -2755,13 +2729,16 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 BoxMode::V => TeXMode::InternalVertical,
                 _ => unreachable!()
             });
-            int.new_group(GroupType::Box(tabmode));
+            if inspan { inspan = false }
+            else {
+                cells = 1;
+                int.new_group(GroupType::Box(tabmode));
+            }
             if doheader {
                 int.state.borrow_mut().aligns.push(Some(columns.get(columnindex).unwrap().1.clone()))
             } else {
                 int.state.borrow_mut().aligns.push(Some(vec!()))
             }
-            let mut cells:usize =1;
             'cell: loop {
                 let next = int.next_token();
                 match next.catcode {
@@ -2769,17 +2746,9 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                         break 'cell
                     }
                     CategoryCode::Escape if next.char == endtemplatespan.char && next == endtemplatespan => {
-                        columnindex += 1;
                         cells += 1;
-                        if columns.len() <= columnindex {
-                            match recindex {
-                                Some(i) => columnindex = i,
-                                None => TeXErr!((int,None),"Invalid column index in align")
-                            }
-                        }
-                        if doheader {
-                            int.push_tokens(columns.get(columnindex).unwrap().0.clone())
-                        }
+                        inspan = true;
+                        break 'cell
                     }
                     CategoryCode::Escape if next.char == endrow.char && next == endrow => {
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
@@ -2794,9 +2763,11 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 Some(None) => (),
                 _ => TeXErr!((int,None),"align error")
             }
-            let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
-            row.push((ret,columns.get(columnindex).unwrap().2,cells));
-            int.set_mode(_oldmode);
+            if !inspan {
+                let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
+                row.push((ret, columns.get(columnindex).unwrap().2, cells));
+                int.set_mode(_oldmode);
+            }
             columnindex += 1
         }
         match int.state.borrow_mut().aligns.pop() {

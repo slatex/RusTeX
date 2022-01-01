@@ -632,12 +632,12 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/GenCS/source/legal/mod/creativecommons.en.tex (24") && tk.cmdname().to_string() == "peek_analysis_map_inline:n" { // {
+        /*if /* int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/GenCS/source/legal/mod/creativecommons.en.tex (24") && */tk.cmdname().to_string() == "enit@itemize@i" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");
              //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
-             unsafe{crate::LOG = true}
+             //unsafe{crate::LOG = true}
              print!("");
         }*/
         /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {

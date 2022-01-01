@@ -646,8 +646,8 @@ pub fn default_pdf_latex_state() -> State {
 
     //println!("{}",pdftex_cfg.to_str().expect("wut"));
     //println!("{}",latex_ltx.to_str().expect("wut"));
-    st = Interpreter::do_file_with_state(&pdftex_cfg,st);
-    st = Interpreter::do_file_with_state(&latex_ltx,st);
+    st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new()).unwrap().0;
+    st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new()).unwrap().0;
     if crate::PGF_AS_SVG {
         for c in pgf_commands() {
             let c = c.as_command();
@@ -677,6 +677,7 @@ use crate::interpreter::Token;
 use crate::references::SourceFileReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::colon::NoColon;
 use crate::stomach::simple::{PDFXForm, PDFXImage, SimpleWI};
 
 impl Interpreter<'_> {

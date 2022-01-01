@@ -4,6 +4,7 @@ use std::ops::Mul;
 use std::path::{Path, PathBuf};
 use rustex::interpreter::dimensions::{dimtostr, round_f};
 use rustex::interpreter::Interpreter;
+use rustex::stomach::colon::NoColon;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXString;
 
@@ -26,7 +27,7 @@ fn do_other(filename : &str) {
     let state = default_pdf_latex_state();
     let mut stomach = NoShipoutRoutine::new();
     let mut int = Interpreter::with_state(state,stomach.borrow_mut());
-    int.do_file(Path::new(filename));
+    int.do_file(Path::new(filename),NoColon::new());
 }
 /*
 fn do_test() {

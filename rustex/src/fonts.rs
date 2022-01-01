@@ -1,3 +1,4 @@
+pub mod fontchars;
 
 struct FInfoEntry {
     char: u16,
@@ -41,8 +42,13 @@ pub struct FontFile {
     pub ics:HashMap<u16,f32>,
     pub lps:HashMap<u16,u8>,
     pub rps: HashMap<u16,u8>,
-    pub ligs:HashMap<(u16,u16),u16>,
+    pub ligs:HashMap<(u8,u8),u8>,
     pub name:TeXStr
+}
+impl PartialEq for FontFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 struct FontState {
     pub ret : Vec<u8>,
@@ -78,7 +84,7 @@ impl FontFile {
         let mut ics:HashMap<u16,f32> = HashMap::new();
         let mut lps:HashMap<u16,u8> = HashMap::new();
         let mut rps: HashMap<u16,u8> = HashMap::new();
-        let mut ligs:HashMap<(u16,u16),u16> = HashMap::new();
+        let mut ligs:HashMap<(u8,u8),u8> = HashMap::new();
 
         fn read_int(s : &mut FontState) -> (u16,u16) {
             let (a,b,c,d) = s.pop();
@@ -205,7 +211,7 @@ impl FontFile {
             }
             match t.ligature() {
                 Some(i) => match ligatures.get(i as usize) {
-                    Some((_,nc ,false,rep)) => {ligs.insert((t.char,*nc),*rep);}
+                    Some((_,nc ,false,rep)) => {ligs.insert((t.char as u8,*nc as u8),*rep as u8);}
                     _ => ()
                 }
                 _ => ()
@@ -233,6 +239,11 @@ pub struct FontInner {
     pub lps:HashMap<u16,u8>,
     pub rps:HashMap<u16,u8>,
 }
+impl PartialEq for FontInner {
+    fn eq(&self, other: &Self) -> bool {
+        self.dimen == other.dimen
+    }
+}
 
 pub struct Font {
     pub file:Arc<FontFile>,
@@ -240,6 +251,12 @@ pub struct Font {
     pub inner: RwLock<FontInner>,
     pub name:TeXStr
 }
+impl PartialEq for Font {
+    fn eq(&self, other: &Self) -> bool {
+        *self.file == *other.file && self.name == other.name && self.at == other.at && *self.inner.read().unwrap() == *other.inner.read().unwrap()
+    }
+}
+
 impl Font {
     pub fn get_at(&self) -> i32 {
         match self.at {

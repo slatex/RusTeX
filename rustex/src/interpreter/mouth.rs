@@ -234,7 +234,10 @@ impl StringMouth {
     }
     fn do_line(&mut self,endlinechar:u8) -> bool {
         self.atendofline =  None;
-        if self.allstrings.is_empty() { false } else {
+        if self.allstrings.is_empty() {
+            self.string = None;
+            false
+        } else {
             match endlinechar {
                 u8::MAX => {},
                 o => self.atendofline =  Some(o)
@@ -303,6 +306,15 @@ impl StringMouth {
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
+        /*match self.source.get_file_ref() {
+            Some(r) => match &r.path {
+                Some(p) if p.to_string().contains("interfaces") && self.line >= 249 => {
+                    println!("Here!")
+                }
+                _ => ()
+            }
+            _ => ()
+        }*/
         match self.peekbuffer {
             Some(_) => true,
             None => {
