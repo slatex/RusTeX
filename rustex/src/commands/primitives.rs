@@ -3465,7 +3465,8 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
     name:"end",
     expandable:false,
     _apply:|_tk,int| {
-        TeXErr!((int,None),"finished (TODO)")
+        int.end();
+        Ok(())
     }
 };
 

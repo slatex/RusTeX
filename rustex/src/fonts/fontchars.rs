@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use crate::utils::TeXStr;
 
 pub enum FontTableParam {
@@ -24,11 +24,11 @@ impl FontTable {
 }
 
 pub struct FontTableStore {
-    map : HashMap<TeXStr,Arc<FontTable>>
+    map : RwLock<HashMap<TeXStr,Arc<FontTable>>>
 }
 impl FontTableStore {
-    pub fn get(&mut self, name:TeXStr) -> Option<Arc<FontTable>> {
-        match self.map.entry(name.clone()) {
+    pub fn get(&self, name:TeXStr) -> Option<Arc<FontTable>> {
+        match self.map.write().unwrap().entry(name.clone()) {
             Entry::Occupied(o) => Some(o.get().clone()),
             Entry::Vacant(o) => match &name.to_string() {
                 s if s == "cmr" => Some(o.insert(Arc::new(FontTable {
@@ -39,9 +39,11 @@ impl FontTableStore {
             }
         }
     }
+    pub(in crate::fonts::fontchars) fn new() -> FontTableStore { FontTableStore {map:RwLock::new(HashMap::new())}}
 }
 
 lazy_static! {
+    pub static ref FONT_TABLES : FontTableStore = FontTableStore::new();
     pub static ref STANDARD_TEXT_CM : HashMap<u8,&'static str> = HashMap::from([
         (0,"Γ"),(1,"∆"),(2,"Θ"),(3,"Λ"),(4,"Ξ"),(5,"Π"),(6,"Σ"),(7,"Υ"),(8,"Φ"),(9,"Ψ"),(10,"Ω"),
         (11,"ff"),(12,"fi"),(13,"fl"),(14,"ffi"),(15,"ffl"),(16,"ı"),(17,"ȷ"),(18,"`"),(19," ́"),

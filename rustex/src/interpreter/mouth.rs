@@ -715,9 +715,13 @@ impl Mouths {
             Some(tk) => crate::interpreter::tokens_to_string_default(&vec!(tk.clone())) + ret
         }
     }
+    pub fn close(&mut self) {
+        self.mouths.clear()
+    }
 }
 
 impl Interpreter<'_> {
+    pub fn end(&self) { self.mouths.borrow_mut().close() }
     pub fn preview(&self) -> TeXString {
         match self.mouths.borrow().preview().0.get(0..10000) {
             Some(s) => TeXString(s.to_vec()),

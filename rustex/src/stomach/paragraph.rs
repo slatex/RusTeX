@@ -10,8 +10,8 @@ use crate::stomach::simple::SimpleWI;
 pub struct Paragraph {
     pub parskip:i32,
     pub children:Vec<Whatsit>,
-    leftskip:Option<Skip>,
-    rightskip:Option<Skip>,
+    pub leftskip:Option<Skip>,
+    pub rightskip:Option<Skip>,
     hsize:Option<i32>,
     pub lineheight:Option<i32>,
     pub _width:i32,
@@ -34,6 +34,21 @@ impl WhatsitTrait for Paragraph {
 }
 
 impl Paragraph {
+    pub fn destroy(self) -> (Paragraph,Vec<Whatsit>) {
+        let np = Paragraph {
+            parskip:self.parskip,
+            children:vec!(),
+            leftskip:self.leftskip,
+            rightskip:self.rightskip,
+            hsize:self.hsize,
+            lineheight:self.lineheight,
+            _width:self._width,
+            _height:self._height,
+            _depth:self._depth,
+            lines:self.lines
+        };
+        (np,self.children)
+    }
     pub fn split(self,target:i32,int:&Interpreter) -> (Paragraph,Paragraph) {
         let mut presplit : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
         let mut currentwidth : i32 = 0;

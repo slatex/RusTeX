@@ -26,6 +26,7 @@ pub mod paragraph;
 pub mod groups;
 pub mod simple;
 pub mod colon;
+pub mod html;
 
 pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
     let mut currentheight : i32 = 0;
@@ -224,8 +225,7 @@ impl StomachGroup {
 
 pub enum StomachMessage {
     End,
-    WI(Whatsit),
-    Start(Arc<Font>,TeXStr)
+    WI(Whatsit)
 }
 
 pub trait Stomach : Send {
@@ -236,7 +236,8 @@ pub trait Stomach : Send {
 
     // ---------------------------------------------------------------------------------------------
 
-    fn start_paragraph(&mut self,parskip:i32) {
+    fn start_paragraph(&mut self,int:&Interpreter,parskip:i32) {
+        self.flush(int);
         self.base_mut().stomachgroups.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
@@ -565,31 +566,21 @@ pub trait Stomach : Send {
                 if self.base().stomachgroups.is_empty() {
                     return Ok(()) // TODO - temporary for final_xml
                 }
-                self.base_mut().stomachgroups.last_mut().unwrap().push(o);
+                let base = self.base_mut();
+                match base.stomachgroups.last_mut().unwrap() {
+                    StomachGroup::Top(v) => {
+                        let sender = base.sender.as_ref().unwrap();
+                        for w in v.drain(..) { sender.send(StomachMessage::WI(w)).unwrap(); }
+                        sender.send(StomachMessage::WI(o)).unwrap();
+                    },
+                    sg => sg.push(o)
+                }
                 Ok(())
             }
         }
     }
 
     fn drop_last(&mut self) {
-        /*
-        let buf = &mut self.base_mut().stomachgroups;
-        for ls in buf.iter_mut().rev() {
-            for (i,v) in ls.get().iter().enumerate().rev() {
-                match v {
-                    Whatsit::Box(_) => {
-                        ls.get_mut().remove(i);
-                        return ()
-                    },
-                    Whatsit::Simple(_) => {
-                        ls.get_mut().remove(i);
-                        return ()
-                    },
-                    Whatsit::Grouped(_) => return (),
-                    _ => ()
-                }
-            }
-        } */
         let mut repush : Vec<Whatsit> = vec!();
         loop {
             match self.base_mut().buffer.pop() {
@@ -610,7 +601,6 @@ pub trait Stomach : Send {
                     break
                 }
                 Some(r@Whatsit::GroupOpen(_)) => repush.push(r),
-                //Some(r@Whatsit::Simple(SimpleWI::Penalty(_))) => repush.push(r),
                 Some(Whatsit::Box(tb)) => {
                     repush.reverse();
                     for r in repush { self.base_mut().buffer.push(r) }
@@ -663,15 +653,6 @@ pub trait Stomach : Send {
                             for r in repush { self.base_mut().buffer.push(r) }
                             return Ok(Some(tb))
                         }
-                        /*Some(AlignBlock::Noalign(v)) => {
-                            self.add_inner(int,HAlign{
-                                skip,template,rows,sourceref
-                            }.as_whatsit())?;
-                            for w in v {self.add_inner(int,w)?}
-                            repush.reverse();
-                            for r in repush { self.base_mut().buffer.push(r) }
-                            return self.last_box(int)
-                        }*/
                         r => {
                             rows.push(r.unwrap());
                             todo!()
@@ -690,19 +671,7 @@ pub trait Stomach : Send {
         Ok(None)
     }
 
-    fn last_whatsit(&self) -> Option<&Whatsit> { /*
-        let buf = &self.base().stomachgroups;
-        for ls in buf.iter().rev() {
-            for v in ls.get().iter().rev() {
-                match v {
-                    w@Whatsit::Box(_) => return Some(w.clone()),
-                    w@Whatsit::Simple(_) => return Some(w.clone()),
-                    Whatsit::Grouped(_) => return None,
-                    _ => ()
-                }
-            }
-        }
-        return None */
+    fn last_whatsit(&self) -> Option<&Whatsit> {
         for w in self.base().buffer.iter().rev() {
             match w {
                 Whatsit::GroupOpen(WIGroup::GroupOpen(_)) => return None,
@@ -713,7 +682,7 @@ pub trait Stomach : Send {
         None
     }
 
-    fn on_begin_document(&mut self, int: &Interpreter) {
+    fn on_begin_document(&mut self, int: &Interpreter) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
         self.flush(int);
         int.state.borrow_mut().indocument = true;
         let base = self.base_mut();
@@ -752,14 +721,9 @@ pub trait Stomach : Send {
             basefont = Some(int.get_font())
         }
         self.on_begin_document_inner(int);
-        //(basefont.unwrap(),basecolor)
-        self.base().sender.as_ref().unwrap().send(StomachMessage::Start(basefont.unwrap(),basecolor));
-    }
-
-    fn init(&mut self) -> Receiver<StomachMessage> {
         let (sender,receiver) = mpsc::channel::<StomachMessage>();
         self.base_mut().sender = Some(sender);
-        receiver
+        (receiver,basefont.unwrap(),basecolor)
     }
 
     fn reset_par(&mut self) {
@@ -777,7 +741,6 @@ pub trait Stomach : Send {
             let last = self.base_mut().stomachgroups.pop();
             match last {
                 Some(StomachGroup::Top(v)) => {
-                    //self.base_mut().buffer.push(t);
                     return Ok(v)
                 },
                 Some(StomachGroup::Other(g)) => self.add(int,Whatsit::Grouped(g))?,
@@ -795,8 +758,12 @@ pub trait Stomach : Send {
     }
     fn finish(&mut self,int:&Interpreter) {
         let wis = self.close_all(int);
-        // TODO something
-        self.base().sender.as_ref().unwrap().send(StomachMessage::End);
+        let sender = self.base().sender.as_ref().unwrap();
+        match wis {
+            Ok(v) => for w in v { sender.send(StomachMessage::WI(w)).unwrap() }
+            _ => ()
+        }
+        sender.send(StomachMessage::End);
     }
     fn final_xml(&mut self,int:&Interpreter) -> Result<String,TeXError> {
         let wis = self.close_all(int)?;

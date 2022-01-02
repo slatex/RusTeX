@@ -43,7 +43,8 @@ pub struct FontFile {
     pub lps:HashMap<u16,u8>,
     pub rps: HashMap<u16,u8>,
     pub ligs:HashMap<(u8,u8),u8>,
-    pub name:TeXStr
+    pub name:TeXStr,
+    pub chartable:Option<Arc<FontTable>>
 }
 impl PartialEq for FontFile {
     fn eq(&self, other: &Self) -> bool {
@@ -72,6 +73,8 @@ impl FontFile {
             i:0
         };
         state.ret.reverse();
+
+        let tablename : String = name.to_string().chars().map(|x| if x.is_ascii_alphabetic() {Some(x)} else {None}).flatten().collect();
 
         let mut hyphenchar : u16 = 45;
         let mut skewchar : u16 = 255;
@@ -220,7 +223,8 @@ impl FontFile {
         assert_eq!(state.i as u16,lf);
 
         FontFile {
-            hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name
+            hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name,
+            chartable:FONT_TABLES.get(tablename.into())
         }
     }
 }
@@ -229,6 +233,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
+use crate::fonts::fontchars::{FONT_TABLES, FontTable};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;
 
@@ -357,7 +362,8 @@ thread_local! {
         lps : HashMap::new(),
         rps : HashMap::new(),
         ligs : HashMap::new(),
-        name : TeXStr::new("Nullfont".as_bytes())
+        name : TeXStr::new("Nullfont".as_bytes()),
+        chartable:None
     });
     pub static Nullfont : std::sync::Arc<Font> = std::sync::Arc::new(Font {
             file:Nullfontfile.try_with(|x| x.clone()).unwrap(),at:Some(0),

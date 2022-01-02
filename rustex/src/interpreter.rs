@@ -140,22 +140,8 @@ impl Interpreter<'_> {
             stomach:RefCell::new(stomach)
         }
     }
-    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> Result<B,TeXError> where A:Colon<B>,B: Send {
-        self.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:Arc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
-        self.push_file(vf);
-        self.insert_every(&crate::commands::primitives::EVERYJOB);
-        let receiver = self.stomach.borrow_mut().init();
-        let colonthread = std::thread::spawn(move || {
-            for msg in receiver {
-                match msg {
-                    StomachMessage::Start(a,b) => colon.initialize(a,b),
-                    StomachMessage::End => return colon.close(),
-                    StomachMessage::WI(w) => colon.ship_whatsit(w)
-                }
-            }
-            return colon.close() // sender dropped => TeXError somewhere
-        });
+
+    fn predoc_toploop(&self) -> Result<bool,TeXError> {
         while self.has_next() {
             let next = self.next_token();
             let indoc = self.state.borrow().indocument;
@@ -166,8 +152,8 @@ impl Interpreter<'_> {
                 };
                 if isline {
                     self.state.borrow_mut().indocument_line = None;
-                    self.stomach.borrow_mut().on_begin_document(self);
-                    //colon.initialize(self,receiver,basefont,basecolor);
+                    self.requeue(next);
+                    return Ok(true)
                 } else {
                     match next.catcode {
                         CategoryCode::Escape if &next.cmdname() == "document" => {
@@ -177,52 +163,56 @@ impl Interpreter<'_> {
                     }
                 }
             }
-            match self.do_top(next,false) {
-                Ok(_) => {},
-                Err(s) => s.throw(Some(&self))
-            }
+            self.do_top(next,false)?
         }
-        self.stomach.borrow_mut().finish(self);
-        match colonthread.join() {
-            Ok(r) => return Ok(r),
-            Err(e) => TeXErr!((self,None),"Error in colon thread")
-        }
+        Ok(false)
     }
-    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A) -> Result<(State,B),TeXError> where A:Colon<B>,B:Send {
-        let mut stomach = NoShipoutRoutine::new();
-        let mut int = Interpreter::with_state(s,stomach.borrow_mut()); /*
-        int.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:Arc<VFile>  = VFile::new(p,int.jobinfo.in_file(),&mut int.state.borrow_mut().filestore);
-        int.push_file(vf);
-        int.insert_every(&crate::commands::primitives::EVERYJOB);
-        while int.has_next() {
-            let next = int.next_token();
-            let indoc = int.state.borrow().indocument;
-            if !indoc {
-                let isline = match int.state.borrow().indocument_line.as_ref() {
-                    Some((f,i)) if int.current_file() == *f && int.line_no() > *i => true,
-                    _ => false
-                };
-                if isline {
-                    int.state.borrow_mut().indocument_line = None;
-                    int.stomach.borrow_mut().on_begin_document(&int)
-                } else {
-                    match next.catcode {
-                        CategoryCode::Escape if &next.cmdname() == "document" => {
-                            int.state.borrow_mut().indocument_line = Some((int.current_file(), int.line_no()))
-                        }
-                        _ => ()
+
+    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> B where A:Colon<B>,B: Send {
+        self.jobinfo = Jobinfo::new(p.to_path_buf());
+        let vf:Arc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
+        self.push_file(vf);
+        self.insert_every(&crate::commands::primitives::EVERYJOB);
+        let cont = match self.predoc_toploop() {
+            Ok(b) => b,
+            Err(e) => return e.throw(Some(self))
+        };
+        if cont {
+            let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(self);
+            colon.initialize(fnt,color,self);
+            let colonthread = std::thread::spawn(move || {
+                for msg in receiver {
+                    match msg {
+                        StomachMessage::End => return colon.close(),
+                        StomachMessage::WI(w) => colon.ship_whatsit(w)
                     }
                 }
+                return colon.close() // sender dropped => TeXError somewhere
+            });
+
+            while self.has_next() {
+                let next = self.next_token();
+                match self.do_top(next,false) {
+                    Ok(b) => b,
+                    Err(e) => return e.throw(Some(self))
+                };
             }
-            match int.do_top(next,false) {
-                Ok(_) => {},
-                Err(s) => s.throw(Some(&int))
+
+            self.stomach.borrow_mut().finish(self);
+            match colonthread.join() {
+                Ok(r) => return r,
+                Err(e) => panic!("Error in colon thread")
             }
-        } */
+        } else {
+            colon.close()
+        }
+    }
+    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A) -> (State,B) where A:Colon<B>,B:Send {
+        let mut stomach = NoShipoutRoutine::new();
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut());
         let ret = int.do_file(p,colon);
         let st = int.state.borrow().clone();
-        Ok((st.close(int),ret?))
+        (st.close(int),ret)
     }
 
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
@@ -418,7 +408,7 @@ impl Interpreter<'_> {
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::primitives::EVERYPAR);
         let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
-        self.stomach.borrow_mut().start_paragraph(parskip.base);
+        self.stomach.borrow_mut().start_paragraph(self,parskip.base);
         if indent != 0 {
             self.stomach.borrow_mut().add(self, Indent {
                 dim: indent,

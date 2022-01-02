@@ -646,8 +646,8 @@ pub fn default_pdf_latex_state() -> State {
 
     //println!("{}",pdftex_cfg.to_str().expect("wut"));
     //println!("{}",latex_ltx.to_str().expect("wut"));
-    st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new()).unwrap().0;
-    st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new()).unwrap().0;
+    st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new()).0;
+    st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new()).0;
     if crate::PGF_AS_SVG {
         for c in pgf_commands() {
             let c = c.as_command();

@@ -28,6 +28,9 @@ impl TeXStr {
     pub fn to_string(&self) -> String {
         display(self.iter())
     }
+    pub fn to_utf8(&self) -> String {
+        from_utf8(self.iter()).unwrap().to_string()
+    }
     pub fn iter(&self) -> &[u8] {
         self.0.deref()
     }
