@@ -7,7 +7,7 @@ use crate::commands::DefMacro;
 use crate::fonts::{Font, Nullfont};
 use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceFileReference;
-use crate::stomach::groups::{EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
+use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::{AlignBlock, HAlign, HKern, HSkip, SimpleWI, VKern, VSkip};
 use crate::stomach::Whatsit::Inserts;
@@ -708,7 +708,7 @@ pub trait Stomach : Send {
                     for c in f.children {stack.last_mut().unwrap().push(c)}
                 }
                 Some(StomachGroup::Other(WIGroup::ColorChange(cc))) => {
-                    basecolor = cc.color;
+                    basecolor = ColorChange::as_html(cc.color).into();
                     for c in cc.children {stack.last_mut().unwrap().push(c)}
                 }
                 _ => panic!("This shouldn't happen")

@@ -74,7 +74,7 @@ impl FontFile {
         };
         state.ret.reverse();
 
-        let tablename : String = name.to_string().chars().map(|x| if x.is_ascii_alphabetic() {Some(x)} else {None}).flatten().collect();
+        let tablename : String = name.to_string().chars().map(|x| if !x.is_ascii_digit() {Some(x)} else {None}).flatten().collect();
 
         let mut hyphenchar : u16 = 45;
         let mut skewchar : u16 = 255;

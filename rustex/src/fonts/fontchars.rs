@@ -8,6 +8,7 @@ pub enum FontTableParam {
 }
 
 pub struct FontTable {
+    name:TeXStr,
     pub params:Vec<FontTableParam>,
     table:&'static HashMap<u8,&'static str>
 }
@@ -15,10 +16,13 @@ impl FontTable {
     pub fn as_unicode(&self,u:u8) -> &str {
         todo!()
     }
-    pub fn get_char(&self,u:u8) -> &str {
+    pub fn get_char(&self,u:u8) -> &'static str {
         match self.table.get(&u) {
             Some(c) => c,
-            None => "???"
+            None => {
+                println!("Unknown character {} in font {}",u,self.name);
+                "???"
+            }
         }
     }
 }
@@ -31,11 +35,183 @@ impl FontTableStore {
         match self.map.write().unwrap().entry(name.clone()) {
             Entry::Occupied(o) => Some(o.get().clone()),
             Entry::Vacant(o) => match &name.to_string() {
+                // cm ---------------------------------------------------------------------
                 s if s == "cmr" => Some(o.insert(Arc::new(FontTable {
                     params:vec!(FontTableParam::Text),
-                    table:&STANDARD_TEXT_CM
+                    table:&STANDARD_TEXT_CM,
+                    name:"cmr".into()
                 })).clone()),
-                _ => None
+                s if s == "cmss" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
+                    table:&STANDARD_TEXT_CM,
+                    name:"cmss".into()
+                })).clone()),
+                s if s == "cmtt" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
+                    table:&STANDARD_TEXT_CM,
+                    name:"cmtt".into()
+                })).clone()),
+                s if s == "cmmi" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
+                    table:&STANDARD_MATH_CM,
+                    name:"cmmi".into()
+                })).clone()),
+                s if s == "rm-lmss" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
+                    table:&STANDARD_TEXT_CM,
+                    name:"rm-lmss".into()
+                })).clone()),
+                s if s == "rm-lmtt" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
+                    table:&STANDARD_TEXT_CM,
+                    name:"rm-lmtt".into()
+                })).clone()),
+                s if s == "rm-lmr" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text),
+                    table:&STANDARD_TEXT_CM,
+                    name:"rm-lmr".into()
+                })).clone()),
+                s if s == "rm-lmri" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
+                    table:&STANDARD_MATH_CM,
+                    name:"rm-lmri".into()
+                })).clone()),
+                s if s == "lmmi" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
+                    table:&STANDARD_MATH_CM,
+                    name:"lmmi".into()
+                })).clone()),
+                // ec ---------------------------------------------------------------------
+                s if s == "ecrm" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ecrm".into()
+                })).clone()),
+                s if s == "ecbx" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Bold),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ecbx".into()
+                })).clone()),
+                s if s == "eccc" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Capital),
+                    table:&STANDARD_TEXT_EC,
+                    name:"eccc".into()
+                })).clone()),
+                s if s == "ecsi" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ecsi".into()
+                })).clone()),
+                s if s == "ecss" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ecss".into()
+                })).clone()),
+                s if s == "ecbi" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ecbi".into()
+                })).clone()),
+                s if s == "ectt" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ectt".into()
+                })).clone()),
+                s if s == "ec-lmtt" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmtt".into()
+                })).clone()),
+                s if s == "ec-lmbxi" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmbxi".into()
+                })).clone()),
+                s if s == "ec-lmsso" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmsso".into()
+                })).clone()),
+                s if s == "ec-lmss" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lms".into()
+                })).clone()),
+                s if s == "ec-lmr" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmr".into()
+                })).clone()),
+                s if s == "ec-lmbx" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Bold),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmbx".into()
+                })).clone()),
+                s if s == "ec-lmcsc" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Text,FontTableParam::Capital),
+                    table:&STANDARD_TEXT_EC,
+                    name:"ec-lmcsc".into()
+                })).clone()),
+                // math --------------------------------------------------------------------
+                s if s == "cmsy" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                    table:&MATH_CMSY,
+                    name:"cmsy".into()
+                })).clone()),
+                s if s == "cmex" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&CMEX,
+                    name:"cmex".into()
+                })).clone()),
+                s if s == "MnSymbolA" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_A,
+                    name:"MnSymbolA".into()
+                })).clone()),
+                s if s == "MnSymbolB" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_B,
+                    name:"MnSymbolB".into()
+                })).clone()),
+                s if s == "MnSymbolC" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_C,
+                    name:"MnSymbolC".into()
+                })).clone()),
+                s if s == "MnSymbolD" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_D,
+                    name:"MnSymbolD".into()
+                })).clone()),
+                s if s == "MnSymbolE" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_E,
+                    name:"MnSymbolE".into()
+                })).clone()),
+                s if s == "MnSymbolF" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MNSYMBOL_F,
+                    name:"MnSymbolF".into()
+                })).clone()),
+                s if s == "msam" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MSAM,
+                    name:"msam".into()
+                })).clone()),
+                s if s == "msbm" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&MSBM,
+                    name:"msbm".into()
+                })).clone()),
+                s if s == "stmary" => Some(o.insert(Arc::new(FontTable {
+                    params:vec!(FontTableParam::Math),
+                    table:&STMARY,
+                    name:"stmary".into()
+                })).clone()),
+                _ => {
+                    println!("Warning: No character table for font {}",name);
+                    None
+                }
             }
         }
     }
@@ -91,7 +267,93 @@ lazy_static! {
         (246,"ö"),(247,"œ"),(248,"ø"),(249,"ù"),(250,"ú"),(251,"û"),(252,"ü"),(253,"ý"),(254,"þ"),
         (255,"ß")
     ]);
+    pub static ref STANDARD_MATH_CM : HashMap<u8,&'static str> = HashMap::from([
+        (0,"Γ"),(1,"∆"),(2,"Θ"),(3,"Λ"),(4,"Ξ"),(5,"Π"),(6,"Σ"),(7,"Υ"),(8,"Φ"),(9,"Ψ"),(10,"Ω"),
+        (11,"α"),(12,"β"),(13,"γ"),(14,"δ"),(15,"ϵ"),(16,"ζ"),(17,"η"),(18,"θ"),(19,"ι"),(20,"κ"),
+        (21,"λ"),(22,"μ"),(23,"ν"),(24,"ξ"),(25,"π"),(26,"ρ"),(27,"σ"),(28,"τ"),(29,"υ"),(30,"ɸ"),
+        (31,"χ"),(32,"ψ"),(33,"ω"),
+        (34,"ε"),(35,"ϑ"),(36,"ϖ"),(37,"ϱ"),(38,"ς"),(39,"φ"),
+        (40,"↼"),(41,"↽"),(42,"⇀"),(43,"⇁"),(44,"𝇋"),(45,"𝇌"),(46,"▹"),(47,"◃"),(48,"0"),(49,"1"),
+        (50,"2"),(51,"3"),(52,"4"),(53,"5"),(54,"6"),(55,"7"),(56,"8"),(57,"9"),(58,"."),(59,","),
+        (60,"<"),(61,"/"),(62,">"),(63,"*"),(64,"𝜕"),(65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),
+        (70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),(75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),
+        (80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),(85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),
+        (90,"Z"),(91,"♭"),(92,"♮"),(93,"♯"),
+        (95,"⁀"),(96,"ℓ"),(97,"a"),(98,"b"),(99,"c"),(100,"d"),(101,"e"),(102,"f"),(103,"g"),
+        (104,"h"),(105,"i"),(106,"j"),(107,"k"),(108,"l"),(109,"m"),(110,"n"),(111,"o"),(112,"p"),
+        (113,"q"),(114,"r"),(115,"s"),(116,"t"),(117,"u"),(118,"v"),(119,"w"),(120,"x"),(121,"y"),
+        (122,"z"),(123,"ı"),(124,"ȷ"),(125,"℘"),(126," ⃗"),(127,"⁀"),
+        (191,""),(214,"")
+    ]);
 
+    pub static ref MATH_CMSY : HashMap<u8,&'static str> = HashMap::from([
+        (0,"−"),(1,"·"),(2,"×"),(3,"*"),
+        (6,"±"),
+        (10,"⊗"),
+        (14,"◦"),(15,"•"),
+        (17,"≡"),(18,"⊆"),(19,"⊇"),(20,"≤"),(21,"≥"),(22,"≼"),(23,"≽"),(24,"∼"),(25,"≈"),(26,"⊂"),
+        (27,"⊃"),(28,"≪"),(29,"≫"),(30,"≺"),(31,"≻"),(32,"←"),(33,"→"),(34,"↑"),(35,"↓"),(36,"↔"),
+        (39,"≃"),(40,"⇐"),(41,"⇒"),(42,"⇑"),(43,"⇓"),(44,"⇔"),(45,"⭦"),(46,"⭩"),(47,"∝"),(48,"\'"),
+        (49,"∞"),(50,"∊"),(51,"∍"),(52,"△"),(53,"▽"),(54,"̸"),(55,"/"),(56,"∀"),(57,"∃"),(58,"¬"),
+        (59,"∅"),
+        (62,"⊤"),(63,"⊥"),
+        (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
+        (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
+        (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z")
+        /*
+91,∪
+92,∩
+93,⊎
+94,∧
+95,∨
+96,⊢
+97,⊣
+98,⌊
+99,⌋
+100,⌈
+101,⌉
+102,{
+103,}
+104,〈
+105,〉
+106,|
+107,∥
+108,↕
+109,⇕
+110,\
+111,≀
+112,√
+113,⨿
+114,∇
+115,∫
+116,⊔
+117,⊓
+118,⊑
+119,⊒
+120,§
+121,†
+122,‡
+         */
+    ]);
+
+    pub static ref CMEX : HashMap<u8,&'static str> = HashMap::from([
+        (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
+        (86,"⋀"),(87,"⋁"),
+        (98,"^"),
+        (122," "),(123," "),(124," "),(125," ")
+    ]);
+
+    pub static ref MNSYMBOL_A : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_B : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_C : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_D : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_E : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_F : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MSBM : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([]);
+
+    // ---------------------------------------------------------------------------------------------
 
     pub static ref SCRIPT : HashMap<char,char> = HashMap::from([
         ('A','𝓐'),('B','𝓑'),('C','𝓒'),('D','𝓓'),('E','𝓔'),('F','𝓕'),('G','𝓖'),('H','𝓗'),('I','𝓘'),
@@ -137,6 +399,14 @@ lazy_static! {
         ('a','ᴀ'),('b','ʙ'),('c','ᴄ'),('d','ᴅ'),('e','ᴇ'),('f','ꜰ'),('g','ɢ'),('h','ʜ'),('i','ɪ'),
         ('j','ᴊ'),('k','ᴋ'),('l','ʟ'),('m','ᴍ'),('n','ɴ'),('o','ᴏ'),('p','ᴘ'),('q','Q'),('r','ʀ'),
         ('s','ꜱ'),('t','ᴛ'),('u','ᴜ'),('v','ᴠ'),('w','ᴡ'),('x','𝗑'),('y','ʏ'),('z','ᴢ')
+    ]);
+    pub static ref FRAKTUR : HashMap<char,char> = HashMap::from([
+        ('A','𝕬'),('B','𝕭'),('C','𝕮'),('D','𝕯'),('E','𝕰'),('F','𝕱'),('G','𝕲'),('H','𝕳'),('I','𝕴'),
+        ('J','𝕵'),('K','𝕶'),('L','𝕷'),('M','𝕸'),('N','𝕹'),('O','𝕺'),('P','𝕻'),('Q','𝕼'),('R','𝕽'),
+        ('S','𝕾'),('T','𝕿'),('U','𝖀'),('V','𝖁'),('W','𝖂'),('X','𝖃'),('Y','𝖄'),('Z','𝖅'),
+        ('a','𝖆'),('b','𝖇'),('c','𝖈'),('d','𝖉'),('e','𝖊'),('f','𝖋'),('g','𝖌'),('h','𝖍'),('i','𝖎'),
+        ('j','𝖏'),('k','𝖐'),('l','𝖑'),('m','𝖒'),('n','𝖓'),('o','𝖔'),('p','𝖕'),('q','𝖖'),('r','𝖗'),
+        ('s','𝖘'),('t','𝖙'),('u','𝖚'),('v','𝖛'),('w','𝖜'),('x','𝖝'),('y','𝖞'),('z','𝖟')
     ]);
 
     // Italic 𝛢 𝛣 𝛤 𝛥 𝛦 𝛧 𝛨 𝛩 𝛪 𝛫 𝛬 𝛭 𝛮 𝛯 𝛰 𝛱 𝛲 𝛴 𝛵 𝛶 𝛷 𝛸 𝛹 𝛺 𝛼 𝛽 𝛾 𝛿 𝜀 𝜁 𝜂 𝜃 𝜄 𝜅 𝜆 𝜇 𝜈 𝜉 𝜊 𝜋 𝜌 𝜎 𝜏 𝜐 𝜑 𝜒 𝜓 𝜔

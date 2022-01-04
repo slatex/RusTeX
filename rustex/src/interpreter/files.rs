@@ -52,7 +52,14 @@ impl VFile {
                         string:Arc::new(RwLock::new(Some(HYPHEN_CFG.into()))),
                         id:simplename
                     }
-                } else if simplename.to_string().contains("pgfsys-rust.def") && crate::PGF_AS_SVG {
+                } /*else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
+                    unsafe {crate::LOG = true}
+                    VFile {
+                        source:VFileBase::Virtual,
+                        string:Arc::new(RwLock::new(Some(UNICODEDATA_TXT.into()))),
+                        id:simplename
+                    }
+                } */ else if simplename.to_string().contains("pgfsys-rust.def") && crate::PGF_AS_SVG {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Arc::new(RwLock::new(Some(PGFSYS_RUST.into()))),
