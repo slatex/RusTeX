@@ -35,11 +35,11 @@ span {
 }
 .reftarget {
 }
-.VRule {
+.vrule {
     align-self:end;
     display:inline-block;
 }
-.HRule {
+.hrule {
     align-self:start;
     display:block;
 }
@@ -87,6 +87,11 @@ hr {
     display: inline-flex;
 }
 .hskip {
+    display: inline-block;
+    width: 0%;
+    height: 0%;
+}
+.indent {
     display: inline-block;
     width: 0%;
     height: 0%;

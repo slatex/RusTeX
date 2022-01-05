@@ -107,7 +107,7 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>) {
             ret.append(&mut nret);
         }
         Simple(HRule(v)) if v.width() == 0 && v.height() + v.depth() == 0 => (),
-        Simple(VFil(_)) | Simple(VFill(_)) | Simple(PDFDest(_)) | Simple(HRule(_)) => ret.push(w),
+        Simple(VFil(_)) | Simple(VFill(_)) | Simple(PDFDest(_)) | Simple(HRule(_)) | Simple(Vss(_)) => ret.push(w),
         Simple(HAlign(ha)) => {
             let mut nrows : Vec<AlignBlock> = vec!();
             for block in ha.rows {
@@ -225,7 +225,7 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>) {
             ret.append(&mut nret);
         }
         Simple(VRule(v)) if v.width() == 0 && v.height() + v.depth() == 0 => (),
-        Simple(HFil(_)) | Simple(PDFDest(_)) | Char(_) | Space(_) | Simple(VRule(_)) | Simple(Indent(_)) => ret.push(w),
+        Simple(HFil(_)) | Simple(PDFDest(_)) | Char(_) | Space(_) | Simple(VRule(_)) | Simple(Indent(_)) | Simple(Hss(_)) => ret.push(w),
         Math(mut mg) =>  {
             let superscript = match mg.superscript.take() {
                 Some(Group(wis)) => {
@@ -277,6 +277,46 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>) {
                     rf: vb.rf,
                     center:vb.center
                 }.as_whatsit())
+            }
+        }
+        Simple(Raise(crate::stomach::simple::Raise { dim:0,content:bx, sourceref:_})) => normalize_h(Box(bx),ret),
+        Simple(Raise(crate::stomach::simple::Raise { dim,content:bx, sourceref})) => {
+            let mut nch: Vec<Whatsit> = vec!();
+            match bx {
+                V(vb) => {
+                    for c in vb.children { normalize_top(c, &mut nch) }
+                    if !nch.is_empty() || vb._width != Some(0) {
+                        ret.push(Simple(Raise(crate::stomach::simple::Raise{
+                            content: V(VBox {
+                                children: nch,
+                                spread: vb.spread,
+                                _width: vb._width,
+                                _height: vb._height,
+                                _depth: vb._depth,
+                                rf: vb.rf,
+                                center:vb.center
+                            }),
+                            dim,sourceref
+                        })))
+                    }
+                }
+                H(hb) => {
+                    for c in hb.children { normalize_h(c, &mut nch) }
+                    if !nch.is_empty() || hb._width != Some(0) {
+                        ret.push(Simple(Raise(crate::stomach::simple::Raise{
+                            content: H(HBox {
+                                children: nch,
+                                spread: hb.spread,
+                                _width: hb._width,
+                                _height: hb._height,
+                                _depth: hb._depth,
+                                rf: hb.rf
+                            }),
+                            dim,sourceref
+                        })))
+                    }
+                }
+                _ => ()
             }
         }
         _ => {

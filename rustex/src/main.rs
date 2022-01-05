@@ -92,12 +92,27 @@ fn main() {
         }
         //use fixed::types::I0F32;
         do_other(&str)
-        /*for i in 1..100 {
-            let div = i / 5;
-            let numexp = ((i as f32) / 5.0).round() as i32;
-            let dot = (((0.2 as f32 * 65536.0).floor() * (i as f32)) / 65536.0).floor() as i32;
-            println!("{} {} {} {} {} {} {}",i,div,numexp,dot,dimtostr(dot),dimtostr(div),dimtostr(numexp))
-        }*/
+        /*{ // test
+            use std::sync::mpsc;
+            use std::sync::mpsc::{Receiver, Sender};
+            let (sender,receiver) = mpsc::channel::<i32>();
+            let th = std::thread::spawn(move || {
+                for i in receiver {
+                    if i == 0 {return ()}
+                    println!("Received: {}",i);
+                    std::thread::sleep(std::time::Duration::from_secs(2))
+                }
+            });
+            println!("Sending 3");
+            sender.send(3);
+            println!("Sending 2");
+            sender.send(2);
+            println!("Sending 1");
+            sender.send(1);
+            println!("Sending 0");
+            sender.send(0);
+            th.join();
+        } */
     }
     //do_thesis()
     //do_other()

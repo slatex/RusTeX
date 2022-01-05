@@ -27,6 +27,27 @@ impl FontTable {
     }
 }
 
+/*macro_rules! table {
+    ($s:tt,$o:ident,$name:ident,$($para:expr),*) => (
+        Some($o.insert(Arc::new(FontTable {
+            params:vec!($($para),*),
+            table:&$name,
+            name:$s.into()
+        })).clone())
+    )
+}*/
+macro_rules! table {
+    ($name:expr,$o:ident,$(($s:tt,$iname:ident,$($para:expr),*)),* ;$rest:expr) => (
+        match &$name.to_string() {
+            $(s if s==$s => Some($o.insert(Arc::new(FontTable {
+            params:vec!($($para),*),
+            table:&$iname,
+            name:$s.into()
+        })).clone())),*,
+        _ => $rest
+        }
+    )
+}
 pub struct FontTableStore {
     map : RwLock<HashMap<TeXStr,Arc<FontTable>>>
 }
@@ -34,185 +55,50 @@ impl FontTableStore {
     pub fn get(&self, name:TeXStr) -> Option<Arc<FontTable>> {
         match self.map.write().unwrap().entry(name.clone()) {
             Entry::Occupied(o) => Some(o.get().clone()),
-            Entry::Vacant(o) => match &name.to_string() {
-                // cm ---------------------------------------------------------------------
-                s if s == "cmr" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text),
-                    table:&STANDARD_TEXT_CM,
-                    name:"cmr".into()
-                })).clone()),
-                s if s == "cmss" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
-                    table:&STANDARD_TEXT_CM,
-                    name:"cmss".into()
-                })).clone()),
-                s if s == "cmtt" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
-                    table:&STANDARD_TEXT_CM,
-                    name:"cmtt".into()
-                })).clone()),
-                s if s == "cmmi" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
-                    table:&STANDARD_MATH_CM,
-                    name:"cmmi".into()
-                })).clone()),
-                s if s == "rm-lmss" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
-                    table:&STANDARD_TEXT_CM,
-                    name:"rm-lmss".into()
-                })).clone()),
-                s if s == "rm-lmtt" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
-                    table:&STANDARD_TEXT_CM,
-                    name:"rm-lmtt".into()
-                })).clone()),
-                s if s == "rm-lmr" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text),
-                    table:&STANDARD_TEXT_CM,
-                    name:"rm-lmr".into()
-                })).clone()),
-                s if s == "rm-lmri" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
-                    table:&STANDARD_MATH_CM,
-                    name:"rm-lmri".into()
-                })).clone()),
-                s if s == "lmmi" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math,FontTableParam::Italic),
-                    table:&STANDARD_MATH_CM,
-                    name:"lmmi".into()
-                })).clone()),
+            Entry::Vacant(o) => table!(name,o,
+                ("cmr",STANDARD_TEXT_CM,FontTableParam::Text),
+                ("rm-lmr",STANDARD_TEXT_CM,FontTableParam::Text),
+                ("cmss",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif),
+                ("rm-lmss",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif),
+                ("cmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
+                ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
+                ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("rm-lmri",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 // ec ---------------------------------------------------------------------
-                s if s == "ecrm" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ecrm".into()
-                })).clone()),
-                s if s == "ecbx" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Bold),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ecbx".into()
-                })).clone()),
-                s if s == "eccc" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Capital),
-                    table:&STANDARD_TEXT_EC,
-                    name:"eccc".into()
-                })).clone()),
-                s if s == "ecsi" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ecsi".into()
-                })).clone()),
-                s if s == "ecss" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ecss".into()
-                })).clone()),
-                s if s == "ecbi" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ecbi".into()
-                })).clone()),
-                s if s == "ectt" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ectt".into()
-                })).clone()),
-                s if s == "ec-lmtt" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Monospaced),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmtt".into()
-                })).clone()),
-                s if s == "ec-lmbxi" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmbxi".into()
-                })).clone()),
-                s if s == "ec-lmsso" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmsso".into()
-                })).clone()),
-                s if s == "ec-lmss" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::SansSerif),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lms".into()
-                })).clone()),
-                s if s == "ec-lmr" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmr".into()
-                })).clone()),
-                s if s == "ec-lmbx" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Bold),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmbx".into()
-                })).clone()),
-                s if s == "ec-lmcsc" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Text,FontTableParam::Capital),
-                    table:&STANDARD_TEXT_EC,
-                    name:"ec-lmcsc".into()
-                })).clone()),
+                ("ecrm",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("ec-lmr",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("ecbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
+                ("ec-lmbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
+                ("eccc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
+                ("ec-lmcsc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
+                ("ecsi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
+                ("ec-lmsso",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
+                ("ecss",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
+                ("ec-lmss",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
+                ("ecbi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
+                ("ec-lmbxi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
+                ("ectt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
+                ("ec-lmtt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
+                ("ecit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ec-lmri",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 // math --------------------------------------------------------------------
-                s if s == "cmsy" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
-                    table:&MATH_CMSY,
-                    name:"cmsy".into()
-                })).clone()),
-                s if s == "cmex" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&CMEX,
-                    name:"cmex".into()
-                })).clone()),
-                s if s == "MnSymbolA" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_A,
-                    name:"MnSymbolA".into()
-                })).clone()),
-                s if s == "MnSymbolB" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_B,
-                    name:"MnSymbolB".into()
-                })).clone()),
-                s if s == "MnSymbolC" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_C,
-                    name:"MnSymbolC".into()
-                })).clone()),
-                s if s == "MnSymbolD" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_D,
-                    name:"MnSymbolD".into()
-                })).clone()),
-                s if s == "MnSymbolE" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_E,
-                    name:"MnSymbolE".into()
-                })).clone()),
-                s if s == "MnSymbolF" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MNSYMBOL_F,
-                    name:"MnSymbolF".into()
-                })).clone()),
-                s if s == "msam" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MSAM,
-                    name:"msam".into()
-                })).clone()),
-                s if s == "msbm" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&MSBM,
-                    name:"msbm".into()
-                })).clone()),
-                s if s == "stmary" => Some(o.insert(Arc::new(FontTable {
-                    params:vec!(FontTableParam::Math),
-                    table:&STMARY,
-                    name:"stmary".into()
-                })).clone()),
-                _ => {
+                ("cmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("cmex",CMEX,FontTableParam::Math),
+                ("MnSymbolA",MNSYMBOL_A,FontTableParam::Math),
+                ("MnSymbolB",MNSYMBOL_B,FontTableParam::Math),
+                ("MnSymbolC",MNSYMBOL_C,FontTableParam::Math),
+                ("MnSymbolD",MNSYMBOL_D,FontTableParam::Math),
+                ("MnSymbolE",MNSYMBOL_E,FontTableParam::Math),
+                ("MnSymbolF",MNSYMBOL_F,FontTableParam::Math),
+                ("msam",MSAM,FontTableParam::Math),
+                ("msbm",MSBM,FontTableParam::Math),
+                ("stmary",STMARY,FontTableParam::Math)
+                ;{
                     println!("Warning: No character table for font {}",name);
                     None
                 }
-            }
+            )
         }
     }
     pub(in crate::fonts::fontchars) fn new() -> FontTableStore { FontTableStore {map:RwLock::new(HashMap::new())}}
