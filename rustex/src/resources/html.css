@@ -72,6 +72,7 @@ hr {
     width:max-content;
     max-width:100%;
     text-align:justify;
+    align-self: center;
 }
 .hbox {
     display: inline-flex;
@@ -108,6 +109,7 @@ foreignObject {
     height:100%;
     align-items:center;
     justify-content:center;
+    transform: scale(1,-1);
 }
 table {
     border-spacing:0;
@@ -145,6 +147,7 @@ td {
 math {
     width:max-content;
     height:max-content;
+    font-size: 90%;
 }
 .displaymath {
     align-self: center;

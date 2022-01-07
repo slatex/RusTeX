@@ -9,7 +9,7 @@ use crate::stomach::{StomachMessage, Whatsit};
 use crate::stomach::boxes::{HBox, VBox};
 use crate::stomach::groups::{WIGroup, WIGroupTrait};
 use crate::stomach::groups::WIGroup::PDFMatrixSave;
-use crate::stomach::math::{GroupedMath, MathGroup};
+use crate::stomach::math::{GroupedMath, MathGroup, MathKernel};
 use crate::stomach::simple::AlignBlock;
 use crate::stomach::whatsits::{Insert, WhatsitTrait};
 use crate::utils::TeXStr;
@@ -312,40 +312,19 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
             }
         }
         Math(mut mg) =>  {
-            let superscript = match mg.superscript.take() {
-                Some(Group(wis)) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    Some(Group(GroupedMath(nret)))
-                }
-                o => o
-            };
-            let subscript = match mg.superscript.take() {
-                Some(Group(wis)) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    Some(Group(GroupedMath(nret)))
-                }
-                o => o
-            };
-            let nbody = match mg.kernel {
-                Group(wis) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    if subscript.is_none() && superscript.is_none() {
-                        if nret.is_empty() { return () }
-                        else if nret.len() == 1 {
-                            match nret.pop() {
-                                Some(Box(tb)) => return normalize_h(Box(tb),ret,scale),
-                                o => {
-                                    nret.push(o.unwrap())
-                                }
-                            }
-                        }
+            let superscript = normalize_kernel(mg.superscript.take());
+            let subscript = normalize_kernel(mg.superscript.take());
+            let nbody = match normalize_kernel(Some(mg.kernel)) {
+                None if subscript.is_none() && superscript.is_none() => return (),
+                None => Group(GroupedMath(vec!())),
+                Some(Group(GroupedMath(mut v))) if v.len()==1 && subscript.is_none() && superscript.is_none() => {
+                    match v.pop() {
+                        Some(Math(mg)) => return normalize_h(mg.as_whatsit(),ret,scale),
+                        Some(Box(tb)) => return normalize_h(Box(tb),ret,scale),
+                        _ => Group(GroupedMath(v))
                     }
-                    Group(GroupedMath(nret))
                 }
-                o => o
+                Some(k) => k
             };
             ret.push(Math(MathGroup { kernel:nbody,subscript,superscript,limits:mg.limits }))
         }
@@ -421,6 +400,54 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
     }
 }
 
+
+macro_rules! singleton {
+    ($math:ident,$content:ident,$sourceref:ident,$single:ident => $ret:expr) => ({
+        let mut nret : Vec<Whatsit> = vec!();
+        let ncontent = normalize_m(*$content,&mut nret);
+        let nw = match nret.len() {
+            1 => {
+                let $single = nret.pop().unwrap();
+                $ret
+            },
+            _ => GroupedMath(nret).as_whatsit()
+        };
+        Some($math(crate::stomach::math::$math {content:std::boxed::Box::new(nw),$sourceref}))
+    })
+}
+
+fn normalize_kernel(k : Option<MathKernel>) -> Option<MathKernel> {
+    use Whatsit::*;
+    use crate::stomach::simple::SimpleWI::*;
+    use crate::stomach::boxes::TeXBox::*;
+    use crate::stomach::math::MathKernel::*;
+    match k {
+        None => None,
+        Some(Group(wis)) => {
+            let mut nret : Vec<Whatsit> = vec!();
+            for w in wis.0 { normalize_m(w,&mut nret) }
+            if nret.is_empty() { return None }
+            Some(Group(GroupedMath(nret)))
+        }
+        Some(Overline(crate::stomach::math::Overline {content, sourceref})) =>
+            singleton!(Overline,content,sourceref,s => {
+            s
+        }),
+        Some(Underline(crate::stomach::math::Underline {content, sourceref})) =>
+            singleton!(Underline,content,sourceref,s => {
+            s
+        }),
+        Some(MathInner(crate::stomach::math::MathInner {content, sourceref})) =>
+            singleton!(MathInner,content,sourceref,s => {
+            s
+        }),
+        Some(o@(MathChar(_)|Delimiter(_))) => Some(o),
+        o => {
+            o
+        }
+    }
+}
+
 fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
     use Whatsit::*;
     use crate::stomach::simple::SimpleWI::*;
@@ -444,33 +471,18 @@ fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
             }
         }
         Math(mut mg) =>  {
-            let superscript = match mg.superscript.take() {
-                Some(Group(wis)) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    Some(Group(GroupedMath(nret)))
+            let superscript = normalize_kernel(mg.superscript.take());
+            let subscript = normalize_kernel(mg.superscript.take());
+            let nbody = match normalize_kernel(Some(mg.kernel)) {
+                None if subscript.is_none() && superscript.is_none() => return (),
+                None => Group(GroupedMath(vec!())),
+                Some(Group(GroupedMath(mut v))) if v.len()==1 && subscript.is_none() && superscript.is_none() => {
+                    match v.pop() {
+                        Some(Math(mg)) => return normalize_m(Math(mg),ret),
+                        _ => Group(GroupedMath(v))
+                    }
                 }
-                o => o
-            };
-            let subscript = match mg.superscript.take() {
-                Some(Group(wis)) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    Some(Group(GroupedMath(nret)))
-                }
-                o => o
-            };
-            let nbody = match mg.kernel {
-                Group(wis) => {
-                    let mut nret : Vec<Whatsit> = vec!();
-                    for w in wis.0 { normalize_m(w,&mut nret) }
-                    if subscript.is_none() && superscript.is_none() && nret.is_empty() { return () }
-                    Group(GroupedMath(nret))
-                }
-                o@(MathChar(_)|Delimiter(_)) => o,
-                o => {
-                    o
-                }
+                Some(k) => k
             };
             ret.push(Math(MathGroup { kernel:nbody,subscript,superscript,limits:mg.limits }))
         }
@@ -517,7 +529,7 @@ fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
             nret.reverse();
             ret.append(&mut nret);
         }
-        Simple(MSkip(_)) | Simple(Left(_)) | Simple(Middle(_)) | Simple(Right(_)) => ret.push(w),
+        Simple(MSkip(_)) | Simple(Left(_)) | Simple(Middle(_)) | Simple(Right(_)) | Simple(HSkip(_)) => ret.push(w),
         _ => {
             ret.push(w)
         }

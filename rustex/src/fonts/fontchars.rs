@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use crate::utils::TeXStr;
 
+#[derive(PartialEq,Copy,Clone)]
 pub enum FontTableParam {
     Text,Math,SansSerif,Italic,Bold,Script,Capital,Monospaced,Blackboard,Fraktur,CapitalLetters
 }

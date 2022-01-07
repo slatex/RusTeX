@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::{Interpreter, TeXErr};
 use crate::interpreter::dimensions::numtostr;
+use crate::interpreter::TeXMode;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
 use crate::stomach::groups::{ColorChange, ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup};
@@ -172,7 +173,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
 
 pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
-    modes: |x| {true},
+    modes: |x| {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal},
     _get: |tk, int| {
         Ok(PGFBox {
             content:int.state_get_box(int.read_number()?).children(),
