@@ -6,6 +6,8 @@ use image::{DynamicImage, GenericImageView};
 use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
+use crate::stomach::colon::Colon;
+use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 use crate::Token;
@@ -100,7 +102,8 @@ pub enum AlignBlock {
 // -------------------------------------------------------------------------------------------------
 pub enum ExternalParam{
     String(TeXStr),
-    Whatsits(Vec<Whatsit>)
+    Whatsits(Vec<Whatsit>),
+    Num(i32)
 }
 
 pub trait ExternalWhatsit:WhatsitTrait+Send+Sync {
@@ -118,22 +121,30 @@ pub struct PDFXImage{
     pub boxspec:Option<TeXStr>,
     pub filename:PathBuf,
     pub image:Option<DynamicImage>,
-    pub sourceref:Option<SourceFileReference>
+    pub sourceref:Option<SourceFileReference>,
+    pub _width:Option<i32>,
+    pub _height:Option<i32>
 }
 impl WhatsitTrait for PDFXImage {
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFXImage(self))
     }
     fn width(&self) -> i32 {
-        match &self.image {
-            Some(img) => img.width() as i32 * 65536,
-            _ => 65536
+        match self._width {
+            Some(w) => w,
+            None => match &self.image {
+                Some(img) => img.width() as i32 * 65536,
+                _ => 65536
+            }
         }
     }
     fn height(&self) -> i32 {
-        match &self.image {
-            Some(img) => img.height() as i32 * 65536,
-            _ => 65536
+        match self._height {
+            Some(h) => h,
+            None => match &self.image {
+                Some(img) => img.height() as i32 * 65536,
+                _ => 65536
+            }
         }
     }
     fn depth(&self) -> i32 { 0 }
@@ -721,7 +732,7 @@ impl WhatsitTrait for PDFMatrix {
 
 #[derive(Clone)]
 pub struct Left {
-    pub bx:Option<Box<Whatsit>>,
+    pub bx:Option<MathChar>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Left {
@@ -739,7 +750,7 @@ impl WhatsitTrait for Left {
 
 #[derive(Clone)]
 pub struct Middle {
-    pub bx:Option<Box<Whatsit>>,
+    pub bx:Option<MathChar>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Middle {
@@ -757,7 +768,7 @@ impl WhatsitTrait for Middle {
 
 #[derive(Clone)]
 pub struct Right {
-    pub bx:Option<Box<Whatsit>>,
+    pub bx:Option<MathChar>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Right {

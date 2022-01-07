@@ -151,10 +151,10 @@ impl ExternalWhatsit for PGFBox {
     fn name(&self) -> TeXStr { "pgfbox".into() }
     fn params(&self, name: &str) -> Option<ExternalParam> {
         if name == "content" {Some(ExternalParam::Whatsits(self.content.clone()))}
-        else if name == "minx" { todo!() }
-        else if name == "miny" { todo!() }
-        else if name == "maxx" { todo!() }
-        else if name == "maxy" { todo!() }
+        else if name == "minx" { Some(ExternalParam::Num(self.minx)) }
+        else if name == "miny" { Some(ExternalParam::Num(self.miny)) }
+        else if name == "maxx" { Some(ExternalParam::Num(self.maxx)) }
+        else if name == "maxy" { Some(ExternalParam::Num(self.maxy)) }
         else { None }
     }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }

@@ -481,7 +481,9 @@ impl Interpreter<'_> {
                                         }
                                     }
                                 }
-                                if !second.is_empty() {
+                                if second.is_empty() {
+                                    ret = first
+                                } else {
                                     let mut head = second.remove(0);
                                     match head {
                                         WI::MathInfix(mut mi) => {
@@ -590,7 +592,9 @@ impl Interpreter<'_> {
                                             }
                                         }
                                     }
-                                    if !second.is_empty() {
+                                    if second.is_empty() {
+                                        ret = first
+                                    } else {
                                         let mut head = second.remove(0);
                                         match head {
                                             WI::MathInfix(mut mi) => {
@@ -648,6 +652,8 @@ impl Interpreter<'_> {
                 },
                 Superscript => {
                     let oldmode = self.state.borrow().font_style();
+                    //println!("Here! {}",self.preview());
+                    //unsafe { crate::LOG = true }
                     self.change_state(StateChange::Fontstyle(oldmode.inc()));
                     let ret = match self.read_math_whatsit(None)? {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,

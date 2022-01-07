@@ -449,7 +449,7 @@
   \ifpgfpicture\pgf@sys@svg@gs{#1}\fi%
 }
 
-\def\pgf@sys@svg@colorpop{\csname rustex!pgf!colorpop\endcsname}
+\def\pgf@sys@svg@colorpop{\pdfcolorstack 0 pop }%\csname rustex!pgf!colorpop\endcsname}
 
 
 % RGB
@@ -462,7 +462,7 @@
     \pgf@sys@svg@color@rgb#1,#2,#3\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 rg #1 #2 #3 RG}%
+    \pdfcolorstack 0 push {#1 #2 #3 rg #1 #2 #3 RG}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 rg #1 #2 #3 RG}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@rgb#1#2#3{%
@@ -471,7 +471,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 rg #1 #2 #3 RG}%
+    \pdfcolorstack 0 push {#1 #2 #3 rg #1 #2 #3 RG}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 rg #1 #2 #3 RG}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -485,7 +485,7 @@
     \pgf@sys@svg@color@cmyk#1,#2,#3,#4\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 #4 k #1 #2 #3 #4 K}%
+    \pdfcolorstack 0 push {#1 #2 #3 #4 k #1 #2 #3 #4 K}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 #4 k #1 #2 #3 #4 K}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@cmyk#1#2#3#4{%
@@ -494,7 +494,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 #4 k #1 #2 #3 #4 K}%
+    \pdfcolorstack 0 push {#1 #2 #3 #4 k #1 #2 #3 #4 K}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 #4 k #1 #2 #3 #4 K}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -508,7 +508,7 @@
     \pgf@sys@svg@color@cmy#1,#2,#3\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 0 k #1 #2 #3 0 K}%
+    \pdfcolorstack 0 push {#1 #2 #3 0 k #1 #2 #3 0 K}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 0 k #1 #2 #3 0 K}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@cmy#1#2#3{%
@@ -517,7 +517,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 #2 #3 0 k #1 #2 #3 0 K}%
+    \pdfcolorstack 0 push {#1 #2 #3 0 k #1 #2 #3 0 K}%\csname rustex!pgf!colorpush\endcsname{#1 #2 #3 0 k #1 #2 #3 0 K}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 
@@ -531,7 +531,7 @@
     \pgf@sys@svg@color@gray#1\relax%
     \pgf@sys@svg@gs@color{fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 g #1 G}%
+    \pdfcolorstack 0 push {#1 g #1 G}%\csname rustex!pgf!colorpush\endcsname{#1 g #1 G}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 \def\pgfsys@color@gray#1{%
@@ -540,7 +540,7 @@
     \let\pgf@sys@svg@last@stroke\pgf@sys@svg@prepared%
     \pgf@sys@svg@gs@color{\ifpgfsys@svg@boxmode\else stroke="\pgf@sys@svg@prepared" \fi fill="\pgf@sys@svg@prepared"}%
   \else%
-    \csname rustex!pgf!colorpush\endcsname{#1 g #1 G}%
+    \pdfcolorstack 0 push {#1 g #1 G}%\csname rustex!pgf!colorpush\endcsname{#1 g #1 G}%
     \aftergroup\pgf@sys@svg@colorpop%
   \fi}
 

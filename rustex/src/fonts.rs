@@ -221,10 +221,17 @@ impl FontFile {
             }
         }
         assert_eq!(state.i as u16,lf);
+        let chartable = FONT_TABLES.get(tablename.into());
+        /*match chartable {
+            None => {
+                println!("Here! {}",name)
+            }
+            _ => ()
+        }*/
 
         FontFile {
             hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name,
-            chartable:FONT_TABLES.get(tablename.into())
+            chartable
         }
     }
 }
@@ -233,6 +240,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
+use crate::commands::pgfsvg::get_dimen;
 use crate::fonts::fontchars::{FONT_TABLES, FontTable};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;

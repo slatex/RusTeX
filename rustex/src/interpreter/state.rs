@@ -62,30 +62,15 @@ struct StackFrame {
     pub(crate) currfont : Arc<Font>,
     pub(crate) aftergroups : Vec<Token>,
     pub(crate) fontstyle : FontStyle,
-    pub(crate) textfonts: [Arc<Font>;16],
-    pub(crate) scriptfonts: [Arc<Font>;16],
-    pub(crate) scriptscriptfonts: [Arc<Font>;16],
+    pub(crate) textfonts: [Option<Arc<Font>>;16],
+    pub(crate) scriptfonts: [Option<Arc<Font>>;16],
+    pub(crate) scriptscriptfonts: [Option<Arc<Font>>;16],
     pub(crate) displaymode: bool
 }
 
-fn newfonts() -> [Arc<Font>;16] {
+fn newfonts() -> [Option<Arc<Font>>;16] {
     [
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
-        Nullfont.try_with(|x|x.clone()).unwrap(),
+        None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
     ]
 }
 
@@ -401,23 +386,23 @@ impl State {
             StateChange::Textfont(i,f,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.textfonts[i as usize] = f.clone()
+                        s.textfonts[i as usize] = Some(f.clone())
                     }
-                } else { self.stacks.last_mut().unwrap().textfonts[i as usize] = f}
+                } else { self.stacks.last_mut().unwrap().textfonts[i as usize] = Some(f)}
             }
             StateChange::Scriptfont(i,f,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.scriptfonts[i as usize] = f.clone()
+                        s.scriptfonts[i as usize] = Some(f.clone())
                     }
-                } else { self.stacks.last_mut().unwrap().scriptfonts[i as usize] = f}
+                } else { self.stacks.last_mut().unwrap().scriptfonts[i as usize] = Some(f)}
             }
             StateChange::Scriptscriptfont(i,f,global) => {
                 if global {
                     for s in self.stacks.iter_mut() {
-                        s.scriptscriptfonts[i as usize] = f.clone()
+                        s.scriptscriptfonts[i as usize] = Some(f.clone())
                     }
-                } else { self.stacks.last_mut().unwrap().scriptscriptfonts[i as usize] = f}
+                } else { self.stacks.last_mut().unwrap().scriptscriptfonts[i as usize] = Some(f)}
             }
             StateChange::Fontstyle(fs) => self.stacks.last_mut().unwrap().fontstyle = fs,
             StateChange::Aftergroup(tk) => self.stacks.last_mut().unwrap().aftergroups.push(tk),
@@ -621,13 +606,31 @@ impl State {
     }
 
     pub fn getTextFont(&self,i : u8) -> Arc<Font> {
-        Arc::clone(self.stacks.last().unwrap().textfonts.get(i as usize).unwrap())
+        for s in self.stacks.iter().rev() {
+            match s.textfonts.get(i as usize).unwrap() {
+                Some(f) => return f.clone(),
+                _ => ()
+            }
+        }
+        Nullfont.try_with(|x| x.clone()).unwrap()
     }
     pub fn getScriptFont(&self,i : u8) -> Arc<Font> {
-        Arc::clone(self.stacks.last().unwrap().scriptfonts.get(i as usize).unwrap())
+        for s in self.stacks.iter().rev() {
+            match s.scriptfonts.get(i as usize).unwrap() {
+                Some(f) => return f.clone(),
+                _ => ()
+            }
+        }
+        Nullfont.try_with(|x| x.clone()).unwrap()
     }
     pub fn getScriptScriptFont(&self,i : u8) -> Arc<Font> {
-        Arc::clone(self.stacks.last().unwrap().scriptscriptfonts.get(i as usize).unwrap())
+        for s in self.stacks.iter().rev() {
+            match s.scriptscriptfonts.get(i as usize).unwrap() {
+                Some(f) => return f.clone(),
+                _ => ()
+            }
+        }
+        Nullfont.try_with(|x| x.clone()).unwrap()
     }
     pub fn font_style(&self) -> FontStyle {
         self.stacks.last().unwrap().fontstyle
@@ -669,6 +672,7 @@ use std::cell::Ref;
 use std::fmt::{Display, Formatter};
 use std::str::from_utf8_unchecked;
 use std::sync::Arc;
+use crate::commands::primitives::NULLFONT;
 use crate::fonts::{Font, FontFile, Nullfont};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;

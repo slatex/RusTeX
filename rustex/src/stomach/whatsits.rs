@@ -162,6 +162,21 @@ pub enum ActionSpec {
     Page(i32)
 }
 impl ActionSpec {
+    pub fn as_link(&self) -> String {
+        use ActionSpec::*;
+        match self {
+            User(str) => {
+                let str = str.to_string();
+                if str.contains("/URI(") {
+                    str.split("/URI(").last().unwrap().split(")").next().unwrap().to_string()
+                } else if str.contains("/F(") {
+                    str.split("/F(").last().unwrap().split(")").next().unwrap().to_string()
+                } else { todo!() }
+            }
+            Name(str) => "#".to_string() + &str.to_string(),
+            _ => todo!()
+        }
+    }
     pub fn as_xml(&self) -> String {
         use ActionSpec::*;
         match self {

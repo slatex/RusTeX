@@ -4,6 +4,9 @@ use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitIter, WhatsitTrait, WIDTH_CORRECTION};
 
 #[derive(Copy,Clone,PartialEq)]
+pub enum VBoxType { V, Center, Top(i32) }
+
+#[derive(Copy,Clone,PartialEq)]
 pub enum BoxMode { H,V,M,DM,Void }
 
 #[derive(Clone)]
@@ -163,7 +166,7 @@ impl WhatsitTrait for HBox {
 #[derive(Clone)]
 pub struct VBox {
     pub children:Vec<Whatsit>,
-    pub center:bool,
+    pub tp:VBoxType,
     pub spread:i32,
     pub _width:Option<i32>,
     pub _height:Option<i32>,
@@ -199,7 +202,11 @@ impl WhatsitTrait for VBox {
                 w
             }
         };
-        if self.center { ht / 2 } else { ht }
+        match self.tp {
+            VBoxType::V => ht,
+            VBoxType::Center => ht / 2,
+            VBoxType::Top(i) => i
+        }
     }
 
     fn depth(&self) -> i32 {
@@ -212,7 +219,21 @@ impl WhatsitTrait for VBox {
                 }
             }
         };
-        if self.center { dp + self.height() } else { dp }
+        match self.tp {
+            VBoxType::V => dp,
+            VBoxType::Center => dp + self.height(),
+            VBoxType::Top(i) =>  {
+                let ht = match self._height {
+                    Some(i) => i,
+                    None => {
+                        let mut w = self.spread;
+                        for c in self.children.iter_wi() { w += c.height() + HEIGHT_CORRECTION }
+                        w
+                    }
+                };
+                dp + (ht - i)
+            }
+        }
     }
 
     fn as_xml_internal(&self, prefix: String) -> String {
@@ -249,8 +270,9 @@ impl WhatsitTrait for VBox {
                 ret += "\"";
             }
         }
-        match self.center {
-            true => ret += " center=\"true\"",
+        match self.tp {
+            VBoxType::Center => ret += " center=\"true\"",
+            VBoxType::Top(i) => ret += &(" top=\"".to_string() + &i.to_string() + "\""),
             _ => ()
         }
         ret += ">";

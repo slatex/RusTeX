@@ -377,7 +377,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
 use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInfix, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Over, Overline, Underline};
-use crate::stomach::boxes::{BoxMode,TeXBox,HBox,VBox};
+use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
 use crate::stomach::groups::FontChange;
 use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSkip, Hss, Indent, Leaders, Left, Mark, Middle, MoveRight, MSkip, Penalty, Raise, Right, SimpleWI, VAlign, VFil, VFill, VKern, VRule, VSkip, Vss};
 
@@ -1717,7 +1717,7 @@ pub static VBOX: ProvidesBox = ProvidesBox {
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::V(VBox {
                 children: ret,
-                center:false,
+                tp: VBoxType::V,
                 spread,
                 _width: None,
                 _height: height,
@@ -1730,8 +1730,30 @@ pub static VBOX: ProvidesBox = ProvidesBox {
 
 pub static VTOP: ProvidesBox = ProvidesBox {
     name:"vtop",
-    _get:|tk,int| {
-        (VBOX._get)(tk,int) // TODO maybe
+    _get: |tk,int| {
+        let bx = (VBOX._get)(tk,int)?;
+        match bx {
+            TeXBox::V(mut vb) => {
+                let lineheight = int.state_skip(-(LINESKIP.index as i32)).base;
+                vb.tp = VBoxType::Top(lineheight);
+                Ok(TeXBox::V(vb))
+            }
+            _ => unreachable!()
+        }
+    }
+};
+
+pub static VCENTER: ProvidesBox = ProvidesBox {
+    name:"vcenter",
+    _get: |tk,int| {
+        let bx = (VBOX._get)(tk,int)?;
+        match bx {
+            TeXBox::V(mut vb) => {
+                vb.tp = VBoxType::Center;
+                Ok(TeXBox::V(vb))
+            }
+            _ => unreachable!()
+        }
     }
 };
 
@@ -1751,7 +1773,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         };
         let mut ret = VBox {
             children: vec!(),
-            center: vbox.center,
+            tp: vbox.tp,
             spread: vbox.spread,
             _width: vbox._width,
             _height: Some(target),
@@ -1760,7 +1782,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         };
         let mut rest = VBox {
             children: vec!(),
-            center: vbox.center,
+            tp: vbox.tp,
             spread: vbox.spread,
             _width: vbox._width,
             _height: None,
@@ -1772,20 +1794,6 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         rest.children = second;
         int.change_state(StateChange::Box(boxnum,TeXBox::V(rest),false));
         Ok((TeXBox::V(ret)))
-    }
-};
-
-pub static VCENTER: ProvidesBox = ProvidesBox {
-    name:"vcenter",
-    _get: |tk,int| {
-        let bx = (VBOX._get)(tk,int)?;
-        match bx {
-            TeXBox::V(mut vb) => {
-                vb.center = true;
-                Ok(TeXBox::V(vb))
-            }
-            _ => unreachable!()
-        }
     }
 };
 
@@ -3418,13 +3426,26 @@ pub static LEFT: MathWhatsit = MathWhatsit {
     name:"left",
     _get: |tk,int,_| {
         int.new_group(GroupType::LeftRight);
-        match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
-                Left {
-                    bx:Some(Box::new(wi)), // TODO check for .
-                    sourceref:int.update_reference(tk)
+        let wi = int.read_math_whatsit(None)?;
+        match wi {
+            Some(Whatsit::Math(MathGroup { kernel:(
+                MathKernel::MathChar(mc) |
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
+                if mc.class == 4 || mc.class == 3 {
+                    Left {
+                        bx:Some(mc),
+                        sourceref:int.update_reference(tk)
+                    }
+                } else if mc.class == 6 || mc.class == 0 {
+                    Left {
+                        bx:None,
+                        sourceref:int.update_reference(tk)
+                    }
+                } else {
+                    TeXErr!((int,None),"Missing delimiter after \\left")
                 })))?,
-            None => TeXErr!((int,None),"Missing delimiter after \\left")
+            _ => TeXErr!((int,None),"Missing delimiter after \\left")
         }
         Ok(None)
     }
@@ -3433,13 +3454,17 @@ pub static LEFT: MathWhatsit = MathWhatsit {
 pub static MIDDLE: MathWhatsit = MathWhatsit {
     name:"middle",
     _get: |tk,int,_| {
-        match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(
+        let wi = int.read_math_whatsit(None)?;
+        match wi {
+            Some(Whatsit::Math(MathGroup { kernel:(
+                MathKernel::MathChar(mc) |
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(
                 Middle {
-                    bx:Some(Box::new(wi)), // TODO check for .
+                    bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            None => TeXErr!((int,None),"Missing delimiter after \\middle")
+            _ => TeXErr!((int,None),"Missing delimiter after \\middle")
         }
         Ok(None)
     }
@@ -3448,13 +3473,26 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
 pub static RIGHT: MathWhatsit = MathWhatsit {
     name:"right",
     _get: |tk,int,_| {
-        match int.read_math_whatsit(None)? {
-            Some(wi) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
-                Right {
-                    bx:Some(Box::new(wi)), // TODO check for .
-                    sourceref:int.update_reference(tk)
+        let wi = int.read_math_whatsit(None)?;
+        match wi {
+            Some(Whatsit::Math(MathGroup { kernel:(
+                MathKernel::MathChar(mc) |
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
+                if mc.class == 5 || mc.class == 3 {
+                    Right {
+                        bx:Some(mc),
+                        sourceref:int.update_reference(tk)
+                    }
+                } else if mc.class == 6 || mc.class == 0  {
+                    Right {
+                        bx:None,
+                        sourceref:int.update_reference(tk)
+                    }
+                } else {
+                    TeXErr!((int,None),"Missing delimiter after \\right")
                 })))?,
-            None => TeXErr!((int,None),"Missing delimiter after \\right")
+            _ => TeXErr!((int,None),"Missing delimiter after \\right")
         }
         int.pop_group(GroupType::LeftRight)?;
         Ok(None)

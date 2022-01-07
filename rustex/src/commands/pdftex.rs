@@ -562,7 +562,8 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
                 boxspec,
                 filename: file,
                 image,
-                sourceref: int.update_reference(&tk.0)
+                sourceref: int.update_reference(&tk.0),
+                _width:None,_height:None
             }
         );
         Ok(())

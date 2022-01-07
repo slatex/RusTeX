@@ -72,6 +72,7 @@ impl FontTableStore {
                 ("ec-lmbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
                 ("eccc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
                 ("ec-lmcsc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
+                ("ec-lmcsco",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital,FontTableParam::Italic),
                 ("ecsi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
                 ("ec-lmsso",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
                 ("ecss",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
@@ -82,6 +83,10 @@ impl FontTableStore {
                 ("ec-lmtt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
                 ("ecit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmri",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ecsx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
+                ("ec-lmssbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
+                ("ecti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ec-lmtti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 // math --------------------------------------------------------------------
                 ("cmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("cmex",CMEX,FontTableParam::Math),
@@ -91,9 +96,12 @@ impl FontTableStore {
                 ("MnSymbolD",MNSYMBOL_D,FontTableParam::Math),
                 ("MnSymbolE",MNSYMBOL_E,FontTableParam::Math),
                 ("MnSymbolF",MNSYMBOL_F,FontTableParam::Math),
+                ("MnSymbolS",MNSYMBOL_S,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("msam",MSAM,FontTableParam::Math),
-                ("msbm",MSBM,FontTableParam::Math),
-                ("stmary",STMARY,FontTableParam::Math)
+                ("msbm",MSBM,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Blackboard),
+                ("stmary",STMARY,FontTableParam::Math),
+                ("ts-lmr",TS1_LM,FontTableParam::Math),
+                ("ts-lmss",TS1_LM,FontTableParam::Math)
                 ;{
                     println!("Warning: No character table for font {}",name);
                     None
@@ -185,41 +193,11 @@ lazy_static! {
         (62,"⊤"),(63,"⊥"),
         (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
         (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
-        (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z")
-        /*
-91,∪
-92,∩
-93,⊎
-94,∧
-95,∨
-96,⊢
-97,⊣
-98,⌊
-99,⌋
-100,⌈
-101,⌉
-102,{
-103,}
-104,〈
-105,〉
-106,|
-107,∥
-108,↕
-109,⇕
-110,\
-111,≀
-112,√
-113,⨿
-114,∇
-115,∫
-116,⊔
-117,⊓
-118,⊑
-119,⊒
-120,§
-121,†
-122,‡
-         */
+        (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),
+        (91,"∪"),(92,"∩"),(93,"⊎"),(94,"∧"),(95,"∨"),(96,"⊢"),(97,"⊣"),(98,"⌊"),(99,"⌋"),(100,"⌈"),
+        (101,"⌉"),(102,"{"),(103,"}"),(104,"〈"),(105,"〉"),(106,"|"),(107,"∥"),(108,"↕"),(109,"⇕"),
+        (110,"\\"),(111,"≀"),(112,"√"),(113,"⨿"),(114,"∇"),(115,"∫"),(116,"⊔"),(117,"⊓"),(118,"⊑"),
+        (119,"⊒"),(120,"§"),(121,"†"),(122,"‡")
     ]);
 
     pub static ref CMEX : HashMap<u8,&'static str> = HashMap::from([
@@ -229,14 +207,142 @@ lazy_static! {
         (122," "),(123," "),(124," "),(125," ")
     ]);
 
-    pub static ref MNSYMBOL_A : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_A : HashMap<u8,&'static str> = HashMap::from([
+        (0,"→"),(1,"↑"),(2,"←"),(3,"↓"),(4,"↗"),(5,"↖"),(6,"↙"),(7,"↘"),(8,"⇒"),(9,"⇑"),(10,"⇐"),
+        (11,"⇓"),(12,"⇗"),(13,"⇖"),(14,"⇙"),(15,"⇘"),(16,"↔"),(17,"↕"),(18,"⤡"),(19,"⤢"),(20,"⇔"),
+        (21,"⇕"),
+        (24,"↠"),(25,"↟"),(26,"↞"),(27,"↡"),
+        (32,"↣"),
+        (34,"↢"),
+        (40,"↦"),(41,"↥"),(42,"↤"),(43,"↧"),
+        (48,"↪"),
+        (53,"⤣"),
+        (55,"⤥"),
+        (58,"↩"),
+        (60,"⤤"),
+        (62,"⤦"),
+        (64,"⇀"),(65,"↿"),(66,"↽"),(67,"⇂"),
+        (72,"⇁"),(73,"↾"),(74,"↼"),(75,"⇃"),
+        (80,"⥋"),
+        (84,"⥊"),
+        (88,"⇌"),
+        (92,"⇋"),(93,"⥯"),
+        (96,"⇢"),(97,"⇡"),(98,"⇠"),(99,"⇣"),
+        (104,"⊸"),(105,"⫯"),(106,"⟜"),(107,"⫰"),
+        (160,"↝"),
+        (170,"↜"),
+        (176,"↭"),
+        (184,"↷"),
+        (187,"⤸"),
+        (194,"↶"),(195,"⤹"),
+        (212,"＝"),(213,"∥"),
+        (216,"⊢"),(217,"⊥"),(218,"⊣"),(219,"⊤"),
+        (232,"⊩"),(233,"⍊"),
+        (235,"⍑")
+    ]);
     pub static ref MNSYMBOL_B : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MNSYMBOL_C : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MNSYMBOL_D : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MNSYMBOL_E : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MNSYMBOL_F : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref MSBM : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MNSYMBOL_C : HashMap<u8,&'static str> = HashMap::from([
+        (0,"⋅"),
+        (2,"∶"),
+        (5,"⋯"),(6,"⋮"),(7,"⋰"),(8,"⋱"),
+        (10,"∴"),
+        (12,"∵"),
+        (14,"∷"),
+        (16,"−"),(17,"∣"),(18,"∕"),(19,"∖"),(20,"+"),(21,"×"),(22,"±"),(23,"∓"),
+        (28,"÷"),
+        (32,"¬"),(33,"⌐"),
+        (44,"∧"),(45,"∨"),
+        (56,"∪"),(57,"∩"),(58,"⋓"),(59,"⋒"),(60,"⊍"),(61,"⩀"),(62,"⊎"),
+        (64,"⊔"),(65,"⊓"),(66,"⩏"),(67,"⩎"),
+        (72,"▹"),(73,"▵"),(74,"◃"),(75,"▿"),(76,"▸"),(77,"▴"),(78,"◂"),(79,"▾"),
+        (84,"▷"),(85,"△"),(86,"◁"),(87,"▽"),(88,"◦"),(89,"●"),(90,"◯"),(91,"◯"),(92,"⊖"),(93,"⦶"),
+        (94,"⊘"),(95,"⦸"),(96,"⊕"),(97,"⊗"),(98,"⊙"),(99,"⊚"),
+        (101,"⊛"),(102,"⍟"),(103,"∅"),
+        (134,"⋆"),(135,"*"),
+        (150,"⊥"),(151,"⊤"),
+        (156,"′"),(157,"‵"),
+        (166,"∀"),(167,"∃"),(168,"∄"),(169,"∇"),(170,"∞"),(171,"∫"),(172,"♭"),(173,"♮"),(174,"♯")
+    ]);
+    pub static ref MNSYMBOL_D : HashMap<u8,&'static str> = HashMap::from([
+        (0,"="),(1,"≡"),(2,"∼"),(3,"∽"),(4,"≈"),
+        (6,"≋"),
+        (8,"≃"),(9,"⋍"),(10,"≂"),
+        (12,"≅"),(13,"≌"),(14,"≊"),
+        (16,"≏"),
+        (18,"≎"),(19,"≐"),(20,"⩦"),(21,"≑"),(22,"≒"),(23,"≓"),(24,"⌣"),(25,"⌢"),
+        (30,"≍"),
+        (62,"∈"),
+        (64,"<"),(65,">"),(66,"≤"),(67,"≥"),(68,"⩽"),(69,"⩾"),(70,"≦"),(71,"≧"),(72,"≶"),(73,"≷"),
+        (74,"⋚"),(75,"⋛"),(76,"⪋"),(77,"⪌"),
+        (96,"⊂"),(97,"⊃"),(98,"⊆"),(99,"⊇"),(100,"⫅"),(101,"⫆"),(102,"⋐"),(103,"⋑"),(104,"≺"),
+        (105,"≻"),(106,"⪯"),(107,"⪰"),(108,"≼"),(109,"≽"),
+        (120,"≠"),(121,"≢"),(122,"≁"),(123,"∽̸"),(124,"≉"),
+        (126,"≋̸"),
+        (128,"≄"),(129,"⋍̸"),(130,"≂̸"),
+        (132,"≇"),(133,"≌̸"),(134,"≊̸"),
+        (136,"≏̸"),
+        (138,"≎̸"),(139,"≐̸"),(140,"⩦̸"),(141,"≑̸"),(142,"≒̸"),(143,"≓̸"),
+        (144,"⌣̸"),(145,"⌢̸"),
+        (150,"≭")
+    ]);
+    pub static ref MNSYMBOL_E : HashMap<u8,&'static str> = HashMap::from([
+        (0,"["),
+        (5,"]"),
+        (66,"⟦"),(67,"⟦"),(68,"⟦"),(69,"⟦"),(70,"⟦"),(71,"⟧"),(72,"⟧"),(73,"⟧"),(74,"⟧"),(75,"⟧"),
+
+        (83,"|"),
+        (96,"〈"),
+        (101,"〉"),
+        (106,"⟬"),(107,"⟬"),(108,"⟬"),(109,"⟬"),(110,"⟬"),(111,"⟭"),(112,"⟭"),(113,"⟭"),(114,"⟭"),
+        (115,"⟭"),(116,"⟪"),(117,"⟪"),(118,"⟪"),(119,"⟪"),(120,"⟪"),(121,"⟫"),(122,"⟫"),(123,"⟫"),
+        (124,"⟫"),(125,"⟫"),(126,"/"),
+        (131,"\\"),
+        (136,"("),
+        (141,")"),
+        (152,"{"),
+        (157,"}"),
+        (179,"³"),(180,"´"),(181,"µ"),(182,"¶"),(183,"⏞"),(184,"⏟"),(185,"-"),(186,"√"),
+        (209," ⃗"),(210,"̵"),(211," ̷"),(212," ̸")
+    ]);
+    pub static ref MNSYMBOL_F : HashMap<u8,&'static str> = HashMap::from([
+        (40,"⊓"),
+        (42,"⊔"),
+        (52,"◯"),
+        (54,"⊖"),
+        (56,"⦶"),
+        (58,"⊘"),
+        (60,"⦸"),
+        (62,"⊕"),
+        (64,"⊗"),
+        (66,"⊙"),
+        (68,"⊚"),
+        (72,"⊛"),
+        (74,"⍟"),
+        (76,"∏"),
+        (78,"∐"),
+        (80,"∑"),(81,"∑"),(82,"∫"),(83,"∫")
+    ]);
+    pub static ref MNSYMBOL_S : HashMap<u8,&'static str> = HashMap::from([
+        (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
+        (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
+        (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),
+    ]);
+    pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([
+        (32,"⇝"),
+        (72,"▼"),(73,"▶"),(74,"◀"),
+        (78,"▲")
+    ]);
+    pub static ref MSBM : HashMap<u8,&'static str> = HashMap::from([
+        (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
+        (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
+        (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),(91,"^"),
+        (117,"≊")
+    ]);
+    pub static ref TS1_LM : HashMap<u8,&'static str> = HashMap::from([
+        (42,"*"),
+        (61,"-"),
+        (136,"•")
+    ]);
     pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([]);
 
     // ---------------------------------------------------------------------------------------------
