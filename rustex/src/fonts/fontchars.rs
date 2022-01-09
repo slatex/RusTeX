@@ -64,10 +64,10 @@ impl FontTableStore {
                 ("cmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("cmti",STANDARD_TEXT_CM,FontTableParam::Italic),
+                ("cmbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold),
+                ("rm-lmri",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
-                ("cmbx",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Bold),
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
-                ("rm-lmri",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 // ec ---------------------------------------------------------------------
                 ("ecrm",STANDARD_TEXT_EC,FontTableParam::Text),
                 ("ec-lmr",STANDARD_TEXT_EC,FontTableParam::Text),

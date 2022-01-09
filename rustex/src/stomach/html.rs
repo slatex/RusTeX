@@ -11,6 +11,7 @@ use crate::fonts::Font;
 use crate::fonts::fontchars::FontTableParam;
 use crate::Interpreter;
 use crate::interpreter::dimensions::numtostr;
+use crate::references::SourceFileReference;
 use crate::stomach::colon::{Colon, ColonBase};
 use crate::stomach::groups::WIGroupTrait;
 use crate::stomach::math::{GroupedMath, MathKernel};
@@ -45,8 +46,8 @@ impl HTMLState {
     }}
 }
 macro_rules! node {
-    ($sel:ident,$node:ident,$name:tt,$node_parent:expr) => ({
-        let mut _node_newnode = HTMLNode::new($sel.state.current_namespace,stringify!($node).into());
+    ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
+        let mut _node_newnode = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
             Some(e) => {
@@ -57,8 +58,8 @@ macro_rules! node {
             }
         }
     });
-    ($sel:ident,$ns:tt:$node:ident,$name:tt,$node_parent:expr) => ({
-        let mut _node_newnode = HTMLNode::new($ns,stringify!($node).into());
+    ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
+        let mut _node_newnode = HTMLNode::new($ns,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
             Some(e) => {
@@ -69,9 +70,9 @@ macro_rules! node {
             }
         }
     });
-    ($sel:ident,$node:ident,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
+    ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
-            let mut $nodename = HTMLNode::new($sel.state.current_namespace,stringify!($node).into());
+            let mut $nodename = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             $e
             match $node_parent {
@@ -84,9 +85,9 @@ macro_rules! node {
             }
         }
     );
-    ($sel:ident,$ns:tt:$node:ident,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
+    ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
-            let mut $nodename = HTMLNode::new($ns,stringify!($node).into());
+            let mut $nodename = HTMLNode::new($ns,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             let _node_oldns = $sel.state.current_namespace;
             $sel.state.current_namespace = $ns;
@@ -130,9 +131,9 @@ macro_rules! literal {
 }
 
 macro_rules! annotate {
-    ($sel:ident,$node:ident,$node_parent:expr,$nodename:ident => $e:expr) => (
+    ($sel:ident,$node:ident,$sref:expr,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
-            let mut $nodename = HTMLAnnotation::new($sel.state.current_namespace,stringify!($node).into());
+            let mut $nodename = HTMLAnnotation::new($sel.state.current_namespace,stringify!($node).into(),$sref);
             $e
             match $node_parent {
                 Some(e) => {
@@ -144,10 +145,10 @@ macro_rules! annotate {
             }
         }
     );
-    ($sel:ident,$ns:tt:$node:ident,$node_parent:expr,$nodename:ident => $e:expr) => (
+    ($sel:ident,$ns:tt:$node:ident,$sref:expr,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
             $sel.state.current_namespace = $ns;
-            let mut $nodename = HTMLAnnotation::new($ns,stringify!($node).into());
+            let mut $nodename = HTMLAnnotation::new($ns,stringify!($node).into(),$sref);
             $e
             $sel.state.current_namespace = _node_oldns;
             match $node_parent {
@@ -215,7 +216,10 @@ impl Colon<String> for HTMLColon {
             self.ret += ";line-height:";
             let lineheight = int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32));
             self.ret += &(lineheight.base as f32 / fontsize as f32).to_string();
-            self.ret += ";\">\n";
+            self.ret += ";\"";
+            self.ret += " rustex:font=\"";
+            self.ret += basefont.file.name.to_string().as_str();
+            self.ret += "\">\n";
 
             let base = self.base_mut();
             base.basefont = Some(basefont);
@@ -244,26 +248,26 @@ impl HTMLColon {
         use crate::fonts::fontchars::FontTableParam;
         use crate::stomach::simple::ExternalParam;
         match w {
-            Simple(VFil(_)) => node!(self,div,"vfil",node_top),
-            Simple(VFill(_)) => node!(self,div,"vfill",node_top),
+            Simple(VFil(v)) => node!(self,div,v.0,"vfil",node_top),
+            Simple(VFill(v)) => node!(self,div,v.0,"vfill",node_top),
             Simple(PDFDest(d)) if d.dest.to_string() == "xyz" => {
-                node!(self,a,"pdfdest",node_top,node => {
+                node!(self,a,d.sourceref,"pdfdest",node_top,node => {
                     node.attr("id".into(),d.target.clone().into());
                     node.attr("name".into(),d.target.into());
                 })
             },
             Simple(VSkip(vsk)) => {
-                node!(self,div,"vskip",node_top,node => {
+                node!(self,div,vsk.sourceref,"vskip",node_top,node => {
                     node.style("margin-bottom".into(),dimtohtml(vsk.skip.base));
                 })
             },
             Simple(VKern(vsk)) => {
-                node!(self,div,"vkern",node_top,node => {
+                node!(self,div,vsk.sourceref,"vkern",node_top,node => {
                     node.style("margin-bottom".into(),dimtohtml(vsk.dim));
                 })
             },
             Simple(HRule(hr)) => {
-                node!(self,div,"hrule",node_top,n => {
+                node!(self,div,hr.sourceref.clone(),"hrule",node_top,n => {
                     n.style("width".into(),dimtohtml(hr.width()));
                     n.style("min-width".into(),dimtohtml(hr.width()));
                     n.style("height".into(),dimtohtml(hr.height() + hr.depth()));
@@ -276,7 +280,7 @@ impl HTMLColon {
                 })
             }
             Grouped(ColorChange(cc)) => {
-                annotate!(self,span,node_top,a => {
+                annotate!(self,span,cc.sourceref,node_top,a => {
                     let mut color : HTMLStr = crate::stomach::groups::ColorChange::as_html(cc.color).into();
                     let hashcolor : HTMLStr = "#".into();
                     a.style("color".into(),hashcolor + &color);
@@ -289,7 +293,8 @@ impl HTMLColon {
             Grouped(FontChange(fc)) => {
                 match &fc.font.file.chartable {
                     Some(ft) => {
-                        annotate!(self,span,node_top,a => {
+                        annotate!(self,span,fc.sourceref,node_top,a => {
+                            a.attr("rustex:font".into(),fc.font.file.name.clone().into());
                             for prop in &ft.params {
                                 match prop {
                                     FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
@@ -323,7 +328,7 @@ impl HTMLColon {
                 }
             }
             Par(p) => {
-                node!(self,div,"paragraph",node_top,node => {
+                node!(self,div,None,"paragraph",node_top,node => {
                     match p.leftskip {
                         Some(sk) if match sk.stretch {
                             Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => true,
@@ -371,10 +376,10 @@ impl HTMLColon {
                     for c in p.children { self.ship_h(c,&mut Some(HTMLParent::N(&mut node))) }
                 });
             }
-            Simple(Vss(_)) => node!(self,div,"vss",node_top),
+            Simple(Vss(v)) => node!(self,div,v.0,"vss",node_top),
             Simple(HAlign(ha)) => {
                 use crate::stomach::simple::AlignBlock;
-                node!(self,table,"halign",node_top,table => {
+                node!(self,table,ha.sourceref,"halign",node_top,table => {
                     if ha.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(ha.skip.base))
                     }
@@ -400,9 +405,9 @@ impl HTMLColon {
                                 }
                             }
                             AlignBlock::Block(cells) => {
-                                node!(self,tr,"row",&mut Some(HTMLParent::N(&mut table)),row => {
+                                node!(self,tr,None,"row",&mut Some(HTMLParent::N(&mut table)),row => {
                                     for (mut vs,skip,num) in cells {
-                                        node!(self,td,"cell",&mut Some(HTMLParent::N(&mut row)),cell => {
+                                        node!(self,td,None,"cell",&mut Some(HTMLParent::N(&mut row)),cell => {
                                             cell.style("margin-right".into(),dimtohtml(skip.base));
                                             if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
                                             let mut alignment = (false,false);
@@ -415,7 +420,7 @@ impl HTMLColon {
                                                 }
                                             }
                                             let mut incell : bool = false;
-                                            node!(self,div,"hbox",&mut Some(HTMLParent::N(&mut cell)),bx => {
+                                            node!(self,div,None,"hbox",&mut Some(HTMLParent::N(&mut cell)),bx => {
                                                 for w in vs { match w {
                                                     Simple(VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
                                                     Simple(HFil(_) | HFill(_)) if !incell => alignment.0 = true,
@@ -439,7 +444,7 @@ impl HTMLColon {
                 })
             }
             Box(H(hb)) => {
-                node!(self,div,"hbox",node_top,node => {
+                node!(self,div,None,"hbox",node_top,node => {
                     match hb._width {
                         Some(h) => {
                             node.style("width".into(),dimtohtml(h));
@@ -463,7 +468,7 @@ impl HTMLColon {
             }
             Simple(Penalty(_)) => (),
             Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfbox" => {
-                node!(self,SVG_NS:svg,"",node_top,svg => {
+                node!(self,SVG_NS:svg,ext.sourceref().clone(),"",node_top,svg => {
                     let maxx = match ext.params("maxx") {
                         Some(ExternalParam::Num(i)) => i,
                         _ => unreachable!()
@@ -490,7 +495,7 @@ impl HTMLColon {
                     svg.attr("width".into(),dimtohtml(maxx-minx));
                     svg.attr("height".into(),dimtohtml(maxy-miny));
                     svg.attr("viewBox".into(),vb);
-                    node!(self,g,"",&mut Some(HTMLParent::N(&mut svg)),g => {
+                    node!(self,g,None,"",&mut Some(HTMLParent::N(&mut svg)),g => {
                         let mut tr : HTMLStr = "translate(0,".into();
                         tr += numtostr(maxy,"");
                         tr += ") scale(1,-1) translate(0,";
@@ -507,15 +512,15 @@ impl HTMLColon {
                 })
             }
             Float(bx) => {
-                node!(self,div,"vfill",node_top);
+                node!(self,div,None,"vfill",node_top);
                 self.ship_top(bx.as_whatsit(),node_top);
-                node!(self,div,"vfill",node_top)
+                node!(self,div,None,"vfill",node_top)
             }
             Box(V(vb)) if vb._height.is_none() => {
                 for c in vb.children { self.ship_top(c,node_top) }
             }
             Box(V(vb)) => {
-                node!(self,div,"vbox",node_top,node => {
+                node!(self,div,None,"vbox",node_top,node => {
                     match vb._height {
                         Some(v) => {
                             node.style("height".into(),dimtohtml(v));
@@ -533,8 +538,8 @@ impl HTMLColon {
                     for c in vb.children { self.ship_top(c,&mut Some(HTMLParent::N(&mut node))) }
                 })
             }
-            Simple(MoveRight(crate::stomach::simple::MoveRight { dim,content:bx,sourceref:_ })) => {
-                annotate!(self,div,node_top,a => {
+            Simple(MoveRight(crate::stomach::simple::MoveRight { dim,content:bx,sourceref })) => {
+                annotate!(self,div,sourceref,node_top,a => {
                     a.classes.push("moveright".into());
                     a.style("margin-left".into(),dimtohtml(dim));
                     self.ship_top(bx.as_whatsit(),&mut Some(HTMLParent::A(&mut a)))
@@ -564,14 +569,14 @@ impl HTMLColon {
         use crate::stomach::TeXBox;
         match w {
             Simple(PDFDest(d)) if d.dest.to_string() == "xyz" => {
-                node!(self,a,"pdfdest",node_top,node => {
+                node!(self,a,d.sourceref,"pdfdest",node_top,node => {
                     node.attr("id".into(),d.target.clone().into());
                     node.attr("name".into(),d.target.into());
                 })
             },
             Simple(Penalty(p)) if p.penalty <= -10000 => literal!(self,node_top,"<br/>"),
             Grouped(ColorChange(cc)) => {
-                annotate!(self,span,node_top,a => {
+                annotate!(self,span,cc.sourceref,node_top,a => {
                     let mut color : HTMLStr = crate::stomach::groups::ColorChange::as_html(cc.color).into();
                     let hashcolor : HTMLStr = "#".into();
                     a.style("color".into(),hashcolor + &color);
@@ -582,7 +587,7 @@ impl HTMLColon {
                 })
             }
             Grouped(PDFLink(lnk)) => {
-                node!(self,a,"pdflink",node_top,a => {
+                node!(self,a,lnk.sourceref,"pdflink",node_top,a => {
                     a.attr("href".into(),lnk.action.as_link().into());
                     for c in lnk.children { self.ship_h(c,&mut Some(HTMLParent::N(&mut a))) }
                 })
@@ -590,7 +595,8 @@ impl HTMLColon {
             Grouped(FontChange(fc)) => {
                 match &fc.font.file.chartable {
                     Some(ft) => {
-                        annotate!(self,span,node_top,a => {
+                        annotate!(self,span,fc.sourceref,node_top,a => {
+                            a.attr("rustex:font".into(),fc.font.file.name.clone().into());
                             for prop in &ft.params {
                                 match prop {
                                     FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
@@ -628,7 +634,7 @@ impl HTMLColon {
                     _ => false
                 }).next() {
                 Some(Simple(PDFMatrix(matrix))) => {
-                    node!(self,span,"pdfmatrix",node_top,m => {
+                    node!(self,span,sg.sourceref,"pdfmatrix",node_top,m => {
                         m.style("transform-origin".into(),"top left".into());
                         let mut tf : HTMLStr = "matrix(".into();
                         tf += matrix.scale.to_string();
@@ -656,7 +662,7 @@ impl HTMLColon {
                         let mut buf:Vec<u8> = vec!();
                         img.write_to(&mut buf, image::ImageOutputFormat::Png);
                         let res_base64 = "data:image/png;base64,".to_string() + &base64::encode(&buf);
-                        node!(self,img,"",node_top,i => {
+                        node!(self,img,pimg.sourceref.clone(),"",node_top,i => {
                                 i.attr("src".into(),res_base64.into());
                                 i.attr("width".into(),dimtohtml(pimg.width()));
                                 let ht : HTMLStr = img.height().to_string().into();
@@ -674,7 +680,7 @@ impl HTMLColon {
             }<),
             Space(_) => literal!(self,node_top," "),
             Simple(VRule(vr)) => {
-                node!(self,span,"vrule",node_top,n => {
+                node!(self,span,vr.sourceref.clone(),"vrule",node_top,n => {
                     n.style("width".into(),dimtohtml(vr.width()));
                     n.style("min-width".into(),dimtohtml(vr.width()));
                     n.style("height".into(),dimtohtml(vr.height() + vr.depth()));
@@ -687,22 +693,22 @@ impl HTMLColon {
                 })
             }
             Simple(HSkip(vsk)) => {
-                node!(self,span,"hskip",node_top,node => {
+                node!(self,span,vsk.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(vsk.skip.base));
                 })
             },
             Simple(Indent(dim)) => {
-                node!(self,span,"indent",node_top,node => {
+                node!(self,span,dim.sourceref,"indent",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(dim.dim));
                 })
             },
             Simple(HKern(vsk)) => {
-                node!(self,span,"hkern",node_top,node => {
+                node!(self,span,vsk.sourceref,"hkern",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(vsk.dim));
                 })
             },
             Box(V(vb)) => {
-                node!(self,div,"vbox",node_top,node => {
+                node!(self,div,None,"vbox",node_top,node => {
                     use crate::stomach::boxes::VBoxType;
                     match vb.tp {
                         VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
@@ -727,11 +733,11 @@ impl HTMLColon {
                 })
             }
             // TODO maybe? spread, center, vtop in general
-            Simple(HFil(_)) => node!(self,span,"hfil",node_top),
-            Simple(HFill(_)) => node!(self,span,"hfill",node_top),
-            Simple(Hss(_)) => node!(self,span,"hss",node_top),
+            Simple(HFil(h)) => node!(self,span,h.0,"hfil",node_top),
+            Simple(HFill(h)) => node!(self,span,h.0,"hfill",node_top),
+            Simple(Hss(h)) => node!(self,span,h.0,"hss",node_top),
             Box(H(hb)) => {
-                node!(self,div,"hbox",node_top,node => {
+                node!(self,div,None,"hbox",node_top,node => {
                     match hb._width {
                         Some(h) => {
                             node.style("width".into(),dimtohtml(h));
@@ -749,16 +755,16 @@ impl HTMLColon {
                     for c in hb.children { self.ship_h(c,&mut Some(HTMLParent::N(&mut node))) }
                 })
             }
-            Simple(Raise(r)) => node!(self,span,"raise",node_top,node => {
+            Simple(Raise(r)) => node!(self,span,r.sourceref,"raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(r.dim));
                 self.ship_h(r.content.as_whatsit(),&mut Some(HTMLParent::N(&mut node)))
             }),
-            Math(ref mg) if mg.limits => node!(self,div,"displaymathcontainer",node_top,div =>{
+            Math(ref mg) if mg.limits => node!(self,div,None,"displaymathcontainer",node_top,div =>{
                 div.style("width".into(),"100%".into());
                 div.style("min-width".into(),"100%".into());
-                node!(self,MATHML_NS:math,"math",&mut Some(HTMLParent::N(&mut div)),node=> {
+                node!(self,MATHML_NS:math,None,"",&mut Some(HTMLParent::N(&mut div)),node=> {
                     node.attr("displaystyle".into(),"true".into());
-                    node!(self,mrow,"math",&mut Some(HTMLParent::N(&mut node)),mrow => {
+                    node!(self,mrow,None,"math",&mut Some(HTMLParent::N(&mut node)),mrow => {
                         self.ship_m(w,&mut Some(HTMLParent::N(&mut mrow)));
                         if mrow.children.len() == 1 {
                             match mrow.children.pop().unwrap() {
@@ -769,8 +775,8 @@ impl HTMLColon {
                     })
                 })
             }),
-            Math(ref mg) => node!(self,MATHML_NS:math,"math",node_top,node=> {
-                node!(self,mrow,"math",&mut Some(HTMLParent::N(&mut node)),mrow => {
+            Math(ref mg) => node!(self,MATHML_NS:math,None,"math",node_top,node=> {
+                node!(self,mrow,None,"math",&mut Some(HTMLParent::N(&mut node)),mrow => {
                     self.ship_m(w,&mut Some(HTMLParent::N(&mut mrow)));
                     if mrow.children.len() == 1 {
                         match mrow.children.pop().unwrap() {
@@ -786,7 +792,7 @@ impl HTMLColon {
                 self.ship_h(ld.bx.as_whatsit(),node_top);
             }
             Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfbox" => {
-                node!(self,SVG_NS:svg,"",node_top,svg => {
+                node!(self,SVG_NS:svg,ext.sourceref().clone(),"",node_top,svg => {
                     let maxx = match ext.params("maxx") {
                         Some(ExternalParam::Num(i)) => i,
                         _ => unreachable!()
@@ -813,7 +819,7 @@ impl HTMLColon {
                     svg.attr("width".into(),dimtohtml(maxx-minx));
                     svg.attr("height".into(),dimtohtml(maxy-miny));
                     svg.attr("viewBox".into(),vb);
-                    node!(self,g,"",&mut Some(HTMLParent::N(&mut svg)),g => {
+                    node!(self,g,None,"",&mut Some(HTMLParent::N(&mut svg)),g => {
                         let mut tr : HTMLStr = "translate(0,".into();
                         tr += numtostr(maxy,"");
                         tr += ") scale(1,-1) translate(0,";
@@ -860,7 +866,7 @@ impl HTMLColon {
                 };
                 //node!(self,g,"",node_top,g => {
                 //    g.attr("transform".into(),"scale(1,-1)".into());
-                    node!(self,foreignObject,"",node_top/*&mut Some(HTMLParent::N(&mut g))*/,fo => {
+                    node!(self,foreignObject,ext.sourceref().clone(),"",node_top/*&mut Some(HTMLParent::N(&mut g))*/,fo => {
                         let wd = bx.width();
                         let ht = bx.height() + bx.depth();
                         fo.style("width".into(),dimtohtml(wd));
@@ -869,7 +875,7 @@ impl HTMLColon {
                         trans += dimtohtml(-ht);
                         trans += ")";
                         fo.style("transform".into(),trans.into());*/
-                        node!(self,HTML_NS:div,"foreign",&mut Some(HTMLParent::N(&mut fo)),div => {
+                        node!(self,HTML_NS:div,None,"foreign",&mut Some(HTMLParent::N(&mut fo)),div => {
                             //div.style("transform-origin".into(),"top left".into());
                             self.ship_h(bx,&mut Some(HTMLParent::N(&mut div)))
                         })
@@ -877,7 +883,7 @@ impl HTMLColon {
                // })
             }
             Grouped(ColorChange(cc)) => {
-                annotate!(self,g,node_top,a => {
+                annotate!(self,g,cc.sourceref,node_top,a => {
                     let mut color : HTMLStr = crate::stomach::groups::ColorChange::as_html(cc.color).into();
                     let hashcolor : HTMLStr = "#".into();
                     a.style("color".into(),hashcolor + &color);
@@ -901,7 +907,7 @@ impl HTMLColon {
         match k {
             Group(gm) if gm.0.is_empty() => (),
             Group(mut gm) if gm.0.len() == 1 => self.ship_m(gm.0.pop().unwrap(),node_top),
-            Group(GroupedMath(ls)) => annotate!(self,mrow,node_top,node => {
+            Group(GroupedMath(ls)) => annotate!(self,mrow,None,node_top,node => {
                 for w in ls { self.ship_m(w,&mut Some(HTMLParent::A(&mut node))) }
             }),
             MathChar(mc) => {
@@ -939,13 +945,13 @@ impl HTMLColon {
                         n.children.push(HTMLChild::Str(charstr))
                     }
                     (_,0|7) => {
-                        node!(self,mi,clsstr,node_top,a => {
+                        node!(self,mi,mc.sourceref,clsstr,node_top,a => {
                             a.mimoinfo = Some(mimoinfo);
                             literal!(self,&mut Some(HTMLParent::N(&mut a)),>charstr<)
                         })
                     }
                     (_,_) => {
-                        node!(self,mo,clsstr,node_top,a => {
+                        node!(self,mo,mc.sourceref,clsstr,node_top,a => {
                             a.mimoinfo = Some(mimoinfo);
                             literal!(self,&mut Some(HTMLParent::N(&mut a)),>charstr<)
                         })
@@ -954,57 +960,57 @@ impl HTMLColon {
             }
             Delimiter(d) => self.ship_kernel(MathChar(d.small),node_top),
             MKern(m) => {
-                node!(self,mspace,"mkern",node_top,a => {
+                node!(self,mspace,m.sourceref,"mkern",node_top,a => {
                     a.attr("width".into(),numtostr((m.sk.base as f32 / 1179648.0).round() as i32,"em").into())
                 })
             }
-            MathOp(crate::stomach::math::MathOp { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathOp(crate::stomach::math::MathOp { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("mathop".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathInner(crate::stomach::math::MathInner { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathInner(crate::stomach::math::MathInner { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("inner".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathRel(crate::stomach::math::MathRel { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathRel(crate::stomach::math::MathRel { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("rel".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathOpen(crate::stomach::math::MathOpen { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathOpen(crate::stomach::math::MathOpen { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("open".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathClose(crate::stomach::math::MathClose { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathClose(crate::stomach::math::MathClose { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("close".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathPunct(crate::stomach::math::MathPunct { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathPunct(crate::stomach::math::MathPunct { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("punct".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            MathBin(crate::stomach::math::MathBin { content,sourceref:_ }) => annotate!(self,mrow,node_top,node => {
+            MathBin(crate::stomach::math::MathBin { content,sourceref }) => annotate!(self,mrow,sourceref,node_top,node => {
                 node.classes.push("bin".into());
                 self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
             }),
-            Underline(crate::stomach::math::Underline { content,sourceref:_ }) => node!(self,munder,"underline",node_top,node => {
-                annotate!(self,mrow,&mut Some(HTMLParent::N(&mut node)),mrow => {
+            Underline(crate::stomach::math::Underline { content,sourceref }) => node!(self,munder,sourceref,"underline",node_top,node => {
+                annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
                     self.ship_m(*content,&mut Some(HTMLParent::A(&mut mrow)))
                 });
                 literal!(self,&mut Some(HTMLParent::N(&mut node)),"&UnderBar;")
             }),
-            Overline(crate::stomach::math::Overline { content,sourceref:_ }) => node!(self,mover,"overline",node_top,node => {
-                annotate!(self,mrow,&mut Some(HTMLParent::N(&mut node)),mrow => {
+            Overline(crate::stomach::math::Overline { content,sourceref }) => node!(self,mover,sourceref,"overline",node_top,node => {
+                annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
                     self.ship_m(*content,&mut Some(HTMLParent::A(&mut mrow)))
                 });
                 literal!(self,&mut Some(HTMLParent::N(&mut node)),"&OverBar;")
             }),
-            MathAccent(crate::stomach::math::MathAccent { content, accent, sourceref:_}) =>
-                node!(self,mover,"mathaccent",node_top,node => {
+            MathAccent(crate::stomach::math::MathAccent { content, accent, sourceref}) =>
+                node!(self,mover,sourceref,"mathaccent",node_top,node => {
                     node.attr("accent".into(),"true".into());
-                    annotate!(self,mrow,&mut Some(HTMLParent::N(&mut node)),mrow => {
+                    annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
                         self.ship_m(*content,&mut Some(HTMLParent::A(&mut mrow)))
                     });
-                    annotate!(self,mrow,&mut Some(HTMLParent::N(&mut node)),mrow => {
+                    annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
                         self.ship_kernel(MathKernel::MathChar(accent),&mut Some(HTMLParent::A(&mut mrow)))
                     });
             }),
@@ -1022,73 +1028,73 @@ impl HTMLColon {
                 self.ship_kernel(kernel,node_top)
             }
             Math(MathGroup {kernel,superscript:Some(sup),subscript:None,limits:false}) => {
-                node!(self,msup,"superscript",node_top,msup => {
+                node!(self,msup,None,"superscript",node_top,msup => {
                     msup.attr("displaystyle".into(),"false".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msup)));
-                    if msup.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msup))) }
+                    if msup.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msup))) }
                     msup.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sup,&mut Some(HTMLParent::N(&mut msup)));
-                    if msup.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msup))) }
+                    if msup.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msup))) }
                 })
             }
             Math(MathGroup {kernel,superscript:Some(sup),subscript:None,limits:true}) => {
-                node!(self,mover,"superscript",node_top,msup => {
+                node!(self,mover,None,"superscript",node_top,msup => {
                     msup.attr("displaystyle".into(),"true".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msup)));
-                    if msup.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msup))) }
+                    if msup.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msup))) }
                     msup.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sup,&mut Some(HTMLParent::N(&mut msup)));
-                    if msup.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msup))) }
+                    if msup.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msup))) }
                 })
             }
             Math(MathGroup {kernel,superscript:None,subscript:Some(sub),limits:false}) => {
-                node!(self,msub,"subscript",node_top,msub => {
+                node!(self,msub,None,"subscript",node_top,msub => {
                     msub.attr("displaystyle".into(),"false".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sub,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                 })
             }
             Math(MathGroup {kernel,superscript:None,subscript:Some(sub),limits:true}) => {
-                node!(self,munder,"subscript",node_top,msub => {
+                node!(self,munder,None,"subscript",node_top,msub => {
                     msub.attr("displaystyle".into(),"true".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sub,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                 })
             }
             Math(MathGroup {kernel,superscript:Some(sup),subscript:Some(sub),limits:false}) => {
-                node!(self,msubsup,"subscript superscript",node_top,msub => {
+                node!(self,msubsup,None,"subscript superscript",node_top,msub => {
                     msub.attr("displaystyle".into(),"false".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sub,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sup,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 3 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 5 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                 })
             }
             Math(MathGroup {kernel,superscript:Some(sup),subscript:Some(sub),limits:true}) => {
-                node!(self,munderover,"subscript superscript",node_top,msub => {
+                node!(self,munderover,None,"subscript superscript",node_top,msub => {
                     msub.attr("displaystyle".into(),"true".into());
                     self.ship_kernel(kernel,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.is_empty() { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.is_empty() { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sub,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 2 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 3 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                     msub.children.push(HTMLChild::Str("".into()));
                     self.ship_kernel(sup,&mut Some(HTMLParent::N(&mut msub)));
-                    if msub.children.len() < 3 { node!(self,mrow,"",&mut Some(HTMLParent::N(&mut msub))) }
+                    if msub.children.len() < 5 { node!(self,mrow,None,"",&mut Some(HTMLParent::N(&mut msub))) }
                 })
             }
             Simple(MSkip(m)) => {
-                node!(self,mspace,"mskip",node_top,a => {
+                node!(self,mspace,m.sourceref,"mskip",node_top,a => {
                     a.attr("width".into(),numtostr((m.skip.base as f32 / 1179648.0).round() as i32,"em").into())
                 })
             }
@@ -1105,27 +1111,27 @@ impl HTMLColon {
             }  => {
                 for c in bx.children() { self.ship_m(c,node_top)}
             }
-            Box(_) => node!(self,mtext,"box",node_top,mt => {
-                node!(self,HTML_NS:span,"box",&mut Some(HTMLParent::N(&mut mt)),span => {
+            Box(_) => node!(self,mtext,None,"box",node_top,mt => {
+                node!(self,HTML_NS:span,None,"box",&mut Some(HTMLParent::N(&mut mt)),span => {
                     self.ship_h(w,&mut Some(HTMLParent::N(&mut span)))
                 })
             }),
-            Simple(HAlign(_)) => node!(self,mtext,"box",node_top,mt => {
-                node!(self,HTML_NS:span,"box",&mut Some(HTMLParent::N(&mut mt)),span => {
+            Simple(HAlign(_)) => node!(self,mtext,None,"",node_top,mt => {
+                node!(self,HTML_NS:span,None,"",&mut Some(HTMLParent::N(&mut mt)),span => {
                     self.ship_top(w,&mut Some(HTMLParent::N(&mut span)))
                 })
             }),
             Simple(HKern(m)) => {
-                node!(self,mspace,"mskip",node_top,a => {
+                node!(self,mspace,m.sourceref,"mskip",node_top,a => {
                     a.attr("width".into(),dimtohtml(m.dim))
                 })
             }
-            Grouped(PDFLink(lnk)) => annotate!(self,mrow,node_top,node => {
+            Grouped(PDFLink(lnk)) => annotate!(self,mrow,lnk.sourceref,node_top,node => {
                 node.attr("href".into(),lnk.action.as_link().into());
                 for c in lnk.children{ self.ship_m(c,&mut Some(HTMLParent::A(&mut node))) }
             }),
             Grouped(ColorChange(cc)) => {
-                annotate!(self,mrow,node_top,a => {
+                annotate!(self,mrow,cc.sourceref,node_top,a => {
                     let mut color : HTMLStr = crate::stomach::groups::ColorChange::as_html(cc.color).into();
                     let hashcolor : HTMLStr = "#".into();
                     a.style("color".into(),hashcolor + &color);
@@ -1136,7 +1142,7 @@ impl HTMLColon {
                 })
             }
             Simple(HSkip(h)) => {
-                node!(self,mspace,"hskip",node_top,a => {
+                node!(self,mspace,h.sourceref,"hskip",node_top,a => {
                     a.attr("width".into(),dimtohtml(h.skip.base))
                 })
             }
@@ -1144,30 +1150,30 @@ impl HTMLColon {
             Simple(Middle(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
             Simple(Right(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
             Above(o) => match o.delimiters {
-                None => node!(self,mfrac,"over",node_top,over => {
+                None => node!(self,mfrac,o.sourceref,"over",node_top,over => {
                     match o.thickness {
                         Some(i) => over.attr("linethickness".into(),dimtohtml(i)),
                         _ => ()
                     }
-                    annotate!(self,mrow,&mut Some(HTMLParent::N(&mut over)),a => {
+                    annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
                         for c in o.top { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
                     });
-                    annotate!(self,mrow,&mut Some(HTMLParent::N(&mut over)),a => {
+                    annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
                         for c in o.bottom { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
                     })
                 }),
-                Some(d) => annotate!(self,mrow,node_top,mrow => {
+                Some(d) => annotate!(self,mrow,None,node_top,mrow => {
                     let (a,b) = *d;
                     self.ship_m(a,&mut Some(HTMLParent::A(&mut mrow)));
-                    node!(self,mfrac,"over",&mut Some(HTMLParent::A(&mut mrow)),over => {
+                    node!(self,mfrac,o.sourceref,"over",&mut Some(HTMLParent::A(&mut mrow)),over => {
                         match o.thickness {
                             Some(i) => over.attr("linethickness".into(),dimtohtml(i)),
                             _ => ()
                         }
-                        annotate!(self,mrow,&mut Some(HTMLParent::N(&mut over)),a => {
+                        annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
                             for c in o.top { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
                         });
-                        annotate!(self,mrow,&mut Some(HTMLParent::N(&mut over)),a => {
+                        annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
                             for c in o.bottom { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
                         })
                     });
@@ -1180,7 +1186,7 @@ impl HTMLColon {
                 self.ship_m(ld.bx.as_whatsit(),node_top);
             }
             Simple(HFil(_)|HFill(_)) => {
-                node!(self,mspace,"hfil",node_top,a => {
+                node!(self,mspace,None,"hfil",node_top,a => {
                     a.attr("width".into(),dimtohtml(655360))
                 })
             }
@@ -1238,12 +1244,13 @@ struct HTMLNode {
     pub classes:Vec<HTMLStr>,
     attributes:HashMap<HTMLStr,HTMLStr>,
     styles:HashMap<HTMLStr,HTMLStr>,
-    mimoinfo: Option<MiMoInfo>
+    mimoinfo: Option<MiMoInfo>,
+    pub sourceref:Option<SourceFileReference>
 }
 impl HTMLNode {
-    pub fn new(namespace:&'static str,name:HTMLStr) -> HTMLNode { HTMLNode {
+    pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLNode { HTMLNode {
         name,namespace,children:vec!(),classes:vec!(),
-        attributes:HashMap::new(),styles:HashMap::new(),mimoinfo:None
+        attributes:HashMap::new(),styles:HashMap::new(),mimoinfo:None,sourceref
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
         self.attributes.borrow_mut().insert(name,value);
@@ -1308,6 +1315,14 @@ impl HTMLNode {
         if namespace != self.namespace {
             ret += " xmlns=\"";ret += self.namespace;ret += "\""
         }
+        match &self.sourceref {
+            Some(s) => {
+                ret += " rustex:sourceref=\"";
+                ret += s.as_string();
+                ret += "\""
+            }
+            _ => ()
+        }
         ret += ">";
         ret += body;
         ret + "</" + &self.name + ">"
@@ -1320,12 +1335,13 @@ struct HTMLAnnotation {
     pub children:Vec<HTMLChild>,
     pub classes:Vec<HTMLStr>,
     attributes:HashMap<HTMLStr,HTMLStr>,
-    styles:HashMap<HTMLStr,HTMLStr>
+    styles:HashMap<HTMLStr,HTMLStr>,
+    pub sourceref:Option<SourceFileReference>
 }
 impl HTMLAnnotation {
-    pub fn new(namespace:&'static str,name:HTMLStr) -> HTMLAnnotation { HTMLAnnotation {
+    pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLAnnotation { HTMLAnnotation {
         name,namespace,children:vec!(),classes:vec!(),
-        attributes:HashMap::new(),styles:HashMap::new()
+        attributes:HashMap::new(),styles:HashMap::new(),sourceref
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
         self.attributes.borrow_mut().insert(name,value);
@@ -1382,7 +1398,8 @@ impl HTMLAnnotation {
             classes: std::mem::take(&mut self.classes),
             attributes: std::mem::take(&mut self.attributes),
             styles: std::mem::take(&mut self.styles),
-            mimoinfo: None
+            mimoinfo: None,
+            sourceref: std::mem::take(&mut self.sourceref)
         }.make_string(prefix,namespace)
     }
 }

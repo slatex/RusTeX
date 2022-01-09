@@ -68,7 +68,7 @@ hr {
     flex-direction: column;
     flex-wrap: nowrap;
     align-content: center;
-    justify-content: flex-start;
+    justify-content: flex-end;
     width:max-content;
     max-width:100%;
     text-align:justify;
