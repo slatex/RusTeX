@@ -365,6 +365,7 @@ lazy_static! {
     pub static ref TS1_LM : HashMap<u8,&'static str> = HashMap::from([
         (42,"*"),
         (61,"-"),
+        (132,"†"),(133,"‡"),
         (136,"•")
     ]);
     pub static ref WASY : HashMap<u8,&'static str> = HashMap::from([
