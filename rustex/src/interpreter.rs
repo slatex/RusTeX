@@ -15,7 +15,7 @@ use crate::commands::{TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State, StateChange};
-use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich};
+use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich, MaybeThread};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -180,7 +180,33 @@ impl Interpreter<'_> {
         if cont {
             let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(self);
             colon.initialize(fnt,color,self);
-            let colonthread = std::thread::spawn(move || {
+            let mut colonthread = if crate::SINGLETHREADED {
+                MaybeThread::Single(receiver,Box::new(move |rec,end| {
+                    if end {Some(colon.close())} else {
+                        match rec.try_iter().next() {
+                            Some(StomachMessage::WI(w)) => {
+                                colon.ship_whatsit(w);
+                                None
+                            }
+                            Some(StomachMessage::End) => {
+                                Some(colon.close())
+                            }
+                            None => None
+                        }
+                    }
+                }),None)
+            } else {
+                MaybeThread::Multi(std::thread::spawn(move || {
+                    for msg in receiver {
+                        match msg {
+                            StomachMessage::End => return colon.close(),
+                            StomachMessage::WI(w) => colon.ship_whatsit(w)
+                        }
+                    }
+                    return colon.close() // sender dropped => TeXError somewhere
+                }))
+            };
+            /*std::thread::spawn(move || {
                 for msg in receiver {
                     match msg {
                         StomachMessage::End => return colon.close(),
@@ -188,9 +214,10 @@ impl Interpreter<'_> {
                     }
                 }
                 return colon.close() // sender dropped => TeXError somewhere
-            });
+            });*/
 
             while self.has_next() {
+                colonthread.next();
                 let next = self.next_token();
                 match self.do_top(next,false) {
                     Ok(b) => b,
@@ -201,7 +228,7 @@ impl Interpreter<'_> {
             self.stomach.borrow_mut().finish(self);
             match colonthread.join() {
                 Ok(r) => return r,
-                Err(e) => panic!("Error in colon thread")
+                Err(_) => panic!("Error in colon thread")
             }
         } else {
             colon.close()
@@ -476,7 +503,7 @@ impl Interpreter<'_> {
                                         second.push(x)
                                     } else {
                                         match x {
-                                            WI::MathInfix(_) => second.push(x),
+                                            WI::Above(_) => second.push(x),
                                             _ => first.push(x)
                                         }
                                     }
@@ -486,9 +513,9 @@ impl Interpreter<'_> {
                                 } else {
                                     let mut head = second.remove(0);
                                     match head {
-                                        WI::MathInfix(mut mi) => {
+                                        WI::Above(mut mi) => {
                                             mi.set(first,second);
-                                            ret = vec!(WI::MathInfix(mi))
+                                            ret = vec!(WI::Above(mi))
                                         },
                                         _ => unreachable!()
                                     }
@@ -587,7 +614,7 @@ impl Interpreter<'_> {
                                             second.push(x)
                                         } else {
                                             match x {
-                                                WI::MathInfix(_) => second.push(x),
+                                                WI::Above(_) => second.push(x),
                                                 _ => first.push(x)
                                             }
                                         }
@@ -597,9 +624,9 @@ impl Interpreter<'_> {
                                     } else {
                                         let mut head = second.remove(0);
                                         match head {
-                                            WI::MathInfix(mut mi) => {
+                                            WI::Above(mut mi) => {
                                                 mi.set(first,second);
-                                                ret = vec!(WI::MathInfix(mi))
+                                                ret = vec!(WI::Above(mi))
                                             },
                                             _ => unreachable!()
                                         }

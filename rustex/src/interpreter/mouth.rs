@@ -287,7 +287,11 @@ impl StringMouth {
         while self.has_next(catcodes,true,false) {
             let next = self.next_char(catcodes.endlinechar).unwrap();
             match catcodes.get_code(next.0) {
-                CategoryCode::Space | CategoryCode::EOL => {}
+                CategoryCode::Space => {}
+                CategoryCode::EOL => {
+                    self.mouth_state = MouthState::N;
+                    break
+                },
                 _ => {
                     self.charbuffer = Some(next);
                     break

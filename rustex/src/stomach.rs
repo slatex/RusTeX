@@ -16,6 +16,7 @@ use crate::stomach::whatsits::{Insert, PrintChar, WhatsitTrait};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use crate::interpreter::dimensions::Skip;
+use crate::interpreter::TeXMode;
 use crate::stomach::boxes::{HBox, TeXBox};
 use crate::stomach::colon::{Colon, NoColon};
 
@@ -185,7 +186,15 @@ impl StomachGroup {
         match self {
             Top(t) => t.push(wi),
             TeXGroup(_,t) => t.push(wi),
-            Par(t) => t.children.push(wi),
+            Par(t) => {
+                /*match wi {
+                    Whatsit::Simple(SimpleWI::VSkip(_)) => {
+                        println!("Here!")
+                    }
+                    _ => ()
+                }*/
+                t.children.push(wi)
+            },
             Other(wg) => wg.push(wi),
         }
     }
@@ -331,7 +340,7 @@ pub trait Stomach : Send {
                 TeXErr!((int,None),"Stomach empty")
             },
             Some(StomachGroup::TeXGroup(_,v)) => {
-                for c in v { self.add(int,c)? }
+                for c in v { self.add_inner_actually(int,c)? }
                 Ok(())
             }
             Some(StomachGroup::Other(g)) if g.closes_with_group() => {
@@ -348,9 +357,9 @@ pub trait Stomach : Send {
                 }
                 if !nv.is_empty() {
                     for v in nv { ng.push(v) }
-                    self.add(int, Whatsit::Grouped(ng))?;
+                    self.add_inner_actually(int, Whatsit::Grouped(ng))?;
                 }
-                for r in latter { self.add(int,r)? }
+                for r in latter { self.add_inner_actually(int,r)? }
                 Ok(())
             }
             Some(p) => {
@@ -382,9 +391,9 @@ pub trait Stomach : Send {
             }
             if !nv.is_empty() {
                 for v in nv { ng.push(v) }
-                self.add(int, Whatsit::Grouped(ng))?;
+                self.add_inner_actually(int, Whatsit::Grouped(ng))?;
             }
-            for r in latter { self.add(int,r)? }
+            for r in latter { self.add_inner_actually(int,r)? }
             Ok(())
         } else if top.priority() > wi.priority() {
             let wiopen = match self.base().stomachgroups.iter().rev().find(|x| x.priority() == wi.priority()) {
@@ -398,7 +407,7 @@ pub trait Stomach : Send {
             self.base_mut().stomachgroups.push(top.new_from());
             let mut grv : Vec<Whatsit> = vec!();
             for w in top.get_d() {
-                if grv.is_empty() && !w.has_ink() { self.add(int,w)? } else { grv.push(w) }
+                if grv.is_empty() && !w.has_ink() { self.add_inner_actually(int,w)? } else { grv.push(w) }
             }
             for w in grv { nwi.push(w) }
             self.base_mut().stomachgroups.push(StomachGroup::Other(nwi));
@@ -416,13 +425,13 @@ pub trait Stomach : Send {
             }
             if !nv.is_empty() {
                 for v in nv { ng.push(v) }
-                self.add(int, match ng {
+                self.add_inner_actually(int, match ng {
                     StomachGroup::Other(wg) => Whatsit::Grouped(wg),
                     _ => todo!()
                 })?;
             }
             self._close_stomach_group(int,wi)?;
-            for l in latter { self.add(int,l)? }
+            for l in latter { self.add_inner_actually(int,l)? }
             Ok(())
         }
     }
@@ -463,7 +472,7 @@ pub trait Stomach : Send {
                     Ok(())
                 }
             }
-            Whatsit::Simple(SimpleWI::HKern(ref k1)) => match self.base().buffer.last() {
+            /*Whatsit::Simple(SimpleWI::HKern(ref k1)) => match self.base().buffer.last() {
                 Some(Whatsit::Simple(SimpleWI::HKern(k2))) => {
                     let nsk = k1.dim + k2.dim;
                     let ret = HKern { dim:nsk,sourceref:k2.sourceref.clone()}.as_whatsit();
@@ -514,6 +523,10 @@ pub trait Stomach : Send {
                     self.base_mut().buffer.push(wi);
                     Ok(())
                 }
+            } */
+            Whatsit::Simple(SimpleWI::HKern(_)|SimpleWI::VKern(_)|SimpleWI::HSkip(_)|SimpleWI::VSkip(_)) => {
+                self.base_mut().buffer.push(wi);
+                Ok(())
             }
             Whatsit::Simple(SimpleWI::Penalty(_)) => match self.base().buffer.last() {
                 Some(Whatsit::Simple(SimpleWI::Penalty(_))) => {
@@ -568,7 +581,7 @@ pub trait Stomach : Send {
                 }
                 let base = self.base_mut();
                 match base.stomachgroups.last_mut().unwrap() {
-                    StomachGroup::Top(v) => {
+                    StomachGroup::Top(v) if base.sender.is_some() => {
                         let sender = base.sender.as_ref().unwrap();
                         for w in v.drain(..) { sender.send(StomachMessage::WI(w)).unwrap(); }
                         sender.send(StomachMessage::WI(o)).unwrap();
@@ -758,12 +771,16 @@ pub trait Stomach : Send {
     }
     fn finish(&mut self,int:&Interpreter) {
         let wis = self.close_all(int);
-        let sender = self.base().sender.as_ref().unwrap();
-        match wis {
-            Ok(v) => for w in v { sender.send(StomachMessage::WI(w)).unwrap() }
+        match self.base().sender.as_ref() {
+            Some(sender) => {
+                match wis {
+                    Ok(v) => for w in v { sender.send(StomachMessage::WI(w)).unwrap() }
+                    _ => ()
+                }
+                sender.send(StomachMessage::End);
+            }
             _ => ()
         }
-        sender.send(StomachMessage::End);
     }
     fn final_xml(&mut self,int:&Interpreter) -> Result<String,TeXError> {
         let wis = self.close_all(int)?;

@@ -376,7 +376,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
-use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInfix, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Over, Overline, Underline};
+use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Underline};
 use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
 use crate::stomach::groups::FontChange;
 use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSkip, Hss, Indent, Leaders, Left, Mark, Middle, MoveRight, MSkip, Penalty, Raise, Right, SimpleWI, VAlign, VFil, VFill, VKern, VRule, VSkip, Vss};
@@ -2985,9 +2985,9 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        Ok(Over {
+        Ok(Above {
             top:vec!(),bottom:vec!(),delimiters:None,
-            sourceref:int.update_reference(tk)
+            sourceref:int.update_reference(tk),thickness:None
         }.as_whatsit())
     }
 };
@@ -3010,7 +3010,7 @@ pub static ABOVE: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:dim,delimiters:None,
+            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:None,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3033,7 +3033,7 @@ pub static ATOP: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:0,delimiters:None,
+            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:None,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }

@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::ops::Add;
 
 pub fn pt(f:f32) -> f32 { f * 65536.0 }
 pub fn inch(f:f32) -> f32 { pt(f) * 72.27 }
@@ -146,6 +147,12 @@ impl MuSkip {
             None => "".to_string(),
             Some(s) => " minus ".to_string() + &s.to_string()
         }
+    }
+}
+impl Add<MuSkip> for MuSkip {
+    type Output = MuSkip;
+    fn add(self, rhs: MuSkip) -> Self::Output {
+        MuSkip { base:self.base + rhs.base, stretch:self.stretch, shrink:self.shrink }
     }
 }
 

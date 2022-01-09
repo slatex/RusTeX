@@ -14,6 +14,9 @@ use crate::stomach::simple::AlignBlock;
 use crate::stomach::whatsits::{Insert, WhatsitTrait};
 use crate::utils::TeXStr;
 
+#[derive(PartialEq,Clone)]
+pub enum ColonMode { V,H,M,External(TeXStr) }
+
 pub struct ColonBase {
     pub basefont:Option<Arc<Font>>,
     pub basecolor:Option<TeXStr>,
@@ -33,11 +36,11 @@ pub trait Colon<A> : Send {
     fn base_mut(&mut self) -> &mut ColonBase;
     fn base(&self) -> &ColonBase;
     fn ship_whatsit(&mut self, wi:Whatsit);
-    fn close(self) -> A;
+    fn close(&mut self) -> A;
 
     fn normalize_whatsit(&self, wi:Whatsit) -> Vec<Whatsit> {
         let mut top : Vec<Whatsit> = vec!();
-        normalize_top(wi,&mut top,None);
+        wi.normalize(&ColonMode::V,&mut top,None);
         top
     }
     fn initialize(&mut self,basefont:Arc<Font>,basecolor:TeXStr,_:&Interpreter) {
@@ -48,19 +51,19 @@ pub trait Colon<A> : Send {
 }
 
 // -------------------------------------------------------------------------------------------------
-
-fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
+/*
+pub fn normalize_v(w : Whatsit, ret:&mut Vec<Whatsit>, scale:Option<f32>) {
     use Whatsit::*;
     use crate::stomach::simple::SimpleWI::*;
     use crate::stomach::boxes::TeXBox::*;
     match w {
         Simple(Penalty(_)) | Simple(Mark(_)) => (),
         Box(V(mut vb)) if vb._height.is_none() => {
-            for c in vb.children { normalize_top(c,ret,scale) }
+            for c in vb.children { normalize_v(c, ret, scale) }
         }
         Box(V(vb)) => {
             let mut nch : Vec<Whatsit> = vec!();
-            for c in vb.children { normalize_top(c,&mut nch,scale) }
+            for c in vb.children { normalize_v(c, &mut nch, scale) }
             if !nch.is_empty() || vb._height != Some(0) {
                 ret.push(VBox {
                     children: nch,
@@ -72,27 +75,6 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
                     tp:vb.tp
                 }.as_whatsit())
             }
-        }
-        Box(H(hb)) => {
-            let mut nch : Vec<Whatsit> = vec!();
-            for c in hb.children { normalize_h(c,&mut nch,scale) }
-            if !nch.is_empty() || hb._width != Some(0) {
-                ret.push(HBox {
-                    children: nch,
-                    spread: hb.spread,
-                    _width: hb._width,
-                    _height: hb._height,
-                    _depth: hb._depth,
-                    rf: hb.rf
-                }.as_whatsit())
-            }
-        }
-        Par(p) => {
-            let (mut np,ch) = p.destroy();
-            let mut hret : Vec<Whatsit> = vec!();
-            for c in ch { normalize_h(c,&mut hret,scale) }
-            np.children = hret;
-            ret.push(Par(np))
         }
         Simple(VSkip(sk)) if sk.skip.base == 0 => (),
         Simple(VKern(k)) if k.dim == 0 => (),
@@ -110,14 +92,14 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
         Grouped(mut wg) => {
             let mut ng = wg.new_from();
             if wg.opaque() {
-                for c in wg.children_prim() { normalize_top(c,ng.children_mut(),scale) }
+                for c in wg.children_prim() { normalize_v(c, ng.children_mut(), scale) }
                 ret.push(Grouped(ng));
                 return ()
             }
             let mut in_ink = false;
             for c in wg.children_prim() {
                 if c.has_ink() { in_ink = true }
-                if in_ink { normalize_top(c, ng.children_mut(),scale) } else { normalize_top(c, ret,scale) }
+                if in_ink { normalize_v(c, ng.children_mut(), scale) } else { normalize_v(c, ret, scale) }
             }
             let mut nret : Vec<Whatsit> = vec!();
             loop {
@@ -137,14 +119,13 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
             ret.append(&mut nret);
         }
         Simple(HRule(v)) if v.width() == 0 && v.height() + v.depth() == 0 => (),
-        Simple(VFil(_)) | Simple(VFill(_)) | Simple(PDFDest(_)) | Simple(HRule(_)) | Simple(Vss(_)) | Simple(External(_)) => ret.push(w),
         Simple(HAlign(ha)) => {
             let mut nrows : Vec<AlignBlock> = vec!();
             for block in ha.rows {
                 match block {
                     AlignBlock::Noalign(v) => {
                         let mut na : Vec<Whatsit> = vec!();
-                        for w in v { normalize_top(w,&mut na,scale)}
+                        for w in v { normalize_v(w, &mut na, scale)}
                         if !na.is_empty() { nrows.push(AlignBlock::Noalign(na))}
                     }
                     AlignBlock::Block(vv) => {
@@ -169,14 +150,54 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
             let mut iret : Vec<Vec<Whatsit>> = vec!();
             for v in is.0 {
                 let mut iiret : Vec<Whatsit> = vec!();
-                for w in v { normalize_top(w,&mut iiret,scale) }
+                for w in v { normalize_v(w, &mut iiret, scale) }
                 if !iiret.is_empty() {iret.push(iiret)}
             }
             if !iret.is_empty() { ret.push(Inserts(Insert(iret)))}
         }
+        Simple(MoveRight(crate::stomach::simple::MoveRight { dim:0,content:bx, sourceref:_})) => normalize_v(Box(bx), ret, scale),
+        Simple(MoveRight(crate::stomach::simple::MoveRight { dim,content:bx, sourceref})) => {
+            let mut nch: Vec<Whatsit> = vec!();
+            match bx {
+                V(vb) => {
+                    for c in vb.children { normalize_v(c, &mut nch, scale) }
+                    if !nch.is_empty() || vb._width != Some(0) {
+                        ret.push(Simple(MoveRight(crate::stomach::simple::MoveRight{
+                            content: V(VBox {
+                                children: nch,
+                                spread: vb.spread,
+                                _width: vb._width,
+                                _height: vb._height,
+                                _depth: vb._depth,
+                                rf: vb.rf,
+                                tp:vb.tp
+                            }),
+                            dim,sourceref
+                        })))
+                    }
+                }
+                H(hb) => {
+                    for c in hb.children { normalize_h(c, &mut nch,scale) }
+                    if !nch.is_empty() || hb._width != Some(0) {
+                        ret.push(Simple(MoveRight(crate::stomach::simple::MoveRight{
+                            content: H(HBox {
+                                children: nch,
+                                spread: hb.spread,
+                                _width: hb._width,
+                                _height: hb._height,
+                                _depth: hb._depth,
+                                rf: hb.rf
+                            }),
+                            dim,sourceref
+                        })))
+                    }
+                }
+                _ => ()
+            }
+        }
         Float(V(vb)) => {
             let mut nch: Vec<Whatsit> = vec!();
-            for c in vb.children { normalize_top(c, &mut nch, scale) }
+            for c in vb.children { normalize_v(c, &mut nch, scale) }
             if !nch.is_empty() || vb._width != Some(0) {
                 ret.push(Float(V(VBox {
                     children: nch,
@@ -189,30 +210,15 @@ fn normalize_top(w : Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
                 })))
             }
         },
+        Simple(VFil(_) | VFill(_) | PDFDest(_) | HRule(_) | Vss(_) | External(_) | VKern(_)) => ret.push(w),
+        Simple(VKern(_)) => ret.push(w),
         _ => {
             ret.push(w)
         }
     }
 }
-/*
-fn normalize_v(w:Whatsit) -> Vec<Whatsit> {
-    use Whatsit::*;
-    use crate::stomach::simple::SimpleWI::*;
-    use crate::stomach::boxes::TeXBox::*;
-    match w {
-        Whatsit::Simple(Penalty(_)) => vec!(),
-        Simple(VSkip(sk)) if sk.skip.base == 0 => vec!(),
-        Simple(VKern(k)) if k.dim == 0 => vec!(),
-        Simple(VFil(_)) | Simple(PDFDest(_)) | Simple(VSkip(_)) => vec!(w),
-        _ => {
-            vec!(w)
-        }
-    }
-}
 
- */
-
-fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
+pub fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
     use Whatsit::*;
     use crate::stomach::simple::SimpleWI::*;
     use crate::stomach::boxes::TeXBox::*;
@@ -231,23 +237,6 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
                     }
                 },
                 _ => ret.push(Simple(HSkip(sk)))
-            }
-        }
-        Box(H(mut hb)) if hb._depth.is_none() && hb._height.is_none() && hb._width.is_none() => {
-            for c in hb.children { normalize_h(c,ret,scale) }
-        }
-        Box(H(hb)) => {
-            let mut nch : Vec<Whatsit> = vec!();
-            for c in hb.children { normalize_h(c,&mut nch,scale) }
-            if !nch.is_empty() || hb._width != Some(0) {
-                ret.push(HBox {
-                    children: nch,
-                    spread: hb.spread,
-                    _width: hb._width,
-                    _height: hb._height,
-                    _depth: hb._depth,
-                    rf: hb.rf
-                }.as_whatsit())
             }
         }
         Grouped(PDFMatrixSave(mut sg)) => match sg.children.iter().filter(|x| match x {
@@ -301,9 +290,22 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
             ret.append(&mut nret);
         }
         Simple(VRule(v)) if v.width() == 0 && v.height() + v.depth() == 0 => (),
+        Math(MathGroup {kernel:Group(GroupedMath(mut g)),subscript:None,superscript:None,limits}) if g.len() == 1 && match g.last() {
+            Some(Grouped(/*WIGroup::ColorChange(_) |*/ WIGroup::FontChange(_) /*| WIGroup::PDFLink(_)*/)) => true,
+            _ => false
+        } => {
+            match g.pop() {
+                Some(Grouped(mut gr)) => {
+                    let mut ngr = gr.new_from();
+                    ngr.push(Math(MathGroup { kernel: Group(GroupedMath(gr.children_prim())), subscript: None, superscript: None, limits }));
+                    return normalize_h(Grouped(ngr), ret, scale)
+                }
+                _ => unreachable!()
+            }
+        }
         Math(MathGroup {kernel:Group(GroupedMath(mut g)),subscript:None,superscript:None,limits:_}) if g.len() == 1 && match g.last() {
-            Some(Box(_)) => true,
-            Some(Math(_)) => true,
+            Some(Box(_) | Math(_) | Simple(HKern(_) | HAlign(_))) => true,
+            | Some(Grouped(_)) => false,
             _ => false
         } => {
             match g.pop() {
@@ -330,7 +332,7 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
         }
         Box(V(vb)) => {
             let mut nch: Vec<Whatsit> = vec!();
-            for c in vb.children { normalize_top(c, &mut nch,scale) }
+            for c in vb.children { normalize_v(c, &mut nch, scale) }
             if !nch.is_empty() || vb._width != Some(0) {
                 ret.push(VBox {
                     children: nch,
@@ -348,7 +350,7 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
             let mut nch: Vec<Whatsit> = vec!();
             match bx {
                 V(vb) => {
-                    for c in vb.children { normalize_top(c, &mut nch,scale) }
+                    for c in vb.children { normalize_v(c, &mut nch, scale) }
                     if !nch.is_empty() || vb._width != Some(0) {
                         ret.push(Simple(Raise(crate::stomach::simple::Raise{
                             content: V(VBox {
@@ -394,7 +396,7 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
         Simple(Leaders(_)) => ret.push(w), // TODO maybe?
         Simple(External(_)) => ret.push(w), // TODO maybe?
         Simple(VSkip(_)) => (), // TODO investigate: this shouldn't happen
-        _ => {
+        Simple(HAlign(_)) => normalize_v(w, ret, scale), _ => {
             ret.push(w)
         }
     }
@@ -404,7 +406,7 @@ fn normalize_h(w:Whatsit,ret:&mut Vec<Whatsit>,scale:Option<f32>) {
 macro_rules! singleton {
     ($math:ident,$content:ident,$sourceref:ident,$single:ident => $ret:expr) => ({
         let mut nret : Vec<Whatsit> = vec!();
-        let ncontent = normalize_m(*$content,&mut nret);
+        normalize_m(*$content,&mut nret);
         let nw = match nret.len() {
             1 => {
                 let $single = nret.pop().unwrap();
@@ -416,7 +418,7 @@ macro_rules! singleton {
     })
 }
 
-fn normalize_kernel(k : Option<MathKernel>) -> Option<MathKernel> {
+pub fn normalize_kernel(k : Option<MathKernel>) -> Option<MathKernel> {
     use Whatsit::*;
     use crate::stomach::simple::SimpleWI::*;
     use crate::stomach::boxes::TeXBox::*;
@@ -441,14 +443,51 @@ fn normalize_kernel(k : Option<MathKernel>) -> Option<MathKernel> {
             singleton!(MathInner,content,sourceref,s => {
             s
         }),
-        Some(o@(MathChar(_)|Delimiter(_))) => Some(o),
+        Some(MathOp(crate::stomach::math::MathOp {content, sourceref})) =>
+            singleton!(MathOp,content,sourceref,s => {
+            s
+        }),
+        Some(MathOpen(crate::stomach::math::MathOpen {content, sourceref})) =>
+            singleton!(MathOpen,content,sourceref,s => {
+            s
+        }),
+        Some(MathClose(crate::stomach::math::MathClose {content, sourceref})) =>
+            singleton!(MathOp,content,sourceref,s => {
+            s
+        }),
+        Some(MathPunct(crate::stomach::math::MathPunct {content, sourceref})) =>
+            singleton!(MathPunct,content,sourceref,s => {
+            s
+        }),
+        Some(MathRel(crate::stomach::math::MathRel {content, sourceref})) =>
+            singleton!(MathRel,content,sourceref,s => {
+            s
+        }),
+        Some(MathBin(crate::stomach::math::MathBin {content, sourceref})) =>
+            singleton!(MathBin,content,sourceref,s => {
+            s
+        }),
+        Some(MathAccent(crate::stomach::math::MathAccent {content,accent,sourceref})) => {
+            let mut nret : Vec<Whatsit> = vec!();
+            normalize_m(*content,&mut nret);
+            let nw = match nret.len() {
+                1 => {
+                    let s = nret.pop().unwrap();
+                    s
+                },
+                _ => GroupedMath(nret).as_whatsit()
+            };
+            Some(MathAccent(crate::stomach::math::MathAccent {content:std::boxed::Box::new(nw),accent,sourceref}))
+        }
+        Some(MKern(k)) if k.sk.base == 0 => None,
+        Some(o@(MathChar(_)|Delimiter(_)|MKern(_))) => Some(o),
         o => {
             o
         }
     }
 }
 
-fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
+pub fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
     use Whatsit::*;
     use crate::stomach::simple::SimpleWI::*;
     use crate::stomach::boxes::TeXBox::*;
@@ -457,7 +496,7 @@ fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
         Simple(MSkip(sk)) if sk.skip.base == 0 => (),
         Box(V(vb)) => {
             let mut nch : Vec<Whatsit> = vec!();
-            for c in vb.children { normalize_top(c,&mut nch,None) }
+            for c in vb.children { normalize_v(c, &mut nch, None) }
             if !nch.is_empty() || vb._width != Some(0) {
                 ret.push(VBox {
                     children: nch,
@@ -485,20 +524,6 @@ fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
                 Some(k) => k
             };
             ret.push(Math(MathGroup { kernel:nbody,subscript,superscript,limits:mg.limits }))
-        }
-        Box(H(hb)) => {
-            let mut nch : Vec<Whatsit> = vec!();
-            for c in hb.children { normalize_h(c,&mut nch,None) }
-            if !nch.is_empty() || hb._width != Some(0) {
-                ret.push(HBox {
-                    children: nch,
-                    spread: hb.spread,
-                    _width: hb._width,
-                    _height: hb._height,
-                    _depth: hb._depth,
-                    rf: hb.rf
-                }.as_whatsit())
-            }
         }
         Grouped(mut wg) => {
             let mut ng = wg.new_from();
@@ -529,12 +554,14 @@ fn normalize_m(w:Whatsit,ret:&mut Vec<Whatsit>) {
             nret.reverse();
             ret.append(&mut nret);
         }
-        Simple(MSkip(_)) | Simple(Left(_)) | Simple(Middle(_)) | Simple(Right(_)) | Simple(HSkip(_)) => ret.push(w),
+        Simple(MSkip(_)) | Simple(Left(_)) | Simple(Middle(_)) | Simple(Right(_)) | Simple(HSkip(_)) | Simple(HKern(_)) => ret.push(w),
         _ => {
             ret.push(w)
         }
     }
 }
+
+ */
 
 // -------------------------------------------------------------------------------------------------
 
@@ -552,7 +579,7 @@ impl Colon<()> for NoColon {
     fn base(&self) -> &ColonBase { &self.base }
     fn base_mut(&mut self) -> &mut ColonBase { &mut self.base }
     fn ship_whatsit(&mut self, _:Whatsit) {}
-    fn close(self) -> () {}
+    fn close(&mut self) -> () {}
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -572,5 +599,5 @@ impl Colon<String> for XMLColon {
     fn base(&self) -> &ColonBase { &self.base }
     fn base_mut(&mut self) -> &mut ColonBase { &mut self.base }
     fn ship_whatsit(&mut self, w:Whatsit) { self.ret += &w.as_xml_internal("  ".to_string()) }
-    fn close(self) -> String { self.ret + "\n</doc>"}
+    fn close(&mut self) -> String { std::mem::take(&mut self.ret) + "\n</doc>"}
 }

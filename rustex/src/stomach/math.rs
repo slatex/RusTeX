@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::fonts::Font;
 use crate::interpreter::dimensions::MuSkip;
 use crate::references::SourceFileReference;
+use crate::stomach::colon::ColonMode;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 
@@ -78,6 +79,56 @@ impl WhatsitTrait for MathGroup {
             Some(s) => s.has_ink()
         }
     }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let subscript = match self.subscript {
+            Some(k) => normalize_kernel(k),
+            _ => None
+        };
+        let superscript = match self.superscript {
+            Some(k) => normalize_kernel(k),
+            _ => None
+        };
+        let kernel = match normalize_kernel(self.kernel) {
+            None if subscript.is_none() && superscript.is_none() => return,
+            None => MathKernel::Group(GroupedMath(vec!())),
+            Some(k) => k
+        };
+        if superscript.is_none() && subscript.is_none() {
+            use crate::stomach::simple::SimpleWI;
+            match kernel {
+                MathKernel::Group(GroupedMath(mut v)) if v.len() == 1 => {
+                    match v.pop().unwrap() {
+                        o@Whatsit::Simple(SimpleWI::HAlign(_)) => {
+                            ret.push(o);
+                            return
+                        }
+                        o => {
+                            ret.push(o);
+                            return
+                        }
+                    }
+                }
+                _ => (),
+
+
+            }
+        }
+        ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
+    }
+}
+
+fn normalize_kernel(k:MathKernel) -> Option<MathKernel> {
+    let mut nret : Vec<Whatsit> = vec!();
+    k.normalize(&ColonMode::M,&mut nret,None);
+    if nret.is_empty() { return None } else if nret.len() == 1 {
+        match nret.pop() {
+            Some(Whatsit::Math(MathGroup { kernel,subscript:None,superscript:None,limits:_})) => {
+                return Some(kernel)
+            }
+            _ => ()
+        }
+    }
+    Some(MathKernel::Group(GroupedMath(nret)))
 }
 
 #[derive(Clone)]
@@ -96,7 +147,7 @@ pub enum MathKernel {
     MathInner(MathInner),
     Underline(Underline),
     Overline(Overline),
-    MathAccent(MathAccent)
+    MathAccent(MathAccent),
 }
 
 macro_rules! pass_on_kernel {
@@ -135,44 +186,8 @@ impl WhatsitTrait for MathKernel {
         pass_on_kernel!(self,as_xml_internal,prefix)
     }
     fn has_ink(&self) -> bool { pass_on_kernel!(self,has_ink) }
-}
-
-#[derive(Clone)]
-pub enum MathInfix {
-    Over(Over),
-    Above(Above),
-}
-macro_rules! pass_on_infix {
-    ($s:tt,$e:ident$(,$tl:expr)*) => (match $s {
-        MathInfix::Over(g) => Over::$e(g $(,$tl)*),
-        MathInfix::Above(g) => Above::$e(g $(,$tl)*)
-    })
-}
-impl WhatsitTrait for MathInfix {
-    fn as_whatsit(self) -> Whatsit {
-        Whatsit::MathInfix(self)
-    }
-    fn width(&self) -> i32 { pass_on_infix!(self,width) }
-    fn height(&self) -> i32 { pass_on_infix!(self,height) }
-    fn depth(&self) -> i32 { pass_on_infix!(self,depth) }
-    fn as_xml_internal(&self, prefix: String) -> String {
-        pass_on_infix!(self,as_xml_internal,prefix)
-    }
-    fn has_ink(&self) -> bool { pass_on_infix!(self,has_ink) }
-}
-impl MathInfix {
-    pub fn set(&mut self,first:Vec<Whatsit>,second:Vec<Whatsit>) {
-        use MathInfix::*;
-        match self {
-            Over(o) => {
-                o.top = first;
-                o.bottom = second
-            }
-            Above(o) => {
-                o.top = first;
-                o.bottom = second
-            }
-        }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        pass_on_kernel!(self,normalize,mode,ret,scale)
     }
 }
 
@@ -214,6 +229,13 @@ impl WhatsitTrait for GroupedMath {
         for c in &self.0 { if c.has_ink() { return true } }
         false
     }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        for w in self.0 { w.normalize(mode,&mut nret,scale) }
+        if nret.is_empty() { return }
+        ret.push(GroupedMath(nret).as_whatsit())
+    }
+
 }
 
 #[derive(Clone)]
@@ -232,6 +254,14 @@ impl WhatsitTrait for MKern {
         "<mkern value=\"".to_string() + &self.sk.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Math(MathGroup { kernel:MathKernel::MKern(ref mut mk),subscript:None,superscript:None,limits:_})) =>
+                mk.sk = mk.sk + self.sk,
+            _ if self.sk.base == 0 => (),
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -253,6 +283,9 @@ impl WhatsitTrait for MathChar {
         "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.position.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -272,6 +305,9 @@ impl WhatsitTrait for Delimiter {
         "\n".to_owned() + &prefix + "<delimiter>" + &self.small.as_xml_internal(prefix.clone()) + &self.large.as_xml_internal(prefix) + "</delimiter>"
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 macro_rules! mathgroupkernel {
@@ -292,6 +328,17 @@ macro_rules! mathgroupkernel {
                 "\n".to_owned() + &prefix + "<" + stringify!($e) + ">" + &self.content.as_xml_internal(prefix) + "</" + stringify!($e) + ">"
             }
             fn has_ink(&self) -> bool { self.content.has_ink() }
+            fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+                let mut nret : Vec<Whatsit> = vec!();
+                self.content.normalize(mode,&mut nret,scale);
+                let nw = match nret.len() {
+                    1 => {
+                        nret.pop().unwrap()
+                    },
+                    _ => GroupedMath(nret).as_whatsit()
+                };
+                ret.push($e { content:std::boxed::Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+            }
         }
     )
 }
@@ -325,57 +372,36 @@ impl WhatsitTrait for MathAccent {
             &self.accent.as_xml_internal(prefix) + "</mathaccent>"
     }
     fn has_ink(&self) -> bool { true }
-}
-
-#[derive(Clone)]
-pub struct Over {
-    pub top:Vec<Whatsit>,
-    pub bottom:Vec<Whatsit>,
-    pub delimiters:Option<Box<(Whatsit,Whatsit)>>,
-    pub sourceref:Option<SourceFileReference>
-}
-impl WhatsitTrait for Over {
-    fn as_whatsit(self) -> Whatsit {
-        MathInfix::Over(self).as_whatsit()
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        self.content.normalize(mode,&mut nret,scale);
+        let nw = match nret.len() {
+            1 => {
+                nret.pop().unwrap()
+            },
+            _ => GroupedMath(nret).as_whatsit()
+        };
+        ret.push(MathAccent { content:std::boxed::Box::new(nw), sourceref:self.sourceref,accent:self.accent }.as_whatsit())
     }
-    fn width(&self) -> i32 {
-        let mut upper : i32 = 0;
-        let mut lower : i32 = 0;
-        for w in &self.top {upper += w.width()}
-        for w in &self.bottom {lower += w.width()}
-        max(upper,lower)
-    }
-    fn height(&self) -> i32 {
-        let mut upper : i32 = 0;
-        let mut lower : i32 = 0;
-        for w in &self.top {upper = max(upper,w.height())}
-        for w in &self.bottom {lower += max(lower,w.height())}
-        upper + lower
-    }
-    fn depth(&self) -> i32 { 0 }
-    fn as_xml_internal(&self, prefix: String) -> String {
-        let mut ret = "<over><first>".to_string();
-        for w in &self.top { ret += &w.as_xml_internal(prefix.clone())}
-        ret += "</first><second>";
-        for w in &self.bottom { ret += &w.as_xml_internal(prefix.clone())}
-        ret += "</second></over>";
-        ret
-        // TODO delimiters
-    }
-    fn has_ink(&self) -> bool { true }
 }
 
 #[derive(Clone)]
 pub struct Above {
     pub top:Vec<Whatsit>,
     pub bottom:Vec<Whatsit>,
-    pub thickness:i32,
+    pub thickness:Option<i32>,
     pub delimiters:Option<Box<(Whatsit,Whatsit)>>,
     pub sourceref:Option<SourceFileReference>
 }
+impl Above {
+    pub fn set(&mut self,first:Vec<Whatsit>,second:Vec<Whatsit>) {
+        self.top = first;
+        self.bottom = second
+    }
+}
 impl WhatsitTrait for Above {
     fn as_whatsit(self) -> Whatsit {
-        MathInfix::Above(self).as_whatsit()
+        Whatsit::Above(self)
     }
     fn width(&self) -> i32 {
         let mut upper : i32 = 0;
@@ -388,8 +414,8 @@ impl WhatsitTrait for Above {
         let mut upper : i32 = 0;
         let mut lower : i32 = 0;
         for w in &self.top {upper = max(upper,w.height())}
-        for w in &self.bottom {lower += max(lower,w.height())}
-        upper + lower + self.thickness
+        for w in &self.bottom {lower = max(lower,w.height())}
+        upper + lower + self.thickness.unwrap_or(0) + (5*65536)
     }
     fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, prefix: String) -> String {
@@ -401,4 +427,24 @@ impl WhatsitTrait for Above {
         ret
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut ntop: Vec<Whatsit> = vec!();
+        let mut nbottom: Vec<Whatsit> = vec!();
+        for c in self.top { c.normalize(mode,&mut ntop,scale)}
+        for c in self.bottom { c.normalize(mode,&mut nbottom,scale)}
+        let ndelims = match self.delimiters {
+            Some(bx) => {
+                let (a,b) = *bx;
+                let mut na: Vec<Whatsit> = vec!();
+                let mut nb: Vec<Whatsit> = vec!();
+                a.normalize(mode,&mut na,scale);
+                b.normalize(mode,&mut nb,scale);
+                todo!()
+            }
+            None => None
+        };
+        ret.push(crate::stomach::math::Above {
+            top:ntop,bottom:nbottom,delimiters:ndelims,sourceref:self.sourceref,thickness:self.thickness
+        }.as_whatsit())
+    }
 }

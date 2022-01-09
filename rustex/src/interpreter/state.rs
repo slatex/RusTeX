@@ -44,8 +44,6 @@ impl Display for GroupType {
 struct StackFrame {
     //parent: Option<&'a StackFrame<'a>>,
     pub(crate) catcodes: CategoryCodeScheme,
-    pub(crate) newlinechar: u8,
-    pub(crate) endlinechar: u8,
     pub(crate) commands: HashMap<TeXStr,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i32,i32>,
     pub(crate) dimensions: HashMap<i32,i32>,
@@ -94,6 +92,7 @@ impl StackFrame {
         }
         let mut reg: HashMap<i32,i32> = HashMap::new();
         reg.insert(-(crate::commands::primitives::MAG.index as i32),1000);
+        reg.insert(-(crate::commands::primitives::FAM.index as i32),-1);
 
         let dims: HashMap<i32,i32> = HashMap::new();
         let skips: HashMap<i32,Skip> = HashMap::new();
@@ -113,8 +112,6 @@ impl StackFrame {
             //parent: None,
             catcodes: STARTING_SCHEME.clone(),
             commands: cmds,
-            newlinechar: 10,
-            endlinechar:13,
             registers:reg,
             dimensions:dims,
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
@@ -136,10 +133,10 @@ impl StackFrame {
         let sfcodes: HashMap<u8,i32> = HashMap::new();
         let mut lccodes: HashMap<u8,u8> = HashMap::new();
         let mut uccodes: HashMap<u8,u8> = HashMap::new();
-        for i in 97..123 {
+        /*for i in 97..123 {
             uccodes.insert(i,i-32);
             lccodes.insert(i-32,i);
-        }
+        }*/
         let boxes: HashMap<i32,TeXBox> = HashMap::new();
         let mathcodes : HashMap<u8,i32> = HashMap::new();
         let delcodes : HashMap<u8,i32> = HashMap::new();
@@ -147,8 +144,6 @@ impl StackFrame {
             //parent: Some(parent),
             catcodes: parent.catcodes.clone(),
             commands: HashMap::new(),
-            newlinechar: parent.newlinechar,
-            endlinechar: parent.newlinechar,
             registers:reg,
             dimensions:dims,aftergroups:vec!(),
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
@@ -199,14 +194,13 @@ pub struct State {
 
 impl State {
     pub fn new() -> State {
-        let fonts: HashMap<TeXStr,Arc<FontFile>> = HashMap::new();
-        State {
+        let mut state = State {
             stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![],
             outfiles:HashMap::new(),
             infiles:HashMap::new(),
             incs:0,
-            fontfiles: fonts,
+            fontfiles: HashMap::new(),
             mode:TeXMode::Vertical,
             afterassignment:None,
             pdfmatches : vec!(),
@@ -218,7 +212,9 @@ impl State {
             pagegoal:0,pdfximages:vec!(),aligns:vec!(),
             topmark:vec!(),botmark:vec!(),firstmark:vec!(),splitbotmark:vec!(),splitfirstmark:vec!(),
             filestore:HashMap::new()
-        }
+        };
+
+        state
     }
 
     pub fn stack_depth(&self) -> usize {
@@ -360,12 +356,6 @@ impl State {
     }
     pub fn catcodes(&self) -> &CategoryCodeScheme {
         &self.stacks.last().expect("Stack frames empty").catcodes
-    }
-    pub fn endlinechar(&self) -> u8 {
-        self.stacks.last().expect("Stack frames empty").endlinechar
-    }
-    pub fn newlinechar(&self) -> u8 {
-        self.stacks.last().expect("Stack frames empty").newlinechar
     }
     pub fn tokens(&self,index:i32) -> Vec<Token> {
         for sf in self.stacks.iter().rev() {

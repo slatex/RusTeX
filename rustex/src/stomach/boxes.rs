@@ -1,5 +1,6 @@
 use crate::interpreter::dimensions::dimtostr;
 use crate::references::SourceFileReference;
+use crate::stomach::colon::ColonMode;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitIter, WhatsitTrait, WIDTH_CORRECTION};
 
@@ -58,6 +59,9 @@ impl WhatsitTrait for TeXBox {
         pass_on!(self,"".to_string(),as_xml_internal,prefix)
     }
     fn has_ink(&self) -> bool { pass_on!(self,false,has_ink) }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        pass_on!(self,(),normalize,mode,ret,scale)
+    }
 }
 
 #[derive(Clone)]
@@ -160,6 +164,70 @@ impl WhatsitTrait for HBox {
     fn has_ink(&self) -> bool {
         for c in &self.children { if c.has_ink() { return true } }
         false
+    }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match mode {
+            ColonMode::V | ColonMode::External(_) => {
+                let mut nch : Vec<Whatsit> = vec!();
+                for c in self.children { c.normalize(&ColonMode::H,&mut nch,scale) }
+                if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) { return () }
+                /*else if nch.len() == 1 {
+                    match nch.pop() {
+                        Some(o) => {
+                            nch.push(o)
+                        }
+                        _ => unreachable!()
+                    }
+                }*/
+                ret.push(HBox {
+                    children: nch,
+                    spread: self.spread,
+                    _width: self._width,
+                    _height: self._height,
+                    _depth: self._depth,
+                    rf: self.rf
+                }.as_whatsit())
+            }
+            ColonMode::H => {
+                if self._depth.is_none() && self._height.is_none() && self._depth.is_none() {
+                    for c in self.children { c.normalize(&ColonMode::H,ret,scale) }
+                } else {
+                    let mut nch : Vec<Whatsit> = vec!();
+                    for c in self.children { c.normalize(&ColonMode::H,&mut nch,scale) }
+                    if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) {return () }
+                    ret.push(HBox {
+                        children: nch,
+                        spread: self.spread,
+                        _width: self._width,
+                        _height: self._height,
+                        _depth: self._depth,
+                        rf: self.rf
+                    }.as_whatsit())
+                }
+            }
+            ColonMode::M => {
+                let mut nch : Vec<Whatsit> = vec!();
+                for c in self.children { c.normalize(&ColonMode::H,&mut nch,None) }
+                if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) { return () }
+                else if nch.len() == 1 {
+                    match nch.pop().unwrap() {
+                        o@(Whatsit::Char(_)|Whatsit::Grouped(_)) => nch.push(o),
+                        o => {
+                            nch.push(o)
+                        }
+                        _ => unreachable!()
+                    }
+                }
+                ret.push(HBox {
+                    children: nch,
+                    spread: self.spread,
+                    _width: self._width,
+                    _height: self._height,
+                    _depth: self._depth,
+                    rf: self.rf
+                }.as_whatsit())
+            }
+        }
     }
 }
 
@@ -285,5 +353,77 @@ impl WhatsitTrait for VBox {
     fn has_ink(&self) -> bool {
         for c in &self.children { if c.has_ink() { return true } }
         false
+    }
+
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match mode {
+            ColonMode::H | ColonMode::External(_) => {
+                let mut nch : Vec<Whatsit> = vec!();
+                for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
+                if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
+                /*else if nch.len() == 1 {
+                    match nch.pop() {
+                        Some(o) => {
+                            nch.push(o)
+                        }
+                        _ => unreachable!()
+                    }
+                }*/
+                ret.push(VBox {
+                    children: nch,
+                    spread: self.spread,
+                    _width: self._width,
+                    _height: self._height,
+                    _depth: self._depth,
+                    rf: self.rf,
+                    tp:self.tp
+                }.as_whatsit())
+            }
+            ColonMode::V => {
+                if self._depth.is_none() && self._height.is_none() && self._depth.is_none() {
+                    for c in self.children { c.normalize(&ColonMode::V,ret,scale) }
+                } else {
+                    let mut nch : Vec<Whatsit> = vec!();
+                    for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
+                    if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) {return () }
+                    ret.push(VBox {
+                        children: nch,
+                        spread: self.spread,
+                        _width: self._width,
+                        _height: self._height,
+                        _depth: self._depth,
+                        rf: self.rf,
+                        tp:self.tp
+                    }.as_whatsit())
+                }
+            }
+            ColonMode::M => {
+                use crate::stomach::simple::SimpleWI;
+                let mut nch : Vec<Whatsit> = vec!();
+                for c in self.children { c.normalize(&ColonMode::V,&mut nch,None) }
+                if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
+                else if nch.len() == 1 {
+                    match nch.pop() {
+                        Some(o@Whatsit::Simple(SimpleWI::HAlign(_))) => {
+                            ret.push(o);
+                            return
+                        }
+                        Some(o) => {
+                            nch.push(o)
+                        }
+                        _ => unreachable!()
+                    }
+                }
+                ret.push(VBox {
+                    children: nch,
+                    spread: self.spread,
+                    _width: self._width,
+                    _height: self._height,
+                    _depth: self._depth,
+                    rf: self.rf,
+                    tp:self.tp
+                }.as_whatsit())
+            }
+        }
     }
 }

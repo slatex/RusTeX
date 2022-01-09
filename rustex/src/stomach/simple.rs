@@ -1,12 +1,14 @@
+use std::any::Any;
 use std::cmp::min;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use image::{DynamicImage, GenericImageView};
 use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
-use crate::stomach::boxes::TeXBox;
-use crate::stomach::colon::Colon;
+use crate::stomach::boxes::{HBox, TeXBox, VBox};
+use crate::stomach::colon::{Colon, ColonMode};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -44,7 +46,13 @@ pub enum SimpleWI {
     Left(Left),
     Middle(Middle),
     Right(Right),
-    External(Arc<dyn ExternalWhatsit>)
+    External(Box<dyn ExternalWhatsit>)
+}
+
+impl Clone for Box<dyn ExternalWhatsit> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
 }
 
 macro_rules! pass_on {
@@ -91,6 +99,18 @@ impl WhatsitTrait for SimpleWI {
         pass_on!(self,as_xml_internal,prefix)
     }
     fn has_ink(&self) -> bool { pass_on!(self,has_ink) }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        pass_on!(self,normalize,mode,ret,scale)
+    }
+}
+
+trait Normalizable {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
+}
+impl Normalizable for Box<dyn ExternalWhatsit> {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        self.normalize_dyn(mode,ret,scale)
+    }
 }
 
 #[derive(Clone)]
@@ -106,10 +126,12 @@ pub enum ExternalParam{
     Num(i32)
 }
 
-pub trait ExternalWhatsit:WhatsitTrait+Send+Sync {
+pub trait ExternalWhatsit:Any+WhatsitTrait+Send+Sync {
     fn name(&self) -> TeXStr;
     fn params(&self,name:&str) -> Option<ExternalParam>;
     fn sourceref(&self) -> &Option<SourceFileReference>;
+    fn clone_box(&self) -> Box<dyn ExternalWhatsit>;
+    fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
 }
 
 #[derive(Clone)]
@@ -189,6 +211,16 @@ impl WhatsitTrait for PDFXImage {
         ret + "/>"
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match scale {
+            Some(f) => {
+                self._width = Some(((self.width() as f32) * f).round() as i32);
+                self._height = Some(((self.height() as f32) * f).round() as i32);
+                ret.push(self.as_whatsit())
+            }
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -211,6 +243,9 @@ impl WhatsitTrait for VRule {
     }
     fn has_ink(&self) -> bool {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
+    }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
 }
 
@@ -235,6 +270,9 @@ impl WhatsitTrait for HRule {
     fn has_ink(&self) -> bool {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+    }
 }
 
 #[derive(Clone)]
@@ -253,6 +291,17 @@ impl WhatsitTrait for VSkip {
         "\n".to_string() + &prefix + "<vskip val=\"" + &self.skip.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::VSkip(sk2))) => {
+                sk2.skip = self.skip + sk2.skip;
+                if sk2.skip.base == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -271,6 +320,17 @@ impl WhatsitTrait for HSkip {
         "\n".to_string() + &prefix + "<hskip val=\"" + &self.skip.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::HSkip(sk2))) => {
+                sk2.skip = self.skip + sk2.skip;
+                if sk2.skip.base == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -289,6 +349,17 @@ impl WhatsitTrait for MSkip {
         "\n".to_string() + &prefix + "<mskip val=\"" + &self.skip.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::MSkip(sk2))) => {
+                sk2.skip = self.skip + sk2.skip;
+                if sk2.skip.base == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -307,6 +378,12 @@ impl WhatsitTrait for Penalty {
         "\n".to_string() + &prefix + "<penalty val=\"" + &self.penalty.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match (self.penalty,mode) {
+            (p,ColonMode::H) if p <= -10000 => ret.push(self.as_whatsit()),
+            _ => ()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -325,6 +402,9 @@ impl WhatsitTrait for PDFLiteral {
         "<pdfliteral value=\"".to_string() + &self.literal.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -345,6 +425,9 @@ impl WhatsitTrait for PDFXForm {
         todo!()
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -366,6 +449,49 @@ impl WhatsitTrait for Raise {
         ret + "\n" + &prefix + "</raise>"
     }
     fn has_ink(&self) -> bool { self.content.has_ink() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        if self.dim == 0 {
+            return self.content.normalize(mode, ret, scale)
+        }
+        let mut nch: Vec<Whatsit> = vec!();
+        let bx = self.content;
+        match bx {
+            TeXBox::H(bx) => {
+                for c in bx.children { c.normalize(&ColonMode::H, &mut nch, scale) }
+                if nch.is_empty() && (bx._width.is_none() || bx._width == Some(0)) { return }
+                ret.push(Raise {
+                    content: TeXBox::H(HBox {
+                        children: nch,
+                        spread: bx.spread,
+                        _width: bx._width,
+                        _height: bx._height,
+                        _depth: bx._depth,
+                        rf: bx.rf
+                    }),
+                    dim:self.dim,
+                    sourceref:self.sourceref
+                }.as_whatsit())
+            }
+            TeXBox::V(bx) => {
+                for c in bx.children { c.normalize(&ColonMode::V, &mut nch, scale) }
+                if nch.is_empty() && (bx._height.is_none() || bx._height == Some(0)) { return }
+                ret.push(Raise {
+                    content: TeXBox::V(VBox {
+                        children: nch,
+                        spread: bx.spread,
+                        _width: bx._width,
+                        _height: bx._height,
+                        _depth: bx._depth,
+                        rf: bx.rf,
+                        tp:bx.tp
+                    }),
+                    dim:self.dim,
+                    sourceref:self.sourceref
+                }.as_whatsit())
+            }
+            _ => ()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -387,6 +513,49 @@ impl WhatsitTrait for MoveRight {
         ret + "\n" + &prefix + "</moveright>"
     }
     fn has_ink(&self) -> bool { self.content.has_ink() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        if self.dim == 0 {
+            return self.content.normalize(mode, ret, scale)
+        }
+        let mut nch: Vec<Whatsit> = vec!();
+        let bx = self.content;
+        match bx {
+            TeXBox::H(bx) => {
+                for c in bx.children { c.normalize(&ColonMode::H, &mut nch, scale) }
+                if nch.is_empty() && (bx._width.is_none() || bx._width == Some(0)) { return }
+                ret.push(MoveRight {
+                    content: TeXBox::H(HBox {
+                        children: nch,
+                        spread: bx.spread,
+                        _width: bx._width,
+                        _height: bx._height,
+                        _depth: bx._depth,
+                        rf: bx.rf
+                    }),
+                    dim:self.dim,
+                    sourceref:self.sourceref
+                }.as_whatsit())
+            }
+            TeXBox::V(bx) => {
+                for c in bx.children { c.normalize(&ColonMode::V, &mut nch, scale) }
+                if nch.is_empty() && (bx._height.is_none() || bx._height == Some(0)) { return }
+                ret.push(MoveRight {
+                    content: TeXBox::V(VBox {
+                        children: nch,
+                        spread: bx.spread,
+                        _width: bx._width,
+                        _height: bx._height,
+                        _depth: bx._depth,
+                        rf: bx.rf,
+                        tp:bx.tp
+                    }),
+                    dim:self.dim,
+                    sourceref:self.sourceref
+                }.as_whatsit())
+            }
+            _ => ()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -405,6 +574,17 @@ impl WhatsitTrait for VKern {
         "\n".to_string() + &prefix + "<vkern val=\"" + &dimtostr(self.dim) + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::VKern(sk2))) => {
+                sk2.dim = self.dim + sk2.dim;
+                if sk2.dim == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -423,6 +603,17 @@ impl WhatsitTrait for HKern {
         "\n".to_string() + &prefix + "<hkern val=\"" + &dimtostr(self.dim) + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::HKern(sk2))) => {
+                sk2.dim = self.dim + sk2.dim;
+                if sk2.dim == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -441,6 +632,17 @@ impl WhatsitTrait for Indent {
         "\n".to_string() + &prefix + "<indent val=\"" + &dimtostr(self.dim) + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        match ret.last_mut() {
+            Some(Whatsit::Simple(SimpleWI::Indent(sk2))) => {
+                sk2.dim = self.dim + sk2.dim;
+                if sk2.dim == 0 {
+                    ret.pop();
+                }
+            },
+            _ => ret.push(self.as_whatsit())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -460,6 +662,9 @@ impl WhatsitTrait for PDFDest {
         "\n".to_string() + &prefix + "<pdfdest target=\"" + &self.target.to_string() + "\" dest=\"" + &self.dest.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -563,6 +768,33 @@ impl WhatsitTrait for HAlign {
             }
         }
         false
+    }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nrows : Vec<AlignBlock> = vec!();
+        for block in self.rows {
+            match block {
+                AlignBlock::Noalign(v) => {
+                    let mut na : Vec<Whatsit> = vec!();
+                    for w in v { w.normalize(&ColonMode::V, &mut na, scale)}
+                    if !na.is_empty() { nrows.push(AlignBlock::Noalign(na))}
+                }
+                AlignBlock::Block(vv) => {
+                    let mut nb : Vec<(Vec<Whatsit>,Skip,usize)> = vec!();
+                    for (v,sk,num) in vv {
+                        let mut nv : Vec<Whatsit> = vec!();
+                        for w in v { w.normalize(&ColonMode::H,&mut nv,scale) }
+                        nb.push((nv,sk,num))
+                    }
+                    nrows.push(AlignBlock::Block(nb))
+                }
+            }
+        }
+        ret.push(HAlign {
+            skip:self.skip,
+            template:self.template,
+            rows:nrows,
+            sourceref:self.sourceref
+        }.as_whatsit())
     }
 }
 
@@ -668,6 +900,34 @@ impl WhatsitTrait for VAlign {
         }
         false
     }
+
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nrows : Vec<AlignBlock> = vec!();
+        for block in self.columns {
+            match block {
+                AlignBlock::Noalign(v) => {
+                    let mut na : Vec<Whatsit> = vec!();
+                    for w in v { w.normalize(&ColonMode::H, &mut na, scale)}
+                    if !na.is_empty() { nrows.push(AlignBlock::Noalign(na))}
+                }
+                AlignBlock::Block(vv) => {
+                    let mut nb : Vec<(Vec<Whatsit>,Skip,usize)> = vec!();
+                    for (v,sk,num) in vv {
+                        let mut nv : Vec<Whatsit> = vec!();
+                        for w in v { w.normalize(&ColonMode::V,&mut nv,scale) }
+                        nb.push((nv,sk,num))
+                    }
+                    nrows.push(AlignBlock::Block(nb))
+                }
+            }
+        }
+        ret.push(VAlign {
+            skip:self.skip,
+            template:self.template,
+            columns:nrows,
+            sourceref:self.sourceref
+        }.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -686,6 +946,7 @@ impl WhatsitTrait for Mark {
         "<mark/>".to_string()
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
 }
 
 #[derive(Clone)]
@@ -704,6 +965,15 @@ impl WhatsitTrait for Leaders {
         "<leaders>".to_string() + &self.bx.as_xml_internal(prefix) + "</leaders>"
     }
     fn has_ink(&self) -> bool { self.bx.has_ink() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        self.bx.normalize(mode,&mut nret,scale);
+        if nret.is_empty() {} else if nret.len() == 1 {
+            ret.push(Leaders { bx:Box::new(nret.pop().unwrap()), sourceref:self.sourceref }.as_whatsit())
+        } else {
+            todo!()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -728,6 +998,9 @@ impl WhatsitTrait for PDFMatrix {
             "\" sskewy=\"" + &self.skewy.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -746,6 +1019,9 @@ impl WhatsitTrait for Left {
         "<left>".to_string() + self.bx.as_ref().map(|x| x.as_xml_internal(prefix)).unwrap_or("".to_string()).as_str() + "</left>"
     }
     fn has_ink(&self) -> bool { self.bx.is_some() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -764,6 +1040,9 @@ impl WhatsitTrait for Middle {
         "<middle>".to_string() + self.bx.as_ref().map(|x| x.as_xml_internal(prefix)).unwrap_or("".to_string()).as_str() + "</middle>"
     }
     fn has_ink(&self) -> bool { self.bx.is_some() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 #[derive(Clone)]
@@ -782,6 +1061,9 @@ impl WhatsitTrait for Right {
         "<right>".to_string() + self.bx.as_ref().map(|x| x.as_xml_internal(prefix)).unwrap_or("".to_string()).as_str() + "</right>"
     }
     fn has_ink(&self) -> bool { self.bx.is_some() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
 }
 
 macro_rules! trivial {
@@ -799,6 +1081,9 @@ macro_rules! trivial {
                 "<".to_string() + &stringify!($e) + "/>"
             }
             fn has_ink(&self) -> bool { false }
+            fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+                ret.push(self.as_whatsit())
+            }
         }
     )
 }

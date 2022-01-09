@@ -2,6 +2,7 @@ use std::cmp::max;
 use crate::Interpreter;
 use crate::interpreter::dimensions::Skip;
 use crate::stomach::{StomachGroup, Whatsit};
+use crate::stomach::colon::ColonMode;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 use crate::stomach::groups::WIGroupTrait;
 use crate::stomach::simple::SimpleWI;
@@ -31,6 +32,13 @@ impl WhatsitTrait for Paragraph {
     fn depth(&self) -> i32 { self._depth }
     fn has_ink(&self) -> bool { true }
     fn as_whatsit(self) -> Whatsit { Whatsit::Par(self) }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let (mut np, ch) = self.destroy();
+        let mut hret: Vec<Whatsit> = vec!();
+        for c in ch { c.normalize(&ColonMode::H, &mut hret, scale) }
+        np.children = hret;
+        ret.push(Whatsit::Par(np))
+    }
 }
 
 impl Paragraph {

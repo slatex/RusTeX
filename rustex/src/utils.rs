@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::str::{from_utf8, from_utf8_unchecked};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::mpsc::Receiver;
+use std::thread::JoinHandle;
 
 pub fn u8toi16(i : u8) -> i16 {
     i16::from(i)
@@ -207,6 +209,8 @@ impl AddAssign<String> for TeXString {
     }
 }
 
+// -------------------------------------------------------------------------------------------------
+
 use kpathsea::Kpaths;
 thread_local! {
     pub static kpaths : Kpaths = kpathsea::Kpaths::new().unwrap();
@@ -257,6 +261,8 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
     }
 }
 
+// -------------------------------------------------------------------------------------------------
+
 pub fn with_encoded_pointer<'a,S,T>(obj:&'a T,f: fn(i:i64) -> S) -> S {
     let i = encode_pointer(obj);
     f(i)
@@ -289,6 +295,8 @@ pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
         *bx
     }
 }
+
+// -------------------------------------------------------------------------------------------------
 
 use backtrace::Backtrace;
 
@@ -406,5 +414,33 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) 
                     }
                 } + &next
             }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+pub enum MaybeThread<F,T> {
+    Multi(JoinHandle<T>),
+    Single(Receiver<F>,Box<dyn FnMut(&Receiver<F>,bool) -> Option<T>>,Option<T>)
+}
+
+impl<F,T> MaybeThread<F,T> where F:Send + 'static, T:Send+'static {
+    pub fn join(mut self) -> std::thread::Result<T> {
+        match self {
+            MaybeThread::Multi(thread) => thread.join(),
+            MaybeThread::Single(_,_,Some(r)) => Ok(r),
+            MaybeThread::Single(ref a,ref mut f,_) => Ok(f(a,true).unwrap())
+        }
+    }
+    pub fn next(&mut self) {
+        match self {
+            MaybeThread::Single(r,f,ret@None) => {
+                match f(r,false) {
+                    Some(r) => {std::mem::replace(ret,Some(r));}
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
     }
 }

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::fonts::Font;
 use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;
+use crate::stomach::colon::ColonMode;
 use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{ActionSpec, HasWhatsitIter, WhatsitTrait};
@@ -57,6 +58,7 @@ pub trait ExternalWhatsitGroup : Send+Sync {
     fn priority(&self) -> i16;
     fn closes_with_group(&self) -> bool;
     fn sourceref(&self) -> &Option<SourceFileReference>;
+    fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
 }
 
 impl WhatsitTrait for WIGroup {
@@ -73,6 +75,9 @@ impl WhatsitTrait for WIGroup {
     }
     fn has_ink(&self) -> bool {
         pass_on!(self,has_ink,(e,ch)=>e.has_ink(ch))
+    }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        pass_on!(self,normalize,(e,ch) => e.normalize(ch,mode,ret,scale),mode,ret,scale);
     }
 }
 impl WIGroup {
@@ -119,6 +124,40 @@ pub struct FontChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for FontChange {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut ng = self.new_from();
+        let mut in_ink = false;
+        for c in self.children {
+            if c.has_ink() { in_ink = true }
+            if in_ink { c.normalize(mode, ng.children_mut(), scale) } else { c.normalize(mode, ret, scale) }
+        }
+        let mut nret : Vec<Whatsit> = vec!();
+        loop {
+            match ng.children.pop() {
+                None => break,
+                Some(w) if !w.has_ink() => nret.push(w),
+                Some(o) => {
+                    ng.children_mut().push(o);
+                    break
+                }
+            }
+        }
+        if !ng.children().is_empty() {
+            if ng.children.len() == 1 {
+                match ng.children.pop().unwrap() {
+                    o@Whatsit::Grouped(WIGroup::FontChange(_)) => ret.push(o),
+                    o => {
+                        ng.children.push(o);
+                        ret.push(Whatsit::Grouped(WIGroup::FontChange(ng)))
+                    }
+                }
+            } else {
+                ret.push(Whatsit::Grouped(WIGroup::FontChange(ng)))
+            }
+        }
+        nret.reverse();
+        ret.append(&mut nret);
+    }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::GroupOpen(WIGroup::FontChange(self))
     }
@@ -171,6 +210,58 @@ pub struct ColorChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for ColorChange {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut ng = self.new_from();
+        let mut in_ink = false;
+        for c in self.children {
+            if c.has_ink() { in_ink = true }
+            if in_ink { c.normalize(mode, ng.children_mut(), scale) } else { c.normalize(mode, ret, scale) }
+        }
+        let mut nret : Vec<Whatsit> = vec!();
+        loop {
+            match ng.children.pop() {
+                None => break,
+                Some(w) if !w.has_ink() => nret.push(w),
+                Some(o) => {
+                    ng.children.push(o);
+                    break
+                }
+            }
+        }
+        if !ng.children.is_empty() {
+            if ng.children.len() == 1 {
+                match ng.children.pop().unwrap() {
+                    Whatsit::Grouped(WIGroup::FontChange(mut fc)) => {
+                        if fc.children.len() == 1 {
+                            match fc.children.last().unwrap() {
+                                Whatsit::Grouped(WIGroup::ColorChange(_)) => {
+                                    ret.push(Whatsit::Grouped(WIGroup::FontChange(fc)))
+                                }
+                                _ => {
+                                    ng.children = std::mem::take(&mut fc.children);
+                                    fc.children = vec!(Whatsit::Grouped(WIGroup::ColorChange(ng)));
+                                    ret.push(Whatsit::Grouped(WIGroup::FontChange(fc)))
+                                }
+                            }
+                        } else {
+                            ng.children = std::mem::take(&mut fc.children);
+                            fc.children = vec!(Whatsit::Grouped(WIGroup::ColorChange(ng)));
+                            ret.push(Whatsit::Grouped(WIGroup::FontChange(fc)))
+                        }
+                    }
+                    o@Whatsit::Grouped(WIGroup::ColorChange(_)) => ret.push(o),
+                    o => {
+                        ng.children.push(o);
+                        ret.push(Whatsit::Grouped(WIGroup::ColorChange(ng)))
+                    }
+                }
+            } else {
+                ret.push(Whatsit::Grouped(WIGroup::ColorChange(ng)))
+            }
+        }
+        nret.reverse();
+        ret.append(&mut nret);
+    }
     fn as_whatsit(self) -> Whatsit {
         WIGroup::ColorChange(self).as_whatsit()
     }
@@ -246,6 +337,11 @@ pub struct PDFLink {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFLink {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut ng = self.new_from();
+        for c in self.children { c.normalize(mode, ng.children_mut(), scale) }
+        ret.push(Whatsit::Grouped(WIGroup::PDFLink(ng)))
+    }
     fn as_whatsit(self) -> Whatsit {
         WIGroup::PDFLink(self).as_whatsit()
     }
@@ -298,6 +394,30 @@ pub struct PDFMatrixSave {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFMatrixSave {
+    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let matrix = match self.children.iter().filter(|x| match x {
+            Whatsit::Simple(SimpleWI::PDFMatrix(_)) => true,
+            _ => false
+        }).next() {
+            Some(Whatsit::Simple(SimpleWI::PDFMatrix(g))) => g.clone(),
+            _ => {
+                for c in self.children {c.normalize(mode,ret,scale)}
+                return
+            }
+        };
+        let mut ng = self.new_from();
+        let nch : Vec<Whatsit> = self.children.drain(..).filter(|x| match x {
+            Whatsit::Simple(SimpleWI::PDFMatrix(_)) => false,
+            _ => true
+        }).collect();
+        if matrix.scale == matrix.skewy && matrix.rotate == 0.0 && matrix.skewx == 0.0 {
+            for c in nch { c.normalize(mode,ret,Some(matrix.scale)) }
+        } else {
+            ng.children.push(matrix.as_whatsit());
+            for c in nch { c.normalize(mode, &mut ng.children,scale) }
+            ret.push(Whatsit::Grouped(WIGroup::PDFMatrixSave(ng)))
+        }
+    }
     fn as_whatsit(self) -> Whatsit {
         WIGroup::PDFMatrixSave(self).as_whatsit()
     }
@@ -395,6 +515,7 @@ impl WhatsitTrait for GroupClose {
     fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, _: String) -> String { "".to_string() }
     fn has_ink(&self) -> bool { false }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
 }
 
 macro_rules! groupclose {
@@ -418,6 +539,7 @@ macro_rules! groupclose {
             fn depth(&self) -> i32 { 0 }
             fn as_xml_internal(&self, prefix: String) -> String { "".to_string() }
             fn has_ink(&self) -> bool { false }
+            fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
         }
     )
 }

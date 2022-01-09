@@ -63,7 +63,9 @@ impl FontTableStore {
                 ("rm-lmss",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif),
                 ("cmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
+                ("cmti",STANDARD_TEXT_CM,FontTableParam::Italic),
                 ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("cmbx",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Bold),
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("rm-lmri",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 // ec ---------------------------------------------------------------------
@@ -83,14 +85,26 @@ impl FontTableStore {
                 ("ectt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
                 ("ec-lmtt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
                 ("ecit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ecsl",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmri",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ecsl",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ecsx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
                 ("ec-lmssbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
                 ("ecti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmtti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ec-lmtk",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Bold),
+                ("ec-lmtto",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Italic),
+                ("ec-lmro",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ec-lmtlc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
                 // math --------------------------------------------------------------------
                 ("cmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("lmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("cmex",CMEX,FontTableParam::Math),
+                ("cmbx",CMEX,FontTableParam::Math,FontTableParam::Bold),
+                ("lmex",CMEX,FontTableParam::Math),
+                ("tcrm",MATH_TC,FontTableParam::Math),
+                ("tcss",MATH_TC,FontTableParam::Math,FontTableParam::SansSerif),
+                ("tcsl",MATH_TC,FontTableParam::Math,FontTableParam::Italic),
                 ("MnSymbolA",MNSYMBOL_A,FontTableParam::Math),
                 ("MnSymbolB",MNSYMBOL_B,FontTableParam::Math),
                 ("MnSymbolC",MNSYMBOL_C,FontTableParam::Math),
@@ -102,7 +116,16 @@ impl FontTableStore {
                 ("msbm",MSBM,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Blackboard),
                 ("stmary",STMARY,FontTableParam::Math),
                 ("ts-lmr",TS1_LM,FontTableParam::Math),
-                ("ts-lmss",TS1_LM,FontTableParam::Math)
+                ("ts-lmss",TS1_LM,FontTableParam::Math,FontTableParam::SansSerif),
+                ("ts-lmbx",TS1_LM,FontTableParam::Math,FontTableParam::Bold),
+                ("pzdr",PZDR,FontTableParam::Math),
+                ("psyr",PSYR,FontTableParam::Math),
+                ("manfnt",MANFNT,FontTableParam::Math),
+                ("line",LINE,FontTableParam::Math),
+                ("linew",LINEW,FontTableParam::Math),
+                ("lcircle",LCIRCLE,FontTableParam::Math),
+                ("lcirclew",LCIRCLEW,FontTableParam::Math),
+                ("wasy",WASY,FontTableParam::Math)
                 ;{
                     println!("Warning: No character table for font {}",name);
                     None
@@ -133,7 +156,7 @@ lazy_static! {
     ]);
     pub static ref STANDARD_TEXT_EC : HashMap<u8,&'static str> = HashMap::from([
         (0,"`"),(1," ́"),(2,"^"),(3," ̃"),(4," ̈"),(5," ̋"),(6," ̊"),(7,"ˇ"),(8," ̆"),(9," ̄"),(10," ̇"),
-        (11," ̧"),(12," ̨"),(13,","),(14,"‹"),(15,"›"),(16,"“"),(17,"”"),(18,"„"),(19,"«"),(20,"»"),
+        (11," ̧"),(12," ̨"),(13,","),(14,"<"),(15,">"),(16,"“"),(17,"”"),(18,"„"),(19,"«"),(20,"»"),
         (21,"-"),(22,"―"),(23,""),(24,"。"),(25,"ı"),(26,"ȷ"),(27,"ff"),(28,"fi"),(29,"fl"),(30,"ffi"),
         (31,"ffl"),(32,"␣"),(33,"!"),(34,"\""),(35,"#"),(36,"$"),(37,"%"),(38,"&"),(39,"’"),(40,"("),
         (41,")"),(42,"*"),(43,"+"),(44,","),(45,"-"),(46,"."),(47,"/"),(48,"0"),(49,"1"),
@@ -141,7 +164,7 @@ lazy_static! {
         (60,"¡"),(61,"="),(62,"¿"),(63,"?"),(64,"@"),(65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),
         (70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),(75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),
         (80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),(85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),
-        (90,"Z"),(91,"["),(92,"“"),(93,"]"),(94,"^"),(95," ̇"),(96,"‘"),(97,"a"),(98,"b"),(99,"c"),
+        (90,"Z"),(91,"["),(92,"\\"),(93,"]"),(94,"^"),(95,"_"),(96,"‘"),(97,"a"),(98,"b"),(99,"c"),
         (100,"d"),(101,"e"),(102,"f"),(103,"g"),(104,"h"),(105,"i"),(106,"j"),(107,"k"),(108,"l"),
         (109,"m"),(110,"n"),(111,"o"),(112,"p"),(113,"q"),(114,"r"),(115,"s"),(116,"t"),(117,"u"),
         (118,"v"),(119,"w"),(120,"x"),(121,"y"),(122,"z"),(123,"{"),(124,"|"),(125,"}"),(124,"|"),
@@ -344,7 +367,33 @@ lazy_static! {
         (61,"-"),
         (136,"•")
     ]);
+    pub static ref WASY : HashMap<u8,&'static str> = HashMap::from([
+        (3,"▷"),
+        (25,"♀"),(26,"♂"),
+        (44,"🙂"),
+        (47,"🙁"),
+        (50,"□"),(51,"◇"),
+        (59,"⤳"),(60,"⊏"),(61,"⊐")
+    ]);
+
+    pub static ref MATH_TC : HashMap<u8,&'static str> = HashMap::from([
+        (36,"$"),
+        (39,"\'"),
+        (42,"*"),
+        (44,","),(45,"="),(46,"."),(47,"/"),
+        (136,"•"),
+        (191,"€"),
+        (214,"Ö")
+    ]);
+
+    pub static ref LINE : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref LINEW : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref LCIRCLE : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref LCIRCLEW : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref PZDR : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref PSYR : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref MANFNT : HashMap<u8,&'static str> = HashMap::from([]);
 
     // ---------------------------------------------------------------------------------------------
 

@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::rc::Rc;
 use std::sync::Arc;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
@@ -6,7 +7,8 @@ use crate::interpreter::dimensions::numtostr;
 use crate::interpreter::TeXMode;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
-use crate::stomach::groups::{ColorChange, ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup};
+use crate::stomach::colon::ColonMode;
+use crate::stomach::groups::{ColorChange, ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup, WIGroupTrait};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -20,7 +22,7 @@ pub static PGFSYSDRIVER : PrimitiveExecutable = PrimitiveExecutable {
         Ok(())
     }
 };
-
+/*
 pub struct PGFColor {
     pub color:TeXStr,
     pub sourceref:Option<SourceFileReference>
@@ -79,6 +81,9 @@ pub static COLORPOP : SimpleWhatsit = SimpleWhatsit {
     },
 };
 
+ */
+
+#[derive(Clone)]
 pub struct PGFEscape {
     pub sourceref:Option<SourceFileReference>,
     pub bx : TeXBox
@@ -89,10 +94,32 @@ impl WhatsitTrait for PGFEscape {
     fn height(&self) -> i32 { 0 }
     fn width(&self) -> i32 { 0 }
     fn as_whatsit(self) -> Whatsit {
-        Whatsit::Simple(SimpleWI::External(Arc::new(self)))
+        Whatsit::Simple(SimpleWI::External(Box::new(self)))
     }
     fn as_xml_internal(&self, prefix: String) -> String {
         "<escape>".to_string() + &self.bx.as_xml_internal(prefix) + "</escape>"
+    }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        let width = self.bx.width();
+        let height = self.bx.height();
+        let depth = self.bx.depth();
+        match self.bx {
+            TeXBox::H(mut hb) => {
+                //hb._width = Some(width); hb._height = Some(height); hb._depth = Some(depth);
+                hb.normalize(&ColonMode::V,&mut nret,scale)
+            },
+            TeXBox::V(mut vb) => {
+                //vb._width = Some(width); vb._height = Some(height); vb._depth = Some(depth);
+                vb.normalize(&ColonMode::H,&mut nret,scale)
+            },
+            TeXBox::Void => return ()
+        }
+        assert_eq!(nret.len(),1);
+        match nret.pop() {
+            Some(Whatsit::Box(bx)) => ret.push(PGFEscape { bx, sourceref:self.sourceref}.as_whatsit()),
+            _ => unreachable!()
+        }
     }
 }
 unsafe impl Send for PGFEscape {}
@@ -103,6 +130,12 @@ impl ExternalWhatsit for PGFEscape {
         if name == "box" {Some(ExternalParam::Whatsits(vec!(Whatsit::Box(self.bx.clone()))))} else {None}
     }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
+    fn clone_box(&self) -> Box<dyn ExternalWhatsit> {
+        Box::new(self.clone())
+    }
+    fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        self.clone().normalize(mode,ret,scale)
+    }
 }
 
 pub static PGFHBOX: SimpleWhatsit = SimpleWhatsit {
@@ -116,6 +149,7 @@ pub static PGFHBOX: SimpleWhatsit = SimpleWhatsit {
     },
 };
 
+#[derive(Clone)]
 pub struct PGFBox {
     pub sourceref:Option<SourceFileReference>,
     pub content: Vec<Whatsit>,
@@ -125,13 +159,38 @@ pub struct PGFBox {
     maxy:i32
 }
 unsafe impl Send for PGFBox {}
+impl PGFBox {
+    fn normalize_i(wi : Whatsit) -> Vec<Whatsit> {
+        match wi {
+            Whatsit::Box(tb) => tb.children().drain(..).map(PGFBox::normalize_i).flatten().collect(),
+            Whatsit::Simple(SimpleWI::External(ext)) if ext.name().to_string() == "pgfescape" => {
+                let mut nv : Vec<Whatsit> = vec!();
+                ext.normalize_dyn(&ColonMode::H,&mut nv,None);
+                nv
+            }
+           // Whatsit::Simple(SimpleWI::Hss(_)) => vec!(),
+            //Whatsit::Simple(SimpleWI::External(ref ext)) if ext.name().to_string() == "pgfliteral" => { vec!(wi) }
+            //Whatsit::Grouped(WIGroup::ColorChange(mut c)) => c.children.drain(..).map(PGFBox::normalize_i).flatten().collect(),
+            //Whatsit::Space(_) => {vec!(wi) }
+            Whatsit::Grouped(gr) => gr.children_prim().drain(..).map(PGFBox::normalize_i).flatten().collect(),
+            o => {
+                vec!(o)
+            }
+        }
+    }
+}
 impl WhatsitTrait for PGFBox {
+    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let nc : Vec<Whatsit> = self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
+        self.content = nc;
+        ret.push(self.as_whatsit())
+    }
     fn has_ink(&self) -> bool { true }
     fn depth(&self) -> i32 { 0 }
     fn height(&self) -> i32 { self.maxy - self.miny }
     fn width(&self) -> i32 { self.maxx - self.minx }
     fn as_whatsit(self) -> Whatsit {
-        Whatsit::Simple(SimpleWI::External(Arc::new(self)))
+        Whatsit::Simple(SimpleWI::External(Box::new(self)))
     }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut str ="\n".to_string() + &prefix + "<svg xmlns=\"http://www.w3.org/2000/svg\"";
@@ -159,6 +218,12 @@ impl ExternalWhatsit for PGFBox {
         else { None }
     }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
+    fn clone_box(&self) -> Box<dyn ExternalWhatsit> {
+        Box::new(self.clone())
+    }
+    fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        self.clone().normalize(mode,ret,scale)
+    }
 }
 
 pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
@@ -186,11 +251,15 @@ pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     },
 };
 
+#[derive(PartialEq,Clone)]
 pub struct PGFLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for PGFLiteral {
-    fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Arc::new(self)))}
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+    fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
@@ -201,6 +270,12 @@ impl ExternalWhatsit for PGFLiteral {
     fn name(&self) -> TeXStr { "pgfliteral".into() }
     fn params(&self, name: &str) -> Option<ExternalParam> { if name == "string" { Some(ExternalParam::String(self.str.clone())) } else { None } }
     fn sourceref(&self) -> &Option<SourceFileReference> { &None }
+    fn clone_box(&self) -> Box<dyn ExternalWhatsit> {
+        Box::new(self.clone())
+    }
+    fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        self.clone().normalize(mode,ret,scale)
+    }
 }
 
 pub static PGFLITERAL : SimpleWhatsit = SimpleWhatsit {
@@ -219,7 +294,7 @@ pub fn pgf_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PGFSYSDRIVER),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&TYPESETPICTUREBOX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PGFLITERAL)),
-    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&COLORPUSH)),
-    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&COLORPOP)),
+    // PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&COLORPUSH)),
+    // PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&COLORPOP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PGFHBOX))
 ]}

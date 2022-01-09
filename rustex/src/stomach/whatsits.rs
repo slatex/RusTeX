@@ -84,11 +84,13 @@ pub trait WhatsitTrait {
     fn as_xml(&self) -> String {
         self.as_xml_internal("".to_string())
     }
+    fn normalize(self,mode:&ColonMode,ret:&mut Vec<Whatsit>,scale:Option<f32>);
 }
 
 use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{GroupClose, WIGroup, WIGroupTrait};
-use crate::stomach::math::{MathGroup, MathInfix};
+use crate::stomach::math::{Above, MathGroup};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::SimpleWI;
 
@@ -104,11 +106,11 @@ pub enum Whatsit {
     Char(PrintChar),
     Space(SpaceChar),
     Math(MathGroup),
-    MathInfix(MathInfix),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
     Par(Paragraph),
     Inserts(Insert),
+    Above(Above),
     Float(TeXBox)
 }
 
@@ -122,12 +124,12 @@ macro_rules! pass_on {
         Whatsit::Char(g) => PrintChar::$e(g $(,$tl)*),
         Whatsit::Space(g) => SpaceChar::$e(g $(,$tl)*),
         Whatsit::Math(g) => MathGroup::$e(g $(,$tl)*),
-        Whatsit::MathInfix(g) => MathInfix::$e(g $(,$tl)*),
         Whatsit::Ls(_) => panic!("Should never happen!"),
         Whatsit::Grouped(g) => WIGroup::$e(g $(,$tl)*),
         Whatsit::Par(g) => Paragraph::$e(g $(,$tl)*),
         Whatsit::Inserts(g) => Insert::$e(g $(,$tl)*),
         Whatsit::Float(g) => TeXBox::$e(g $(,$tl)*),
+        Whatsit::Above(g) => Above::$e(g $(,$tl)*),
         }
     )
 }
@@ -141,6 +143,9 @@ impl WhatsitTrait for Whatsit {
             _ => ()
         }
     }*/
+    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        pass_on!(self,normalize,mode,ret,scale)
+    }
     fn as_whatsit(self) -> Whatsit { self }
     fn width(&self) -> i32 { pass_on!(self,width) }
     fn height(&self) -> i32 { pass_on!(self,height) }
@@ -203,6 +208,9 @@ impl ExecutableWhatsit {
     }
 }
 impl WhatsitTrait for Arc<ExecutableWhatsit> {
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Exec(self)
     }
@@ -223,6 +231,9 @@ pub struct SpaceChar {
     pub font : Arc<Font>,
 }
 impl WhatsitTrait for SpaceChar {
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Space(self) }
     fn width(&self) -> i32 { self.font.get_width(32) }
     fn height(&self) -> i32 { self.font.get_height(32) }
@@ -240,6 +251,9 @@ pub struct PrintChar {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PrintChar {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Char(self) }
     fn width(&self) -> i32 { self.font.get_width(self.char as u16) }
     fn height(&self) -> i32 { self.font.get_height(self.char as u16) }
@@ -278,4 +292,13 @@ impl WhatsitTrait for Insert {
         ret + "</inserts"
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut iret : Vec<Vec<Whatsit>> = vec!();
+        for v in self.0 {
+            let mut iiret : Vec<Whatsit> = vec!();
+            for w in v { w.normalize(mode, &mut iiret, scale) }
+            if !iiret.is_empty() {iret.push(iiret)}
+        }
+        if !iret.is_empty() { ret.push(Insert(iret).as_whatsit())}
+    }
 }
