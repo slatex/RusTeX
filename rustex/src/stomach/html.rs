@@ -550,7 +550,7 @@ impl HTMLColon {
                 println!("TODO: {}",ext.as_xml());
                 literal!(self,node_top,"<!-- TODO:".to_string() + &ext.as_xml() +  "-->")
             }
-            Simple(Mark(_)) => (),
+            Simple(Mark(_)) | Box(Void) => (),
             _ => literal!(self,node_top,"<!-- TODO -->")//self.ret += &w.as_xml_internal("  ".to_string())
         }
         if node_top.is_none() {
@@ -680,6 +680,19 @@ impl HTMLColon {
             }<),
             Space(_) => literal!(self,node_top," "),
             Simple(VRule(vr)) => {
+                node!(self,span,vr.sourceref.clone(),"vrule",node_top,n => {
+                    n.style("width".into(),dimtohtml(vr.width()));
+                    n.style("min-width".into(),dimtohtml(vr.width()));
+                    n.style("height".into(),dimtohtml(vr.height() + vr.depth()));
+                    n.style("min-height".into(),dimtohtml(vr.height() + vr.height()));
+                    n.style("background".into(),match &self.state.currcolor {
+                        Some(c) => HTMLStr::from("#") + c,
+                        None => "#000000".into()
+                    });
+                    if vr.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-vr.depth())) }
+                })
+            }
+            Simple(HRule(vr)) => { // from Leaders
                 node!(self,span,vr.sourceref.clone(),"vrule",node_top,n => {
                     n.style("width".into(),dimtohtml(vr.width()));
                     n.style("min-width".into(),dimtohtml(vr.width()));
