@@ -70,13 +70,13 @@ jobs:
       run: rustup target add x86_64-apple-darwin
 #    - name: linker fixes
 #      run: cd ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/i686-pc-windows-gnu/lib/self-contained && mv crt2.o crt2.o.ori && mv dllcrt2.o dllcrt2.o.ori && cp /usr/i686-w64-mingw32/lib/crt2.o . && cp /usr/i686-w64-mingw32/lib/dllcrt2.o .
-    - name: Deploy Windows
+    - name: Deploy Mac
       run: cd rustex && cargo build --release --target x86_64-apple-darwin
-    - name: Upload Windows
+    - name: Upload Mac
       uses: actions/upload-artifact@v2
       with:
         name: mac
         path: |
-          ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.rlib
-          ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.so
-          ./rustex/target/x86_64-unknown-linux-gnu/release/rustex
+          ./rustex/target/x86_64-apple-darwin/release/librustex.rlib
+          ./rustex/target/x86_64-apple-darwin/release/librustex.so
+          ./rustex/target/x86_64-apple-darwin/release/rustex
