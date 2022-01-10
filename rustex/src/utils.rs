@@ -213,7 +213,7 @@ impl AddAssign<String> for TeXString {
 
 use kpathsea::Kpaths;
 thread_local! {
-    pub static kpaths : Kpaths = kpathsea::Kpaths::new().unwrap();
+    pub static kpaths : Option<Kpaths> = kpathsea::Kpaths::new();
 }
 
 lazy_static! {
@@ -223,7 +223,7 @@ lazy_static! {
     pub static ref TEXMF1 : PathBuf = kpsewhich("article.sty",&PWD).expect("article.sty not found")
         .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();//.up().up().up().up();
     pub static ref TEXMF2 : PathBuf = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found")
-        .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();
+        .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();
     /*
     kpsewhich("article.sty").getOrElse(
     error("article.sty not found - do you have LaTeX installed?", None)
@@ -243,21 +243,23 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
         None
     } else {
         env::set_current_dir(indir).expect("Could not switch to directory");
-        let ret = match kpaths.try_with(|x| x.find_file(s)).unwrap() {
+        let ret = match kpaths.try_with(|x| match x {
+            Some(k) => k.find_file(s),
+            None => {
+                let rs : Vec<u8> = std::process::Command::new("kpsewhich")
+                    .arg(s).output().expect("kpsewhich not found!")
+                    .stdout;
+                match std::str::from_utf8(rs.as_slice()) {
+                    Ok(v) => Some(v.to_string()),
+                    Err(_) => panic!("utils.rs 34")
+                }
+            }
+        }).unwrap() {
             Some(v) =>
                 PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s)),
             None => indir.to_path_buf().join(s)
         };
         Some(ret)
-        /*
-        let rs : Vec<u8> = Command::new("kpsewhich")
-            .arg(s).output().expect("kpsewhich not found!")
-            .stdout;
-        match str::from_utf8(rs.as_slice()) {
-            Ok(v) => Some(PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s))),
-            Err(_) => panic!("utils.rs 34")
-        }
-         */
     }
 }
 

@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 
 lazy_static! {
   /// loads the kpathsea library
-  pub static ref kpathsealib : Kpathsea = {
+  pub static ref kpathsealib : Option<Kpathsea> = {
     #[cfg(unix)]
     let path = "libkpathsea.so";
     #[cfg(windows)]
@@ -16,9 +16,11 @@ lazy_static! {
       let kpsewhich_path = which("kpsewhich").unwrap_or_else(|_| panic!("Error: no kpsewhich found!")).parent().unwrap().to_str().unwrap().to_string();
       kpsewhich_path + "\\kpathsealib.dll"
     };
-    unsafe { Kpathsea::new(&path)
-      .unwrap_or_else(|e| panic!("Error loading {}:\n{}",path,e)) }
-
+    unsafe { match Kpathsea::new(&path) {
+      Ok(s) => Some(s),
+      _ => None
+    }}
+      //.unwrap_or_else(|e| panic!("Error loading {}:\n{}",path,e)) }
   };
 }
 /// External result type for handling library errors
@@ -41,24 +43,31 @@ fn get_kpsewhich_path() -> Result<CString> {
 
 impl Kpaths {
   /// Obtain a new kpathsea struct, with metadata for the current rust executable
-  pub fn new() -> Result<Self> {
-    let kpse = unsafe { kpathsealib.kpathsea_new() };
+  pub fn new() -> Option<Self> {
+    let klib = match kpathsealib.as_ref() {
+      Some(k) => k,
+      _ => return None
+    };
+    let kpse = unsafe { klib.kpathsea_new() };
 
     // kpathsea says we should pass in the current executable name to
     // kpathsea_set_program_name, but there are cases where this causes
     // kpathsea to fail to find the available TeX distribution. Instead, we use
     // the location of the kpsewhich executable, which ensures that we find the
     // correct TeX distribution.
-    let kpsewhich_path = get_kpsewhich_path()?;
+    let kpsewhich_path = match get_kpsewhich_path() {
+      Ok(r) => r,
+      _ => return None
+    };
 
     unsafe {
-      kpathsealib.kpathsea_set_program_name(
+      klib.kpathsea_set_program_name(
         kpse,
         kpsewhich_path.as_ptr(),
         std::ptr::null()
       )
     }
-    Ok(Kpaths(kpse))
+    Some(Kpaths(kpse))
   }
 
   /// For a given filename, try to guess the kpse format type from the file
@@ -73,7 +82,7 @@ impl Kpaths {
         // If this format hasn't been initialized yet, initialize it now.
         // Otherwise, it won't have the list of suffixes initialized.
         unsafe {
-          kpathsealib.kpathsea_init_format(self.0, format_type as kpse_file_format_type);
+          kpathsealib.as_ref().unwrap().kpathsea_init_format(self.0, format_type as kpse_file_format_type);
         }
       }
 
@@ -123,7 +132,7 @@ impl Kpaths {
     let c_name = CString::new(name).unwrap();
 
     let file_format_type = self.guess_format_from_filename(name);
-    let c_filename_buf = unsafe { kpathsealib.kpathsea_find_file(
+    let c_filename_buf = unsafe { kpathsealib.as_ref().unwrap().kpathsea_find_file(
       self.0,
       c_name.as_ptr(),
       file_format_type,
@@ -147,6 +156,6 @@ impl Kpaths {
 impl Drop for Kpaths {
   /// Cleanup the kpathsea pointer in the destructor
   fn drop(&mut self) {
-    unsafe { kpathsealib.kpathsea_finish(self.0) };
+    unsafe { kpathsealib.as_ref().unwrap().kpathsea_finish(self.0) };
   }
 }
