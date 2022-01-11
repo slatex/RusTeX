@@ -329,6 +329,9 @@ pub trait Stomach : Send {
             match bg {
                 StomachGroup::Other(w) if w.closes_with_group() => cwgs.push(w.new_from()),
                 StomachGroup::TeXGroup(_,_) => break,
+                /*StomachGroup::Par(_) => {
+                    println!("Here!")
+                }*/
                 _ => ()
             }
         }

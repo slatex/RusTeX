@@ -1,7 +1,7 @@
 pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
-pub mod pgfsvg;
+pub mod pgfsvg; pub mod rustex_specials;
 
 use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
@@ -632,7 +632,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/course/fragments/syllabus1.en.tex (53,") && tk.cmdname().to_string() == "LT@get@widths" { // {
+        /*if /*int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/course/fragments/syllabus1.en.tex (53,") && */ tk.cmdname().to_string() == "endframe" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
              //TeXErr!((int,None),"Here!!");

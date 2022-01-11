@@ -182,7 +182,15 @@ impl Interpreter<'_> {
             colon.initialize(fnt,color,self);
             let mut colonthread = if crate::SINGLETHREADED {
                 MaybeThread::Single(receiver,Box::new(move |rec,end| {
-                    if end {Some(colon.close())} else {
+                    if end {
+                        loop {
+                            match rec.try_iter().next() {
+                                Some(StomachMessage::WI(w)) => colon.ship_whatsit(w),
+                                _ => break
+                            }
+                        }
+                        Some(colon.close())
+                    } else {
                         match rec.try_iter().next() {
                             Some(StomachMessage::WI(w)) => {
                                 colon.ship_whatsit(w);

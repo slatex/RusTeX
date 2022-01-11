@@ -1162,8 +1162,12 @@ impl HTMLColon {
             Simple(Left(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
             Simple(Middle(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
             Simple(Right(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
-            Above(o) => match o.delimiters {
-                None => node!(self,mfrac,o.sourceref,"over",node_top,over => {
+            Above(o) => annotate!(self,mrow,None,node_top,mrow => {
+                match o.delimiters.0 {
+                    Some(d) => self.ship_m(d.as_whatsit(),&mut Some(HTMLParent::A(&mut mrow))),
+                    _ => ()
+                }
+                node!(self,mfrac,o.sourceref,"over",&mut Some(HTMLParent::A(&mut mrow)),over => {
                     match o.thickness {
                         Some(i) => over.attr("linethickness".into(),dimtohtml(i)),
                         _ => ()
@@ -1174,25 +1178,12 @@ impl HTMLColon {
                     annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
                         for c in o.bottom { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
                     })
-                }),
-                Some(d) => annotate!(self,mrow,None,node_top,mrow => {
-                    let (a,b) = *d;
-                    self.ship_m(a,&mut Some(HTMLParent::A(&mut mrow)));
-                    node!(self,mfrac,o.sourceref,"over",&mut Some(HTMLParent::A(&mut mrow)),over => {
-                        match o.thickness {
-                            Some(i) => over.attr("linethickness".into(),dimtohtml(i)),
-                            _ => ()
-                        }
-                        annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
-                            for c in o.top { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
-                        });
-                        annotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut over)),a => {
-                            for c in o.bottom { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
-                        })
-                    });
-                    self.ship_m(b,&mut Some(HTMLParent::A(&mut mrow)))
-                })
-            }
+                });
+                match o.delimiters.1 {
+                    Some(d) => self.ship_m(d.as_whatsit(),&mut Some(HTMLParent::A(&mut mrow))),
+                    _ => ()
+                }
+            }),
             Simple(Leaders(ld)) => {
                 self.ship_m(ld.bx.clone().as_whatsit(),node_top);
                 self.ship_m(ld.bx.clone().as_whatsit(),node_top);

@@ -11,8 +11,8 @@ static SINGLETHREADED : bool = true;
 static PGF_AS_SVG : bool = true;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
-static COPY_TOKENS_FULL : bool = true;
-static COPY_COMMANDS_FULL : bool = true;
+static COPY_TOKENS_FULL : bool = false;
+static COPY_COMMANDS_FULL : bool = false;
 pub static LOG_FILE : &str = "/home/jazzpirate/rustex.log.xhtml";
 
 #[macro_export]

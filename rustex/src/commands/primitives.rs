@@ -1986,7 +1986,7 @@ pub static DUMP: PrimitiveExecutable = PrimitiveExecutable {
 pub static VRULE: SimpleWhatsit = SimpleWhatsit {
     name:"vrule",
     modes:|m| match m {
-        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal | TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     },
     _get: |tk,int| {
@@ -2986,11 +2986,29 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(Above {
-            top:vec!(),bottom:vec!(),delimiters:None,
+            top:vec!(),bottom:vec!(),delimiters:(None,None),
             sourceref:int.update_reference(tk),thickness:None
         }.as_whatsit())
     }
 };
+
+fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
+    let wi = int.read_math_whatsit(None)?;
+    match wi {
+        Some(Whatsit::Math(MathGroup { kernel:(
+            MathKernel::MathChar(mc) |
+            MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                               superscript:None,subscript:None,limits:_ })) =>
+            if mc.class == 4 || mc.class == 5 || mc.class == 3 {
+                Ok(Some(mc))
+            } else if mc.class == 6 || mc.class == 0 {
+                Ok(None)
+            } else {
+                TeXErr!((int,None),"Missing delimiter after \\left")
+            },
+        _ => TeXErr!((int,None),"Missing delimiter after \\left")
+    }
+}
 
 pub static OVERWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
     name:"overwithdelims",
@@ -2998,7 +3016,12 @@ pub static OVERWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        todo!()
+        let delim1 = dodelim(int)?;
+        let delim2 = dodelim(int)?;
+        Ok(Above {
+            top:vec!(),bottom:vec!(),delimiters:(delim1,delim2),
+            sourceref:int.update_reference(tk),thickness:None
+        }.as_whatsit())
     }
 };
 
@@ -3010,7 +3033,7 @@ pub static ABOVE: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:None,
+            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(None,None),
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3022,7 +3045,13 @@ pub static ABOVEWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        todo!()
+        let delim1 = dodelim(int)?;
+        let delim2 = dodelim(int)?;
+        let dim = int.read_dimension()?;
+        Ok(Above {
+            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(delim1,delim2),
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 
@@ -3033,7 +3062,7 @@ pub static ATOP: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:None,
+            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(None,None),
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3045,7 +3074,12 @@ pub static ATOPWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         x == TeXMode::Math || x == TeXMode::Displaymath
     },
     _get: |tk,int| {
-        todo!()
+        let delim1 = dodelim(int)?;
+        let delim2 = dodelim(int)?;
+        Ok(Above {
+            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(delim1,delim2),
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
     }
 };
 

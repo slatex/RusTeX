@@ -414,7 +414,7 @@ pub struct Above {
     pub top:Vec<Whatsit>,
     pub bottom:Vec<Whatsit>,
     pub thickness:Option<i32>,
-    pub delimiters:Option<Box<(Whatsit,Whatsit)>>,
+    pub delimiters:(Option<MathChar>,Option<MathChar>),
     pub sourceref:Option<SourceFileReference>
 }
 impl Above {
@@ -456,19 +456,8 @@ impl WhatsitTrait for Above {
         let mut nbottom: Vec<Whatsit> = vec!();
         for c in self.top { c.normalize(mode,&mut ntop,scale)}
         for c in self.bottom { c.normalize(mode,&mut nbottom,scale)}
-        let ndelims = match self.delimiters {
-            Some(bx) => {
-                let (a,b) = *bx;
-                let mut na: Vec<Whatsit> = vec!();
-                let mut nb: Vec<Whatsit> = vec!();
-                a.normalize(mode,&mut na,scale);
-                b.normalize(mode,&mut nb,scale);
-                todo!()
-            }
-            None => None
-        };
         ret.push(crate::stomach::math::Above {
-            top:ntop,bottom:nbottom,delimiters:ndelims,sourceref:self.sourceref,thickness:self.thickness
+            top:ntop,bottom:nbottom,delimiters:self.delimiters,sourceref:self.sourceref,thickness:self.thickness
         }.as_whatsit())
     }
 }
