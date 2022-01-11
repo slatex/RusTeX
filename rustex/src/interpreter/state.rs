@@ -94,7 +94,9 @@ impl StackFrame {
         reg.insert(-(crate::commands::primitives::MAG.index as i32),1000);
         reg.insert(-(crate::commands::primitives::FAM.index as i32),-1);
 
-        let dims: HashMap<i32,i32> = HashMap::new();
+        let mut dims: HashMap<i32,i32> = HashMap::new();
+        dims.insert(-(crate::commands::pdftex::PDFPXDIMEN.index as i32),65536);
+
         let skips: HashMap<i32,Skip> = HashMap::new();
         let muskips: HashMap<i32,MuSkip> = HashMap::new();
         let toks: HashMap<i32,Vec<Token>> = HashMap::new();

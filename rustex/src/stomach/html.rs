@@ -1331,7 +1331,7 @@ impl HTMLNode {
         match &self.sourceref {
             Some(s) => {
                 ret += " rustex:sourceref=\"";
-                ret += s.as_string();
+                ret += HTMLStr::from(s.as_string()).html_escape();
                 ret += "\""
             }
             _ => ()

@@ -376,7 +376,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
 
 use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
-use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Underline};
+use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Radical, Underline};
 use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
 use crate::stomach::groups::FontChange;
 use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSkip, Hss, Indent, Leaders, Left, Mark, Middle, MoveRight, MSkip, Penalty, Raise, Right, SimpleWI, VAlign, VFil, VFill, VKern, VRule, VSkip, Vss};
@@ -1622,7 +1622,7 @@ pub static INPUTLINENO: NumericCommand = NumericCommand {
 pub static LASTSKIP: NumericCommand = NumericCommand {
     name:"lastskip",
     _getvalue: |int| {
-        match int.stomach.borrow().last_whatsit() {
+        match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::VSkip(s))) => Ok(Numeric::Skip(s.skip)),
             Some(Whatsit::Simple(SimpleWI::HSkip(s))) => Ok(Numeric::Skip(s.skip)),
             _ => Ok(Numeric::Skip(Skip {
@@ -1635,7 +1635,7 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
 pub static LASTKERN: NumericCommand = NumericCommand {
     name:"lastkern",
     _getvalue: |int| {
-        match int.stomach.borrow().last_whatsit() {
+        match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::VKern(s))) => Ok(Numeric::Dim(s.dim)),
             Some(Whatsit::Simple(SimpleWI::HKern(s))) => Ok(Numeric::Dim(s.dim)),
             _ => Ok(Numeric::Dim(0))
@@ -1647,7 +1647,7 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"unkern",
     expandable:false,
     _apply:|tk,int| {
-        let remove = match int.stomach.borrow().last_whatsit() {
+        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => true,
             _ => false
         };
@@ -1660,7 +1660,7 @@ pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
     expandable:false,
     _apply:|tk,int| {
-        let remove = match int.stomach.borrow().last_whatsit() {
+        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::Penalty(_))) => true,
             _ => false
         };
@@ -1813,7 +1813,7 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"unskip",
     expandable:false,
     _apply:|_tk,int| {
-        let remove = match int.stomach.borrow().last_whatsit() {
+        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_))) => {
                 true
             },
@@ -2440,7 +2440,7 @@ pub static FONTCHARIC: NumericCommand = NumericCommand {
 pub static LASTPENALTY: NumericCommand = NumericCommand {
     name:"lastpenalty",
     _getvalue: |int| {
-        match int.stomach.borrow().last_whatsit() {
+        match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::Penalty(p))) => Ok(Numeric::Int(p.penalty)),
             _ => Ok(Numeric::Int(0))
         }
@@ -2801,7 +2801,7 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
         };
         let (skip,template,mut rows) = do_align(int,BoxMode::H,BoxMode::V)?;
         //unsafe { crate::LOG = true }
-        match rows.pop() {
+        /*match rows.pop() {
             Some(AlignBlock::Noalign(v)) => {
                 let mut ret : Vec<Whatsit> = vec!(
                     Whatsit::Simple(SimpleWI::HAlign(HAlign {
@@ -2815,7 +2815,7 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
                 rows.push(o)
             }
             _ => ()
-        }
+        }*/
         Ok(Whatsit::Simple(SimpleWI::HAlign(HAlign {
             skip,template,rows,sourceref:int.update_reference(tk)
         })))
@@ -3268,7 +3268,6 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
             large: largemc,
             sourceref: int.update_reference(tk)
         };
-
         Ok(Some(MathKernel::Delimiter(delim)))
     }
 };
@@ -3353,7 +3352,19 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
 
 pub static RADICAL: MathWhatsit = MathWhatsit {
     name:"radical",
-    _get: |tk,int,pr| {todo!()}
+    _get: |tk,int,pr| {
+        let num = int.read_number()?;
+        let large = num % 4096;
+        let small = (num - large)/4096;
+        let largemc = int.do_math_char(None,large as u32);
+        let smallmc = int.do_math_char(None,small as u32);
+        let delim = Radical {
+            small: smallmc,
+            large: largemc,
+            sourceref: int.update_reference(tk)
+        };
+        Ok(Some(MathKernel::Radical(delim)))
+    }
 };
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {

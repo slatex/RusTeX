@@ -401,14 +401,26 @@ impl Interpreter<'_> {
     // Numbers -------------------------------------------------------------------------------------
 
     fn num_do_ret(&self,ishex:bool,isoct:bool,isnegative:bool,allowfloat:bool,ret:TeXString) -> Result<Numeric,TeXError> {
+        let utf = match ret.to_utf8() {
+            s if s == "." => "0.0".to_string(),
+            s => s
+        };
         let num = if ishex {
-            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 16).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&utf, 16).or_else(|_| {
+                TeXErr!((self,None),"Number error (should be impossible)")
+            })?)
         } else if isoct {
-            Numeric::Int(i32::from_str_radix(&ret.to_utf8(), 8).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str_radix(&utf, 8).or_else(|_| {
+                TeXErr!((self,None),"Number error (should be impossible)")
+            })?)
         } else if allowfloat {
-            Numeric::Float(f32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Float(f32::from_str(&utf).or_else(|_| {
+                TeXErr!((self,None),"Number error (should be impossible)")
+            })?)
         } else {
-            Numeric::Int(i32::from_str(&ret.to_utf8()).or_else(|_| TeXErr!((self,None),"Number error (should be impossible)"))?)
+            Numeric::Int(i32::from_str(&utf).or_else(|_| {
+                TeXErr!((self,None),"Number error (should be impossible)")
+            })?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
@@ -542,6 +554,9 @@ impl Interpreter<'_> {
             Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
             Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f32 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f32 * f,istrue))),
+            Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
+                self.state_dimension(-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f32 * f,
+                istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),

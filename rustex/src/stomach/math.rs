@@ -137,6 +137,7 @@ pub enum MathKernel {
     MathChar(MathChar),
     MKern(MKern),
     Delimiter(Delimiter),
+    Radical(Radical),
     MathOp(MathOp),
     MathOpen(MathOpen),
     MathClose(MathClose),
@@ -156,6 +157,7 @@ macro_rules! pass_on_kernel {
         MathKernel::MathChar(g) => MathChar::$e(g $(,$tl)*),
         MathKernel::MKern(g) => MKern::$e(g $(,$tl)*),
         MathKernel::Delimiter(g) => Delimiter::$e(g $(,$tl)*),
+        MathKernel::Radical(g) => Radical::$e(g $(,$tl)*),
         MathKernel::MathOp(g) => MathOp::$e(g $(,$tl)*),
         MathKernel::MathOpen(g) => MathOpen::$e(g $(,$tl)*),
         MathKernel::MathClose(g) => MathClose::$e(g $(,$tl)*),
@@ -303,6 +305,28 @@ impl WhatsitTrait for Delimiter {
     fn depth(&self) -> i32 { self.small.depth() }
     fn as_xml_internal(&self, prefix: String) -> String {
         "\n".to_owned() + &prefix + "<delimiter>" + &self.small.as_xml_internal(prefix.clone()) + &self.large.as_xml_internal(prefix) + "</delimiter>"
+    }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+}
+
+#[derive(Clone)]
+pub struct Radical {
+    pub small:MathChar,
+    pub large:MathChar,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for Radical {
+    fn as_whatsit(self) -> Whatsit {
+        MathKernel::Radical(self).as_whatsit()
+    }
+    fn width(&self) -> i32 { self.small.width() }
+    fn height(&self) -> i32 { self.small.height() }
+    fn depth(&self) -> i32 { self.small.depth() }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "\n".to_owned() + &prefix + "<radical>" + &self.small.as_xml_internal(prefix.clone()) + &self.large.as_xml_internal(prefix) + "</delimiter>"
     }
     fn has_ink(&self) -> bool { true }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {

@@ -605,6 +605,55 @@ pub trait Stomach : Send {
         for r in repush { self.base_mut().buffer.push(r) }
     }
 
+    fn last_halign(&mut self,int:&Interpreter,mut halign:HAlign) -> bool {
+        match halign.rows.pop() {
+            Some(AlignBlock::Block(mut v)) => {
+                let mut ch : Vec<Whatsit> = vec!();
+                for (mut c,s,_) in v {
+                    ch.push(HBox {
+                        spread:0,
+                        _width:None,_height:None,_depth:None,rf:None,
+                        children:c
+                    }.as_whatsit());
+                    ch.push(HSkip {
+                        skip:halign.skip,sourceref:None
+                    }.as_whatsit())
+                }
+                /*loop {
+                    match rows.last() {
+                        _ => break
+                    }
+                }*/
+                self.base_mut().buffer.push(HAlign{
+                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
+                }.as_whatsit());
+                let tb = TeXBox::H(HBox {
+                    children: ch,
+                    spread: 0,
+                    _width: None,
+                    _height: None,
+                    _depth: None,
+                    rf: None
+                });
+                self.base_mut().buffer.push(tb.as_whatsit());
+                true
+            }
+            Some(AlignBlock::Noalign(mut v)) => {
+                self.base_mut().buffer.push(HAlign{
+                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
+                }.as_whatsit());
+                for w in v.drain(..).rev() {
+                    /*match w {
+                        Whatsit::Simple(SimpleWI::Penalty(_)) => (),
+                        _ =>*/ self.base_mut().buffer.push(w)
+                    //}
+                }
+                true
+            }
+            _ => false
+        }
+    }
+
     fn last_box(&mut self,int:&Interpreter) -> Result<Option<TeXBox>,TeXError> {
         let mut repush : Vec<Whatsit> = vec!();
         loop {
@@ -619,59 +668,12 @@ pub trait Stomach : Send {
                     for r in repush { self.base_mut().buffer.push(r) }
                     return Ok(Some(tb))
                 }
-                Some(Whatsit::Simple(SimpleWI::HAlign(HAlign{ skip, template,mut rows,sourceref}))) => {
-                    match rows.pop() {
-                        Some(AlignBlock::Block(mut v)) => {
-                            let mut ch : Vec<Whatsit> = vec!();
-                            for (mut c,s,_) in v {
-                                ch.push(HBox {
-                                    spread:0,
-                                    _width:None,_height:None,_depth:None,rf:None,
-                                    children:c
-                                }.as_whatsit());
-                                ch.push(HSkip {
-                                    skip:s,sourceref:None
-                                }.as_whatsit())
-                            }
-                            loop {
-                                match rows.last() {
-                                    Some(AlignBlock::Noalign(_)) => {
-                                        match rows.pop() {
-                                            Some(AlignBlock::Noalign(mut v)) => {
-                                                for w in v.drain(..).rev() {
-                                                    /*match w {
-                                                        Whatsit::Simple(SimpleWI::Penalty(_)) => (),
-                                                        _ =>*/ repush.push(w)
-                                                    //}
-                                                }
-                                            }
-                                            _ => unreachable!()
-                                        }
-                                    }
-                                    _ => break
-                                }
-                            }
-                            self.add_inner(int,HAlign{
-                                skip,template,rows,sourceref
-                            }.as_whatsit())?;
-                            let tb = TeXBox::H(HBox {
-                                children: ch,
-                                spread: 0,
-                                _width: None,
-                                _height: None,
-                                _depth: None,
-                                rf: None
-                            });
-                            repush.reverse();
-                            for r in repush { self.base_mut().buffer.push(r) }
-                            return Ok(Some(tb))
-                        }
-                        r => {
-                            rows.push(r.unwrap());
-                            todo!()
-                        }
-                    }
-                }
+                Some(Whatsit::Simple(SimpleWI::HAlign(h))) => {
+                    let done = self.last_halign(int,h);
+                    repush.reverse();
+                    for r in repush { self.base_mut().buffer.push(r) }
+                    if done { return self.last_box(int) } else { return Ok(None) }
+                },
                 Some(r) => {
                     repush.push(r);
                     break
@@ -684,14 +686,34 @@ pub trait Stomach : Send {
         Ok(None)
     }
 
-    fn last_whatsit(&self) -> Option<&Whatsit> {
-        for w in self.base().buffer.iter().rev() {
-            match w {
-                Whatsit::GroupOpen(WIGroup::GroupOpen(_)) => return None,
-                Whatsit::GroupOpen(_) => (),
-                r => return Some(r)
+    fn last_whatsit(&mut self,int:&Interpreter) -> Option<Whatsit> {
+        let mut repush : Vec<Whatsit> = vec!();
+        loop {
+            match self.base_mut().buffer.pop() {
+                Some(r@Whatsit::GroupOpen(WIGroup::GroupOpen(_))) => {
+                    repush.push(r);
+                    break
+                },
+                Some(r@Whatsit::GroupOpen(_)) => {
+                    repush.push(r);
+                },
+                Some(Whatsit::Simple(SimpleWI::HAlign(h))) => {
+                    let ret = self.last_halign(int,h);
+                    repush.reverse();
+                    for r in repush { self.base_mut().buffer.push(r) }
+                    if ret { return self.last_whatsit(int) } else {return None}
+                },
+                Some(r) => {
+                    repush.push(r.clone());
+                    repush.reverse();
+                    for r in repush { self.base_mut().buffer.push(r) }
+                    return Some(r)
+                }
+                _ => break
             }
         }
+        repush.reverse();
+        for r in repush { self.base_mut().buffer.push(r) }
         None
     }
 
@@ -756,14 +778,14 @@ pub trait Stomach : Send {
                 Some(StomachGroup::Top(v)) => {
                     return Ok(v)
                 },
-                Some(StomachGroup::Other(g)) => self.add(int,Whatsit::Grouped(g))?,
+                Some(StomachGroup::Other(g)) => self.add_inner_actually(int,Whatsit::Grouped(g))?,
                 Some(p@StomachGroup::Par(_)) => {
                     self.base_mut().stomachgroups.push(p);
                     self.end_paragraph(int)?
                 },
                 Some(g@StomachGroup::TeXGroup(_,_)) => {
                     self.base_mut().stomachgroups.push(g);
-                    for w in self.pop_group(int)? { self.add(int,w)? }
+                    for w in self.pop_group(int)? { self.add_inner_actually(int,w)? }
                 }
                 None => return Ok(vec!())
             }
