@@ -1,18 +1,21 @@
 use std::collections::HashMap;
 use robusta_jni::bridge;
 use rustex::interpreter::Interpreter;
+use rustex::interpreter::state::State;
 use rustex::stomach::NoShipoutRoutine;
 
-pub static mut INTERPRETERS : Option<Interpreter> = None;
-pub static mut STOMACH : Option<NoShipoutRoutine> = None;
+pub static mut MAIN_STATE : Option<State> = None;
 
 #[bridge]
 pub mod java {
     use std::borrow::BorrowMut;
+    use std::path::Path;
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
-    use crate::javabridge::{INTERPRETERS, STOMACH};
+    use crate::javabridge::MAIN_STATE;
     use rustex::interpreter::Interpreter;
+    use rustex::stomach::html::HTMLColon;
+    use rustex::stomach::NoShipoutRoutine;
 
     #[derive(Signature)]
     #[package(com.jazzpirate.rustex.bridge)]
@@ -20,19 +23,22 @@ pub mod java {
     impl Bridge {
         pub extern "jni" fn initialize<'env,'borrow>(env: &'borrow JNIEnv<'env>) -> bool {
             unsafe {
-                match INTERPRETERS {
+                match MAIN_STATE {
                     Some(_) => (),
                     None => {
                         use rustex::interpreter::state::default_pdf_latex_state;
-                        use rustex::stomach::NoShipoutRoutine;
-                        STOMACH = Some(NoShipoutRoutine::new());
                         let state = default_pdf_latex_state();
-                        let int = Interpreter::with_state(state,STOMACH.as_mut().unwrap());
-                        INTERPRETERS.insert(int);
+                        MAIN_STATE.insert(state);
                     }
                 }
             }
             true
+        }
+        pub extern "jni" fn parse<'env,'borrow>(env: &'borrow JNIEnv<'env>,file:String) -> String {
+            let state = unsafe { std::mem::take(&mut MAIN_STATE).unwrap() };
+            let (state,ret) = Interpreter::do_file_with_state(Path::new(&file),state,HTMLColon::new(true));
+            unsafe { MAIN_STATE = Some(state)}
+            ret
         }
 
     }

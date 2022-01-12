@@ -9,6 +9,7 @@ object Implicits {
 import Implicits._
 private class Bridge {
   @native def initialize() : Boolean
+  @native def parse(file:String) : String
 }
 /*
 
@@ -40,6 +41,7 @@ object Bridge {
     bridge.get.initialize()
     println("TeX Engine Initialized")
   }
+  def parse(s : String) = bridge.get.parse(s)
   //System.load("/home/jazzpirate/work/Software/RusTeX/librustex.so")
   //private val bridge = new Bridge
   //bridge.initialize()
@@ -57,7 +59,10 @@ object Bridge {
 
 object Test {
   def main(args: Array[String]): Unit = {
-    Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
-    //Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
+    //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
+    Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target")
+    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex")
+    println("Done")
+    println(ret)
   }
 }

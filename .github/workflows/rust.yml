@@ -72,4 +72,5 @@ jobs:
         name: mac
         path: |
           ./rustex/target/x86_64-apple-darwin/release/librustex.rlib
+          ./rustex/target/x86_64-apple-darwin/release/librustex.dylib
           ./rustex/target/x86_64-apple-darwin/release/rustex
