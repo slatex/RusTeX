@@ -18,10 +18,10 @@ pub mod java {
     use rustex::stomach::NoShipoutRoutine;
 
     #[derive(Signature)]
-    #[package(com.jazzpirate.rustex.bridge)]
+    #[package(info.kwarc.rustex)]
     struct Bridge {}
     impl Bridge {
-        pub extern "jni" fn initialize<'env,'borrow>(env: &'borrow JNIEnv<'env>) -> bool {
+        pub extern "jni" fn initialize<'env,'borrow>(_: &'borrow JNIEnv<'env>) -> bool {
             unsafe {
                 match MAIN_STATE {
                     Some(_) => (),
@@ -34,10 +34,10 @@ pub mod java {
             }
             true
         }
-        pub extern "jni" fn parse<'env,'borrow>(env: &'borrow JNIEnv<'env>,file:String) -> String {
-            let state = unsafe { std::mem::take(&mut MAIN_STATE).unwrap() };
-            let (state,ret) = Interpreter::do_file_with_state(Path::new(&file),state,HTMLColon::new(true));
-            unsafe { MAIN_STATE = Some(state)}
+        pub extern "jni" fn parse<'env,'borrow>(_: &'borrow JNIEnv<'env>,file:String) -> String {
+            let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
+            let (_,ret) = Interpreter::do_file_with_state(Path::new(&file),state,HTMLColon::new(true));
+            // TODO maybe update main state unsafe { MAIN_STATE = Some(state)}
             ret
         }
 

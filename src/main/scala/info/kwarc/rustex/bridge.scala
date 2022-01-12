@@ -1,4 +1,5 @@
-package com.jazzpirate.rustex.bridge
+package info.kwarc.rustex
+
 import java.util
 import scala.collection.mutable
 
@@ -31,17 +32,23 @@ object Bridge {
   def initialize(path : String): Unit = {
     val syspath = System.getProperty("os.name").toUpperCase()
 
-    val actualpath = path + "/" + {
-      if (syspath.startsWith("WINDOWS")) "i686-pc-windows-gnu/release/rustex_java.dll"
-      else if (syspath.startsWith("MAC")) "x86_64-apple-darwin/release/librustex_java.dylib"
-      else "x86_64-unknown-linux-gnu/release/librustex_java.so"
-    }
+    val actualpath = path + "/" + library_filename()
     System.load(actualpath)
     bridge = Some(new Bridge)
     bridge.get.initialize()
     println("TeX Engine Initialized")
   }
-  def parse(s : String) = bridge.get.parse(s)
+  def parse(s : String) = bridge match {
+    case Some(b) => b.parse(s)
+    case None => ???
+  }
+  def library_filename() = {
+    val syspath = System.getProperty("os.name").toUpperCase()
+    if (syspath.startsWith("WINDOWS")) "i686-pc-windows-gnu/release/rustex_java.dll"
+    else if (syspath.startsWith("MAC")) "x86_64-apple-darwin/release/librustex_java.dylib"
+    else "x86_64-unknown-linux-gnu/release/librustex_java.so"
+  }
+  def initialized() = bridge.isDefined
   //System.load("/home/jazzpirate/work/Software/RusTeX/librustex.so")
   //private val bridge = new Bridge
   //bridge.initialize()
