@@ -87,19 +87,43 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: linux
+          path: ./linux
       - uses: actions/download-artifact@v2
         with:
           name: windows
+          path: ./windows
       - uses: actions/download-artifact@v2
         with:
           name: mac
+          path: ./mac
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
-          title: "build"
+          title: "linux"
           files: |
-            linux.zip
-            windows.zip
-            mac.zip
+            ./linux/librustex.rlib
+            ./linux/librustex.so
+            ./linux/rustex
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "windows"
+          files: |
+            ./windows/librustex.rlib
+            ./windows/rustex.dll
+            ./windows/rustex.dll.lib
+            ./windows/rustex.exe
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "mac"
+          files: |
+            ./mac/librustex.rlib
+            ./mac/librustex.dylib
+            ./mac/rustex
