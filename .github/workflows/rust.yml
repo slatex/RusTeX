@@ -113,7 +113,7 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
-          title: main"
+          title: main
           files: |
             ./linux.zip
             ./windows.zip
