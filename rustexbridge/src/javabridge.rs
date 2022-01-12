@@ -1,8 +1,5 @@
-use std::collections::HashMap;
 use robusta_jni::bridge;
-use rustex::interpreter::Interpreter;
 use rustex::interpreter::state::State;
-use rustex::stomach::NoShipoutRoutine;
 
 pub static mut MAIN_STATE : Option<State> = None;
 
@@ -15,7 +12,6 @@ pub mod java {
     use crate::javabridge::MAIN_STATE;
     use rustex::interpreter::Interpreter;
     use rustex::stomach::html::HTMLColon;
-    use rustex::stomach::NoShipoutRoutine;
 
     #[derive(Signature)]
     #[package(info.kwarc.rustex)]
