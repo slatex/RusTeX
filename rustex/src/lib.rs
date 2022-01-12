@@ -9,6 +9,7 @@ mod fonts;
 
 static SINGLETHREADED : bool = true;
 static PGF_AS_SVG : bool = true;
+static RUSTEX_SPECIALS: bool = true;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;

@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::fonts::Font;
 use crate::fonts::fontchars::FontTableParam;
 use crate::Interpreter;
-use crate::interpreter::dimensions::numtostr;
+use crate::interpreter::dimensions::{numtostr, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::{Colon, ColonBase, ColonMode};
 use crate::stomach::groups::WIGroupTrait;
@@ -172,7 +172,9 @@ pub struct HTMLColon {
     pub base:ColonBase,
     ret : String,
     doheader:bool,
-    pub state:HTMLState
+    pub state:HTMLState,
+    pub namespaces : HashMap<String,String>,
+    pagewidth:i32,textwidth:i32,lineheight:Skip
 }
 unsafe impl Send for HTMLColon {}
 
@@ -192,40 +194,9 @@ impl Colon<String> for HTMLColon {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
             };
-            self.ret = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/Math/DTD/mathml2/xhtml-math11-f.dtd\">\n".into();
-            self.ret += "<html xmlns=\"";
-            self.ret += HTML_NS;
-            self.ret += "\" xmlns:mml=\"";
-            self.ret += MATHML_NS;
-            self.ret += "\" xmlns:svg=\"";
-            self.ret += SVG_NS;
-            self.ret += "\" xmlns:rustex=\"";
-            self.ret += RUSTEX_NS;
-            self.ret += "\">\n  <head>\n    <style>\n";
-            self.ret += CSS;
-            self.ret += "\n    </style>";
-            //self.ret += "\n    <script type=\"text/javascript\" id=\"MathJax-script\" src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js\"></script>";
-            self.ret += "\n  </head>\n  <body style=\"width:";
-            let pagewidth = int.state_dimension(-(crate::commands::pdftex::PDFPAGEWIDTH.index as i32));
-            self.ret += &dimtohtml(pagewidth).to_string();
-            self.ret += "\">\n    <div class=\"body\" style=\"font-size:";
-            let fontsize = match &basefont.at {
-                Some(i) => *i,
-                None => 655360
-            };
-            self.ret += &dimtohtml(fontsize).to_string();
-            self.ret += ";width:";
-            let textwidth = int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32));
-            self.ret += &dimtohtml(textwidth).to_string();
-            self.ret += ";padding:";
-            self.ret += &dimtohtml(((pagewidth - textwidth) as f32 / 2.0).round() as i32).to_string();
-            self.ret += ";line-height:";
-            let lineheight = int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32));
-            self.ret += &(lineheight.base as f32 / fontsize as f32).to_string();
-            self.ret += ";\"";
-            self.ret += " rustex:font=\"";
-            self.ret += basefont.file.name.to_string().as_str();
-            self.ret += "\">\n";
+            self.pagewidth = int.state_dimension(-(crate::commands::pdftex::PDFPAGEWIDTH.index as i32));
+            self.textwidth = int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32));
+            self.lineheight = int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32));
 
             let base = self.base_mut();
             base.basefont = Some(basefont);
@@ -234,17 +205,67 @@ impl Colon<String> for HTMLColon {
     }
     fn close(&mut self) -> String {
         if self.doheader {
-            std::mem::take(&mut self.ret) + "\n    </div>\n  </body>\n</html>"
+            self.header() + &std::mem::take(&mut self.ret) + "\n    </div>\n  </body>\n</html>"
         } else { std::mem::take(&mut self.ret) }
     }
 }
 impl HTMLColon {
-    pub fn new(doheader:bool) -> HTMLColon { HTMLColon {
-        base:ColonBase::new(),
-        ret:"".to_string(),
-        state:HTMLState::new(),
-        doheader
-    }}
+    fn header(&self) -> String {
+        let mut ret : String = "".to_string();
+        if self.doheader {
+            ret += "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1 plus MathML 2.0//EN\" \"http://www.w3.org/Math/DTD/mathml2/xhtml-math11-f.dtd\">\n";
+            ret += "<html xmlns=\"";
+            ret += HTML_NS;
+            ret += "\"";
+            for (a,b) in &self.namespaces {
+                ret += " xmlns:";
+                ret += a;
+                ret += "=\"";
+                ret += b;
+                ret += "\""
+            }
+            ret += ">\n  <head>\n    <style>\n";
+            ret += CSS;
+            ret += "\n    </style>";
+            //self.ret += "\n    <script type=\"text/javascript\" id=\"MathJax-script\" src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js\"></script>";
+            ret += "\n  </head>\n  <body style=\"width:";
+            ret += &dimtohtml(self.pagewidth).to_string();
+            ret += "\">\n    <div class=\"body\" style=\"font-size:";
+            let fontsize = match &self.base.basefont.as_ref().unwrap().at {
+                Some(i) => *i,
+                None => 655360
+            };
+            ret += &dimtohtml(fontsize).to_string();
+            ret += ";width:";
+            ret += &dimtohtml(self.textwidth).to_string();
+            ret += ";padding:";
+            ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
+            ret += ";line-height:";
+            ret += &(self.lineheight.base as f32 / fontsize as f32).to_string();
+            ret += ";\"";
+            ret += " rustex:font=\"";
+            ret += self.base.basefont.as_ref().unwrap().file.name.to_string().as_str();
+            ret += "\">\n";
+        }
+        ret
+    }
+    pub fn new(doheader:bool) -> HTMLColon {
+        let mut ret = HTMLColon {
+            base:ColonBase::new(),
+            ret:"".to_string(),
+            state:HTMLState::new(),
+            doheader,
+            namespaces:HashMap::new(),
+            pagewidth: 0,
+            textwidth: 0,
+            lineheight: Skip {base:0, stretch: None, shrink: None }
+        };
+        ret.namespaces.insert("xhtml".into(),HTML_NS.into());
+        ret.namespaces.insert("mml".into(),MATHML_NS.into());
+        ret.namespaces.insert("svg".into(),SVG_NS.into());
+        ret.namespaces.insert("rustex".into(),RUSTEX_NS.into());
+        ret
+    }
     /*
     fn ship_top<'a>(&mut self,w:Whatsit,node_top:&mut Option<HTMLParent<'a>>) {
         use Whatsit::*;
@@ -1031,6 +1052,11 @@ impl From<&'static str> for HTMLStr {
 impl From<String> for HTMLStr {
     fn from(s: String) -> Self {
         HTMLStr::Mut(s)
+    }
+}
+impl From<&String> for HTMLStr {
+    fn from(s: &String) -> Self {
+        HTMLStr::Mut(s.clone())
     }
 }
 impl From<TeXStr> for HTMLStr {

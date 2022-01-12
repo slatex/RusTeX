@@ -80,6 +80,7 @@ fn display(us:&[u8]) -> String {
             ret.push(*x)
         }
         13 => ret.push(10),
+        10 => ret.push(10),
         _ if is_ascii(u) => {
             ret.push(*u)
         }

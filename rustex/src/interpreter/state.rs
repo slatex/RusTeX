@@ -632,6 +632,7 @@ impl State {
 
 pub fn default_pdf_latex_state() -> State {
     use crate::commands::pgfsvg::pgf_commands;
+    use crate::commands::rustex_specials::rustex_special_commands;
     let mut st = State::new();
     let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
     let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
@@ -642,6 +643,12 @@ pub fn default_pdf_latex_state() -> State {
     st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new()).0;
     if crate::PGF_AS_SVG {
         for c in pgf_commands() {
+            let c = c.as_command();
+            st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
+        }
+    }
+    if crate::RUSTEX_SPECIALS {
+        for c in rustex_special_commands() {
             let c = c.as_command();
             st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
         }
@@ -743,7 +750,7 @@ impl Interpreter<'_> {
             }
             18 => todo!("{}",index),
             255 => {
-                print!("{}",Black.on(Blue).paint(s.to_utf8()));
+                //print!("{}",Black.on(Blue).paint(s.to_utf8()));
                 Ok(())
             }
             i if !self.state.borrow().outfiles.contains_key(&i) => {

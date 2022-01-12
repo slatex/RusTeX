@@ -1,5 +1,45 @@
+use std::collections::HashMap;
 use robusta_jni::bridge;
+use rustex::interpreter::Interpreter;
+use rustex::stomach::NoShipoutRoutine;
 
+pub static mut INTERPRETERS : Option<Interpreter> = None;
+pub static mut STOMACH : Option<NoShipoutRoutine> = None;
+
+#[bridge]
+pub mod java {
+    use std::borrow::BorrowMut;
+    use robusta_jni::jni::JNIEnv;
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
+    use crate::javabridge::{INTERPRETERS, STOMACH};
+    use rustex::interpreter::Interpreter;
+
+    #[derive(Signature)]
+    #[package(com.jazzpirate.rustex.bridge)]
+    struct Bridge {}
+    impl Bridge {
+        pub extern "jni" fn initialize<'env,'borrow>(env: &'borrow JNIEnv<'env>) -> bool {
+            unsafe {
+                match INTERPRETERS {
+                    Some(_) => (),
+                    None => {
+                        use rustex::interpreter::state::default_pdf_latex_state;
+                        use rustex::stomach::NoShipoutRoutine;
+                        STOMACH = Some(NoShipoutRoutine::new());
+                        let state = default_pdf_latex_state();
+                        let int = Interpreter::with_state(state,STOMACH.as_mut().unwrap());
+                        INTERPRETERS.insert(int);
+                    }
+                }
+            }
+            true
+        }
+
+    }
+
+}
+
+/*
 #[bridge]
 pub mod java {
     use rustex::commands::TeXCommand;
@@ -142,3 +182,4 @@ impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
         match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
     }
 }
+ */

@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+use std::sync::Arc;
 use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
-use crate::htmlliteral;
+use crate::{htmlannotate, htmlliteral, htmlparent, TeXErr};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{HTMLChild, HTMLColon, HTMLParent, HTMLStr};
+use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup};
+use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLParent, HTMLStr};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -61,7 +64,7 @@ impl WhatsitTrait for HTMLNamespace {
         "<namespace abbr=\"".to_string() + &self.abbr.to_string() + "\" target=\"" + &self.ns.to_string() + "\"/>"
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        todo!()
+        colon.namespaces.insert(self.abbr.to_string(),self.ns.to_string());
     }
 }
 impl ExternalWhatsit for HTMLNamespace {
@@ -108,12 +111,129 @@ pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+#[derive(PartialEq,Clone)]
+struct AnnotateBegin {
+    sourceref:Option<SourceFileReference>,
+    attrs:HashMap<String,String>,
+    styles:HashMap<String,String>
+}
+impl ExternalWhatsitGroup for AnnotateBegin {
+    fn name(&self) -> TeXStr { "HTMLannotate".into() }
+    fn params(&self,_:&str) -> Option<TeXStr> { None }
+    fn width(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
+    fn height(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
+    fn depth(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
+    fn has_ink(&self,ch:&Vec<Whatsit>) -> bool {
+        for c in ch {
+            if c.has_ink() {return true }
+        }
+        false
+    }
+    fn opaque(&self) -> bool { false }
+    fn priority(&self) -> i16 { 95 }
+    fn closes_with_group(&self) -> bool { false }
+    fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
+    fn as_xml_internal(&self,ch:&Vec<Whatsit>, prefix: String) -> String {
+        todo!()
+    }
+    fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        todo!()
+    }
+    fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H | ColonMode::V => htmlannotate!(colon,span,self.sourceref.clone(),node_top,a => {
+                for (k,v) in &self.attrs {
+                    a.attr(k.into(),v.into())
+                }
+                for (k,v) in &self.styles {
+                    a.style(k.into(),v.into())
+                }
+                for c in ch {
+                    c.as_html(mode,colon,htmlparent!(a))
+                }
+            }),
+            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref.clone(),node_top,a => {
+                for (k,v) in &self.attrs {
+                    a.attr(k.into(),v.into())
+                }
+                for (k,v) in &self.styles {
+                    a.style(k.into(),v.into())
+                }
+                for c in ch {
+                    c.as_html(mode,colon,htmlparent!(a))
+                }
+            }),
+            _ => todo!()
+        }
+    }
+}
+#[derive(PartialEq,Clone)]
+struct AnnotateEnd {}
+impl ExternalWhatsitGroupEnd for AnnotateEnd {
+    fn name(&self) -> TeXStr { "HTMLannotateEnd".into() }
+    fn params(&self,name:&str) -> Option<TeXStr> {None}
+    fn priority(&self) -> i16 { 95 }
+    fn sourceref(&self) -> &Option<SourceFileReference> {&None}
+}
+
+
 pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTML",
     modes: |_| { true },
     _get: |tk, int| {
-        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
-        todo!()//Ok(PGFLiteral { str:str.into() }.as_whatsit())
+        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?).to_string().trim().to_string();
+        let mut annotate = AnnotateBegin {sourceref:int.update_reference(tk),attrs:HashMap::new(),styles:HashMap::new()};
+        let mut index = 0;
+        'outer: loop {
+            if str.as_bytes().get(index).is_none() { break }
+            let mut attr : Vec<u8> = vec!();
+            let mut isstyle = false;
+            loop {
+                match str.as_bytes().get(index) {
+                    None => break 'outer,
+                    Some(58) /* : */ if attr == vec!(115,116,121,108,101) => {
+                        index += 1;
+                        isstyle = true;
+                        attr = vec!()
+                    }
+                    Some(61) /* = */ => {
+                        index += 1;
+                        match str.as_bytes().get(index) {
+                            Some(34) /* " */ => {
+                                index += 1;
+                                break
+                            }
+                            _ => TeXErr!((int,None),"Expected \" after = in \\rustex@annotateHTML")
+                        }
+                    }
+                    Some(32) if attr.is_empty() => index += 1,
+                    Some(o) => {
+                        attr.push(*o);
+                        index += 1
+                    }
+                }
+            }
+            let mut value : Vec<u8> = vec!();
+            loop {
+                match str.as_bytes().get(index) {
+                    None => break 'outer,
+                    Some(34) => {
+                        index +=1;
+                        break
+                    }
+                    Some(o) => {
+                        value.push(*o);
+                        index += 1
+                    }
+                }
+            }
+            if isstyle {
+                annotate.styles.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(),std::str::from_utf8(value.as_slice()).unwrap().to_string());
+            } else {
+                annotate.attrs.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(),std::str::from_utf8(value.as_slice()).unwrap().to_string());
+            }
+        }
+        Ok(Whatsit::GroupOpen(WIGroup::External(Arc::new(annotate),vec!())))
     },
 };
 
@@ -121,8 +241,7 @@ pub static ANNOTATE_END: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTMLEnd",
     modes: |x| { true },
     _get: |tk, int| {
-        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
-        todo!()//Ok(PGFLiteral { str:str.into() }.as_whatsit())
+        Ok(Whatsit::GroupClose(GroupClose::External(Arc::new(AnnotateEnd {}))))
     },
 };
 
@@ -141,7 +260,7 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
 pub fn rustex_special_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Cond(&IF_RUSTEX),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&DIRECT_HTML)),
-    //PrimitiveTeXCommand::Primitive(&NAMESPACE),
+    PrimitiveTeXCommand::Primitive(&BREAK),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&NAMESPACE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ANNOTATE_BEGIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ANNOTATE_END)),

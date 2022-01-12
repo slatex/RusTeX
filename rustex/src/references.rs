@@ -8,7 +8,7 @@ pub enum SourceReference {
     None
 }
 
-#[derive(Clone)]
+#[derive(PartialEq,Clone)]
 pub struct SourceFileReference {
     pub file:TeXStr,
     pub start:(usize,usize),
