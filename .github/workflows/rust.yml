@@ -96,15 +96,15 @@ jobs:
         with:
           name: mac
           path: ./mac
-      - uses: papeloto/action-zip@v1
+      - uses: vimtor/action-zip@v1
         with:
           files: linux/
           dest: linux.zip
-      - uses: papeloto/action-zip@v1
+      - uses: vimtor/action-zip@v1
         with:
           files: windows/
           dest: windows.zip
-      - uses: papeloto/action-zip@v1
+      - uses: vimtor/action-zip@v1
         with:
           files: mac/
           dest: mac.zip
