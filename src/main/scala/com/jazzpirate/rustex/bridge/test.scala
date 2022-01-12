@@ -31,9 +31,9 @@ object Bridge {
     val syspath = System.getProperty("os.name").toUpperCase()
 
     val actualpath = path + "/" + {
-      if (syspath.startsWith("WINDOWS")) "rustex_java.dll"
-      else if (syspath.startsWith("MAC")) "librustex_java.dylib"
-      else "librustex_java.so"
+      if (syspath.startsWith("WINDOWS")) "i686-pc-windows-gnu/release/rustex_java.dll"
+      else if (syspath.startsWith("MAC")) "x86_64-apple-darwin/release/librustex_java.dylib"
+      else "x86_64-unknown-linux-gnu/release/librustex_java.so"
     }
     System.load(actualpath)
     bridge = Some(new Bridge)
@@ -57,6 +57,7 @@ object Bridge {
 
 object Test {
   def main(args: Array[String]): Unit = {
-    Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
+    Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
+    //Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
   }
 }
