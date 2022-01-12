@@ -709,9 +709,9 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
 name = "robusta-codegen"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97f6765fa38940bd9098a29a4d6c60f1734ddba3a5ee509fb7e994608caad2b9"
+checksum = "f66a33c846c7b892c2fd20ff58ba34859e6d83e491d51ce94f678cc7157ad774"
 dependencies = [
  "Inflector",
  "darling",
@@ -724,9 +724,9 @@ dependencies = [
 
 [[package]]
 name = "robusta_jni"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72a02ea24bbcb8e8a9e52f380a68820c1452c91bf5995547d6c2ba2dd4012825"
+checksum = "a61f3ca304f439f93ae5f59f2fe65f4c2693b253c7656dc242c061996a4b01f8"
 dependencies = [
  "jni",
  "paste",

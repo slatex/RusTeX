@@ -1,4 +1,5 @@
 use robusta_jni::bridge;
+use robusta_jni::convert::FromJavaValue;
 use rustex::interpreter::state::State;
 
 pub static mut MAIN_STATE : Option<State> = None;
@@ -17,7 +18,7 @@ pub mod java {
     #[package(info.kwarc.rustex)]
     struct Bridge {}
     impl Bridge {
-        pub extern "jni" fn initialize<'env,'borrow>(_: &'borrow JNIEnv<'env>) -> bool {
+        pub extern "jni" fn initialize() -> bool {
             unsafe {
                 match MAIN_STATE {
                     Some(_) => (),
@@ -30,7 +31,8 @@ pub mod java {
             }
             true
         }
-        pub extern "jni" fn parse<'env,'borrow>(_: &'borrow JNIEnv<'env>,file:String) -> String {
+        #[call_type(unchecked)]
+        pub extern "jni" fn parse(file:String) -> String {
             let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
             let (_,ret) = Interpreter::do_file_with_state(Path::new(&file),state,HTMLColon::new(true));
             // TODO maybe update main state unsafe { MAIN_STATE = Some(state)}
