@@ -78,3 +78,27 @@ jobs:
           ./rustex/target/x86_64-apple-darwin/release/librustex.rlib
           ./rustex/target/x86_64-apple-darwin/release/librustex.dylib
           ./rustex/target/x86_64-apple-darwin/release/rustex
+  on-success:
+    runs-on: ubuntu-18.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: linux
+      - uses: actions/download-artifact@v2
+        with:
+          name: windows
+      - uses: actions/download-artifact@v2
+        with:
+          name: mac
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "build"
+          files: |
+            linux.zip
+            windows.zip
+            mac.zip
