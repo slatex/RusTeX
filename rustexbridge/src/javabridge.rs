@@ -8,7 +8,7 @@ pub mod java {
     use std::borrow::BorrowMut;
     use std::path::Path;
     use robusta_jni::jni::JNIEnv;
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue};
     use crate::javabridge::MAIN_STATE;
     use rustex::interpreter::Interpreter;
     use rustex::stomach::html::HTMLColon;
