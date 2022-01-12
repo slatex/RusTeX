@@ -1,18 +1,16 @@
 use std::any::Any;
 use std::cmp::min;
-use std::ops::Deref;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::Arc;
 use image::{DynamicImage, GenericImageView};
-use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
+use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
-use crate::stomach::colon::{Colon, ColonMode};
+use crate::stomach::colon::ColonMode;
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
-use crate::Token;
+use crate::{htmlliteral, htmlnode, htmlparent, Token};
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -102,14 +100,21 @@ impl WhatsitTrait for SimpleWI {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on!(self,normalize,mode,ret,scale)
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        pass_on!(self,as_html,mode,colon,node_top)
+    }
 }
 
 trait Normalizable {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
+    fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
 }
 impl Normalizable for Box<dyn ExternalWhatsit> {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.normalize_dyn(mode,ret,scale)
+    }
+    fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.as_html_dyn(mode,colon,node_top)
     }
 }
 
@@ -132,6 +137,7 @@ pub trait ExternalWhatsit:Any+WhatsitTrait+Send+Sync {
     fn sourceref(&self) -> &Option<SourceFileReference>;
     fn clone_box(&self) -> Box<dyn ExternalWhatsit>;
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
 }
 
 #[derive(Clone)]
@@ -221,6 +227,21 @@ impl WhatsitTrait for PDFXImage {
             _ => ret.push(self.as_whatsit())
         }
     }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match self.image {
+            Some(ref img) => {
+                let mut buf: Vec<u8> = vec!();
+                img.write_to(&mut buf, image::ImageOutputFormat::Png);
+                let res_base64 = "data:image/png;base64,".to_string() + &base64::encode(&buf);
+                htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
+                    i.attr("src".into(),res_base64.into());
+                    i.attr("width".into(),dimtohtml(self.width()));
+                    i.attr("height".into(),dimtohtml(self.height()));
+                })
+            }
+            _ => ()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -244,8 +265,21 @@ impl WhatsitTrait for VRule {
     fn has_ink(&self) -> bool {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref.clone(),"vrule",node_top,n => {
+            n.style("width".into(),dimtohtml(self.width()));
+            n.style("min-width".into(),dimtohtml(self.width()));
+            n.style("height".into(),dimtohtml(self.height() + self.depth()));
+            n.style("min-height".into(),dimtohtml(self.height() + self.height()));
+            n.style("background".into(),match &colon.state.currcolor {
+                Some(c) => HTMLStr::from("#") + c,
+                None => "#000000".into()
+            });
+            if self.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-self.depth())) }
+        })
     }
 }
 
@@ -270,8 +304,21 @@ impl WhatsitTrait for HRule {
     fn has_ink(&self) -> bool {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref.clone(),"vrule",node_top,n => {
+            n.style("width".into(),dimtohtml(self.width()));
+            n.style("min-width".into(),dimtohtml(self.width()));
+            n.style("height".into(),dimtohtml(self.height() + self.depth()));
+            n.style("min-height".into(),dimtohtml(self.height() + self.height()));
+            n.style("background".into(),match &colon.state.currcolor {
+                Some(c) => HTMLStr::from("#") + c,
+                None => "#000000".into()
+            });
+            if self.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-self.depth())) }
+        })
     }
 }
 
@@ -302,6 +349,11 @@ impl WhatsitTrait for VSkip {
             _ => ret.push(self.as_whatsit())
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,div,self.sourceref,"vskip",node_top,node => {
+            node.style("margin-bottom".into(),dimtohtml(self.skip.base));
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -329,6 +381,19 @@ impl WhatsitTrait for HSkip {
                 }
             },
             _ => ret.push(self.as_whatsit())
+        }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H =>
+                htmlnode!(colon,span,self.sourceref,"hskip",node_top,node => {
+                    node.style("margin-left".into(),dimtohtml(self.skip.base));
+                }),
+            ColonMode::M =>
+                htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                    a.attr("width".into(),dimtohtml(self.skip.base))
+                }),
+            _ => todo!()
         }
     }
 }
@@ -360,6 +425,15 @@ impl WhatsitTrait for MSkip {
             _ => ret.push(self.as_whatsit())
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::M =>
+                htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                    a.attr("width".into(),numtostr((self.skip.base as f32 / 1179648.0).round() as i32,"em").into())
+                }),
+            _ => todo!()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -384,6 +458,13 @@ impl WhatsitTrait for Penalty {
             _ => ()
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H if self.penalty <= -10000 =>
+                htmlliteral!(colon,node_top,"<br/>"),
+            _ => ()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -405,6 +486,7 @@ impl WhatsitTrait for PDFLiteral {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {}
 }
 
 #[derive(Clone)]
@@ -428,6 +510,7 @@ impl WhatsitTrait for PDFXForm {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {}
 }
 
 #[derive(Clone)]
@@ -491,6 +574,12 @@ impl WhatsitTrait for Raise {
             }
             _ => ()
         }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref,"raise",node_top,node => {
+            node.style("bottom".into(),dimtohtml(self.dim));
+            self.content.as_html(mode,colon,htmlparent!(node))
+        })
     }
 }
 
@@ -556,6 +645,12 @@ impl WhatsitTrait for MoveRight {
             _ => ()
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref,"moveright",node_top,node => {
+            node.style("margin-left".into(),dimtohtml(self.dim));
+            self.content.as_html(mode,colon,htmlparent!(node))
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -584,6 +679,11 @@ impl WhatsitTrait for VKern {
             },
             _ => ret.push(self.as_whatsit())
         }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,div,self.sourceref,"vkern",node_top,node => {
+            node.style("margin-bottom".into(),dimtohtml(self.dim));
+        })
     }
 }
 
@@ -614,6 +714,11 @@ impl WhatsitTrait for HKern {
             _ => ret.push(self.as_whatsit())
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref,"hkern",node_top,node => {
+            node.style("margin-left".into(),dimtohtml(self.dim));
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -643,6 +748,11 @@ impl WhatsitTrait for Indent {
             _ => ret.push(self.as_whatsit())
         }
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,span,self.sourceref,"indent",node_top,node => {
+            node.style("margin-left".into(),dimtohtml(self.dim));
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -664,6 +774,12 @@ impl WhatsitTrait for PDFDest {
     fn has_ink(&self) -> bool { false }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,a,self.sourceref.clone(),"pdfdest",node_top,node => {
+            node.attr("id".into(),self.target.clone().into());
+            node.attr("name".into(),self.target.into());
+        })
     }
 }
 
@@ -795,6 +911,81 @@ impl WhatsitTrait for HAlign {
             rows:nrows,
             sourceref:self.sourceref
         }.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H | ColonMode::V => {
+                htmlnode!(colon,table,self.sourceref,"halign",node_top,table => {
+                    if self.skip.base != 0 {
+                        table.style("margin-top".into(),dimtohtml(self.skip.base))
+                    }
+                    for row in self.rows {
+                        match row {
+                            AlignBlock::Noalign(mut v) => {
+                                if v.len() == 1 {
+                                    match v.pop() {
+                                        Some(Whatsit::Simple(SimpleWI::HRule(hr))) => {
+                                            if table.children.is_empty() {
+                                                table.style("border-top".into(),dimtohtml(hr.height()) + " solid")
+                                            } else {
+                                                match table.children.last_mut() {
+                                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
+                                                    _ => unreachable!()
+                                                }
+                                            }
+                                        }
+                                        _ => ()
+                                    }
+                                } else {
+                                    print!("")
+                                }
+                            }
+                            AlignBlock::Block(cells) => {
+                                htmlnode!(colon,tr,None,"row",htmlparent!(table),row => {
+                                    for (mut vs,skip,num) in cells {
+                                        htmlnode!(colon,td,None,"cell",htmlparent!(row),cell => {
+                                            cell.style("margin-right".into(),dimtohtml(skip.base));
+                                            if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
+                                            let mut alignment = (false,false);
+                                            loop {
+                                                match vs.pop() {
+                                                    Some(Whatsit::Simple(SimpleWI::VRule(v))) => cell.style("border-right".into(),dimtohtml(v.width()) + " solid"),
+                                                    Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_))) => alignment.1 = true,
+                                                    Some(o) => {vs.push(o);break}
+                                                    None => break
+                                                }
+                                            }
+                                            let mut incell : bool = false;
+                                            htmlnode!(colon,div,None,"hbox",htmlparent!(cell),bx => {
+                                                for w in vs { match w {
+                                                    Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
+                                                    Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
+                                                    o => {
+                                                        incell = true;
+                                                        o.as_html(&ColonMode::H,colon,htmlparent!(bx))
+                                                    }
+                                                }}
+                                            });
+                                            match alignment {
+                                                (true,true) => cell.style("text-align".into(),"center".into()),
+                                                (true,false) => cell.style("text-align".into(),"right".into()),
+                                                _ => cell.style("text-align".into(),"left".into()),
+                                            }
+                                        })
+                                    }
+                                })
+                            }
+                        }
+                    }
+                })
+            }
+            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
+                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    self.as_html(&ColonMode::H,colon,htmlparent!(span))
+                })
+            }),
+            _ => todo!()
+        }
     }
 }
 
@@ -928,6 +1119,9 @@ impl WhatsitTrait for VAlign {
             sourceref:self.sourceref
         }.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        todo!()
+    }
 }
 
 #[derive(Clone)]
@@ -947,6 +1141,7 @@ impl WhatsitTrait for Mark {
     }
     fn has_ink(&self) -> bool { false }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {}
 }
 
 #[derive(Clone)]
@@ -973,6 +1168,11 @@ impl WhatsitTrait for Leaders {
         } else {
             todo!()
         }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        self.bx.clone().as_html(mode,colon,node_top);
+        self.bx.clone().as_html(mode,colon,node_top);
+        self.bx.as_html(mode,colon,node_top);
     }
 }
 
@@ -1001,6 +1201,7 @@ impl WhatsitTrait for PDFMatrix {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {}
 }
 
 #[derive(Clone)]
@@ -1021,6 +1222,9 @@ impl WhatsitTrait for Left {
     fn has_ink(&self) -> bool { self.bx.is_some() }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        for c in self.bx { c.as_html(mode,colon,node_top)}
     }
 }
 
@@ -1043,6 +1247,9 @@ impl WhatsitTrait for Middle {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        for c in self.bx { c.as_html(mode,colon,node_top)}
+    }
 }
 
 #[derive(Clone)]
@@ -1064,6 +1271,9 @@ impl WhatsitTrait for Right {
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         ret.push(self.as_whatsit())
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        for c in self.bx { c.as_html(mode,colon,node_top)}
+    }
 }
 
 macro_rules! trivial {
@@ -1083,6 +1293,14 @@ macro_rules! trivial {
             fn has_ink(&self) -> bool { false }
             fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
                 ret.push(self.as_whatsit())
+            }
+            fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+                match mode {
+                    ColonMode::H | ColonMode::V => {
+                        htmlnode!(colon,span,self.0,(stringify!($e)),node_top)
+                    }
+                    _ => ()
+                }
             }
         }
     )

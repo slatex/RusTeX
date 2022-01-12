@@ -1,10 +1,11 @@
 use std::cmp::max;
-use std::rc::Rc;
 use std::sync::Arc;
 use crate::fonts::Font;
-use crate::interpreter::dimensions::MuSkip;
+use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
+use crate::interpreter::dimensions::{MuSkip, numtostr};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
+use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, MATHML_NS, MiMoInfo};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 
@@ -79,7 +80,7 @@ impl WhatsitTrait for MathGroup {
             Some(s) => s.has_ink()
         }
     }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         let subscript = match self.subscript {
             Some(k) => normalize_kernel(k),
             _ => None
@@ -114,6 +115,95 @@ impl WhatsitTrait for MathGroup {
             }
         }
         ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
+                div.style("width".into(),"100%".into());
+                div.style("min-width".into(),"100%".into());
+                htmlnode!(colon,MATHML_NS:math,None,"",htmlparent!(div),node=> {
+                    node.attr("displaystyle".into(),"true".into());
+                    htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
+                        self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
+                        if mrow.children.len() == 1 {
+                            match mrow.children.pop().unwrap() {
+                                HTMLChild::Node(n) if n.name == "mrow".into() => mrow.children = n.children,
+                                o => mrow.children.push(o)
+                            }
+                        }
+                    })
+                })
+            }),
+            ColonMode::H => htmlnode!(colon,MATHML_NS:math,None,"",node_top,node=> {
+                htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
+                    self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
+                    if mrow.children.len() == 1 {
+                        match mrow.children.pop().unwrap() {
+                            HTMLChild::Node(n) if n.name == "mrow".into() => mrow.children = n.children,
+                            o => mrow.children.push(o)
+                        }
+                    }
+                })
+            }),
+            ColonMode::M => match (self.subscript,self.superscript) {
+                (None,None) => self.kernel.as_html(mode,colon,node_top),
+                (None,Some(ss)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,mover,None,"",node_top,msup => {
+                    msup.attr("displaystyle".into(),"true".into());
+                    ss.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                    msup.children.push(HTMLChild::Str("".into()));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                }),
+                (None,Some(ss)) => htmlnode!(colon,msup,None,"",node_top,msup => {
+                    msup.attr("displaystyle".into(),"false".into());
+                    ss.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                    msup.children.push(HTMLChild::Str("".into()));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                }),
+                (Some(ss),None) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munder,None,"",node_top,msup => {
+                    msup.attr("displaystyle".into(),"true".into());
+                    ss.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                    msup.children.push(HTMLChild::Str("".into()));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                }),
+                (Some(ss),None) => htmlnode!(colon,msub,None,"",node_top,msup => {
+                    msup.attr("displaystyle".into(),"false".into());
+                    ss.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                    msup.children.push(HTMLChild::Str("".into()));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
+                }),
+                (Some(subk),Some(supk)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munderover,None,"",node_top,msub => {
+                    msub.attr("displaystyle".into(),"true".into());
+                    self.kernel.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                    msub.children.push(HTMLChild::Str("".into()));
+                    subk.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                    msub.children.push(HTMLChild::Str("".into()));
+                    supk.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                }),
+                (Some(subk),Some(supk)) => htmlnode!(colon,msubsup,None,"",node_top,msub => {
+                    msub.attr("displaystyle".into(),"false".into());
+                    self.kernel.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                    msub.children.push(HTMLChild::Str("".into()));
+                    subk.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                    msub.children.push(HTMLChild::Str("".into()));
+                    supk.as_html(mode,colon,htmlparent!(msub));
+                    if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
+                })
+            }
+            _ => todo!()
+        }
     }
 }
 
@@ -171,6 +261,15 @@ macro_rules! pass_on_kernel {
         MathKernel::MathAccent(g) => MathAccent::$e(g $(,$tl)*)
     })
 }
+impl MathKernel {
+    pub fn is_largeop(&self) -> bool {
+        match self {
+            MathKernel::MathOp(_) => true,
+            MathKernel::MathChar(mc) if mc.class == 1 => true,
+            _ => false
+        }
+    }
+}
 impl WhatsitTrait for MathKernel {
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Math(MathGroup {
@@ -190,6 +289,9 @@ impl WhatsitTrait for MathKernel {
     fn has_ink(&self) -> bool { pass_on_kernel!(self,has_ink) }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on_kernel!(self,normalize,mode,ret,scale)
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        pass_on_kernel!(self,as_html,mode,colon,node_top)
     }
 }
 
@@ -237,6 +339,17 @@ impl WhatsitTrait for GroupedMath {
         if nret.is_empty() { return }
         ret.push(GroupedMath(nret).as_whatsit())
     }
+    fn as_html(mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        if self.0.is_empty() {}
+        else if self.0.len() == 1 {
+            self.0.pop().unwrap().as_html(mode,colon,node_top)
+        }
+        else {
+            htmlannotate!(colon,mrow,None,node_top,node => {
+                for w in self.0 { w.as_html(mode,colon,htmlparent!(node)) }
+            })
+        }
+    }
 
 }
 
@@ -252,17 +365,22 @@ impl WhatsitTrait for MKern {
     fn width(&self) -> i32 { self.sk.base }
     fn height(&self) -> i32 { 0}
     fn depth(&self) -> i32 { 0 }
-    fn as_xml_internal(&self, prefix: String) -> String {
+    fn as_xml_internal(&self, _: String) -> String {
         "<mkern value=\"".to_string() + &self.sk.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { false }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         match ret.last_mut() {
             Some(Whatsit::Math(MathGroup { kernel:MathKernel::MKern(ref mut mk),subscript:None,superscript:None,limits:_})) =>
                 mk.sk = mk.sk + self.sk,
             _ if self.sk.base == 0 => (),
             _ => ret.push(self.as_whatsit())
         }
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
+            a.attr("width".into(),numtostr((self.sk.base as f32 / 1179648.0).round() as i32,"em").into())
+        })
     }
 }
 
@@ -285,8 +403,55 @@ impl WhatsitTrait for MathChar {
         "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.position.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { true }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        let maybemimo = match match node_top {
+            Some(HTMLParent::N(n)) => n.children.last_mut(),
+            Some(HTMLParent::A(n)) => n.children.last_mut(),
+            _ => None
+        } {
+            Some(HTMLChild::Node(n)) => Some(n),
+            _ => None
+        };
+        let charstr : HTMLStr = match &self.font.file.chartable {
+            Some(ct) => ct.get_char(self.position as u8).into(),
+            None => {
+                //println!("Here! {} in {}",mc.position,mc.font.name);
+                "???".into()
+            }
+        };
+        let mimoinfo = MiMoInfo::new(&self.font);
+        let clsstr : HTMLStr = (match self.class {
+            1 => "largeop",
+            2 => "binop",
+            3 => "rel",
+            4 => "opening",
+            5 => "closing",
+            6 => "punctuation",
+            _ => "",
+        }).into();
+        match (maybemimo,self.class) {
+            (Some(n),0|7) if String::from(&n.name) == "mi" && n.mimoinfo.is_some() && n.mimoinfo.as_ref().unwrap() == &mimoinfo => {
+                n.children.push(HTMLChild::Str(charstr))
+            }
+            (Some(n),i) if 0<i && i<7 && String::from(&n.name) == "mo" && n.mimoinfo.is_some() && n.mimoinfo.as_ref().unwrap() == &mimoinfo => {
+                n.children.push(HTMLChild::Str(charstr))
+            }
+            (_,0|7) => {
+                htmlnode!(colon,mi,self.sourceref,clsstr,node_top,a => {
+                    a.mimoinfo = Some(mimoinfo);
+                    htmlliteral!(colon,htmlparent!(a),>charstr<)
+                })
+            }
+            (_,_) => {
+                htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
+                    a.mimoinfo = Some(mimoinfo);
+                    htmlliteral!(colon,htmlparent!(a),>charstr<)
+                })
+            }
+        }
     }
 }
 
@@ -307,8 +472,11 @@ impl WhatsitTrait for Delimiter {
         "\n".to_owned() + &prefix + "<delimiter>" + &self.small.as_xml_internal(prefix.clone()) + &self.large.as_xml_internal(prefix) + "</delimiter>"
     }
     fn has_ink(&self) -> bool { true }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        self.small.as_html(mode,colon,node_top)
     }
 }
 
@@ -329,8 +497,11 @@ impl WhatsitTrait for Radical {
         "\n".to_owned() + &prefix + "<radical>" + &self.small.as_xml_internal(prefix.clone()) + &self.large.as_xml_internal(prefix) + "</delimiter>"
     }
     fn has_ink(&self) -> bool { true }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        self.small.as_html(mode,colon,node_top)
     }
 }
 
@@ -362,6 +533,12 @@ macro_rules! mathgroupkernel {
                     _ => GroupedMath(nret).as_whatsit()
                 };
                 ret.push($e { content:std::boxed::Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+            }
+            fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+                htmlannotate!(colon,mrow,self.sourceref,node_top,node => {
+                    node.classes.push(stringify!($e).into());
+                    self.content.clone().as_html(mode,colon,htmlparent!(node))
+                })
             }
         }
     )
@@ -406,6 +583,17 @@ impl WhatsitTrait for MathAccent {
             _ => GroupedMath(nret).as_whatsit()
         };
         ret.push(MathAccent { content:std::boxed::Box::new(nw), sourceref:self.sourceref,accent:self.accent }.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,mover,self.sourceref,"mathaccent",node_top,node => {
+            node.attr("accent".into(),"true".into());
+            htmlannotate!(colon,mrow,None,htmlparent!(node),mrow => {
+                self.content.clone().as_html(mode,colon,htmlparent!(mrow))
+            });
+            htmlannotate!(colon,mrow,None,htmlparent!(node),mrow => {
+                self.accent.as_html(mode,colon,htmlparent!(mrow))
+            });
+        })
     }
 }
 
@@ -459,5 +647,29 @@ impl WhatsitTrait for Above {
         ret.push(crate::stomach::math::Above {
             top:ntop,bottom:nbottom,delimiters:self.delimiters,sourceref:self.sourceref,thickness:self.thickness
         }.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlannotate!(colon,mrow,None,node_top,mrow => {
+            match self.delimiters.0 {
+                Some(d) => d.as_html(mode,colon,htmlparent!(mrow)),
+                _ => ()
+            }
+            htmlnode!(colon,mfrac,self.sourceref,"over",htmlparent!(mrow),over => {
+                match self.thickness {
+                    Some(i) => over.attr("linethickness".into(),dimtohtml(i)),
+                    _ => ()
+                }
+                htmlannotate!(colon,mrow,None,htmlparent!(over),a => {
+                    for c in self.top { c.as_html(mode,colon,htmlparent!(a)) }
+                });
+                htmlannotate!(colon,mrow,None,htmlparent!(over),a => {
+                    for c in self.bottom { c.as_html(mode,colon,htmlparent!(a)) }
+                })
+            });
+            match self.delimiters.1 {
+                Some(d) => d.as_html(mode,colon,htmlparent!(mrow)),
+                _ => ()
+            }
+        })
     }
 }

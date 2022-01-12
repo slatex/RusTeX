@@ -1,24 +1,17 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::borrow::BorrowMut;
 pub use crate::stomach::whatsits::Whatsit;
-use crate::{Interpreter, TeXErr, Token};
+use crate::{Interpreter, TeXErr};
 use crate::commands::DefMacro;
-use crate::fonts::{Font, Nullfont};
+use crate::fonts::Font;
 use crate::interpreter::state::{GroupType, StateChange};
-use crate::references::SourceFileReference;
 use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
-use crate::stomach::simple::{AlignBlock, HAlign, HKern, HSkip, SimpleWI, VKern, VSkip};
-use crate::stomach::Whatsit::Inserts;
+use crate::stomach::simple::{AlignBlock, HAlign, HSkip, SimpleWI};
 use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::{Insert, PrintChar, WhatsitTrait};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use crate::interpreter::dimensions::Skip;
-use crate::interpreter::TeXMode;
 use crate::stomach::boxes::{HBox, TeXBox};
-use crate::stomach::colon::{Colon, NoColon};
 
 pub mod whatsits;
 pub mod boxes;
@@ -31,7 +24,7 @@ pub mod html;
 
 pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Whatsit>,Vec<Whatsit>) {
     let mut currentheight : i32 = 0;
-    let mut marks: Vec<(Vec<Token>,Option<SourceFileReference>)> = vec!();
+    //let mut marks: Vec<(Vec<Token>,Option<SourceFileReference>)> = vec!();
     let mut presplit : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
     let mut input : Vec<StomachGroup> = vec!(StomachGroup::Top(vlist));
     let first = loop {
@@ -97,7 +90,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                 _ => unreachable!()
             }
         }
-        Some(f) => {
+        Some(_) => {
             while match presplit.last() {
                 Some(StomachGroup::Top(_)) => false,
                 _ => true
@@ -205,7 +198,6 @@ impl StomachGroup {
             TeXGroup(_,t) => t,
             Par(t) => &t.children,
             Other(w) => w.children(),
-            _ => todo!()
         }
     }
     pub fn get_mut(&mut self) -> &mut Vec<Whatsit> {
@@ -227,7 +219,6 @@ impl StomachGroup {
             TeXGroup(_,t) => t,
             Par(t) => t.children,
             Other(w) => w.children_prim(),
-            _ => todo!()
         }
     }
 }
@@ -526,11 +517,11 @@ pub trait Stomach : Send {
                     self.base_mut().buffer.push(wi);
                     Ok(())
                 }
-            } */
+            }
             Whatsit::Simple(SimpleWI::HKern(_)|SimpleWI::VKern(_)|SimpleWI::HSkip(_)|SimpleWI::VSkip(_)) => {
                 self.base_mut().buffer.push(wi);
                 Ok(())
-            }
+            } */
             Whatsit::Simple(SimpleWI::Penalty(_)) => match self.base().buffer.last() {
                 Some(Whatsit::Simple(SimpleWI::Penalty(_))) => {
                     self.drop_last();
@@ -608,11 +599,11 @@ pub trait Stomach : Send {
         for r in repush { self.base_mut().buffer.push(r) }
     }
 
-    fn last_halign(&mut self,int:&Interpreter,mut halign:HAlign) -> bool {
+    fn last_halign(&mut self,_:&Interpreter,mut halign:HAlign) -> bool {
         match halign.rows.pop() {
-            Some(AlignBlock::Block(mut v)) => {
+            Some(AlignBlock::Block(v)) => {
                 let mut ch : Vec<Whatsit> = vec!();
-                for (mut c,s,_) in v {
+                for (c,_,_) in v {
                     ch.push(HBox {
                         spread:0,
                         _width:None,_height:None,_depth:None,rf:None,
@@ -746,7 +737,7 @@ pub trait Stomach : Send {
                     for c in f.children {stack.last_mut().unwrap().push(c)}
                 }
                 Some(StomachGroup::Other(WIGroup::ColorChange(cc))) => {
-                    basecolor = ColorChange::as_html(cc.color).into();
+                    basecolor = ColorChange::color_to_html(cc.color).into();
                     for c in cc.children {stack.last_mut().unwrap().push(c)}
                 }
                 _ => panic!("This shouldn't happen")
@@ -885,7 +876,7 @@ impl NoShipoutRoutine {
                         _ => ()
                     }
                 }
-                self.floatlist.iter().filter(|(x,i)| !freefloats.contains(x)).map(|(_,i)| *i).collect()
+                self.floatlist.iter().filter(|(x,_)| !freefloats.contains(x)).map(|(_,i)| *i).collect()
             }
             _ => vec!()
         };
@@ -902,7 +893,7 @@ impl NoShipoutRoutine {
         Ok(())
     }
     fn get_float_list(&mut self, int: &Interpreter) -> Vec<(TeXStr,i32)> {
-        use crate::commands::{PrimitiveTeXCommand,ProvidesWhatsit};
+        use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
         let mut ret: Vec<(TeXStr,i32)> = vec!();
         let cmd = int.get_command(&"@freelist".into()).unwrap();

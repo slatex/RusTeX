@@ -1,18 +1,9 @@
-use std::cmp::{max, min, Ordering};
-use std::ops::Deref;
-use std::path::PathBuf;
 use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
-use std::rc::Rc;
-use std::str::from_utf8;
 use std::sync::Arc;
-use image::{DynamicImage, GenericImageView};
-use crate::commands::MathWhatsit;
 use crate::fonts::Font;
-use crate::interpreter::dimensions::{dimtostr, MuSkip, Skip};
 use crate::references::SourceFileReference;
-use crate::stomach::StomachGroup;
-use crate::Token;
+use crate::{htmlliteral};
 
 pub trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
@@ -85,11 +76,13 @@ pub trait WhatsitTrait {
         self.as_xml_internal("".to_string())
     }
     fn normalize(self,mode:&ColonMode,ret:&mut Vec<Whatsit>,scale:Option<f32>);
+    fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
 }
 
-use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::boxes::TeXBox;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{GroupClose, WIGroup, WIGroupTrait};
+use crate::stomach::html::{HTMLChild, HTMLColon, HTMLParent, HTMLStr};
 use crate::stomach::math::{Above, MathGroup};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::SimpleWI;
@@ -143,8 +136,11 @@ impl WhatsitTrait for Whatsit {
             _ => ()
         }
     }*/
-    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on!(self,normalize,mode,ret,scale)
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        pass_on!(self,as_html,mode,colon,node_top)
     }
     fn as_whatsit(self) -> Whatsit { self }
     fn width(&self) -> i32 { pass_on!(self,width) }
@@ -208,7 +204,7 @@ impl ExecutableWhatsit {
     }
 }
 impl WhatsitTrait for Arc<ExecutableWhatsit> {
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
     fn as_whatsit(self) -> Whatsit {
@@ -217,10 +213,11 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
-    fn as_xml_internal(&self, prefix: String) -> String {
+    fn as_xml_internal(&self, _: String) -> String {
         "".to_string()
     }
     fn has_ink(&self) -> bool { false }
+    fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -231,17 +228,20 @@ pub struct SpaceChar {
     pub font : Arc<Font>,
 }
 impl WhatsitTrait for SpaceChar {
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
     fn as_whatsit(self) -> Whatsit { Whatsit::Space(self) }
     fn width(&self) -> i32 { self.font.get_width(32) }
     fn height(&self) -> i32 { self.font.get_height(32) }
     fn depth(&self) -> i32 { self.font.get_depth(32) }
-    fn as_xml_internal(&self, prefix: String) -> String {
+    fn as_xml_internal(&self, _: String) -> String {
         " ".to_string()
     }
     fn has_ink(&self) -> bool { false }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlliteral!(colon,node_top," ")
+    }
 }
 
 #[derive(Clone)]
@@ -258,7 +258,7 @@ impl WhatsitTrait for PrintChar {
     fn width(&self) -> i32 { self.font.get_width(self.char as u16) }
     fn height(&self) -> i32 { self.font.get_height(self.char as u16) }
     fn depth(&self) -> i32 { self.font.get_depth(self.char as u16) }
-    fn as_xml_internal(&self, prefix: String) -> String {
+    fn as_xml_internal(&self, _: String) -> String {
         fn is_ascii(u:u8) -> bool {
             (32 <= u && u <= 126) || u > 160
         }
@@ -275,6 +275,14 @@ impl WhatsitTrait for PrintChar {
         }
     }
     fn has_ink(&self) -> bool { true }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlliteral!(colon,node_top,>{
+            match &self.font.file.chartable {
+                Some(ct) => ct.get_char(self.char).to_string(),
+                None => self.as_xml_internal("".to_string())
+            }
+        }<)
+    }
 }
 
 #[derive(Clone)]
@@ -300,5 +308,13 @@ impl WhatsitTrait for Insert {
             if !iiret.is_empty() {iret.push(iiret)}
         }
         if !iret.is_empty() { ret.push(Insert(iret).as_whatsit())}
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlliteral!(colon,node_top,"\n<hr/>\n");
+        for v in self.0 {
+            for w in v {
+                w.as_html(mode,colon,node_top)
+            }
+        }
     }
 }

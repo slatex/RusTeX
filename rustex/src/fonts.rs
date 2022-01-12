@@ -63,7 +63,6 @@ impl FontState {
 }
 use std::fs;
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
 
 impl FontFile {
     pub fn new(pb : PathBuf) -> FontFile {
@@ -76,8 +75,8 @@ impl FontFile {
 
         let tablename : String = name.to_string().chars().map(|x| if !x.is_ascii_digit() {Some(x)} else {None}).flatten().collect();
 
-        let mut hyphenchar : u16 = 45;
-        let mut skewchar : u16 = 255;
+        let hyphenchar : u16 = 45;
+        let skewchar : u16 = 255;
         let mut dimen: HashMap<u16,f32> = HashMap::new();
         let mut size: i32 = 65536;
         let mut typestr: TeXStr = TeXStr::new(&[]);
@@ -197,19 +196,23 @@ impl FontFile {
 
         for t in finfo_table {
             match widthls.get(t.width_index as usize) {
-                Some(0.0) | None => (),
+                Some(i) if *i == 0.0 => (),
+                None => (),
                 Some(f) => {widths.insert(t.char,factor * f);}
             }
             match heightls.get(t.height_index as usize) {
-                Some(0.0) | None => (),
+                Some(i) if *i == 0.0 => (),
+                None => (),
                 Some(f) => {heights.insert(t.char,factor * f);}
             }
             match depthls.get(t.depth_index as usize) {
-                Some(0.0) | None => (),
+                Some(i) if *i == 0.0 => (),
+                None => (),
                 Some(f) => {depths.insert(t.char,factor * f);}
             }
             match italicls.get(t.char_ic_index as usize) {
-                Some(0.0) | None => (),
+                Some(i) if *i == 0.0 => (),
+                None => (),
                 Some(f) => {ics.insert(t.char,factor * f);}
             }
             match t.ligature() {
@@ -238,9 +241,7 @@ impl FontFile {
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
-use crate::commands::pgfsvg::get_dimen;
+use std::sync::{Arc, RwLock};
 use crate::fonts::fontchars::{FONT_TABLES, FontTable};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;

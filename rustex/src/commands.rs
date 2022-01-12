@@ -3,10 +3,8 @@ pub mod pdftex;
 pub mod conditionals;
 pub mod pgfsvg; pub mod rustex_specials;
 
-use std::cell::RefCell;
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::{Interpreter, TeXMode};
-use std::rc::Rc;
 use std::fmt;
 use std::fmt::{Display, Formatter, Pointer};
 use std::sync::Arc;
@@ -150,7 +148,7 @@ impl PartialEq for DefMacro {
 
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit, WhatsitTrait};
 use crate::stomach::math::{MathGroup,MathKernel};
-use crate::stomach::boxes::{BoxMode,TeXBox};
+use crate::stomach::boxes::TeXBox;
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
@@ -348,7 +346,6 @@ impl ProvidesWhatsit {
             ProvidesWhatsit::Box(b) => Some(b.name.into()),
             ProvidesWhatsit::Math(b) => Some(b.name.into()),
             ProvidesWhatsit::Simple(b) => Some(b.name.into()),
-            _ => todo!()
         }
     }
     pub fn get(&self,tk:&Token,int:&Interpreter) -> Result<Whatsit,TeXError> {
@@ -356,7 +353,7 @@ impl ProvidesWhatsit {
         match self {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
             Exec(e) => Ok(Whatsit::Exec(Arc::new((e._get)(tk,int)?))),
-            Math(m) => {
+            Math(_) => {
                 unreachable!()
             },//Ok(Whatsit::Math((m._get)(tk,int)?)),
             Simple(s) => Ok((s._get)(tk,int)?)
@@ -468,47 +465,47 @@ impl PrimitiveTeXCommand {
                 None => "".to_string()
             }),
             AV(AssignableValue::Int(p)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             AV(AssignableValue::Dim(i)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "dimen".into() + i.to_string().into()
             },
             AV(AssignableValue::Skip(i)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "skip".into() + i.to_string().into()
             },
             AV(AssignableValue::Register(i)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "count".into() + i.to_string().into()
             },
             AV(AssignableValue::PrimReg(p)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             AV(AssignableValue::PrimToks(p)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             AV(AssignableValue::PrimDim(p)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             AV(AssignableValue::PrimSkip(p)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             Cond(c) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + c.name.into()
             },
             Whatsit(ProvidesWhatsit::Math(m)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + m.name.into()
             },
             Ass(p) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
             },
             MathChar(i) => {
@@ -517,7 +514,7 @@ impl PrimitiveTeXCommand {
                 ret
             }
             Whatsit(ProvidesWhatsit::Simple(s)) => {
-                let mut ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + s.name.into()
             },
             _ => todo!("{}",self)
@@ -588,7 +585,6 @@ impl PrimitiveTeXCommand {
     pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
         use PrimitiveTeXCommand::*;
         use AssignableValue::*;
-        use crate::utils::u8toi16;
         match self {
             AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(*i as i32))),
             AV(Register(i)) => Ok(Numeric::Int(int.state_register(*i as i32))),
@@ -767,10 +763,8 @@ impl PrimitiveTeXCommand {
         Ok(exp)
     }
     pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
-        use crate::utils::u8toi16;
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
-        use crate::stomach::whatsits::Whatsit;
 
         let globals = int.state_register(-(GLOBALDEFS.index as i32));
         let global = !(globals < 0) && ( globally || globals > 0 );

@@ -1,7 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 use crate::references::SourceReference;
-use std::rc::Rc;
 use std::sync::Arc;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;

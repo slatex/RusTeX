@@ -1,7 +1,6 @@
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
-use crate::commands::{DefMacro, PrimitiveTeXCommand, Signature, TeXCommand};
+use crate::commands::TeXCommand;
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
@@ -159,8 +158,6 @@ impl StackFrame {
 }
 
 // ------------------------------------------------------------------------------------------------
-
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct State {
@@ -664,17 +661,15 @@ use std::cell::Ref;
 use std::fmt::{Display, Formatter};
 use std::str::from_utf8_unchecked;
 use std::sync::Arc;
-use crate::commands::primitives::NULLFONT;
 use crate::fonts::{Font, FontFile, Nullfont};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::Token;
-use crate::references::SourceFileReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
 use crate::stomach::colon::NoColon;
-use crate::stomach::simple::{PDFXForm, PDFXImage, SimpleWI};
+use crate::stomach::simple::{PDFXForm, PDFXImage};
 
 impl Interpreter<'_> {
     pub fn file_read_line(&self,index:u8) -> Result<Vec<Token>,TeXError> {
@@ -737,7 +732,6 @@ impl Interpreter<'_> {
     }
     pub fn file_write(&self,index:u8,s:TeXString) -> Result<(),TeXError> {
         use ansi_term::Colour::*;
-        use std::io::Write;
         match index {
             17 => {
                 print!("{}",s);

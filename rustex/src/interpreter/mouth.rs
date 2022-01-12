@@ -2,7 +2,6 @@
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
-use std::rc::Rc;
 use std::str::from_utf8;
 use std::sync::Arc;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
@@ -704,7 +703,7 @@ impl Mouths {
                     print!(")");
                     return ()
                 }
-                Some(m) => {self.mouths.pop();}
+                Some(_) => {self.mouths.pop();}
                 _ => panic!("Mouth empty!")
             }
         }
@@ -793,7 +792,7 @@ impl Interpreter<'_> {
         let mut rf = &*tk.reference;
         loop {
             match rf {
-                SourceReference::File(f, s, e) => {
+                SourceReference::File(f, s, _) => {
                     let end = self.mouths.borrow().line_no();
                     return Some(SourceFileReference {
                         file: f.clone(),

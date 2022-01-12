@@ -4,7 +4,6 @@ use std::io::Write;
 use std::ops::{AddAssign, Deref};
 use std::path::{Path, PathBuf};
 use std::str::{from_utf8, from_utf8_unchecked};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::thread::JoinHandle;
@@ -326,7 +325,6 @@ impl TeXError {
     }
     pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
         std::io::stdout().flush();
-        use std::path::PathBuf;
         self.backtrace.resolve();
         match int {
             None => panic!("{}",self),
@@ -373,7 +371,6 @@ use crate::references::SourceReference;
 use crate::ontology::ExpansionRef;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::ontology::Token;
-use crate::commands::TeXCommand;
 use crate::interpreter::Interpreter;
 
 fn get_top(tk : Token) -> Token {

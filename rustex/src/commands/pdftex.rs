@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokAssValue, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
 use crate::interpreter::tokenize;
 use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
@@ -76,7 +75,7 @@ fn read_action_spec(int:&Interpreter) -> Result<ActionSpec,TeXError> {
                 }
                 Some(_) => {
                     let num = int.read_number()?;
-                    let ret = int.read_argument()?;
+                    let _ = int.read_argument()?;
                     Ok(ActionSpec::Page(num))
                 }
                 _ => {
@@ -217,7 +216,7 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
         let icase = match int.read_keyword(vec!("icase"))? {
             Some(_) => true, _ => false
         };
-        let limit = match int.read_keyword(vec!("subcount"))? {
+        let _ = match int.read_keyword(vec!("subcount"))? {
             Some(_) => int.read_number()?,
             _ => -1
         };
@@ -244,12 +243,12 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
                 } else {
                     matches.reverse();
                     let mut rets : Vec<TeXStr> = vec!();
-                    let (m,start,end,groups) = matches.pop().unwrap();
+                    let (m,start,_,groups) = matches.pop().unwrap();
                     rets.push((start.to_string() + "->" + &m).as_str().into());
                     for group in groups {
                         match group {
                             None => rets.push("-1->".into()),
-                            Some((st,s,e)) => rets.push((s.to_string() + "->" + &st).as_str().into())
+                            Some((st,s,_)) => rets.push((s.to_string() + "->" + &st).as_str().into())
                         }
                     }
                     int.change_state(StateChange::Pdfmatches(rets));
@@ -329,7 +328,7 @@ pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfobj",
     expandable:false,
-    _apply:|rf,int| {
+    _apply:|_,int| {
         match int.read_keyword(vec!("reserveobjnum","useobjnum","stream"))? {
             Some(s) if s == "reserveobjnum" => {
                 let num = int.state_register(-(PDFLASTOBJ.index as i32));
@@ -371,7 +370,7 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrefxform",
     modes: |_| {true},
-    _get: |tk,int| {
+    _get: |_,int| {
         let num = int.read_number()?;
         Ok(Whatsit::Simple(SimpleWI::PDFXForm(int.state_get_pdfxform(num as usize)?)))
     }
@@ -379,7 +378,7 @@ pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     name:"pdfliteral",
-    modes: |x| {true},
+    modes: |_| {true},
     _get: |tk, int| {
         int.read_keyword(vec!("direct","page"));
         let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
@@ -391,7 +390,7 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
     name:"pdfdest",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         let target = match int.read_keyword(vec!("num","name"))? {
             Some(s) if s == "num" => {
@@ -424,7 +423,7 @@ pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFSTARTLINK: SimpleWhatsit = SimpleWhatsit {
     name:"pdfstartlink",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         let rule = read_rule_spec(int)?;
         let attr = match read_attrspec(int)?{
@@ -443,7 +442,7 @@ pub static PDFSTARTLINK: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
     name:"pdfendlink",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         Ok(LinkEnd {
             sourceref:int.update_reference(tk)
@@ -453,9 +452,8 @@ pub static PDFENDLINK: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFSETMATRIX: SimpleWhatsit = SimpleWhatsit {
     name:"pdfsetmatrix",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
-        use std::num::*;
         let tks = int.read_balanced_argument(true,false,false,true)?;
         let str = int.tokens_to_string(&tks);
         let nums : Vec<f32> = str.split(32).iter().map(|x| {
@@ -477,7 +475,7 @@ pub static PDFSETMATRIX: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFSAVE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfsave",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         use crate::interpreter::TeXMode;
         Ok(PDFMatrixSave {
@@ -493,7 +491,7 @@ pub static PDFSAVE: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrestore",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         Ok(PDFRestore {
             sourceref:int.update_reference(tk)
@@ -504,7 +502,7 @@ pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrefximage",
-    modes: |x| {true},
+    modes: |_| {true},
     _get:|tk,int| {
         let num = int.read_number()?;
         let img = match int.state.borrow().pdfximages.get(num as usize) {
@@ -596,10 +594,10 @@ pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFOUTLINE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfoutline",
     expandable:true,
-    _apply:|rf,int| {
-        let attr = read_attrspec(int)?;
-        let action = read_action_spec(int);
-        let num = match int.read_keyword(vec!("count"))? {
+    _apply:|_,int| {
+        let _ = read_attrspec(int)?;
+        let _ = read_action_spec(int)?;
+        let _ = match int.read_keyword(vec!("count"))? {
             Some(_) => int.read_number()?,
             _ => 0
         };
@@ -619,7 +617,7 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
         let tks = int.read_balanced_argument(true,false,false,false)?;
         let str = int.tokens_to_string(&tks);
         //let file = int.get_file(&str.to_utf8())?;
-        let file = int.get_file(&str.to_string())?;
+        //let file = int.get_file(&str.to_string())?;
         match &*int.get_file(&str.to_utf8())?.string.read().unwrap() {
             None => {
                 let md = md5::compute("");
@@ -650,7 +648,7 @@ pub static PDFCATALOG: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcatalog",
     expandable:false,
     _apply:|_tk,int| {
-        let arg = int.read_string()?;
+        let _ = int.read_string()?;
         match int.read_keyword(vec!("openaction"))? {
             None => Ok(()),
             Some(_) => {

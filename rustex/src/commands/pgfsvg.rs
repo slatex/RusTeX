@@ -1,14 +1,12 @@
-use std::any::Any;
-use std::rc::Rc;
-use std::sync::Arc;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
-use crate::{Interpreter, TeXErr};
+use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent};
 use crate::interpreter::dimensions::numtostr;
 use crate::interpreter::TeXMode;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
 use crate::stomach::colon::ColonMode;
-use crate::stomach::groups::{ColorChange, ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup, WIGroupTrait};
+use crate::stomach::groups::WIGroupTrait;
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, SVG_NS};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -17,71 +15,11 @@ use crate::utils::{TeXError, TeXStr};
 pub static PGFSYSDRIVER : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     name:"pgfsysdriver",
-    _apply:|xp, int| {
+    _apply:|xp, _| {
         xp.2 = crate::interpreter::string_to_tokens("pgfsys-rust.def".into());
         Ok(())
     }
 };
-/*
-pub struct PGFColor {
-    pub color:TeXStr,
-    pub sourceref:Option<SourceFileReference>
-}
-unsafe impl Send for PGFColor {}
-unsafe impl Sync for PGFColor {}
-impl ExternalWhatsitGroup for PGFColor {
-    fn name(&self) -> TeXStr { "pgfcolor".into() }
-    fn params(&self, name: &str) -> Option<TeXStr> {
-        if name == "color" {Some(self.color.clone())} else {None}
-    }
-    fn width(&self, ch: &Vec<Whatsit>) -> i32 { 0 }
-    fn height(&self, ch: &Vec<Whatsit>) -> i32 { 0 }
-    fn depth(&self, ch: &Vec<Whatsit>) -> i32 { 0 }
-    fn as_xml_internal(&self, ch: &Vec<Whatsit>, prefix: String) -> String {
-        let mut ret = "<g style=\"color:#".to_string() + &self.color.to_string() + "\">";
-        for w in ch { ret += &w.as_xml_internal(prefix.clone())}
-        ret + "</g>"
-    }
-    fn has_ink(&self, ch: &Vec<Whatsit>) -> bool { true }
-    fn opaque(&self) -> bool { true }
-    fn priority(&self) -> i16 { 75 }
-    fn closes_with_group(&self) -> bool { false }
-    fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
-}
-
-pub static COLORPUSH : SimpleWhatsit = SimpleWhatsit {
-    name:"rustex!pgf!colorpush",
-    modes: |x| {true},
-    _get: |tk, int| {
-        let color = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
-        Ok(
-            Whatsit::GroupOpen(WIGroup::External(Arc::new(PGFColor {
-            color:ColorChange::as_html(color.into()).into(),
-            sourceref:int.update_reference(tk)
-        }),vec!())))
-    },
-};
-
-pub struct PGFColorEnd {
-    pub sourceref:Option<SourceFileReference>
-}
-unsafe impl Send for PGFColorEnd {}
-impl ExternalWhatsitGroupEnd for PGFColorEnd {
-    fn name(&self) -> TeXStr { "pgfcolor".into() }
-    fn params(&self, _: &str) -> Option<TeXStr> { None }
-    fn priority(&self) -> i16 { 75 }
-    fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
-}
-
-pub static COLORPOP : SimpleWhatsit = SimpleWhatsit {
-    name:"rustex!pgf!colorpop",
-    modes: |x| {true},
-    _get: |tk, int| {
-        Ok(Whatsit::GroupClose(GroupClose::External(Arc::new(PGFColorEnd { sourceref: int.update_reference(tk)}))))
-    },
-};
-
- */
 
 #[derive(Clone)]
 pub struct PGFEscape {
@@ -101,15 +39,15 @@ impl WhatsitTrait for PGFEscape {
     }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut nret : Vec<Whatsit> = vec!();
-        let width = self.bx.width();
-        let height = self.bx.height();
-        let depth = self.bx.depth();
+        let _ = self.bx.width();
+        let _ = self.bx.height();
+        let _ = self.bx.depth();
         match self.bx {
-            TeXBox::H(mut hb) => {
+            TeXBox::H(hb) => {
                 //hb._width = Some(width); hb._height = Some(height); hb._depth = Some(depth);
                 hb.normalize(&ColonMode::V,&mut nret,scale)
             },
-            TeXBox::V(mut vb) => {
+            TeXBox::V(vb) => {
                 //vb._width = Some(width); vb._height = Some(height); vb._depth = Some(depth);
                 vb.normalize(&ColonMode::H,&mut nret,scale)
             },
@@ -119,6 +57,22 @@ impl WhatsitTrait for PGFEscape {
         match nret.pop() {
             Some(Whatsit::Box(bx)) => ret.push(PGFEscape { bx, sourceref:self.sourceref}.as_whatsit()),
             _ => unreachable!()
+        }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::External(s) if s.to_string() == "svg" => {
+                htmlnode!(colon,foreignObject,self.sourceref,"",node_top,fo => {
+                    let wd = self.bx.width();
+                    let ht = self.bx.height() + self.bx.depth();
+                    fo.style("width".into(),dimtohtml(wd));
+                    fo.style("height".into(),dimtohtml(ht));
+                    htmlnode!(colon,HTML_NS:div,None,"foreign",htmlparent!(fo),div => {
+                        self.bx.as_html(&ColonMode::H,colon,htmlparent!(div))
+                    })
+                })
+            }
+            _ => ()
         }
     }
 }
@@ -136,11 +90,14 @@ impl ExternalWhatsit for PGFEscape {
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.clone().normalize(mode,ret,scale)
     }
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.clone().as_html(mode,colon,node_top)
+    }
 }
 
 pub static PGFHBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!hbox",
-    modes: |x| {true},
+    modes: |_| {true},
     _get: |tk, int| {
         Ok(PGFEscape {
             bx:int.state_get_box(int.read_number()?),
@@ -180,7 +137,7 @@ impl PGFBox {
     }
 }
 impl WhatsitTrait for PGFBox {
-    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         let nc : Vec<Whatsit> = self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
         self.content = nc;
         ret.push(self.as_whatsit())
@@ -206,6 +163,31 @@ impl WhatsitTrait for PGFBox {
         for s in &self.content {str += &s.as_xml_internal(prefix.clone() + "  ")}
         str + "\n" + &prefix + "</g></svg>"
     }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,SVG_NS:svg,self.sourceref,"",node_top,svg => {
+            let mut vb : HTMLStr = numtostr(self.minx,"").into();
+            vb += " ";
+            vb += numtostr(self.miny,"");
+            vb += " ";
+            vb += numtostr(self.maxx-self.minx,"");
+            vb += " ";
+            vb += numtostr(self.maxy-self.miny,"");
+            svg.attr("width".into(),dimtohtml(self.maxx-self.minx));
+            svg.attr("height".into(),dimtohtml(self.maxy-self.miny));
+            svg.attr("viewBox".into(),vb);
+            htmlnode!(colon,g,None,"",htmlparent!(svg),g => {
+                let mut tr : HTMLStr = "translate(0,".into();
+                tr += numtostr(self.maxy,"");
+                tr += ") scale(1,-1) translate(0,";
+                tr += numtostr(-self.miny,"");
+                tr += ")";
+                g.attr("transform".into(),tr);
+                for c in self.content {
+                    c.as_html(&ColonMode::External("svg".into()),colon,htmlparent!(g))
+                }
+            })
+        })
+    }
 }
 impl ExternalWhatsit for PGFBox {
     fn name(&self) -> TeXStr { "pgfbox".into() }
@@ -223,6 +205,9 @@ impl ExternalWhatsit for PGFBox {
     }
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.clone().normalize(mode,ret,scale)
+    }
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.clone().as_html(mode,colon,node_top)
     }
 }
 
@@ -256,7 +241,7 @@ pub struct PGFLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for PGFLiteral {
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
@@ -264,7 +249,15 @@ impl WhatsitTrait for PGFLiteral {
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
     fn has_ink(&self) -> bool { true }
-    fn as_xml_internal(&self, prefix: String) -> String { self.str.to_string() }
+    fn as_xml_internal(&self, _: String) -> String { self.str.to_string() }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::External(s) if s.to_string()=="svg" => {
+                htmlliteral!(colon,node_top,self.str)
+            }
+            _ => ()
+        }
+    }
 }
 impl ExternalWhatsit for PGFLiteral {
     fn name(&self) -> TeXStr { "pgfliteral".into() }
@@ -276,12 +269,15 @@ impl ExternalWhatsit for PGFLiteral {
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.clone().normalize(mode,ret,scale)
     }
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.clone().as_html(mode,colon,node_top)
+    }
 }
 
 pub static PGFLITERAL : SimpleWhatsit = SimpleWhatsit {
     name: "rustex!pgf!literal",
-    modes: |x| { true },
-    _get: |tk, int| {
+    modes: |_| { true },
+    _get: |_, int| {
         let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         Ok(PGFLiteral { str:str.into() }.as_whatsit())
     },

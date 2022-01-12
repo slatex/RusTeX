@@ -1,17 +1,9 @@
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
-use std::thread::JoinHandle;
 use crate::fonts::Font;
 use crate::Interpreter;
-use crate::interpreter::dimensions::Skip;
-use crate::interpreter::state::State;
 use crate::stomach::{StomachMessage, Whatsit};
-use crate::stomach::boxes::{HBox, VBox};
-use crate::stomach::groups::{WIGroup, WIGroupTrait};
-use crate::stomach::groups::WIGroup::PDFMatrixSave;
-use crate::stomach::math::{GroupedMath, MathGroup, MathKernel};
-use crate::stomach::simple::AlignBlock;
-use crate::stomach::whatsits::{Insert, WhatsitTrait};
+use crate::stomach::whatsits::WhatsitTrait;
 use crate::utils::TeXStr;
 
 #[derive(PartialEq,Clone)]

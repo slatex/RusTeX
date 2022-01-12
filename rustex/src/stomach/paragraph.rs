@@ -1,10 +1,11 @@
 use std::cmp::max;
-use crate::Interpreter;
-use crate::interpreter::dimensions::Skip;
+use crate::{htmlliteral, htmlnode, htmlparent, Interpreter};
+use crate::interpreter::dimensions::{Skip, SkipDim};
 use crate::stomach::{StomachGroup, Whatsit};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 use crate::stomach::groups::WIGroupTrait;
+use crate::stomach::html::{dimtohtml, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::simple::SimpleWI;
 
 #[derive(Clone)]
@@ -32,12 +33,63 @@ impl WhatsitTrait for Paragraph {
     fn depth(&self) -> i32 { self._depth }
     fn has_ink(&self) -> bool { true }
     fn as_whatsit(self) -> Whatsit { Whatsit::Par(self) }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let (mut np, ch) = self.destroy();
         let mut hret: Vec<Whatsit> = vec!();
         for c in ch { c.normalize(&ColonMode::H, &mut hret, scale) }
         np.children = hret;
         ret.push(Whatsit::Par(np))
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlliteral!(colon,node_top,"\n");
+        htmlnode!(colon,div,None,"paragraph",node_top,node => {
+            match self.leftskip {
+                Some(sk) if match sk.stretch {
+                    Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => true,
+                    _ => false
+                } => match self.rightskip {
+                    Some(sk) if match sk.stretch {
+                        Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => true,
+                        _ => false
+                    } => {
+                        node.style("text-align".into(),"center".into());
+                        node.style("justify-content".into(),"center".into());
+                        node.style("align-items".into(),"center".into());
+                    }
+                    _ => {
+                        node.style("text-align".into(),"right".into());
+                        node.style("justify-content".into(),"right".into());
+                        node.style("align-items".into(),"right".into());
+                    }
+                }
+                _ => match self.rightskip {
+                    Some(sk) if match sk.stretch {
+                        Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => true,
+                        _ => false
+                    } => {
+                        node.style("text-align".into(),"left".into());
+                        node.style("justify-content".into(),"left".into());
+                        node.style("align-items".into(),"left".into());
+                    },
+                    _ => ()
+                }
+            }
+            match self.leftskip {
+                Some(sk) if sk.base != 0 => node.style("margin-left".into(),dimtohtml(sk.base)),
+                _ => ()
+            }
+            match self.rightskip {
+                Some(sk) if sk.base != 0 => node.style("margin-right".into(),dimtohtml(sk.base)),
+                _ => ()
+            }
+            if self.parskip != 0 {
+                node.style("margin-top".into(),dimtohtml(self.parskip))
+            }
+            node.style("width".into(),dimtohtml(self.width()));
+            node.style("min-width".into(),dimtohtml(self.width()));
+            for c in self.children { c.as_html(&ColonMode::H,colon,htmlparent!(node)) }
+        });
+        htmlliteral!(colon,node_top,"\n");
     }
 }
 
@@ -157,7 +209,7 @@ impl Paragraph {
                     _ => unreachable!()
                 }
             }
-            Some(f) => {
+            Some(_) => {
                 while match presplit.last() {
                     Some(StomachGroup::Top(_)) => false,
                     _ => true

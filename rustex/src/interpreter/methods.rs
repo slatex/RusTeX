@@ -1,9 +1,9 @@
 use crate::catcodes::CategoryCode;
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
-use crate::utils::{TeXError, TeXStr, TeXString};
+use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{TokReference, PrimitiveTeXCommand, TokenList};
+use crate::commands::{TokReference, PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
@@ -11,7 +11,6 @@ use crate::interpreter::state::{GroupType, StateChange};
 use crate::references::SourceReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
-use crate::utils::u8toi16;
 
 impl Interpreter<'_> {
 
@@ -321,11 +320,11 @@ impl Interpreter<'_> {
         self.new_group(GroupType::Box(bm));
         self.set_mode(match bm {
             BoxMode::H => {
-                if (insertevery) { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
+                if insertevery { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
                 TeXMode::RestrictedHorizontal
             },
             BoxMode::V => {
-                if (insertevery) { self.insert_every(&crate::commands::primitives::EVERYVBOX) };
+                if insertevery { self.insert_every(&crate::commands::primitives::EVERYVBOX) };
                 TeXMode::InternalVertical
             },
             BoxMode::M => TeXMode::Math,
@@ -513,7 +512,7 @@ impl Interpreter<'_> {
                 }
                 _ => {
                     self.requeue(next);
-                    if (isnegative) {
+                    if isnegative {
                         self.push_tokens(vec!(Token::new(45,self.state_catcodes().get_code(45),None,SourceReference::None,true)))
                     }
                     return Ok(None)

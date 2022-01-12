@@ -1,9 +1,6 @@
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
-use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, TeXCommand, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
+use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -11,7 +8,7 @@ use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
-use crate::stomach::whatsits::{PrintChar, SpaceChar, WhatsitTrait};
+use crate::stomach::whatsits::{SpaceChar, WhatsitTrait};
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -79,9 +76,8 @@ pub static SFCODE : NumAssValue = NumAssValue {
     }
 };
 
-use crate::references::{SourceFileReference, SourceReference};
+use crate::references::SourceReference;
 use chrono::{Datelike, Timelike};
-use crate::commands::AssignableValue::FontRef;
 use crate::fonts::{Font, Nullfont};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
@@ -236,7 +232,7 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
         let mut long = false;
         let mut global = iglobal;
         while int.has_next() {
-            int.expand_until(false);
+            int.expand_until(false)?;
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
@@ -275,7 +271,7 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
         let mut protected = false;
         let mut global = iglobal;
         while int.has_next() {
-            int.expand_until(false);
+            int.expand_until(false)?;
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
@@ -334,7 +330,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                         })
                     }
                     _ => {
-                        if (inext.char < 48) {
+                        if inext.char < 48 {
                             TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
                         }
                         let arg = inext.char - 48;
@@ -505,7 +501,7 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         use std::process::Command;
-        use std::{str,env};
+        use std::str;
         let filename = int.read_string()?;
         if filename.starts_with("|kpsewhich ") {
             let pwd = int.jobinfo.in_file().display().to_string();
@@ -594,19 +590,18 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
     name: "number"
 };
 
-use crate::utils::u8toi16;
 fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
-    int.expand_until(true);
+    int.expand_until(true)?;
     let cmd = int.read_command_token()?;
     let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) => {
             int.read_keyword(vec!("by"))?;
-            ((i as i32),Numeric::Int(int.state_register((i as i32))),int.read_number_i(false)?)
+            ((i as i32),Numeric::Int(int.state_register(i as i32)),int.read_number_i(false)?)
         }
         AV(AssignableValue::PrimReg(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Int(int.state_register(-(r.index as i32))), int.read_number_i(false)?)
+            (-(r.index as i32), Numeric::Int(int.state_register(- (r.index as i32))), int.read_number_i(false)?)
         }
         AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = int.read_number()? as u16;
@@ -656,11 +651,11 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
         let (index,num,fac) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
         let ch = match num {
-            Numeric::Int(_) => StateChange::Register(index,match (num * fac.as_int()) {
+            Numeric::Int(_) => StateChange::Register(index,match num * fac.as_int() {
                 Numeric::Int(i) => i,
                 _ => unreachable!()
             }, global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match (num * fac.as_int()) {
+            Numeric::Dim(_) => StateChange::Dimen(index,match num * fac.as_int() {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
@@ -710,10 +705,10 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             MathChar(i) => stt(i.to_string().into()),
-            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension((*i as i32))).into()),
-            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension((-(r.index as i32)))).into()),
-            AV(AssignableValue::Skip(i)) => stt(int.state_skip((*i as i32)).to_string().into()),
-            AV(AssignableValue::PrimSkip(r)) => stt(int.state_skip(-(r.index as i32)).to_string().into()),
+            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(*i as i32)).into()),
+            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension(-(r.index as i32))).into()),
+            AV(AssignableValue::Skip(i)) => stt(int.state_skip(*i as i32).to_string().into()),
+            AV(AssignableValue::PrimSkip(r)) => stt(int.state_skip(- (r.index as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
@@ -1070,7 +1065,7 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         use ansi_term::Colour::*;
         //println!("Error: {}",int.preview());
         //TeXErr!((int,Some(tk.0.clone())),"Debug");
@@ -1113,7 +1108,7 @@ fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXEr
     int.skip_ws();
     log!("expr_loop: >{}",int.preview());
     let mut first = expr_loop_inner(int,getnum)?;
-    'top: loop {
+    loop {
         match int.read_keyword(vec!("+","-","*","/"))? {
             Some(s) if s == "+" => {
                 let mut second = expr_loop_inner(int,getnum)?;
@@ -1646,7 +1641,7 @@ pub static LASTKERN: NumericCommand = NumericCommand {
 pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"unkern",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         let remove = match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => true,
             _ => false
@@ -1659,7 +1654,7 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
 pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         let remove = match int.stomach.borrow_mut().last_whatsit(int) {
             Some(Whatsit::Simple(SimpleWI::Penalty(_))) => true,
             _ => false
@@ -1759,7 +1754,7 @@ pub static VCENTER: ProvidesBox = ProvidesBox {
 
 pub static VSPLIT: ProvidesBox = ProvidesBox {
     name:"vsplit",
-    _get:|tk,int| {
+    _get:|_,int| {
         let boxnum = int.read_number()?;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
@@ -1793,7 +1788,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         ret.children = first;
         rest.children = second;
         int.change_state(StateChange::Box(boxnum,TeXBox::V(rest),false));
-        Ok((TeXBox::V(ret)))
+        Ok(TeXBox::V(ret))
     }
 };
 
@@ -1877,7 +1872,7 @@ pub static TOKS: TokAssValue = TokAssValue {
 pub static MATHCODE: NumAssValue = NumAssValue {
     name:"mathcode",
     _getvalue: |int| {Ok(Numeric::Int(int.state_get_mathcode( int.read_number()? as u8)))},
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
@@ -1889,7 +1884,7 @@ pub static MATHCODE: NumAssValue = NumAssValue {
 pub static DELCODE: NumAssValue = NumAssValue {
     name:"delcode",
     _getvalue: |int| {Ok(Numeric::Int(int.state_get_delcode( int.read_number()? as u8)))},
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
@@ -1925,7 +1920,7 @@ pub static PATTERNS: PrimitiveExecutable = PrimitiveExecutable {
     name:"patterns",
     expandable:false,
     _apply:|_tk,int| {
-        int.read_argument();
+        int.read_argument()?;
         Ok(())
         // TODO ?
     }
@@ -1935,7 +1930,7 @@ pub static HYPHENATION: PrimitiveExecutable = PrimitiveExecutable {
     name:"hyphenation",
     expandable:false,
     _apply:|_tk,int| {
-        int.read_argument();
+        int.read_argument()?;
         Ok(())
         // TODO ?
     }
@@ -2180,7 +2175,7 @@ pub static MOVERIGHT: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
-        let rf = int.update_reference(tk);
+        let _ = int.update_reference(tk);
         Ok(Whatsit::Simple(SimpleWI::MoveRight(MoveRight {
             dim,
             content:bx,
@@ -2191,7 +2186,7 @@ pub static MOVERIGHT: SimpleWhatsit = SimpleWhatsit {
 
 pub static KERN: SimpleWhatsit = SimpleWhatsit {
     name:"kern",
-    modes:|m| { true },
+    modes:|_| { true },
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let rf = int.update_reference(tk);
@@ -2213,7 +2208,7 @@ pub static KERN: SimpleWhatsit = SimpleWhatsit {
 pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
     name:"unvbox",
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
-    _get: |tk,int| {
+    _get: |_,int| {
         let ind = int.read_number()?;
         let bx = int.state_get_box(ind as i32);
         match bx {
@@ -2227,7 +2222,7 @@ pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
 pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
     name:"unvcopy",
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
-    _get: |tk,int| {
+    _get: |_,int| {
         let ind = int.read_number()?;
         let bx = int.state_copy_box(ind as i32);
         match bx {
@@ -2241,7 +2236,7 @@ pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
 pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
     name:"unhbox",
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
-    _get: |tk,int| {
+    _get: |_,int| {
         let ind = int.read_number()?;
         let bx = int.state_get_box(ind as i32);
         let mode = int.get_mode();
@@ -2256,7 +2251,7 @@ pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
 pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
     name:"unhcopy",
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
-    _get: |tk,int| {
+    _get: |_,int| {
         let ind = int.read_number()?;
         let bx = int.state_copy_box(ind as i32);
         let mode = int.get_mode();
@@ -2318,7 +2313,7 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
@@ -2339,7 +2334,7 @@ pub static WD: NumAssValue = NumAssValue {
 
 pub static HT: NumAssValue = NumAssValue {
     name:"ht",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
@@ -2360,7 +2355,7 @@ pub static HT: NumAssValue = NumAssValue {
 
 pub static DP: NumAssValue = NumAssValue {
     name:"dp",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
@@ -2489,7 +2484,10 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
         match align {
             Some(Some(ret)) => {
                 int.insert_every(&EVERYCR);
-                ENDROW.try_with(|x| int.requeue(x.clone()));
+                match ENDROW.try_with(|x| int.requeue(x.clone())) {
+                    Ok(_) => (),
+                    _ => TeXErr!((int,Some(tk.0.clone())),"Error inserting \\endrow")
+                };
                 tk.2 = ret;
                 Ok(())
             }
@@ -2584,24 +2582,24 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     let mut tabskip = int.state_skip(-(TABSKIP.index as i32));
     let firsttabskip = tabskip;
 
-    let mut inV = false;
+    let mut in_v = false;
     let mut columns: Vec<(Vec<Token>,Vec<Token>,Skip)> = vec!((vec!(),vec!(),tabskip));
     let mut recindex: Option<usize> = None;
 
     loop {
         let next = int.next_token();
         match next.catcode {
-            CategoryCode::AlignmentTab if !inV && columns.last().unwrap().0.is_empty() => recindex = Some(columns.len() - 1),
+            CategoryCode::AlignmentTab if !in_v && columns.last().unwrap().0.is_empty() => recindex = Some(columns.len() - 1),
             CategoryCode::AlignmentTab => {
                 columns.push((vec!(),vec!(),tabskip));
-                inV = false
+                in_v = false
             }
-            CategoryCode::Parameter if !inV => inV = true,
+            CategoryCode::Parameter if !in_v => in_v = true,
             CategoryCode::Parameter => TeXErr!((int,Some(next)),"Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
                 let proc = int.state_get_command(&next.cmdname());
                 match proc {
-                    None => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+                    None => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
                     Some(p) => match &*p.orig {
                         PrimitiveTeXCommand::Primitive(p) if **p == CR || **p == CRCR => {
                             int.insert_every(&EVERYCR);
@@ -2628,11 +2626,11 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                 _ => TeXErr!((int,Some(next)),"Expandable command expected after \\span")
                             }
                         }
-                        _ => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+                        _ => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
                     }
                 }
             }
-            _ => if inV { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
+            _ => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
         }
     }
 
@@ -2687,7 +2685,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
         'row: loop {
             let mut doheader = true;
-            inV = false;
+            //inV = false;
             'prelude: loop {
                 let next = int.next_token();
                 match next.catcode {
@@ -2799,23 +2797,7 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             Some(_) => Some(int.read_dimension()?),
             None => None
         };
-        let (skip,template,mut rows) = do_align(int,BoxMode::H,BoxMode::V)?;
-        //unsafe { crate::LOG = true }
-        /*match rows.pop() {
-            Some(AlignBlock::Noalign(v)) => {
-                let mut ret : Vec<Whatsit> = vec!(
-                    Whatsit::Simple(SimpleWI::HAlign(HAlign {
-                        skip,template,rows,sourceref:int.update_reference(tk)
-                    }))
-                );
-                for w in v {ret.push(w)}
-                return Ok(Whatsit::Ls(ret))
-            }
-            Some(o) => {
-                rows.push(o)
-            }
-            _ => ()
-        }*/
+        let (skip,template,rows) = do_align(int,BoxMode::H,BoxMode::V)?;
         Ok(Whatsit::Simple(SimpleWI::HAlign(HAlign {
             skip,template,rows,sourceref:int.update_reference(tk)
         })))
@@ -2882,7 +2864,7 @@ pub static LEQNO: SimpleWhatsit = SimpleWhatsit {
 
 pub static MARK: SimpleWhatsit = SimpleWhatsit {
     name:"mark",
-    modes: |x| { true },
+    modes: |_| { true },
     _get:|tk,int| {
         let toks = int.read_balanced_argument(true,false,false,true)?;
         Ok(Whatsit::Simple(SimpleWI::Mark(Mark {
@@ -2894,7 +2876,7 @@ pub static MARK: SimpleWhatsit = SimpleWhatsit {
 
 pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
     name:"leaders",
-    modes: |x| { true },
+    modes: |_| { true },
     _get:|tk,int| {
         match int.read_keyword(vec!("Width","Height","Depth"))? {
             Some(_) => todo!(),
@@ -2923,7 +2905,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
                     _ => TeXErr!((int,Some(cmdtk)),"Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
                 };
                 Ok(Whatsit::Simple(SimpleWI::Leaders(Leaders {
-                    bx: Box::new((content)),
+                    bx: Box::new(content),
                     sourceref: int.update_reference(tk)
                 })))
             }
@@ -2933,13 +2915,13 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
 
 pub static CLEADERS: SimpleWhatsit = SimpleWhatsit {
     name: "cleaders",
-    modes: |x| { true },
+    modes: |_| { true },
     _get: |tk, int| { (LEADERS._get)(tk,int)} // TODO maybe
 };
 
 pub static XLEADERS: SimpleWhatsit = SimpleWhatsit {
     name: "xleaders",
-    modes: |x| { true },
+    modes: |_| { true },
     _get: |tk, int| { (LEADERS._get)(tk,int)} // TODO maybe
 };
 
@@ -2995,9 +2977,9 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
 fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
     let wi = int.read_math_whatsit(None)?;
     match wi {
-        Some(Whatsit::Math(MathGroup { kernel:(
+        Some(Whatsit::Math(MathGroup { kernel:
             MathKernel::MathChar(mc) |
-            MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+            MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                superscript:None,subscript:None,limits:_ })) =>
             if mc.class == 4 || mc.class == 5 || mc.class == 3 {
                 Ok(Some(mc))
@@ -3086,7 +3068,7 @@ pub static ATOPWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         //unsafe { crate::LOG = true }
         let num = int.read_number()?;
         log!("\\parshape: Reading 2*{} dimensions:",num);
@@ -3145,7 +3127,7 @@ pub static NOINDENT: PrimitiveExecutable = PrimitiveExecutable {
 pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
     name:"insert",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         let num = int.read_number()? as u16;
         let mut bx = int.read_whatsit_group(BoxMode::V,true)?;
         let mut state = int.state.borrow_mut();
@@ -3190,7 +3172,7 @@ pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
     name:"displaylimits",
-    _get: |tk,int,pr| {
+    _get: |_,int,pr| {
         match pr {
             Some(p) => p.limits = int.state.borrow().display_mode(),
             _ => ()
@@ -3368,7 +3350,7 @@ pub static OVERLINE: MathWhatsit = MathWhatsit {
 
 pub static MATHACCENT: MathWhatsit = MathWhatsit {
     name:"mathaccent",
-    _get: |tk,int,pr| {
+    _get: |tk,int,_| {
         let num = int.read_number()?;
         let mc = int.do_math_char(None,num as u32);
         let next = match int.read_math_whatsit(None)? {
@@ -3386,7 +3368,7 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
 
 pub static RADICAL: MathWhatsit = MathWhatsit {
     name:"radical",
-    _get: |tk,int,pr| {
+    _get: |tk,int,_| {
         let num = int.read_number()?;
         let large = num % 4096;
         let small = (num - large)/4096;
@@ -3403,7 +3385,7 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {
     name:"mathchar",
-    _get: |tk,int,_| {
+    _get: |_,int,_| {
         let num = int.read_number()? as u32;
         let mc = int.do_math_char(None,num);
         Ok(Some(MathKernel::MathChar(mc)))
@@ -3473,9 +3455,9 @@ pub static LEFT: MathWhatsit = MathWhatsit {
         int.new_group(GroupType::LeftRight);
         let wi = int.read_math_whatsit(None)?;
         match wi {
-            Some(Whatsit::Math(MathGroup { kernel:(
+            Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
-                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                    superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
                 if mc.class == 4 || mc.class == 3 {
                     Left {
@@ -3501,9 +3483,9 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
     _get: |tk,int,_| {
         let wi = int.read_math_whatsit(None)?;
         match wi {
-            Some(Whatsit::Math(MathGroup { kernel:(
+            Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
-                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                    superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(
                 Middle {
                     bx:Some(mc),
@@ -3520,9 +3502,9 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
     _get: |tk,int,_| {
         let wi = int.read_math_whatsit(None)?;
         match wi {
-            Some(Whatsit::Math(MathGroup { kernel:(
+            Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
-                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_})),
+                MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                    superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
                 if mc.class == 5 || mc.class == 3 {
                     Right {

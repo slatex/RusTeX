@@ -11,8 +11,8 @@ static SINGLETHREADED : bool = true;
 static PGF_AS_SVG : bool = true;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
-static COPY_TOKENS_FULL : bool = false;
-static COPY_COMMANDS_FULL : bool = false;
+static COPY_TOKENS_FULL : bool = true;
+static COPY_COMMANDS_FULL : bool = true;
 pub static LOG_FILE : &str = "/home/jazzpirate/rustex.log.xhtml";
 
 #[macro_export]
@@ -66,7 +66,7 @@ use crate::utils::TeXString;
 
 
 pub static LANGUAGE_DAT : &str = include_str!("resources/language.dat");
-pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
+//pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
 pub static HYPHEN_CFG : &str = include_str!("resources/hyphen.cfg");
 pub static PGFSYS_RUST: &str = include_str!("resources/pgfsys-rust.def");
 

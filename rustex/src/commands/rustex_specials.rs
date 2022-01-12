@@ -1,7 +1,9 @@
 use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
+use crate::htmlliteral;
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
+use crate::stomach::html::{HTMLChild, HTMLColon, HTMLParent, HTMLStr};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -22,6 +24,9 @@ impl WhatsitTrait for HTMLLiteral {
     fn depth(&self) -> i32 { 0 }
     fn has_ink(&self) -> bool { true }
     fn as_xml_internal(&self, prefix: String) -> String { self.str.to_string() }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlliteral!(colon,node_top,self.str)
+    }
 }
 impl ExternalWhatsit for HTMLLiteral {
     fn name(&self) -> TeXStr { "htmlliteral".into() }
@@ -32,6 +37,9 @@ impl ExternalWhatsit for HTMLLiteral {
     }
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.clone().normalize(mode,ret,scale)
+    }
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.clone().as_html(mode,colon,node_top)
     }
 }
 
@@ -52,6 +60,9 @@ impl WhatsitTrait for HTMLNamespace {
     fn as_xml_internal(&self, prefix: String) -> String {
         "<namespace abbr=\"".to_string() + &self.abbr.to_string() + "\" target=\"" + &self.ns.to_string() + "\"/>"
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        todo!()
+    }
 }
 impl ExternalWhatsit for HTMLNamespace {
     fn name(&self) -> TeXStr { "htmlnamespace".into() }
@@ -66,6 +77,9 @@ impl ExternalWhatsit for HTMLNamespace {
     fn normalize_dyn(self:Box<Self>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         self.clone().normalize(mode,ret,scale)
     }
+    fn as_html_dyn(self:Box<Self>,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>) {
+        self.clone().as_html(mode,colon,node_top)
+    }
 }
 
 pub static IF_RUSTEX : Conditional = Conditional {
@@ -77,8 +91,8 @@ pub static IF_RUSTEX : Conditional = Conditional {
 
 pub static DIRECT_HTML: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@directHTML",
-    modes: |x| { true },
-    _get: |tk, int| {
+    modes: |_| { true },
+    _get: |_, int| {
         let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         Ok(HTMLLiteral { str:str.into() }.as_whatsit())
     },
@@ -86,8 +100,8 @@ pub static DIRECT_HTML: SimpleWhatsit = SimpleWhatsit {
 
 pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
     name:"rustex@addNamespaceAbbrev",
-    modes: |x| { true },
-    _get: |tk, int| {
+    modes: |_| { true },
+    _get: |_, int| {
         let abbr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         let ns = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         Ok(HTMLNamespace { abbr:abbr.into(),ns:ns.into() }.as_whatsit())
@@ -96,7 +110,7 @@ pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
 
 pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTML",
-    modes: |x| { true },
+    modes: |_| { true },
     _get: |tk, int| {
         let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         todo!()//Ok(PGFLiteral { str:str.into() }.as_whatsit())
@@ -112,6 +126,14 @@ pub static ANNOTATE_END: SimpleWhatsit = SimpleWhatsit {
     },
 };
 
+pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
+    _apply: |_,_| {
+        println!("BREAK!");
+        Ok(())
+    },
+    expandable: false,
+    name: "rustexBREAK"
+};
 
 
 

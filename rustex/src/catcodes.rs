@@ -88,7 +88,6 @@ impl CategoryCode {
     }
 }
 
-use std::collections::HashMap;
 use std::fmt::Formatter;
 
 #[derive(Clone)]
@@ -103,8 +102,6 @@ impl CategoryCodeScheme {
         *self.catcodes.get(c as usize).unwrap()
     }
 }
-
-use CategoryCode::*;
 
 lazy_static! {
     pub static ref OTHER_SCHEME : CategoryCodeScheme = {

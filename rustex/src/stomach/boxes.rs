@@ -1,6 +1,8 @@
 use crate::interpreter::dimensions::dimtostr;
+use crate::{htmlliteral, htmlnode, htmlparent};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitIter, WhatsitTrait, WIDTH_CORRECTION};
 
@@ -61,6 +63,9 @@ impl WhatsitTrait for TeXBox {
     fn has_ink(&self) -> bool { pass_on!(self,false,has_ink) }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on!(self,(),normalize,mode,ret,scale)
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        pass_on!(self,(),as_html,mode,colon,node_top)
     }
 }
 
@@ -215,7 +220,6 @@ impl WhatsitTrait for HBox {
                         o => {
                             nch.push(o)
                         }
-                        _ => unreachable!()
                     }
                 }
                 ret.push(HBox {
@@ -227,6 +231,39 @@ impl WhatsitTrait for HBox {
                     rf: self.rf
                 }.as_whatsit())
             }
+        }
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H | ColonMode::V => {
+                htmlnode!(colon,div,None,"hbox",node_top,node => {
+                    htmlliteral!(colon,node_top,"\n");
+                    match self._width {
+                        Some(h) => {
+                            node.style("width".into(),dimtohtml(h));
+                            node.style("min-width".into(),dimtohtml(h))
+                        }
+                        _ => ()
+                    }
+                    match self._height {
+                        Some(v) => {
+                            node.style("height".into(),dimtohtml(v));
+                            node.style("min-height".into(),dimtohtml(v))
+                        }
+                        _ => ()
+                    }
+                    for c in self.children { c.as_html(&ColonMode::H,colon,htmlparent!(node)) }
+                    htmlliteral!(colon,node_top,"\n");
+                })
+            }
+            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
+                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    htmlliteral!(colon,node_top,"\n");
+                    self.as_html(&ColonMode::H,colon,htmlparent!(span));
+                    htmlliteral!(colon,node_top,"\n");
+                })
+            }),
+            _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }
     }
 }
@@ -424,6 +461,43 @@ impl WhatsitTrait for VBox {
                     tp:self.tp
                 }.as_whatsit())
             }
+        }
+    }
+
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::V | ColonMode::H => htmlnode!(colon,div,None,"vbox",node_top,node => {
+                match self.tp {
+                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
+                    VBoxType::Center => node.style("vertical-align".into(),"middle".into()),
+                    VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
+                }
+                match self._height {
+                    Some(v) => {
+                        node.style("height".into(),dimtohtml(v));
+                        node.style("min-height".into(),dimtohtml(v))
+                    }
+                    _ => ()
+                }
+                match self._width {
+                    Some(v) => {
+                        node.style("width".into(),dimtohtml(v));
+                        node.style("min-width".into(),dimtohtml(v))
+                    }
+                    _ => ()
+                }
+                for c in self.children {
+                    c.as_html(&ColonMode::V,colon,htmlparent!(node))
+                }
+            }),
+            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
+                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    htmlliteral!(colon,node_top,"\n");
+                    self.as_html(&ColonMode::H,colon,htmlparent!(span));
+                    htmlliteral!(colon,node_top,"\n");
+                })
+            }),
+            _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }
     }
 }

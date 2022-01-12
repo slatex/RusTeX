@@ -6,7 +6,6 @@ pub enum TeXMode {
 
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
@@ -16,9 +15,7 @@ use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State, StateChange};
 use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich, MaybeThread};
-use std::rc::Rc;
 use std::sync::Arc;
-use std::thread::JoinHandle;
 
 pub mod mouth;
 pub mod state;
@@ -270,7 +267,6 @@ impl Interpreter<'_> {
 
     pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
-        use crate::stomach::Whatsit as WI;
         use crate::catcodes::CategoryCode::*;
         use TeXMode::*;
         use PrimitiveTeXCommand::*;
@@ -383,7 +379,7 @@ impl Interpreter<'_> {
 
     pub fn do_math_char(&self,tk:Option<Token>,mc:u32) -> MathChar {
         let mut num = mc;
-        let (mut cls,mut fam,mut pos) = {
+        let (mut cls,mut fam,pos) = {
             if num == 0 && tk.is_some() {
                 (0,1,tk.as_ref().unwrap().char as u32)
             } else {
@@ -397,12 +393,12 @@ impl Interpreter<'_> {
             match self.state_register(-(crate::commands::primitives::FAM.index as i32)) {
                 i if i < 0 || i > 15 => {
                     cls = 0;
-                    num = 256 * fam + pos
+                    //num = 256 * fam + pos
                 }
                 i => {
                     cls = 0;
                     fam = i as u32;
-                    num = 256 * fam + pos
+                    //num = 256 * fam + pos
                 }
             }
         }
@@ -465,9 +461,7 @@ impl Interpreter<'_> {
 
     fn do_math(&self, inner : bool) -> Result<(),TeXError> {
         use crate::catcodes::CategoryCode::*;
-        use crate::commands::PrimitiveTeXCommand::*;
         use crate::stomach::Whatsit as WI;
-        use crate::commands::ProvidesWhatsit;
         self.new_group(GroupType::Math);
         let mode = if inner {
             self.insert_every(&crate::commands::primitives::EVERYMATH);
@@ -519,7 +513,7 @@ impl Interpreter<'_> {
                                 if second.is_empty() {
                                     ret = first
                                 } else {
-                                    let mut head = second.remove(0);
+                                    let head = second.remove(0);
                                     match head {
                                         WI::Above(mut mi) => {
                                             mi.set(first,second);
@@ -609,7 +603,7 @@ impl Interpreter<'_> {
                         let next = self.next_token();
                         match next.catcode {
                             EndGroup => {
-                                let mode = self.state.borrow().display_mode();
+                                //let mode = self.state.borrow().display_mode();
                                 for g in mathgroup.take() {
                                     self.stomach.borrow_mut().add(self,WI::Math(g))?
                                 }
@@ -630,7 +624,7 @@ impl Interpreter<'_> {
                                     if second.is_empty() {
                                         ret = first
                                     } else {
-                                        let mut head = second.remove(0);
+                                        let head = second.remove(0);
                                         match head {
                                             WI::Above(mut mi) => {
                                                 mi.set(first,second);

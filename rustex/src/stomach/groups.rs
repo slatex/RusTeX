@@ -1,10 +1,11 @@
-use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use crate::fonts::Font;
+use crate::fonts::fontchars::FontTableParam;
+use crate::{htmlannotate, htmlnode, htmlparent};
 use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
+use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{ActionSpec, HasWhatsitIter, WhatsitTrait};
@@ -59,6 +60,7 @@ pub trait ExternalWhatsitGroup : Send+Sync {
     fn closes_with_group(&self) -> bool;
     fn sourceref(&self) -> &Option<SourceFileReference>;
     fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
+    fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>);
 }
 
 impl WhatsitTrait for WIGroup {
@@ -78,6 +80,9 @@ impl WhatsitTrait for WIGroup {
     }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on!(self,normalize,(e,ch) => e.normalize(ch,mode,ret,scale),mode,ret,scale);
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        pass_on!(self,as_html,(e,ch) => e.as_html(ch,mode,colon,node_top),mode,colon,node_top)
     }
 }
 impl WIGroup {
@@ -176,6 +181,45 @@ impl WhatsitTrait for FontChange {
             if w.has_ink() { return true }
         }
         return false
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match &self.font.file.chartable {
+            Some(ft) => {
+                htmlannotate!(colon,span,self.sourceref,node_top,a => {
+                    a.attr("rustex:font".into(),self.font.file.name.clone().into());
+                    for prop in &ft.params {
+                        match prop {
+                            FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
+                            FontTableParam::SansSerif => a.style("font-family".into(),"sans-serif".into()),
+                            FontTableParam::Italic => a.style("font-style".into(),"italic".into()),
+                            FontTableParam::Bold => a.style("font-weight".into(),"bold".into()),
+                            FontTableParam::Script => a.style("font-family".into(),"eusb".into()),
+                            FontTableParam::Capital => a.style("font-variant".into(),"small-caps".into()),
+                            FontTableParam::Monospaced => a.style("font-family".into(),"monospace".into()),
+                            FontTableParam::Blackboard => a.style("font-family".into(),"msbm".into()),
+                                // ret ::= ("mathvariant","double-struck")
+                            FontTableParam::Fraktur => todo!()
+                        }
+                    }
+                    let _oldsize = colon.state.currsize;
+                    match self.font.at {
+                        Some(at) if at != colon.state.currsize => {
+                            let atstr = 100.0 * (at as f32) / (colon.state.currsize as f32);
+                            a.style("font-size".into(),(atstr.to_string() + "%").into());
+                            colon.state.currsize = at;
+                        }
+                        _ => ()
+                    }
+                    for c in self.children {
+                        c.as_html(mode,colon,htmlparent!(a))
+                    }
+                    colon.state.currsize = _oldsize;
+                })
+            }
+            _ => {
+                for c in self.children { c.as_html(mode,colon,node_top) }
+            }
+        }
     }
 }
 impl FontChange {
@@ -282,6 +326,29 @@ impl WhatsitTrait for ColorChange {
         }
         return false
     }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H | ColonMode::V => htmlannotate!(colon,span,self.sourceref,node_top,a => {
+                let color : HTMLStr = ColorChange::color_to_html(self.color).into();
+                let hashcolor : HTMLStr = "#".into();
+                a.style("color".into(),hashcolor + &color);
+                let _oldcolor = std::mem::take(&mut colon.state.currcolor);
+                colon.state.currcolor = Some(color);
+                for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
+                colon.state.currcolor = _oldcolor;
+            }),
+            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref,node_top,a => {
+                let color : HTMLStr = ColorChange::color_to_html(self.color).into();
+                let hashcolor : HTMLStr = "#".into();
+                a.style("color".into(),hashcolor + &color);
+                let _oldcolor = std::mem::take(&mut colon.state.currcolor);
+                colon.state.currcolor = Some(color);
+                for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
+                colon.state.currcolor = _oldcolor;
+            }),
+            _ => for c in self.children { c.as_html(mode,colon,node_top) }
+        }
+    }
 }
 impl ColorChange {
     pub fn new_from(&self) -> Self {
@@ -291,7 +358,7 @@ impl ColorChange {
             sourceref: self.sourceref.clone()
         }
     }
-    pub fn as_html(color:TeXStr) -> String {
+    pub fn color_to_html(color:TeXStr) -> String {
         fn tostr(c:f32) -> String {
             let s = format!("{:X}", (c.round() as i32));
             if s.len() == 1 {"0".to_string() + &s} else { s }
@@ -362,6 +429,19 @@ impl WhatsitTrait for PDFLink {
             if w.has_ink() { return true }
         }
         return false
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H | ColonMode::V => htmlnode!(colon,a,self.sourceref,"pdflink",node_top,a => {
+                a.attr("href".into(),self.action.as_link().into());
+                for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
+            }),
+            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref,node_top,a => {
+                a.attr("href".into(),self.action.as_link().into());
+                for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
+            }),
+            _ => for c in self.children { c.as_html(mode,colon,node_top) }
+        }
     }
 }
 impl PDFLink {
@@ -436,6 +516,34 @@ impl WhatsitTrait for PDFMatrixSave {
             if w.has_ink() { return true }
         }
         return false
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match self.children.iter().filter(|x| match x {
+            Whatsit::Simple(SimpleWI::PDFMatrix(_)) => true,
+            _ => false
+        }).next() {
+            Some(Whatsit::Simple(SimpleWI::PDFMatrix(matrix))) => {
+                htmlnode!(colon,span,self.sourceref,"pdfmatrix",node_top,m => {
+                    m.style("transform-origin".into(),"top left".into());
+                    let mut tf : HTMLStr = "matrix(".into();
+                    tf += matrix.scale.to_string();
+                    tf += ",";
+                    tf += matrix.rotate.to_string();
+                    tf += ",";
+                    tf += matrix.skewx.to_string();
+                    tf += ",";
+                    tf += matrix.skewy.to_string();
+                    tf += ",0,0)";
+                    m.style("transform".into(),tf);
+                    for c in self.children {
+                        c.as_html(mode,colon,htmlparent!(m))
+                    }
+                })
+            }
+            _ => {
+                for c in self.children { c.as_html(mode,colon,node_top) }
+            }
+        }
     }
 }
 impl PDFMatrixSave {
@@ -515,7 +623,8 @@ impl WhatsitTrait for GroupClose {
     fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, _: String) -> String { "".to_string() }
     fn has_ink(&self) -> bool { false }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
+    fn normalize(self, _: &ColonMode, _: &mut Vec<Whatsit>, _: Option<f32>) {}
+    fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
 }
 
 macro_rules! groupclose {
@@ -537,9 +646,10 @@ macro_rules! groupclose {
             fn width(&self) -> i32 { 0 }
             fn height(&self) -> i32 { 0 }
             fn depth(&self) -> i32 { 0 }
-            fn as_xml_internal(&self, prefix: String) -> String { "".to_string() }
+            fn as_xml_internal(&self, _: String) -> String { "".to_string() }
             fn has_ink(&self) -> bool { false }
-            fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {}
+            fn normalize(self, _: &ColonMode, _: &mut Vec<Whatsit>, _: Option<f32>) {}
+            fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
         }
     )
 }
