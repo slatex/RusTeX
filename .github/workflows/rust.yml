@@ -96,34 +96,25 @@ jobs:
         with:
           name: mac
           path: ./mac
+      - uses: papeloto/action-zip@v1
+        with:
+          files: linux/
+          dest: linux.zip
+      - uses: papeloto/action-zip@v1
+        with:
+          files: windows/
+          dest: windows.zip
+      - uses: papeloto/action-zip@v1
+        with:
+          files: mac/
+          dest: mac.zip
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
-          title: "linux"
+          title: main"
           files: |
-            ./linux/librustex.rlib
-            ./linux/librustex.so
-            ./linux/rustex
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "windows"
-          files: |
-            ./windows/librustex.rlib
-            ./windows/rustex.dll
-            ./windows/rustex.dll.lib
-            ./windows/rustex.exe
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "mac"
-          files: |
-            ./mac/librustex.rlib
-            ./mac/librustex.dylib
-            ./mac/rustex
+            ./linux.zip
+            ./windows.zip
+            ./mac.zip
