@@ -14,7 +14,7 @@ use crate::commands::{TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State, StateChange};
-use crate::utils::{TeXError, TeXString, TeXStr, kpsewhich, MaybeThread};
+use crate::utils::{TeXError, TeXString, TeXStr, MaybeThread};
 use std::sync::Arc;
 
 pub mod mouth;
@@ -111,8 +111,8 @@ impl Interpreter<'_> {
         tokens_to_string(tks,&catcodes)
     }
 
-    pub fn kpsewhich(&self,filename: &str) -> Option<PathBuf> {
-        kpsewhich(filename,self.jobinfo.in_file())
+    pub fn kpsewhich(&self,filename: &str) -> Option<(PathBuf,bool)> {
+        crate::kpathsea::kpsewhich(filename,self.jobinfo.in_file())
     }
 
     pub fn get_file(&self,filename : &str) -> Result<Arc<VFile>,TeXError> {
@@ -122,8 +122,8 @@ impl Interpreter<'_> {
         }*/
         match self.kpsewhich(filename) {
             None =>TeXErr!((self,None),"File {} not found",filename),
-            Some(p) => {
-                Ok(VFile::new(&p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore))
+            Some((p,b)) => {
+                Ok(VFile::new(&p,b,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore))
             }
         }
     }
@@ -167,7 +167,7 @@ impl Interpreter<'_> {
 
     pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> B where A:Colon<B>,B: Send {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
-        let vf:Arc<VFile>  = VFile::new(p,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
+        let vf:Arc<VFile>  = VFile::new(p,false,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         let cont = match self.predoc_toploop() {

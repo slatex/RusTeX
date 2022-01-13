@@ -5,7 +5,8 @@ pub mod utils;
 pub mod commands;
 pub mod catcodes;
 pub mod stomach;
-mod fonts;
+pub mod fonts;
+pub mod kpathsea;
 
 static SINGLETHREADED : bool = true;
 static PGF_AS_SVG : bool = true;

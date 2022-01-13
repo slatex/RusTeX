@@ -536,7 +536,7 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
         };
         let filename = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
         let file = match int.kpsewhich(filename.to_string().as_str()) {
-            Some(p) if p.exists() => p,
+            Some((p,_)) if p.exists() => p,
             _ => TeXErr!((int,None),"No image file by name {} found",filename)
         };
         let image = match match image::io::Reader::open(file.clone()) {

@@ -1,5 +1,5 @@
 use std::path::Path;
-use crate::utils::{TEXMF1, TEXMF2, TeXStr};
+use crate::utils::TeXStr;
 use std::fs;
 use crate::utils::TeXString;
 
@@ -25,9 +25,9 @@ use std::sync::{Arc, RwLock};
 use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
 
 impl VFile {
-    pub(in crate::interpreter) fn new<'a>(fp : &Path, in_file: &Path, filestore:&mut HashMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path,intexmf:bool, in_file: &Path, filestore:&mut HashMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {
         use crate::LANGUAGE_DAT;
-        let simplename : TeXStr = (if fp.starts_with(TEXMF1.as_path()) || fp.starts_with(TEXMF2.as_path()) {
+        let simplename : TeXStr = (if intexmf {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else if fp.to_str().unwrap().starts_with("nul:") {
             fp.to_str().unwrap().into()

@@ -237,6 +237,7 @@ fn my_test_2() {
 fn main() {
     //my_test_2()
     //my_test()
+    //rustex::kpathsea::kpsewhich("pdftexconfig.tex",&std::env::current_dir().expect("No current directory!"));
 
     let mut args: Vec<String> = std::env::args().collect();
     args.remove(0);

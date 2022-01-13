@@ -28,4 +28,4 @@ base64 =  "0.13.0"
 #fixed = "1.11.0"
 #libc = "0.2.0"
 #kpathsea = "0.2.3"
-kpathsea = { path = "../kpathsea" }
+#kpathsea = { path = "../kpathsea" }

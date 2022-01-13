@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::interpreter::{Interpreter, TeXMode};
-use crate::utils::{kpsewhich, PWD, TeXError, TeXString, TeXStr};
+use crate::utils::{PWD, TeXError, TeXString, TeXStr};
 use crate::{TeXErr,log};
 
 #[derive(Copy,Clone,PartialEq)]
@@ -226,7 +226,7 @@ impl State {
             None => {
                 let ret = unsafe{int.kpsewhich(from_utf8_unchecked(name.iter()))};
                 match ret {
-                    Some(pb) if pb.exists() => {
+                    Some((pb,_)) if pb.exists() => {
                         let f = Arc::new(FontFile::new(pb));
                         self.fontfiles.insert(name,Arc::clone(&f));
                         Ok(f)
@@ -634,8 +634,8 @@ pub fn default_pdf_latex_state() -> State {
     use crate::commands::pgfsvg::pgf_commands;
     use crate::commands::rustex_specials::rustex_special_commands;
     let mut st = State::new();
-    let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
-    let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
+    let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found").0;
+    let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found").0;
 
     //println!("{}",pdftex_cfg.to_str().expect("wut"));
     //println!("{}",latex_ltx.to_str().expect("wut"));
