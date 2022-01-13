@@ -335,10 +335,10 @@ impl TeXError {
         match int {
             None => panic!("{}",self),
             Some(i) => match i.stomach.borrow_mut().final_xml(i) {
-                Ok(s) => {
-                    let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
+                Ok(_) => {
+                    /*let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
                     file.write_all(s.as_bytes());
-                    panic!("{}\n\nLOG FILE WRITTEN\n\n",self)
+                    panic!("{}\n\nLOG FILE WRITTEN\n\n",self)*/
                 },
                 Err(e) => e.throw(None)
             }
