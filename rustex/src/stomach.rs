@@ -206,10 +206,7 @@ impl StomachGroup {
             Top(t) => t.borrow_mut(),
             TeXGroup(_,t) => t.borrow_mut(),
             Par(t) => t.children.borrow_mut(),
-            Other(WIGroup::FontChange(fc)) => fc.children_mut(),
-            Other(WIGroup::ColorChange(cc)) => cc.children_mut(),
-            Other(WIGroup::PDFLink(l)) => l.children_mut(),
-            _ => todo!()
+            Other(o) => o.children_mut()
         }
     }
     pub fn get_d(self) -> Vec<Whatsit> {
@@ -718,9 +715,24 @@ pub trait Stomach : Send {
         base.indocument = true;
         let mut basefont: Option<Arc<Font>> = None;
         let mut basecolor: TeXStr = "000000".into();
-        let mut groups : Vec<GroupType> = vec!();
-        let stack = &mut base.stomachgroups;
-        loop {
+        let mut rets : Vec<Whatsit> = vec!();
+        for s in &mut base.stomachgroups { match s {
+            StomachGroup::Top(_) => (),
+            StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) | StomachGroup::Par(_) => break,
+            StomachGroup::Other(WIGroup::FontChange(f)) => {
+                basefont = Some(f.font.clone());
+                for c in std::mem::take(&mut f.children) {rets.push(c)}
+            }
+            StomachGroup::Other(WIGroup::ColorChange(cc)) => {
+                basecolor = ColorChange::color_to_html(cc.color.clone()).into();
+                for c in std::mem::take(&mut cc.children) {rets.push(c)}
+            }
+            g => {
+                for c in std::mem::take(g.get_mut()) {rets.push(c)}
+            }
+        }}
+        for r in rets {base.stomachgroups.first_mut().unwrap().push(r)}
+        /*loop {
             let pop = stack.pop();
             match pop {
                 Some(StomachGroup::Top(v)) => {
@@ -740,12 +752,16 @@ pub trait Stomach : Send {
                     basecolor = ColorChange::color_to_html(cc.color).into();
                     for c in cc.children {stack.last_mut().unwrap().push(c)}
                 }
-                _ => panic!("This shouldn't happen")
+                Some(o) => {
+                    stack.push(o);
+                    panic!("This shouldn't happen")
+                }
+                None => panic!("This shouldn't happen")
             }
         }
         for gt in groups.iter().rev() {
             stack.push(StomachGroup::TeXGroup(*gt,vec!()))
-        }
+        } */
         if basefont.is_none() {
             basefont = Some(int.get_font())
         }
