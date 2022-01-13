@@ -50,31 +50,29 @@ jobs:
     environment: production
     steps:
     - uses: actions/checkout@v2
-#    - name: Install Tools
-#      run: sudo apt install mingw-w64 # libkpathsea-dev
-    - name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x86
+#    - name: Set up MinGW
+#      uses: egor-tensin/setup-mingw@v2
+#      with:
+#        platform: x86
     - name: rustups
-      run: rustup target add i686-pc-windows-gnu && rustup toolchain install stable-i686-pc-windows-gnu
+      run: rustup target add x86_64-pc-windows-msvc && rustup toolchain install stable-x86_64-pc-windows-msvc #i686-pc-windows-gnu && rustup toolchain install stable-i686-pc-windows-gnu
     - name: Build
-      run: cd rustex && cargo build --release --target i686-pc-windows-gnu
+      run: cd rustex && cargo build --release --target x86_64-pc-windows-msvc
     - name: Build Java bridge
-      run: cd rustexbridge && cargo build --release --target i686-pc-windows-gnu
+      run: cd rustexbridge && cargo build --release --target x86_64-pc-windows-msvc
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
         name: windows
         path: |
-          ./rustex/target/i686-pc-windows-gnu/release/librustex.rlib
-          ./rustex/target/i686-pc-windows-gnu/release/rustex.dll
-          ./rustex/target/i686-pc-windows-gnu/release/rustex.dll.lib
-          ./rustex/target/i686-pc-windows-gnu/release/rustex.exe
+          ./rustex/target/x86_64-pc-windows-msvc/release/librustex.rlib
+          ./rustex/target/x86_64-pc-windows-msvc/release/rustex.dll
+          ./rustex/target/x86_64-pc-windows-msvc/release/rustex.dll.lib
+          ./rustex/target/x86_64-pc-windows-msvc/release/rustex.exe
     - uses: actions/upload-artifact@v2
       with:
         name: bridge_windows
-        path: ./rustexbridge/target/i686-pc-windows-gnu/release/rustex_java.dll
+        path: ./rustexbridge/target/x86_64-pc-windows-msvc/release/rustex_java.dll
   deploy_mac:
     runs-on: macos-latest
     environment: production
