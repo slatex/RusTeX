@@ -339,6 +339,7 @@ impl TeXError {
                     /*let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
                     file.write_all(s.as_bytes());
                     panic!("{}\n\nLOG FILE WRITTEN\n\n",self)*/
+                    panic!("")
                 },
                 Err(e) => e.throw(None)
             }
