@@ -7,6 +7,7 @@ pub mod catcodes;
 pub mod stomach;
 pub mod fonts;
 pub mod kpathsea;
+//pub mod new_state;
 
 static SINGLETHREADED : bool = true;
 static PGF_AS_SVG : bool = true;

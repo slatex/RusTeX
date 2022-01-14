@@ -135,13 +135,13 @@ pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     name: "else"
 };
 
-pub fn getChar(tk:Token,int:&Interpreter) -> Token {
+pub fn get_char(tk:Token, int:&Interpreter) -> Token {
     match tk.catcode {
         CategoryCode::Active | CategoryCode::Escape => {
             match int.state_get_command(&tk.cmdname()) {
                 Some(p) => match &*p.orig {
                     PrimitiveTeXCommand::Char(t) => {
-                        getChar(t.clone(),int)
+                        get_char(t.clone(), int)
                     },
                     _ => tk
                 }
@@ -156,8 +156,8 @@ pub static IFX : Conditional = Conditional {
     name:"ifx",
     _apply: |int,cond,unless| {
         use CategoryCode::*;
-        let tka = getChar(int.next_token(),int);
-        let tkb = getChar(int.next_token(),int);
+        let tka = get_char(int.next_token(), int);
+        let tkb = get_char(int.next_token(), int);
         let istrue = match (tka.catcode,tkb.catcode) {
             //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
             (Active|Escape,Active|Escape) => {

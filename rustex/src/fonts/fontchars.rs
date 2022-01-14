@@ -14,7 +14,7 @@ pub struct FontTable {
     table:&'static HashMap<u8,&'static str>
 }
 impl FontTable {
-    pub fn as_unicode(&self,u:u8) -> &str {
+    pub fn as_unicode(&self,_:u8) -> &str {
         todo!()
     }
     pub fn get_char(&self,u:u8) -> &'static str {

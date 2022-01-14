@@ -1,11 +1,9 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
-use std::str::from_utf8;
 use std::sync::Arc;
-use image::{EncodableLayout, GenericImageView};
 use itertools::Itertools;
 use crate::fonts::Font;
 use crate::fonts::fontchars::FontTableParam;
@@ -13,9 +11,6 @@ use crate::Interpreter;
 use crate::interpreter::dimensions::{numtostr, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::{Colon, ColonBase, ColonMode};
-use crate::stomach::groups::WIGroupTrait;
-use crate::stomach::math::{GroupedMath, MathKernel};
-use crate::stomach::simple::PDFMatrix;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
 use crate::utils::TeXStr;
@@ -31,7 +26,6 @@ pub static SVG_NS : &str = "http://www.w3.org/2000/svg";
 pub static RUSTEX_NS : &str = "http://kwarc.info/ns/RusTeX";
 
 pub struct HTMLState {
-    annotations_todo:Vec<(HTMLStr,HTMLStr)>,
     pub current_namespace:&'static str,
     pub top:Vec<HTMLChild>,
     pub currsize:i32,
@@ -39,7 +33,6 @@ pub struct HTMLState {
 }
 impl HTMLState {
     pub fn new() -> HTMLState { HTMLState {
-        annotations_todo:vec!(),
         current_namespace:HTML_NS,
         top:vec!(),
         currsize:0,currcolor:None
@@ -182,7 +175,7 @@ impl Colon<String> for HTMLColon {
     fn base(&self) -> &ColonBase { &self.base }
     fn base_mut(&mut self) -> &mut ColonBase { &mut self.base }
     fn ship_whatsit(&mut self, w:Whatsit) {
-        /*for w in self.normalize_whatsit(w) { self.ship_top(w,&mut None) */ w.as_html(&ColonMode::V,self,&mut None);
+        for w in self.normalize_whatsit(w) { w.as_html(&ColonMode::V,self,&mut None) }
         for n in std::mem::take(&mut self.state.top) {
             self.ret += &n.make_string("  ".into(),&HTML_NS).to_string()
         }
@@ -266,469 +259,6 @@ impl HTMLColon {
         ret.namespaces.insert("rustex".into(),RUSTEX_NS.into());
         ret
     }
-    /*
-    fn ship_top<'a>(&mut self,w:Whatsit,node_top:&mut Option<HTMLParent<'a>>) {
-        use Whatsit::*;
-        use crate::stomach::simple::SimpleWI::*;
-        use crate::stomach::boxes::TeXBox::*;
-        use crate::interpreter::dimensions::SkipDim;
-        use crate::stomach::groups::WIGroup::*;
-        use crate::fonts::fontchars::FontTableParam;
-        use crate::stomach::simple::ExternalParam;
-        match w {
-            Simple(VFil(v)) => htmlnode!(self,div,v.0,"vfil",node_top),
-            Simple(VFill(v)) => htmlnode!(self,div,v.0,"vfill",node_top),
-            Simple(PDFDest(d)) if d.dest.to_string() == "xyz" => {
-            },
-            Simple(VSkip(vsk)) => {
-            },
-            Simple(VKern(vsk)) => {
-            },
-            Simple(HRule(hr)) => {
-                htmlnode!(self,div,hr.sourceref.clone(),"hrule",node_top,n => {
-                    n.style("width".into(),dimtohtml(hr.width()));
-                    n.style("min-width".into(),dimtohtml(hr.width()));
-                    n.style("height".into(),dimtohtml(hr.height() + hr.depth()));
-                    n.style("min-height".into(),dimtohtml(hr.height() + hr.height()));
-                    n.style("background".into(),match &self.state.currcolor {
-                        Some(c) => HTMLStr::from("#") + c,
-                        None => "#000000".into()
-                    });
-                    if hr.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-hr.depth())) }
-                })
-            }
-            Grouped(ColorChange(cc)) => {
-            }
-            Grouped(FontChange(fc)) => {
-            }
-            Par(p) => {
-            }
-            Simple(Vss(v)) => htmlnode!(self,div,v.0,"vss",node_top),
-            Simple(HAlign(ha)) => (),
-            Box(H(hb)) => {
-                htmlnode!(self,div,None,"hbox",node_top,node => {
-                    match hb._width {
-                        Some(h) => {
-                            node.style("width".into(),dimtohtml(h));
-                            node.style("min-width".into(),dimtohtml(h))
-                        }
-                        _ => ()
-                    }
-                    match hb._height {
-                        Some(h) => {
-                            node.style("height".into(),dimtohtml(h));
-                            node.style("min-height".into(),dimtohtml(h))
-                        }
-                        _ => ()
-                    }
-                    for c in hb.children { self.ship_h(c,&mut Some(HTMLParent::N(&mut node))) }
-                })
-            }
-            Inserts(is) => {
-                htmlliteral!(self,node_top,"<hr/>");
-                for v in is.0 { for w in v { self.ship_top(w,node_top) }}
-            }
-            Simple(Penalty(_)) => (),
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfbox" => {
-
-            }
-            Float(bx) => {
-                htmlnode!(self,div,None,"vfill",node_top);
-                self.ship_top(bx.as_whatsit(),node_top);
-                htmlnode!(self,div,None,"vfill",node_top)
-            }
-            Box(V(vb)) if vb._height.is_none() => {
-                for c in vb.children { self.ship_top(c,node_top) }
-            }
-            Box(V(vb)) => {
-
-            }
-            Simple(MoveRight(crate::stomach::simple::MoveRight { dim,content:bx,sourceref })) => {
-                htmlannotate!(self,div,sourceref,node_top,a => {
-                    a.classes.push("moveright".into());
-                    a.style("margin-left".into(),dimtohtml(dim));
-                    self.ship_top(bx.as_whatsit(),&mut Some(HTMLParent::A(&mut a)))
-                })
-            }
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfliteral" => (),
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) => {
-                println!("TODO: {}",ext.as_xml());
-                htmlliteral!(self,node_top,"<!-- TODO:".to_string() + &ext.as_xml() +  "-->")
-            }
-            Simple(Mark(_)) | Box(Void) => (),
-            _ => htmlliteral!(self,node_top,"<!-- TODO -->")//self.ret += &w.as_xml_internal("  ".to_string())
-        }
-        if node_top.is_none() {
-            for n in std::mem::take(&mut self.state.top) {
-                self.ret += &n.make_string("  ".into(),&HTML_NS).to_string()
-            }
-        }
-    }
-    fn ship_h<'a>(&mut self, w:Whatsit, node_top:&mut Option<HTMLParent<'a>>) {
-        use Whatsit::*;
-        use crate::stomach::simple::SimpleWI::*;
-        use crate::stomach::boxes::TeXBox::*;
-        use crate::stomach::groups::WIGroup::*;
-        use crate::fonts::fontchars::FontTableParam;
-        use crate::stomach::simple::ExternalParam;
-        use crate::stomach::TeXBox;
-        match w {
-            Simple(PDFDest(d)) if d.dest.to_string() == "xyz" => {
-                htmlnode!(self,a,d.sourceref,"pdfdest",node_top,node => {
-                    node.attr("id".into(),d.target.clone().into());
-                    node.attr("name".into(),d.target.into());
-                })
-            },
-            Simple(Penalty(p)) if p.penalty <= -10000 => htmlliteral!(self,node_top,"<br/>"),
-            Grouped(ColorChange(cc)) => {
-                htmlannotate!(self,span,cc.sourceref,node_top,a => {
-                    let mut color : HTMLStr = crate::stomach::groups::ColorChange::color_to_html(cc.color).into();
-                    let hashcolor : HTMLStr = "#".into();
-                    a.style("color".into(),hashcolor + &color);
-                    let _oldcolor = std::mem::take(&mut self.state.currcolor);
-                    self.state.currcolor = Some(color);
-                    for c in cc.children { self.ship_h(c,&mut Some(HTMLParent::A(&mut a))) }
-                    self.state.currcolor = _oldcolor;
-                })
-            }
-            Grouped(PDFLink(lnk)) => {
-            }
-            Grouped(FontChange(fc)) => {
-                match &fc.font.file.chartable {
-                    Some(ft) => {
-                        htmlannotate!(self,span,fc.sourceref,node_top,a => {
-                            a.attr("rustex:font".into(),fc.font.file.name.clone().into());
-                            for prop in &ft.params {
-                                match prop {
-                                    FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
-                                    FontTableParam::SansSerif => a.style("font-family".into(),"sans-serif".into()),
-                                    FontTableParam::Italic => a.style("font-style".into(),"italic".into()),
-                                    FontTableParam::Bold => a.style("font-weight".into(),"bold".into()),
-                                    FontTableParam::Script => a.style("font-family".into(),"eusb".into()),
-                                    FontTableParam::Capital => a.style("font-variant".into(),"small-caps".into()),
-                                    FontTableParam::Monospaced => a.style("font-family".into(),"monospace".into()),
-                                    FontTableParam::Blackboard => a.style("font-family".into(),"msbm".into()),
-                                        // ret ::= ("mathvariant","double-struck")
-                                    FontTableParam::Fraktur => todo!()
-                                }
-                            }
-                            let _oldsize = self.state.currsize;
-                            match fc.font.at {
-                                Some(at) if at != self.state.currsize => {
-                                    let atstr = 100.0 * (at as f32) / (self.state.currsize as f32);
-                                    a.style("font-size".into(),(atstr.to_string() + "%").into());
-                                    self.state.currsize = at;
-                                }
-                                _ => ()
-                            }
-                            for c in fc.children { self.ship_h(c,&mut Some(HTMLParent::A(&mut a))) }
-                            self.state.currsize = _oldsize;
-                        })
-                    }
-                    _ => {
-                        for c in fc.children { self.ship_h(c, node_top) }
-                    }
-                }
-            }
-            Grouped(PDFMatrixSave(sg)) => (),
-            Simple(PDFMatrix(_)) => (),
-            Simple(PDFXImage(pimg)) => {
-                match pimg.image {
-                    Some(ref img) => {
-
-                    }
-                    _ => ()
-                }
-            }
-            Char(pc) => htmlliteral!(self,node_top,>{
-                match &pc.font.file.chartable {
-                    Some(ct) => ct.get_char(pc.char).to_string(),
-                    None => pc.as_xml_internal("".to_string())
-                }
-            }<),
-            Space(_) => htmlliteral!(self,node_top," "),
-            Simple(VRule(vr)) => {
-            }
-            Simple(HRule(vr)) => { // from Leaders
-            }
-            Simple(HSkip(vsk)) => {
-            },
-            Simple(Indent(dim)) => {
-                htmlnode!(self,span,dim.sourceref,"indent",node_top,node => {
-                    node.style("margin-left".into(),dimtohtml(dim.dim));
-                })
-            },
-            Simple(HKern(vsk)) => {
-            },
-            Box(V(vb)) => {
-                htmlnode!(self,div,None,"vbox",node_top,node => {
-                    use crate::stomach::boxes::VBoxType;
-                    match vb.tp {
-                        VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
-                        VBoxType::Center => node.style("vertical-align".into(),"middle".into()),
-                        VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
-                    }
-                    match vb._height {
-                        Some(h) => {
-                            node.style("height".into(),dimtohtml(h));
-                            node.style("min-height".into(),dimtohtml(h))
-                        }
-                        _ => ()
-                    }
-                    match vb._width {
-                        Some(v) => {
-                            node.style("width".into(),dimtohtml(v));
-                            node.style("min-width".into(),dimtohtml(v))
-                        }
-                        _ => ()
-                    }
-                    for c in vb.children { self.ship_top(c,&mut Some(HTMLParent::N(&mut node))) }
-                })
-            }
-            // TODO maybe? spread, center, vtop in general
-            Simple(HFil(h)) => htmlnode!(self,span,h.0,"hfil",node_top),
-            Simple(HFill(h)) => htmlnode!(self,span,h.0,"hfill",node_top),
-            Simple(Hss(h)) => htmlnode!(self,span,h.0,"hss",node_top),
-            Box(H(hb)) => {
-            }
-            Simple(Raise(r)) => (),
-            Math(ref mg) if mg.limits => (),
-            Math(ref mg) => (),
-            Simple(Leaders(ld)) => {
-                self.ship_h(ld.bx.clone().as_whatsit(),node_top);
-                self.ship_h(ld.bx.clone().as_whatsit(),node_top);
-                self.ship_h(ld.bx.as_whatsit(),node_top);
-            }
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfbox" => {
-                htmlnode!(self,SVG_NS:svg,ext.sourceref().clone(),"",node_top,svg => {
-                    let maxx = match ext.params("maxx") {
-                        Some(ExternalParam::Num(i)) => i,
-                        _ => unreachable!()
-                    };
-                    let maxy = match ext.params("maxy") {
-                        Some(ExternalParam::Num(i)) => i,
-                        _ => unreachable!()
-                    };
-                    let minx = match ext.params("minx") {
-                        Some(ExternalParam::Num(i)) => i,
-                        _ => unreachable!()
-                    };
-                    let miny = match ext.params("miny") {
-                        Some(ExternalParam::Num(i)) => i,
-                        _ => unreachable!()
-                    };
-                    let mut vb : HTMLStr = numtostr(minx,"").into();
-                    vb += " ";
-                    vb += numtostr(miny,"");
-                    vb += " ";
-                    vb += numtostr(maxx-minx,"");
-                    vb += " ";
-                    vb += numtostr(maxy-miny,"");
-                    svg.attr("width".into(),dimtohtml(maxx-minx));
-                    svg.attr("height".into(),dimtohtml(maxy-miny));
-                    svg.attr("viewBox".into(),vb);
-                    htmlnode!(self,g,None,"",&mut Some(HTMLParent::N(&mut svg)),g => {
-                        let mut tr : HTMLStr = "translate(0,".into();
-                        tr += numtostr(maxy,"");
-                        tr += ") scale(1,-1) translate(0,";
-                        tr += numtostr(-miny,"");
-                        tr += ")";
-                        g.attr("transform".into(),tr);
-                        for c in match ext.params("content") {
-                            Some(ExternalParam::Whatsits(v)) => v,
-                            _ => unreachable!()
-                        } {
-                            self.ship_svg(c,&mut Some(HTMLParent::N(&mut g)))
-                        }
-                    })
-                })
-            }
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfliteral" => (),
-                Simple(crate::stomach::simple::SimpleWI::External(ext)) => {
-                println!("TODO: {}",ext.as_xml());
-                htmlliteral!(self,node_top,"<!-- TODO:".to_string() + &ext.as_xml() +  "-->")
-            }
-            Simple(Penalty(_)) => (), Simple(HAlign(_)) => self.ship_top(w,node_top),
-            Simple(Mark(_)) | Box(TeXBox::Void) => (),
-            _ => htmlliteral!(self,node_top,"<!-- TODO -->" )
-        }
-    }
-    fn ship_svg<'a>(&mut self, w:Whatsit, node_top:&mut Option<HTMLParent<'a>>) {
-        use Whatsit::*;
-        use crate::stomach::simple::SimpleWI::*;
-        use crate::stomach::boxes::TeXBox::*;
-        use crate::stomach::groups::WIGroup::*;
-        use crate::stomach::simple::ExternalParam;
-        match w {
-            Box(Void) | Space(_) | Simple(Hss(_)) => (),
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfliteral" => {
-                htmlliteral!(self,node_top,match ext.params("string") {
-                    Some(ExternalParam::String(s)) => s,
-                    _ => unreachable!()
-                })
-            }
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) if ext.name().to_string() == "pgfescape" => {
-
-            }
-            Grouped(ColorChange(cc)) => {
-            }
-            Grouped(wg) => for c in wg.children_prim() { self.ship_svg(c,node_top) }
-            Box(H(hb)) => for c in hb.children { self.ship_svg(c,node_top) }
-            Simple(crate::stomach::simple::SimpleWI::External(ext)) => {
-                println!("TODO: {}",ext.as_xml());
-                htmlliteral!(self,node_top,"<!-- TODO:".to_string() + &ext.as_xml() +  "-->")
-            }
-            _ => htmlliteral!(self,node_top,"<!-- TODO -->" )
-        }
-    }
-    fn ship_kernel<'a>(&mut self, k:MathKernel, node_top:&mut Option<HTMLParent<'a>>) {
-        use crate::stomach::math::MathKernel::*;
-        match k {
-            Group(gm) if gm.0.is_empty() => (),
-            Group(mut gm) if gm.0.len() == 1 => self.ship_m(gm.0.pop().unwrap(),node_top),
-            Group(GroupedMath(ls)) => (),
-            MathChar(mc) => (),
-            Delimiter(d) => self.ship_kernel(MathChar(d.small),node_top),
-            MKern(m) => {
-                htmlnode!(self,mspace,m.sourceref,"mkern",node_top,a => {
-                    a.attr("width".into(),numtostr((m.sk.base as f32 / 1179648.0).round() as i32,"em").into())
-                })
-            }
-            MathOp(crate::stomach::math::MathOp { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("mathop".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathInner(crate::stomach::math::MathInner { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("inner".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathRel(crate::stomach::math::MathRel { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("rel".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathOpen(crate::stomach::math::MathOpen { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("open".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathClose(crate::stomach::math::MathClose { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("close".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathPunct(crate::stomach::math::MathPunct { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("punct".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            MathBin(crate::stomach::math::MathBin { content,sourceref }) => htmlannotate!(self,mrow,sourceref,node_top,node => {
-                node.classes.push("bin".into());
-                self.ship_m(*content,&mut Some(HTMLParent::A(&mut node)))
-            }),
-            Underline(crate::stomach::math::Underline { content,sourceref }) => htmlnode!(self,munder,sourceref,"underline",node_top,node => {
-                htmlannotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
-                    self.ship_m(*content,&mut Some(HTMLParent::A(&mut mrow)))
-                });
-                htmlliteral!(self,&mut Some(HTMLParent::N(&mut node)),"&UnderBar;")
-            }),
-            Overline(crate::stomach::math::Overline { content,sourceref }) => htmlnode!(self,mover,sourceref,"overline",node_top,node => {
-                htmlannotate!(self,mrow,None,&mut Some(HTMLParent::N(&mut node)),mrow => {
-                    self.ship_m(*content,&mut Some(HTMLParent::A(&mut mrow)))
-                });
-                htmlliteral!(self,&mut Some(HTMLParent::N(&mut node)),"&OverBar;")
-            }),
-            MathAccent(crate::stomach::math::MathAccent { content, accent, sourceref}) =>
-                (),
-            _ => htmlliteral!(self,node_top,"<!-- TODO -->" )
-        }
-    }
-    fn ship_m<'a>(&mut self, w:Whatsit, node_top:&mut Option<HTMLParent<'a>>) {
-        use Whatsit::*;
-        use crate::stomach::simple::SimpleWI::*;
-        use crate::stomach::boxes::TeXBox::*;
-        use crate::stomach::groups::WIGroup::*;
-        use crate::stomach::math::MathGroup;
-        match w {
-            Math(MathGroup {kernel,superscript:Some(sup),subscript:None,limits:false}) => {
-
-            }
-            Math(MathGroup {kernel,superscript:Some(sup),subscript:None,limits:true}) => {
-
-            }
-            Math(MathGroup {kernel,superscript:None,subscript:Some(sub),limits:false}) => {
-
-            }
-            Math(MathGroup {kernel,superscript:None,subscript:Some(sub),limits:true}) => {
-
-            }
-            Math(MathGroup {kernel,superscript:Some(sup),subscript:Some(sub),limits:false}) => {
-
-            }
-            Math(MathGroup {kernel,superscript:Some(sup),subscript:Some(sub),limits:true}) => {
-
-            }
-            Simple(MSkip(m)) => {
-            }
-            Box(mut bx) if match &bx {
-                Void => true,
-                H(hb) => hb.children.iter().all(|x| match x {
-                    Math(_) => true,
-                    _ => false
-                }),
-                V(vb) => vb.children.iter().all(|x| match x {
-                    Math(_) => true,
-                    _ => false
-                })
-            }  => {
-                for c in bx.children() { self.ship_m(c,node_top)}
-            }
-            Box(_) => htmlnode!(self,mtext,None,"box",node_top,mt => {
-                htmlnode!(self,HTML_NS:span,None,"box",&mut Some(HTMLParent::N(&mut mt)),span => {
-                    self.ship_h(w,&mut Some(HTMLParent::N(&mut span)))
-                })
-            }),
-            Simple(HAlign(_)) => (),
-            Simple(HKern(m)) => {
-                htmlnode!(self,mspace,m.sourceref,"mskip",node_top,a => {
-                    a.attr("width".into(),dimtohtml(m.dim))
-                })
-            }
-            Grouped(PDFLink(lnk)) => htmlannotate!(self,mrow,lnk.sourceref,node_top,node => {
-                node.attr("href".into(),lnk.action.as_link().into());
-                for c in lnk.children{ self.ship_m(c,&mut Some(HTMLParent::A(&mut node))) }
-            }),
-            Grouped(ColorChange(cc)) => {
-                htmlannotate!(self,mrow,cc.sourceref,node_top,a => {
-                    let mut color : HTMLStr = crate::stomach::groups::ColorChange::color_to_html(cc.color).into();
-                    let hashcolor : HTMLStr = "#".into();
-                    a.style("color".into(),hashcolor + &color);
-                    let _oldcolor = std::mem::take(&mut self.state.currcolor);
-                    self.state.currcolor = Some(color);
-                    for c in cc.children { self.ship_m(c,&mut Some(HTMLParent::A(&mut a))) }
-                    self.state.currcolor = _oldcolor;
-                })
-            }
-            Simple(HSkip(h)) => {
-                htmlnode!(self,mspace,h.sourceref,"hskip",node_top,a => {
-                    a.attr("width".into(),dimtohtml(h.skip.base))
-                })
-            }
-            Simple(Left(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
-            Simple(Middle(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
-            Simple(Right(l)) => for c in l.bx { self.ship_m(c.as_whatsit(),node_top)},
-            Above(o) => (),
-            Simple(Leaders(ld)) => {
-                self.ship_m(ld.bx.clone().as_whatsit(),node_top);
-                self.ship_m(ld.bx.clone().as_whatsit(),node_top);
-                self.ship_m(ld.bx.as_whatsit(),node_top);
-            }
-            Simple(HFil(_)|HFill(_)) => {
-                htmlnode!(self,mspace,None,"hfil",node_top,a => {
-                    a.attr("width".into(),dimtohtml(655360))
-                })
-            }
-            Simple(Penalty(_)) => (),
-            _ => htmlliteral!(self,node_top,"<!-- TODO -->" )
-        }
-    }
-     */
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -837,7 +367,7 @@ impl HTMLNode {
             body += match c {
                 HTMLChild::Node(mut n) => n.make_string(prefix.clone(),self.namespace),
                 HTMLChild::Annot(mut a) => a.make_string(prefix.clone(),self.namespace),
-                HTMLChild::Str(mut s) => s.clone(),
+                HTMLChild::Str(s) => s.clone(),
             }
         }
         ret += "<" + &self.name;
@@ -969,9 +499,9 @@ pub enum HTMLChild {
     Annot(HTMLAnnotation)
 }
 impl HTMLChild {
-    pub fn make_string(mut self,prefix:HTMLStr,namespace:&str) -> HTMLStr {
+    pub fn make_string(self,prefix:HTMLStr,namespace:&str) -> HTMLStr {
         match self {
-            HTMLChild::Str(mut s) => s,
+            HTMLChild::Str(s) => s,
             HTMLChild::Node(mut n) => n.make_string(prefix,namespace),
             HTMLChild::Annot(mut a) => a.make_string(prefix,namespace)
         }

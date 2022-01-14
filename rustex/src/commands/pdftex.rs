@@ -11,7 +11,7 @@ use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
 fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
-    int.expand_until(true);
+    int.expand_until(true)?;
     let ret = match int.read_keyword(vec!("attr"))? {
         Some(_) => {
             int.skip_ws();
@@ -23,14 +23,14 @@ fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
 }
 
 fn read_rule_spec(int:&Interpreter )-> Result<String,TeXError> {
-    int.expand_until(true);
+    int.expand_until(true)?;
     match int.read_keyword(vec!("width", "height", "depth"))? {
         Some(s) => Ok((s + " " + &dimtostr(int.read_dimension()?) + " " + &read_rule_spec(int)?.to_string()).into()),
         None => Ok("".into())
     }
 }
 fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
-    int.expand_until(true);
+    int.expand_until(true)?;
     let ret = match int.read_keyword(vec!("resources"))? {
         Some(_) => {
             int.skip_ws();
@@ -380,7 +380,7 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     name:"pdfliteral",
     modes: |_| {true},
     _get: |tk, int| {
-        int.read_keyword(vec!("direct","page"));
+        int.read_keyword(vec!("direct","page"))?;
         let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
         Ok(Whatsit::Simple(SimpleWI::PDFLiteral(PDFLiteral{
             literal:str,sourceref:int.update_reference(tk)
@@ -585,8 +585,8 @@ pub static PDFFONTEXPAND: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_,int| {
         crate::commands::primitives::read_font(int)?;
         // stretch             shrink           step
-        int.read_number();int.read_number();int.read_number();
-        int.read_keyword(vec!("autoexpand"));
+        int.read_number()?;int.read_number()?;int.read_number()?;
+        int.read_keyword(vec!("autoexpand"))?;
         Ok(())
     }
 };

@@ -25,7 +25,7 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
                 })),
             _ => Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {
-                    class:0,family:0,position:0,font:int.state.borrow().getTextFont(0),
+                    class:0,family:0,position:0,font:int.state.borrow().get_text_font(0),
                     sourceref:int.update_reference(tk)
                 }),int.state.borrow().display_mode())))
         }
@@ -78,7 +78,7 @@ pub static SFCODE : NumAssValue = NumAssValue {
 
 use crate::references::SourceReference;
 use chrono::{Datelike, Timelike};
-use crate::fonts::{Font, Nullfont};
+use crate::fonts::{Font, NULL_FONT};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -1457,7 +1457,7 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().getTextFont(ind as u8))
+        Ok(int.state.borrow().get_text_font(ind as u8))
     }
 };
 
@@ -1477,7 +1477,7 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().getScriptFont(ind as u8))
+        Ok(int.state.borrow().get_script_font(ind as u8))
     }
 };
 pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
@@ -1496,7 +1496,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
         if ind < 0 || ind > 15 {
             TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().getScriptScriptFont(ind as u8))
+        Ok(int.state.borrow().get_scriptscript_font(ind as u8))
     }
 };
 
@@ -1510,7 +1510,7 @@ pub fn read_font<'a>(int : &Interpreter) -> Result<Arc<Font>,TeXError> {
             Ok(f.clone()),
         PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
-        Ok(Nullfont.try_with(|x| x.clone()).unwrap()),
+        Ok(NULL_FONT.try_with(|x| x.clone()).unwrap()),
         _ => TeXErr!((int, Some(tk)),"Font expected!")
     }
 }
@@ -1896,9 +1896,9 @@ pub static DELCODE: NumAssValue = NumAssValue {
 pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
-        int.change_state(StateChange::Font(Nullfont.try_with(|x| x.clone()).unwrap(),global));
+        int.change_state(StateChange::Font(NULL_FONT.try_with(|x| x.clone()).unwrap(),global));
         int.stomach.borrow_mut().add(int,FontChange {
-            font: Nullfont.try_with(|x| x.clone()).unwrap(),
+            font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
             children: vec![],
             sourceref: int.update_reference(&rf.0)

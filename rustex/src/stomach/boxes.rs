@@ -4,7 +4,7 @@ use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitIter, WhatsitTrait, WIDTH_CORRECTION};
+use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, WIDTH_CORRECTION};
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum VBoxType { V, Center, Top(i32) }
@@ -18,7 +18,7 @@ pub enum TeXBox {
 }
 
 impl TeXBox {
-    fn pass_on<A>(&self, f: Box<dyn FnOnce(&dyn WhatsitTrait) -> A>, void: A) -> A {
+    /*fn pass_on<A>(&self, f: Box<dyn FnOnce(&dyn WhatsitTrait) -> A>, void: A) -> A {
         match self {
             TeXBox::H(hb) => f(hb),
             TeXBox::V(vb) => f(vb),
@@ -32,7 +32,7 @@ impl TeXBox {
             TeXBox::H(hb) => hb.children.iter_wi(),
             TeXBox::V(vb) => vb.children.iter_wi(),
         }
-    }
+    }*/
     pub fn children(self) -> Vec<Whatsit> {
         match self {
             TeXBox::Void => vec!(),
@@ -194,7 +194,7 @@ impl WhatsitTrait for HBox {
                 }.as_whatsit())
             }
             ColonMode::H => {
-                if self._depth.is_none() && self._height.is_none() && self._depth.is_none() {
+                if self._width.is_none() && self._height.is_none() && self._depth.is_none() {
                     for c in self.children { c.normalize(&ColonMode::H,ret,scale) }
                 } else {
                     let mut nch : Vec<Whatsit> = vec!();
@@ -417,7 +417,7 @@ impl WhatsitTrait for VBox {
                 }.as_whatsit())
             }
             ColonMode::V => {
-                if self._depth.is_none() && self._height.is_none() && self._depth.is_none() {
+                if self._width.is_none() && self._height.is_none() && self._depth.is_none() {
                     for c in self.children { c.normalize(&ColonMode::V,ret,scale) }
                 } else {
                     let mut nch : Vec<Whatsit> = vec!();

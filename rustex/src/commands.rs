@@ -628,6 +628,10 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
+        /*if tk.cmdname().to_string() == "frametitle" {
+            println!("Here");
+            //unsafe{crate::LOG = true}
+        }*/
         /*if /*int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/course/fragments/syllabus1.en.tex (53,") && */ tk.cmdname().to_string() == "endframe" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());
              //TeXErr!((int,Some(tk)),"Have a stack trace");
@@ -784,7 +788,7 @@ impl PrimitiveTeXCommand {
                     Ok(())
                 }
                 AssignableValue::Font(f) => {
-                    (f._assign)(rf,int,global);
+                    (f._assign)(rf,int,global)?;
                     Ok(())
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
@@ -835,7 +839,7 @@ impl PrimitiveTeXCommand {
                 },
                 AssignableValue::Toks(i) => {
                     int.read_eq();
-                    int.expand_until(false);
+                    int.expand_until(false)?;
                     let next = int.next_token();
                     let toks = match next.catcode {
                         CategoryCode::BeginGroup => {
@@ -857,7 +861,7 @@ impl PrimitiveTeXCommand {
                 },
                 AssignableValue::PrimToks(r) => {
                     int.read_eq();
-                    int.expand_until(false);
+                    int.expand_until(false)?;
                     let next = int.next_token();
                     let toks = match next.catcode {
                         CategoryCode::BeginGroup => {

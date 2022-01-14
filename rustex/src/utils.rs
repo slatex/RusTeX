@@ -1,8 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::io::Write;
 use std::ops::{AddAssign, Deref};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::{from_utf8, from_utf8_unchecked};
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
@@ -330,7 +329,7 @@ impl TeXError {
         TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
     }
     pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
-        std::io::stdout().flush();
+        //std::io::stdout().flush();
         self.backtrace.resolve();
         match int {
             None => panic!("{}",self),
@@ -339,14 +338,14 @@ impl TeXError {
                     /*let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
                     file.write_all(s.as_bytes());
                     panic!("{}\n\nLOG FILE WRITTEN\n\n",self)*/
-                    panic!("")
+                    panic!("{}",self)
                 },
                 Err(e) => e.throw(None)
             }
         }
     }
     pub fn print(&mut self) {
-        std::io::stdout().flush();
+        //std::io::stdout().flush();
         self.backtrace.resolve();
         println!("{}",self)
     }
@@ -442,7 +441,7 @@ impl<F,T> MaybeThread<F,T> where F:Send + 'static, T:Send+'static {
         match self {
             MaybeThread::Single(r,f,ret@None) => {
                 match f(r,false) {
-                    Some(r) => {std::mem::replace(ret,Some(r));}
+                    Some(r) => *ret = Some(r),
                     _ => ()
                 }
             }

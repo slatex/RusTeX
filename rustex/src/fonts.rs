@@ -84,8 +84,8 @@ impl FontFile {
         let mut heights: HashMap<u16,f32> = HashMap::new();
         let mut depths: HashMap<u16,f32> = HashMap::new();
         let mut ics:HashMap<u16,f32> = HashMap::new();
-        let mut lps:HashMap<u16,u8> = HashMap::new();
-        let mut rps: HashMap<u16,u8> = HashMap::new();
+        let lps:HashMap<u16,u8> = HashMap::new();
+        let rps: HashMap<u16,u8> = HashMap::new();
         let mut ligs:HashMap<(u8,u8),u8> = HashMap::new();
 
         fn read_int(s : &mut FontState) -> (u16,u16) {
@@ -358,7 +358,7 @@ impl Font {
 }
 
 thread_local! {
-    pub static Nullfontfile : Arc<FontFile> = Arc::new(FontFile {
+    pub static NULLFONT_FILE : Arc<FontFile> = Arc::new(FontFile {
         hyphenchar : 45,
         skewchar : 255,
         dimen : HashMap::new(),
@@ -374,8 +374,8 @@ thread_local! {
         name : TeXStr::new("Nullfont".as_bytes()),
         chartable:None
     });
-    pub static Nullfont : std::sync::Arc<Font> = std::sync::Arc::new(Font {
-            file:Nullfontfile.try_with(|x| x.clone()).unwrap(),at:Some(0),
+    pub static NULL_FONT : std::sync::Arc<Font> = std::sync::Arc::new(Font {
+            file:NULLFONT_FILE.try_with(|x| x.clone()).unwrap(),at:Some(0),
             inner:RwLock::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:45,

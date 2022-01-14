@@ -18,7 +18,7 @@ pub struct HTMLLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for HTMLLiteral {
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
@@ -26,8 +26,8 @@ impl WhatsitTrait for HTMLLiteral {
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
     fn has_ink(&self) -> bool { true }
-    fn as_xml_internal(&self, prefix: String) -> String { self.str.to_string() }
-    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_xml_internal(&self, _: String) -> String { self.str.to_string() }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,self.str)
     }
 }
@@ -52,7 +52,7 @@ pub struct HTMLNamespace {
     ns : TeXStr
 }
 impl WhatsitTrait for HTMLNamespace {
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
@@ -60,10 +60,10 @@ impl WhatsitTrait for HTMLNamespace {
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
     fn has_ink(&self) -> bool { true }
-    fn as_xml_internal(&self, prefix: String) -> String {
+    fn as_xml_internal(&self, _: String) -> String {
         "<namespace abbr=\"".to_string() + &self.abbr.to_string() + "\" target=\"" + &self.ns.to_string() + "\"/>"
     }
-    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, _: &mut Option<HTMLParent>) {
         colon.namespaces.insert(self.abbr.to_string(),self.ns.to_string());
     }
 }
@@ -120,9 +120,9 @@ struct AnnotateBegin {
 impl ExternalWhatsitGroup for AnnotateBegin {
     fn name(&self) -> TeXStr { "HTMLannotate".into() }
     fn params(&self,_:&str) -> Option<TeXStr> { None }
-    fn width(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
-    fn height(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
-    fn depth(&self,ch:&Vec<Whatsit>) -> i32 { 0 }
+    fn width(&self,_:&Vec<Whatsit>) -> i32 { 0 }
+    fn height(&self,_:&Vec<Whatsit>) -> i32 { 0 }
+    fn depth(&self,_:&Vec<Whatsit>) -> i32 { 0 }
     fn has_ink(&self,ch:&Vec<Whatsit>) -> bool {
         for c in ch {
             if c.has_ink() {return true }
@@ -133,11 +133,13 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     fn priority(&self) -> i16 { 95 }
     fn closes_with_group(&self) -> bool { false }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
-    fn as_xml_internal(&self,ch:&Vec<Whatsit>, prefix: String) -> String {
+    fn as_xml_internal(&self,_:&Vec<Whatsit>, _: String) -> String {
         todo!()
     }
     fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
-        todo!()
+        let mut nret : Vec<Whatsit> = vec!();
+        for c in ch { c.normalize(mode,&mut nret,scale) }
+        ret.push(Whatsit::Grouped(WIGroup::External(Arc::new(self.clone()),nret)))
     }
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
@@ -171,7 +173,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
 struct AnnotateEnd {}
 impl ExternalWhatsitGroupEnd for AnnotateEnd {
     fn name(&self) -> TeXStr { "HTMLannotateEnd".into() }
-    fn params(&self,name:&str) -> Option<TeXStr> {None}
+    fn params(&self,_:&str) -> Option<TeXStr> {None}
     fn priority(&self) -> i16 { 95 }
     fn sourceref(&self) -> &Option<SourceFileReference> {&None}
 }
@@ -239,8 +241,8 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
 
 pub static ANNOTATE_END: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTMLEnd",
-    modes: |x| { true },
-    _get: |tk, int| {
+    modes: |_| { true },
+    _get: |_, _| {
         Ok(Whatsit::GroupClose(GroupClose::External(Arc::new(AnnotateEnd {}))))
     },
 };

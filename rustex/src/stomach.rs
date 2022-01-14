@@ -234,12 +234,12 @@ pub trait Stomach : Send {
     // ---------------------------------------------------------------------------------------------
 
     fn start_paragraph(&mut self,int:&Interpreter,parskip:i32) {
-        self.flush(int);
+        self.flush(int).unwrap();
         self.base_mut().stomachgroups.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
     fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        self.flush(int);
+        self.flush(int)?;
         let mut p = self.end_paragraph_loop(int)?;
         let hangindent = self.base().hangindent;
         let hangafter = self.base().hangafter;
@@ -279,7 +279,7 @@ pub trait Stomach : Send {
         self.base_mut().buffer.push(Whatsit::GroupOpen(WIGroup::GroupOpen(tp)))
     }
     fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
-        self.flush(int);
+        self.flush(int)?;
         if self.base().stomachgroups.len() < 2 {
             TeXErr!((int,None),"Can't close group in stomach!")
         } else {
@@ -311,7 +311,7 @@ pub trait Stomach : Send {
     }
 
     fn close_group(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        self.flush(int);
+        self.flush(int)?;
         let mut cwgs: Vec<WIGroup> = vec!();
         for bg in self.base().stomachgroups.iter().rev() {
             match bg {
@@ -396,12 +396,14 @@ pub trait Stomach : Send {
             let mut nwi = wiopen.new_from();
             self._close_stomach_group(int,wi)?;
             self.base_mut().stomachgroups.push(top.new_from());
-            let mut grv : Vec<Whatsit> = vec!();
+            *nwi.children_mut() = top.get_d();
+            self.base_mut().stomachgroups.last_mut().unwrap().push(Whatsit::Grouped(nwi));
+            /*let mut grv : Vec<Whatsit> = vec!();
             for w in top.get_d() {
                 if grv.is_empty() && !w.has_ink() { self.add_inner_actually(int,w)? } else { grv.push(w) }
             }
             for w in grv { nwi.push(w) }
-            self.base_mut().stomachgroups.push(StomachGroup::Other(nwi));
+            self.base_mut().stomachgroups.push(StomachGroup::Other(nwi));*/
             Ok(())
         } else {
             let mut ng = top.new_from();
@@ -463,62 +465,6 @@ pub trait Stomach : Send {
                     Ok(())
                 }
             }
-            /*Whatsit::Simple(SimpleWI::HKern(ref k1)) => match self.base().buffer.last() {
-                Some(Whatsit::Simple(SimpleWI::HKern(k2))) => {
-                    let nsk = k1.dim + k2.dim;
-                    let ret = HKern { dim:nsk,sourceref:k2.sourceref.clone()}.as_whatsit();
-                    self.drop_last();
-                    self.base_mut().buffer.push(ret);
-                    Ok(())
-                },
-                _ => {
-                    self.base_mut().buffer.push(wi);
-                    Ok(())
-                }
-            }
-            Whatsit::Simple(SimpleWI::VKern(ref k1)) => match self.base().buffer.last() {
-                Some(Whatsit::Simple(SimpleWI::HKern(k2))) => {
-                    let nsk = k1.dim + k2.dim;
-                    let ret = VKern { dim:nsk,sourceref:k2.sourceref.clone()}.as_whatsit();
-                    self.drop_last();
-                    self.base_mut().buffer.push(ret);
-                    Ok(())
-                },
-                _ => {
-                    self.base_mut().buffer.push(wi);
-                    Ok(())
-                }
-            }
-            Whatsit::Simple(SimpleWI::HSkip(ref sk1)) => match self.base().buffer.last() {
-                Some(Whatsit::Simple(SimpleWI::HSkip(sk2))) => {
-                    let nsk = sk1.skip + sk2.skip;
-                    let ret = HSkip { skip:nsk,sourceref:sk2.sourceref.clone()}.as_whatsit();
-                    self.drop_last();
-                    self.base_mut().buffer.push(ret);
-                    Ok(())
-                },
-                _ => {
-                    self.base_mut().buffer.push(wi);
-                    Ok(())
-                }
-            }
-            Whatsit::Simple(SimpleWI::VSkip(ref sk1)) => match self.base().buffer.last() {
-                Some(Whatsit::Simple(SimpleWI::HSkip(sk2))) => {
-                    let nsk = sk1.skip + sk2.skip;
-                    let ret = VSkip { skip:nsk,sourceref:sk2.sourceref.clone()}.as_whatsit();
-                    self.drop_last();
-                    self.base_mut().buffer.push(ret);
-                    Ok(())
-                },
-                _ => {
-                    self.base_mut().buffer.push(wi);
-                    Ok(())
-                }
-            }
-            Whatsit::Simple(SimpleWI::HKern(_)|SimpleWI::VKern(_)|SimpleWI::HSkip(_)|SimpleWI::VSkip(_)) => {
-                self.base_mut().buffer.push(wi);
-                Ok(())
-            } */
             Whatsit::Simple(SimpleWI::Penalty(_)) => match self.base().buffer.last() {
                 Some(Whatsit::Simple(SimpleWI::Penalty(_))) => {
                     self.drop_last();
@@ -709,7 +655,7 @@ pub trait Stomach : Send {
     }
 
     fn on_begin_document(&mut self, int: &Interpreter) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
-        self.flush(int);
+        self.flush(int).unwrap();
         int.state.borrow_mut().indocument = true;
         let base = self.base_mut();
         base.indocument = true;
@@ -731,6 +677,15 @@ pub trait Stomach : Send {
                 for c in std::mem::take(g.get_mut()) {rets.push(c)}
             }
         }}
+        let mut i = 1;
+        loop {
+            match base.stomachgroups.get(i) {
+                Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) | StomachGroup::Par(_)) => break,
+                Some(StomachGroup::Other(WIGroup::ColorChange(_) | WIGroup::FontChange(_))) => {base.stomachgroups.remove(i);}
+                Some(o) => i +=1,
+                None => break
+            }
+        }
         for r in rets {base.stomachgroups.first_mut().unwrap().push(r)}
         /*loop {
             let pop = stack.pop();
@@ -781,7 +736,7 @@ pub trait Stomach : Send {
         self.base().pageheight
     }
     fn close_all(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>,TeXError> {
-        self.flush(int);
+        self.flush(int)?;
         loop {
             let last = self.base_mut().stomachgroups.pop();
             match last {
@@ -809,7 +764,7 @@ pub trait Stomach : Send {
                     Ok(v) => for w in v { sender.send(StomachMessage::WI(w)).unwrap() }
                     _ => ()
                 }
-                sender.send(StomachMessage::End);
+                sender.send(StomachMessage::End).unwrap();
             }
             _ => ()
         }
@@ -957,8 +912,8 @@ impl Stomach for NoShipoutRoutine {
                     o => !o.get().is_empty()
                 }).unwrap();
                 last_one.push(wi);*/
-                self.add_inner(int,wi);
-                self.do_floats(int);
+                self.add_inner(int,wi)?;
+                self.do_floats(int)?;
                 Ok(())
             }
             Whatsit::Exec(e) => (std::sync::Arc::try_unwrap(e).ok().unwrap()._apply)(int),

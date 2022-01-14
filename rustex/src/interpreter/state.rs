@@ -117,7 +117,7 @@ impl StackFrame {
             dimensions:dims,
             skips,toks,sfcodes,lccodes,uccodes,muskips,boxes,mathcodes,delcodes,
             tp:None,aftergroups:vec!(),
-            currfont:Nullfont.try_with(|x| x.clone()).unwrap(),
+            currfont:NULL_FONT.try_with(|x| x.clone()).unwrap(),
             fontstyle:FontStyle::Text,
             textfonts:newfonts(),
             scriptfonts:newfonts(),
@@ -132,8 +132,8 @@ impl StackFrame {
         let muskips: HashMap<i32,MuSkip> = HashMap::new();
         let toks: HashMap<i32,Vec<Token>> = HashMap::new();
         let sfcodes: HashMap<u8,i32> = HashMap::new();
-        let mut lccodes: HashMap<u8,u8> = HashMap::new();
-        let mut uccodes: HashMap<u8,u8> = HashMap::new();
+        let lccodes: HashMap<u8,u8> = HashMap::new();
+        let uccodes: HashMap<u8,u8> = HashMap::new();
         /*for i in 97..123 {
             uccodes.insert(i,i-32);
             lccodes.insert(i-32,i);
@@ -193,7 +193,7 @@ pub struct State {
 
 impl State {
     pub fn new() -> State {
-        let mut state = State {
+        let state = State {
             stacks: vec![StackFrame::initial_pdf_etex()],
             conditions: vec![],
             outfiles:HashMap::new(),
@@ -594,32 +594,32 @@ impl State {
         }
     }
 
-    pub fn getTextFont(&self,i : u8) -> Arc<Font> {
+    pub fn get_text_font(&self, i : u8) -> Arc<Font> {
         for s in self.stacks.iter().rev() {
             match s.textfonts.get(i as usize).unwrap() {
                 Some(f) => return f.clone(),
                 _ => ()
             }
         }
-        Nullfont.try_with(|x| x.clone()).unwrap()
+        NULL_FONT.try_with(|x| x.clone()).unwrap()
     }
-    pub fn getScriptFont(&self,i : u8) -> Arc<Font> {
+    pub fn get_script_font(&self, i : u8) -> Arc<Font> {
         for s in self.stacks.iter().rev() {
             match s.scriptfonts.get(i as usize).unwrap() {
                 Some(f) => return f.clone(),
                 _ => ()
             }
         }
-        Nullfont.try_with(|x| x.clone()).unwrap()
+        NULL_FONT.try_with(|x| x.clone()).unwrap()
     }
-    pub fn getScriptScriptFont(&self,i : u8) -> Arc<Font> {
+    pub fn get_scriptscript_font(&self, i : u8) -> Arc<Font> {
         for s in self.stacks.iter().rev() {
             match s.scriptscriptfonts.get(i as usize).unwrap() {
                 Some(f) => return f.clone(),
                 _ => ()
             }
         }
-        Nullfont.try_with(|x| x.clone()).unwrap()
+        NULL_FONT.try_with(|x| x.clone()).unwrap()
     }
     pub fn font_style(&self) -> FontStyle {
         self.stacks.last().unwrap().fontstyle
@@ -668,7 +668,7 @@ use std::cell::Ref;
 use std::fmt::{Display, Formatter};
 use std::str::from_utf8_unchecked;
 use std::sync::Arc;
-use crate::fonts::{Font, FontFile, Nullfont};
+use crate::fonts::{Font, FontFile, NULL_FONT};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
@@ -763,7 +763,7 @@ impl Interpreter<'_> {
                      Some(f) => {
                          let mut string = f.string.write().unwrap();
                          match &mut*string {
-                             None => {string.insert(s);},
+                             None => {*string = Some(s) },
                              Some(st) => *st += s
                          }
                      }

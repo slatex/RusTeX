@@ -80,7 +80,7 @@ impl WhatsitTrait for MathGroup {
             Some(s) => s.has_ink()
         }
     }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         let subscript = match self.subscript {
             Some(k) => normalize_kernel(k),
             _ => None
@@ -89,30 +89,31 @@ impl WhatsitTrait for MathGroup {
             Some(k) => normalize_kernel(k),
             _ => None
         };
-        let kernel = match normalize_kernel(self.kernel) {
+        let mut kernel = match normalize_kernel(self.kernel) {
             None if subscript.is_none() && superscript.is_none() => return,
             None => MathKernel::Group(GroupedMath(vec!())),
             Some(k) => k
         };
         if superscript.is_none() && subscript.is_none() {
             use crate::stomach::simple::SimpleWI;
-            match kernel {
-                MathKernel::Group(GroupedMath(mut v)) if v.len() == 1 => {
+            match &mut kernel {
+                MathKernel::Group(GroupedMath(ref mut v)) if v.len() == 1 => {
                     match v.pop().unwrap() {
                         o@Whatsit::Simple(SimpleWI::HAlign(_)) => {
                             ret.push(o);
                             return
                         }
-                        o => {
+                        o if *mode == ColonMode::M => {
                             ret.push(o);
                             return
                         }
+                        o => {
+                            v.push(o)
+                        }
                     }
                 }
-                _ => (),
-
-
-            }
+                k => (),
+            };
         }
         ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
     }
@@ -125,58 +126,58 @@ impl WhatsitTrait for MathGroup {
                     node.attr("displaystyle".into(),"true".into());
                     htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                         self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
-                        if mrow.children.len() == 1 {
+                        /*if mrow.children.len() == 1 {
                             match mrow.children.pop().unwrap() {
                                 HTMLChild::Node(n) if n.name == "mrow".into() => mrow.children = n.children,
                                 o => mrow.children.push(o)
                             }
-                        }
+                        }*/
                     })
                 })
             }),
             ColonMode::H => htmlnode!(colon,MATHML_NS:math,None,"",node_top,node=> {
                 htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                     self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
-                    if mrow.children.len() == 1 {
+                    /*if mrow.children.len() == 1 {
                         match mrow.children.pop().unwrap() {
                             HTMLChild::Node(n) if n.name == "mrow".into() => mrow.children = n.children,
                             o => mrow.children.push(o)
                         }
-                    }
+                    }*/
                 })
             }),
             ColonMode::M => match (self.subscript,self.superscript) {
                 (None,None) => self.kernel.as_html(mode,colon,node_top),
                 (None,Some(ss)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,mover,None,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"true".into());
-                    ss.as_html(mode,colon,htmlparent!(msup));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                     msup.children.push(HTMLChild::Str("".into()));
-                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                 (None,Some(ss)) => htmlnode!(colon,msup,None,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"false".into());
-                    ss.as_html(mode,colon,htmlparent!(msup));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                     msup.children.push(HTMLChild::Str("".into()));
-                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                 (Some(ss),None) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munder,None,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"true".into());
-                    ss.as_html(mode,colon,htmlparent!(msup));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                     msup.children.push(HTMLChild::Str("".into()));
-                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                 (Some(ss),None) => htmlnode!(colon,msub,None,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"false".into());
-                    ss.as_html(mode,colon,htmlparent!(msup));
+                    self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                     msup.children.push(HTMLChild::Str("".into()));
-                    self.kernel.as_html(mode,colon,htmlparent!(msup));
+                    ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                 (Some(subk),Some(supk)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munderover,None,"",node_top,msub => {
@@ -215,7 +216,8 @@ fn normalize_kernel(k:MathKernel) -> Option<MathKernel> {
             Some(Whatsit::Math(MathGroup { kernel,subscript:None,superscript:None,limits:_})) => {
                 return Some(kernel)
             }
-            _ => ()
+            Some(o) => nret.push(o),
+            _ => unreachable!()
         }
     }
     Some(MathKernel::Group(GroupedMath(nret)))

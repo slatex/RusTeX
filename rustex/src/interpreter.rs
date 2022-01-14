@@ -378,7 +378,7 @@ impl Interpreter<'_> {
     }
 
     pub fn do_math_char(&self,tk:Option<Token>,mc:u32) -> MathChar {
-        let mut num = mc;
+        let num = mc;
         let (mut cls,mut fam,pos) = {
             if num == 0 && tk.is_some() {
                 (0,1,tk.as_ref().unwrap().char as u32)
@@ -404,9 +404,9 @@ impl Interpreter<'_> {
         }
         let mode = self.state.borrow().font_style();
         let font = match mode {
-            FontStyle::Text => self.state.borrow().getTextFont(fam as u8),
-            FontStyle::Script => self.state.borrow().getScriptFont(fam as u8),
-            FontStyle::Scriptscript => self.state.borrow().getScriptScriptFont(fam as u8),
+            FontStyle::Text => self.state.borrow().get_text_font(fam as u8),
+            FontStyle::Script => self.state.borrow().get_script_font(fam as u8),
+            FontStyle::Scriptscript => self.state.borrow().get_scriptscript_font(fam as u8),
         };
         crate::stomach::math::MathChar {
             class:cls,family:fam,position:pos,font,
@@ -523,7 +523,7 @@ impl Interpreter<'_> {
                                     }
                                 }
                             }
-                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)));
+                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)))?;
                             return Ok(())
                         }
                         _ => TeXErr!((self,Some(nnext)),"displaymode must be closed with $$")
@@ -535,7 +535,7 @@ impl Interpreter<'_> {
                         self.stomach.borrow_mut().add(self,WI::Math(g))?
                     }
                     let ret = self.get_whatsit_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)));
+                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)))?;
                     return Ok(())
                 }
                 EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
@@ -691,12 +691,12 @@ impl Interpreter<'_> {
                     self.change_state(StateChange::Fontstyle(oldmode));
                     match previous {
                         Some(mg) => {
-                            mg.superscript.insert(ret);
+                            mg.superscript = Some(ret);
                             return Ok(None)
                         },
                         _ => {
                             let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
-                            mg.superscript.insert(ret);
+                            mg.superscript = Some(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
                     }
@@ -711,12 +711,12 @@ impl Interpreter<'_> {
                     self.change_state(StateChange::Fontstyle(oldmode));
                     match previous {
                         Some(mg) => {
-                            mg.subscript.insert(ret);
+                            mg.subscript = Some(ret);
                             return Ok(None)
                         },
                         _ => {
                             let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
-                            mg.subscript.insert(ret);
+                            mg.subscript = Some(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
                     }

@@ -116,6 +116,7 @@ table {
     white-space:nowrap;
     width:max-content;
     height:max-content;
+    display:initial;
 }
 td {
     padding:0;

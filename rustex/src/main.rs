@@ -1,16 +1,10 @@
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io::Write;
-use std::ops::Mul;
-use std::path::{Path, PathBuf};
-use chrono::Duration;
-use rustex::interpreter::dimensions::{dimtostr, round_f};
+use std::path::Path;
 use rustex::interpreter::Interpreter;
-use rustex::stomach::colon::{NoColon, XMLColon};
 use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
-use rustex::utils::TeXString;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
@@ -24,7 +18,6 @@ fn do_thesis() {
 }
 
 fn do_other(filename : &str) {
-    use std::io::Write;
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
     let mut stomach = NoShipoutRoutine::new();

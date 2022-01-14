@@ -61,10 +61,6 @@ impl TokenMouth {
     fn preview(&self) -> TeXString {
         crate::interpreter::tokens_to_string_default(&self.tokens.iter().rev().map(|x| x.clone()).collect())
     }
-    fn pushback(&mut self) {}
-    fn peek(&mut self) -> Token {
-        self.tokens.last().expect("").clone()
-    }
 }
 
 use crate::interpreter::Interpreter;
@@ -524,9 +520,6 @@ impl StringMouth {
             Some(c) => rest.push(c)
         }
         rest.into()
-    }
-    fn pushback(&mut self) {
-        todo!()
     }
 }
 

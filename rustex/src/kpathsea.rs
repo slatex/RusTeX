@@ -1,9 +1,6 @@
-use std::borrow::BorrowMut;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use regex::internal::Char;
-use crate::stomach::html::HTMLChild::Str;
 
 static mut KPATHSEA : Option<Kpathsea> = None;
 
@@ -16,8 +13,13 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
         return None
     }
     let default = indir.to_path_buf().join(s);
-    if default.exists() {
+    if default.is_file() {
         return Some((default,false))
+    } else {
+        let ndef = indir.to_path_buf().join(s.to_string() + ".tex");
+        if ndef.is_file() {
+            return Some((ndef,false))
+        }
     }
     let kpathsea = match unsafe { &KPATHSEA } {
         None => unsafe {
@@ -37,11 +39,10 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
     match kpathsea.map.get(&ext) {
         Some(m) => match m.get(&file) {
             Some(f) => Some((f.clone(),true)),
-            _ if ext == "" => match kpathsea.map.get("TEX").unwrap().get(&file) {
+            _ => match kpathsea.map.get("TEX").unwrap().get( &(if ext.is_empty() {file} else {file + "." + &ext})) {
                 Some(f) => Some((f.clone(),true)),
                 _ => Some((default,false))
             }
-            _ => Some((default,false))
         }
         _ => Some((default,false))
     }
@@ -160,10 +161,10 @@ impl Kpathsea {
                     };
                     match map.entry(ext) {
                         Entry::Occupied(mut v) => match v.get_mut().entry(filename) {
-                            Entry::Vacant(mut v) => {v.insert(p);}
+                            Entry::Vacant(v) => {v.insert(p);}
                             _ => ()
                         },
-                        Entry::Vacant(mut v) => {
+                        Entry::Vacant(v) => {
                             v.insert(HashMap::new()).insert(filename,p);
                         }
                     }
