@@ -23,7 +23,7 @@ fn do_other(filename : &str) {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
     let mut stomach = NoShipoutRoutine::new();
-    let mut int = Interpreter::with_state(state,stomach.borrow_mut(),DefaultParams::new());
+    let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&DefaultParams {log : false});
     let s = int.do_file(Path::new(filename),HTMLColon::new(true));
     let mut file = std::fs::File::create(rustex::LOG_FILE).unwrap();
     file.write_all(s.as_bytes());
