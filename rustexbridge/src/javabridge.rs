@@ -1,189 +1,135 @@
-use robusta_jni::bridge;
-use robusta_jni::convert::FromJavaValue;
+use std::path::Path;
 use rustex::interpreter::state::State;
 
 pub static mut MAIN_STATE : Option<State> = None;
 
-#[bridge]
-pub mod java {
-    use std::borrow::BorrowMut;
-    use std::path::Path;
-    use robusta_jni::jni::JNIEnv;
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue};
-    use crate::javabridge::MAIN_STATE;
-    use rustex::interpreter::Interpreter;
-    use rustex::stomach::html::HTMLColon;
-
-    #[derive(Signature)]
-    #[package(info.kwarc.rustex)]
-    struct Bridge {}
-    impl Bridge {
-        pub extern "jni" fn initialize() -> bool {
-            unsafe {
-                match MAIN_STATE {
-                    Some(_) => (),
-                    None => {
-                        use rustex::interpreter::state::default_pdf_latex_state;
-                        let state = default_pdf_latex_state();
-                        MAIN_STATE.insert(state);
-                    }
-                }
-            }
-            true
-        }
-        #[call_type(unchecked)]
-        pub extern "jni" fn parse(file:String) -> String {
-            let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
-            let (_,ret) = Interpreter::do_file_with_state(Path::new(&file),state,HTMLColon::new(true));
-            // TODO maybe update main state unsafe { MAIN_STATE = Some(state)}
-            ret
-        }
-
-    }
-
-}
-
-/*
-#[bridge]
-pub mod java {
-    use rustex::commands::TeXCommand;
-    use rustex::interpreter::state::State;
-    use rustex::utils::{kpsewhich, PWD};
-    use rustex::interpreter::Interpreter;
-    use robusta_jni::jni::objects::AutoLocal;
-    use robusta_jni::jni::errors::Result as JniResult;
-    use robusta_jni::jni::JNIEnv;
-    use rustex::commands::ExternalCommand;
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
-    use crate::javabridge::{JavaCommand, JCommand};
-
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue,FromJavaValue)]
-    #[package(com.jazzpirate.rustex.bridge)]
-    pub struct JInterpreter<'env: 'borrow, 'borrow> {
-        #[instance]
-        raw: AutoLocal<'env, 'borrow>,
-        #[field] pub pointer: Field<'env, 'borrow, i64>
-    }
-    impl<'env: 'borrow, 'borrow> JInterpreter<'env,'borrow> {
-        #[constructor]
-        pub extern "java" fn new(env: &'borrow JNIEnv<'env>) -> JniResult<Self> {}
-        fn getInt(&self) -> &Interpreter {
-            use rustex::utils::decode_pointer;
-            decode_pointer(self.pointer.get().unwrap())
-        }
-
-
-        pub extern "jni" fn jobname(self) -> String {
-            let int = self.getInt();
-            int.jobinfo.path.file_stem().unwrap().to_str().unwrap().to_string()
-        }
-
-    }
-
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
-    #[package(com.jazzpirate.rustex.bridge)]
-    pub struct JExecutable<'env: 'borrow, 'borrow> {
-        #[instance]
-        raw: AutoLocal<'env, 'borrow>,
-        #[field] pub name: Field<'env, 'borrow, String>
-    }
-
-    impl<'env,'borrow> JExecutable<'env,'borrow> {
-        pub extern "java" fn execute(&self,_env: &'borrow JNIEnv<'env>,_int:&JInterpreter) -> JniResult<bool> {}
-    }
-    impl<'env,'borrow>PartialEq for JExecutable<'env,'borrow> {
-        fn eq(&self, other: &Self) -> bool {
-            other.name.get().unwrap() == self.name.get().unwrap()
-        }
-    }
-
-    #[derive(Signature)]
-    #[package(com.jazzpirate.rustex.bridge)]
-    struct Bridge {}
-    impl Bridge {
-        pub extern "jni" fn test<'env,'borrow>(env: &'borrow JNIEnv<'env>,mut vec: Vec<JExecutable<'env,'borrow>>) -> bool {
-            use std::rc::Rc;
-            let mut nvec : Vec<TeXCommand> = Vec::new();
-            while !vec.is_empty() {
-                let je = JavaCommand {
-                    je:JCommand::Exec(vec.pop().unwrap()),
-                    env
-                };
-                nvec.push(TeXCommand::Ext(Rc::new(je)))
-            }
-            let mut st = State::with_commands(nvec);
-            let pdftex_cfg = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found");
-            let latex_ltx = kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found");
-
-            println!("{}",pdftex_cfg.to_str().expect("wut"));
-            println!("{}",latex_ltx.to_str().expect("wut"));
-            st = Interpreter::do_file_with_state(&pdftex_cfg,st);
-            st = Interpreter::do_file_with_state(&latex_ltx,st);
-            true
-        }
-    }
-}
-
-use robusta_jni::jni::JNIEnv;
-use rustex::commands::ExternalCommand;
+use jni::JNIEnv;
+use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
+use jni::sys::{jboolean, jbyteArray, jint, jlong, jstring};
 use rustex::interpreter::Interpreter;
-use crate::javabridge::java::{JExecutable, JInterpreter};
+use rustex::interpreter::params::{DefaultParams, InterpreterParams};
+use rustex::stomach::html::HTMLColon;
 
-enum JCommand<'env,'borrow> {
-    Exec(JExecutable<'env,'borrow>)
-}
 
-struct JavaCommand<'env,'borrow> {
-    pub je : JCommand<'env,'borrow>,
-    pub env: &'borrow JNIEnv<'env>
-}
-
-use robusta_jni::jni::errors::Result as JniResult;
-use rustex::ontology::Expansion;
-use rustex::utils::TeXError;
-
-impl JavaCommand<'_,'_> {
-    fn with_int<'a,A>(&self,int:&Interpreter,f : Box<dyn Fn(&JInterpreter) -> JniResult<A> + 'a>) -> A {
-        use rustex::utils::encode_pointer;
-        let mut ji = JInterpreter::new(self.env).unwrap();
-        ji.pointer.set(encode_pointer(int));
-        f(&ji).unwrap()
-    }
-}
-
-impl<'env,'borrow> ExternalCommand for JavaCommand<'env,'borrow> {
-    fn expandable(&self) -> bool { match &self.je { _ => false } }
-    fn assignable(&self) -> bool { match &self.je { _ => false } }
-    fn has_num(&self) -> bool { match &self.je { _ => false } }
-    fn name(&self) -> String {
-        match &self.je {
-            JCommand::Exec(je) => je.name.get().unwrap()
+#[no_mangle]
+pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
+    _env: JNIEnv,
+    _class: JClass
+) -> jboolean {
+    unsafe {
+        match MAIN_STATE {
+            Some(_) => (),
+            None => {
+                use rustex::interpreter::state::default_pdf_latex_state;
+                let state = default_pdf_latex_state();
+                MAIN_STATE = Some(state);
+            }
         }
     }
-    fn execute(&self, int: &Interpreter) -> Result<(),TeXError> {
-        match &self.je {
-            JCommand::Exec(e) =>
-                match self.with_int(int,Box::new(|i| e.execute(self.env,i))) {
-                    true => Ok(()),
-                    _ => Err(TeXError::new("Nope".to_string()))
-                }
-        }
-        /*
-        use rustex::utils::encode_pointer;
-        let mut ji = JInterpreter::new(self.env).unwrap();
-        ji.pointer.set(encode_pointer(int));
-        self.je.execute(self.env,&ji).unwrap()
-         */
-    }
+    jboolean::from(true)
+}
 
-    fn expand(&self, int: &Interpreter) -> Result<Expansion, TeXError> {
-        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
-    }
-    fn assign(&self, int: &Interpreter, global: bool) -> Result<(), TeXError> {
-        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
-    }
-    fn get_num(&self, int: &Interpreter) -> Result<i32, TeXError> {
-        match &self.je { _ => Err(TeXError::new("Nope".to_string())) }
+#[no_mangle]
+pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
+    env: JNIEnv,
+    _class: JClass,
+    file:JString,params:JObject) -> jstring {
+    let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
+    let filename : String = env
+        .get_string(file)
+        .expect("Couldn't get java string!")
+        .into();
+    let mut p = JavaParams::new(&env,params);
+    //params.testb(env);
+    //params.test(env).unwrap();
+    //println!("Here1 {:?}",env.find_class("info/kwarc/rustex/Params"));
+    println!("Params: {} {} {} {} {}",p.singlethreaded,p.do_log,p.store_in_file,p.copy_tokens_full,p.copy_commands_full);
+    let (_,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
+    // TODO maybe update main state unsafe { MAIN_STATE = Some(state)}
+    let output = env
+        .new_string(ret)
+        .expect("Couldn't create java string!");
+    // Finally, extract the raw pointer to return.
+    output.into_inner()
+}
+
+struct JavaParams<'borrow,'env> {
+    env:&'borrow JNIEnv<'env>,
+    params:JObject<'env>,
+    singlethreaded:bool,
+    do_log:bool,
+    store_in_file:bool,
+    copy_tokens_full:bool,
+    copy_commands_full:bool
+}
+impl<'borrow,'env> JavaParams<'borrow,'env> {
+    pub fn new(env:&'borrow JNIEnv<'env>,params:JObject<'env>) -> JavaParams<'borrow,'env> {
+        JavaParams {
+            env,params,
+            singlethreaded:env.get_field(params,"singlethreaded","Z").unwrap().z().unwrap(),
+            do_log:env.get_field(params,"do_log","Z").unwrap().z().unwrap(),
+            store_in_file:env.get_field(params,"store_in_file","Z").unwrap().z().unwrap(),
+            copy_tokens_full:env.get_field(params,"copy_tokens_full","Z").unwrap().z().unwrap(),
+            copy_commands_full:env.get_field(params,"copy_commands_full","Z").unwrap().z().unwrap(),
+        }
     }
 }
- */
+impl<'borrow,'env> InterpreterParams for JavaParams<'borrow,'env> {
+    fn singlethreaded(&self) -> bool { self.singlethreaded }
+    fn do_log(&self) -> bool { self.do_log }
+    fn set_log(&mut self, b: bool) {
+        self.env.set_field(self.params,"do_log","Z",JValue::Bool(b.into())).unwrap();
+        self.do_log = b
+    }
+    fn store_in_file(&self) -> bool { self.store_in_file }
+    fn copy_tokens_full(&self) -> bool { self.copy_tokens_full }
+    fn copy_commands_full(&self) -> bool { self.copy_commands_full }
+    fn log(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"log","(Ljava/lang/String;)V",&[output]);
+    }
+    fn write_16(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"write_16","(Ljava/lang/String;)V",&[output]);
+    }
+    fn write_17(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"write_17","(Ljava/lang/String;)V",&[output]);
+    }
+    fn write_18(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"write_18","(Ljava/lang/String;)V",&[output]);
+    }
+    fn write_neg_1(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"write_neg_1","(Ljava/lang/String;)V",&[output]);
+    }
+    fn write_other(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"write_other","(Ljava/lang/String;)V",&[output]);
+    }
+    fn file_clopen(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"file_clopen","(Ljava/lang/String;)V",&[output]);
+    }
+    fn message(&self, s: &str) {
+        let output = JValue::Object(JObject::from(self.env
+            .new_string(s)
+            .expect("Couldn't create java string!").into_inner()));
+        self.env.call_method(self.params,"message","(Ljava/lang/String;)V",&[output]);
+    }
+}

@@ -639,8 +639,8 @@ pub fn default_pdf_latex_state() -> State {
 
     //println!("{}",pdftex_cfg.to_str().expect("wut"));
     //println!("{}",latex_ltx.to_str().expect("wut"));
-    st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new()).0;
-    st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new()).0;
+    st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new(),&NoOutput {}).0;
+    st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new(),&NoOutput {}).0;
     if crate::PGF_AS_SVG {
         for c in pgf_commands() {
             let c = c.as_command();
@@ -672,6 +672,7 @@ use crate::fonts::{Font, FontFile, NULL_FONT};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::files::VFile;
 use crate::interpreter::mouth::StringMouth;
+use crate::interpreter::params::NoOutput;
 use crate::interpreter::Token;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
@@ -741,20 +742,23 @@ impl Interpreter<'_> {
         use ansi_term::Colour::*;
         match index {
             17 => {
-                print!("{}",s);
+                self.params.write_17(s.to_utf8().as_str());
                 Ok(())
             }
             16 => {
-                print!("{}",White.bold().paint(s.to_utf8()));
+                self.params.write_16(s.to_utf8().as_str());
                 Ok(())
             }
-            18 => todo!("{}",index),
+            18 => {
+                self.params.write_18(s.to_utf8().as_str());
+                Ok(())
+            }
             255 => {
-                //print!("{}",Black.on(Blue).paint(s.to_utf8()));
+                self.params.write_neg_1(s.to_utf8().as_str());
                 Ok(())
             }
             i if !self.state.borrow().outfiles.contains_key(&i) => {
-                print!("{}",Black.on(Blue).paint(s.to_utf8()));
+                self.params.write_other(s.to_utf8().as_str());
                 Ok(())
             }
              _ => {

@@ -305,15 +305,6 @@ impl StringMouth {
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
-        /*match self.source.get_file_ref() {
-            Some(r) => match &r.path {
-                Some(p) if p.to_string().contains("interfaces") && self.line >= 249 => {
-                    println!("Here!")
-                }
-                _ => ()
-            }
-            _ => ()
-        }*/
         match self.peekbuffer {
             Some(_) => true,
             None => {
@@ -524,6 +515,7 @@ impl StringMouth {
 }
 
 use crate::interpreter::files::VFile;
+use crate::interpreter::params::InterpreterParams;
 use crate::STORE_IN_FILE;
 
 pub (in crate::interpreter) struct Mouths {
@@ -538,7 +530,7 @@ impl Mouths {
             buffer:None
         }
     }
-    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme) -> Result<bool,EOF> {
+    pub(in crate::interpreter::mouth) fn has_next(&mut self,catcodes:&CategoryCodeScheme,io:&dyn InterpreterParams) -> Result<bool,EOF> {
         match self.buffer {
             Some(_) => Ok(true),
             _ => loop {
@@ -552,7 +544,7 @@ impl Mouths {
                                     return Ok(false)
                                 }
                                 Mouth::File(fm) if STORE_IN_FILE => {
-                                    print!(")");
+                                    io.file_clopen(")");
                                     let lastfile = self.mouths.iter_mut().rev().find(|x| match x {
                                         Mouth::File(_) => true,
                                         _ => false
@@ -569,7 +561,7 @@ impl Mouths {
                                     return Err(EOF {})
                                 }
                                 Mouth::File(_) => {
-                                    print!(")");
+                                    io.file_clopen(")");
                                     return Err(EOF {})
                                 }
                                 Mouth::FileLike(_) => {
@@ -584,10 +576,10 @@ impl Mouths {
         }
     }
 
-    pub(in crate::interpreter::mouth) fn next_token(&mut self,catcodes:&CategoryCodeScheme) -> Result<Token,EOF> {
+    pub(in crate::interpreter::mouth) fn next_token(&mut self,catcodes:&CategoryCodeScheme,io:&dyn InterpreterParams) -> Result<Token,EOF> {
         match self.buffer {
             Some(_) => Ok(self.buffer.take().unwrap()),
-            _ => if self.has_next(catcodes)? {
+            _ => if self.has_next(catcodes,io)? {
                 Ok(self.mouths.last_mut().unwrap().get_next(catcodes))
             } else {
                 panic!("Mouths empty!")
@@ -688,12 +680,12 @@ impl Mouths {
             _ => "".to_string()
         }
     }
-    pub fn end_input(&mut self) {
+    pub fn end_input(&mut self,io:&dyn InterpreterParams) {
         loop {
             match self.mouths.last() {
                 Some(Mouth::File(_)) => {
                     self.mouths.pop();
-                    print!(")");
+                    io.file_clopen(")");
                     return ()
                 }
                 Some(_) => {self.mouths.pop();}
@@ -727,9 +719,9 @@ impl Interpreter<'_> {
     pub fn push_file(&self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
-            print!("\n{}", match file.source {
-                VFileBase::Real(ref pb) => "(".to_string() + &pb.to_string(),
-                _ => "(".to_string() + &file.id.to_string()
+            self.params.file_clopen(&match file.source {
+                VFileBase::Real(ref pb) => "\n(".to_string() + &pb.to_string(),
+                _ => "\n(".to_string() + &file.id.to_string()
             });
         }
         self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
@@ -745,12 +737,9 @@ impl Interpreter<'_> {
         self.mouths.borrow_mut().push_tokens(tks)
     }
     pub fn next_token(&self) -> Token {
-        let ret = self.mouths.borrow_mut().next_token(&self.state_catcodes());
+        let ret = self.mouths.borrow_mut().next_token(&self.state_catcodes(),self.params);
         match ret {
-            Ok(t) => {
-                //println!(">>{}<<",t);
-                t
-            },
+            Ok(t) => t,
             Err(_) => {
                 self.doeof();
                 self.next_token()
@@ -761,7 +750,7 @@ impl Interpreter<'_> {
         self.mouths.borrow_mut().requeue(token)
     }
     pub fn has_next(&self) -> bool {
-        let ret = self.mouths.borrow_mut().has_next(&self.state_catcodes());
+        let ret = self.mouths.borrow_mut().has_next(&self.state_catcodes(),self.params);
         match ret {
             Ok(t) => t,
             Err(_) => {
@@ -779,7 +768,7 @@ impl Interpreter<'_> {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
     }
     pub fn end_input(&self) {
-        self.mouths.borrow_mut().end_input()
+        self.mouths.borrow_mut().end_input(self.params)
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
         let mut rf = &*tk.reference;

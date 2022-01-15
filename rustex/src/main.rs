@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 use std::io::Write;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
+use rustex::interpreter::params::DefaultParams;
 use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
+use rustex::utils::TeXError;
 
 fn do_latexltx() {
     use rustex::interpreter::state::default_pdf_latex_state;
@@ -21,7 +23,7 @@ fn do_other(filename : &str) {
     use rustex::interpreter::state::default_pdf_latex_state;
     let state = default_pdf_latex_state();
     let mut stomach = NoShipoutRoutine::new();
-    let mut int = Interpreter::with_state(state,stomach.borrow_mut());
+    let mut int = Interpreter::with_state(state,stomach.borrow_mut(),DefaultParams::new());
     let s = int.do_file(Path::new(filename),HTMLColon::new(true));
     let mut file = std::fs::File::create(rustex::LOG_FILE).unwrap();
     file.write_all(s.as_bytes());
@@ -226,6 +228,15 @@ fn my_test_2() {
     }
     for s in vec { println!("{}",s) }
 }
+/*
+fn err_Test_dummy() -> Result<(),TeXError> {
+    todo!()
+}
+
+fn err_Test() {
+    let a = err_Test_dummy().map_err(|e| e.derive("Bla".to_string()))?
+}
+ */
 
 fn main() {
     //my_test_2()

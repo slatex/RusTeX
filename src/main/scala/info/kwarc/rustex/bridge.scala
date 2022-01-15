@@ -10,7 +10,22 @@ object Implicits {
 import Implicits._
 private class Bridge {
   @native def initialize() : Boolean
-  @native def parse(file:String) : String
+  @native def parse(file:String,p:Params) : String
+}
+abstract class Params {
+  var singlethreaded = false
+  var do_log = false
+  var store_in_file = false
+  var copy_tokens_full = true
+  var copy_commands_full = true
+  def log(s:String)
+  def write_16(s:String)
+  def write_17(s:String)
+  def write_18(s:String)
+  def write_neg_1(s:String)
+  def write_other(s:String)
+  def message(s:String)
+  def file_clopen(s:String)
 }
 /*
 
@@ -36,8 +51,8 @@ object Bridge {
     bridge.get.initialize()
     println("TeX Engine Initialized")
   }
-  def parse(s : String) = bridge match {
-    case Some(b) => b.parse(s)
+  def parse(s : String,p:Params) = bridge match {
+    case Some(b) => b.parse(s,p)
     case None => ???
   }
   def library_filename() = {
@@ -64,9 +79,19 @@ object Bridge {
 
 object Test {
   def main(args: Array[String]): Unit = {
+    val testparams = new Params {
+      override def log(s: String): Unit = println("LOG: " + s)
+      override def write_16(s: String): Unit = println("WRITE16: " + s)
+      override def write_17(s: String): Unit = println("WRITE17: " + s)
+      override def write_18(s: String): Unit = println("WRITE18: " + s)
+      override def write_neg_1(s: String): Unit = println("WRITE-1: " + s)
+      override def write_other(s: String): Unit = println("OTHER: " + s)
+      override def file_clopen(s: String): Unit = println("FILE: " + s)
+      override def message(s: String): Unit = println("MSG: " + s)
+    }
     //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
-    Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target")
-    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex")
+    Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
+    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex",testparams)
     println("Done")
     println(ret)
   }

@@ -22,6 +22,7 @@ pub mod state;
 mod files;
 pub mod dimensions;
 pub mod methods;
+pub mod params;
 
 
 pub fn tokenize(s : TeXString,cats: &CategoryCodeScheme) -> Vec<Token> {
@@ -57,10 +58,12 @@ pub struct Interpreter<'a> {
     pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
     catcodes:RefCell<CategoryCodeScheme>,
-    pub stomach:RefCell<&'a mut dyn Stomach>
+    pub stomach:RefCell<&'a mut dyn Stomach>,
+    pub params:&'a dyn InterpreterParams
 }
 use crate::{TeXErr,FileEnd};
 use crate::commands::primitives::ENDTEMPLATE;
+use crate::interpreter::params::InterpreterParams;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
     use crate::catcodes::OTHER_SCHEME;
@@ -127,14 +130,15 @@ impl Interpreter<'_> {
             }
         }
     }
-    pub fn with_state(s : State,stomach: &mut dyn Stomach) -> Interpreter {
+    pub fn with_state<'a>(s : State,stomach: &'a mut dyn Stomach,params:&'a dyn InterpreterParams) -> Interpreter<'a> {
         let catcodes = s.catcodes().clone();
         Interpreter {
             state:RefCell::new(s),
             jobinfo:Jobinfo::new(PathBuf::new()),
             mouths:RefCell::new(Mouths::new()),
             catcodes:RefCell::new(catcodes),
-            stomach:RefCell::new(stomach)
+            stomach:RefCell::new(stomach),
+            params
         }
     }
 
@@ -239,9 +243,9 @@ impl Interpreter<'_> {
             colon.close()
         }
     }
-    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A) -> (State,B) where A:Colon<B>,B:Send {
+    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
         let mut stomach = NoShipoutRoutine::new();
-        let mut int = Interpreter::with_state(s,stomach.borrow_mut());
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
         let ret = int.do_file(p,colon);
         let st = int.state.borrow().clone();
         (st.close(int),ret)

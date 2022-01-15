@@ -860,18 +860,10 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
     name: "write",
     _get: |_tk, int| {
         let num = int.read_number()? as u8;
-        //int.assert_has_next()?;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\write")
         }
-        /*match int.state.borrow().outfiles.get(&num) {
-            Some(vf) if vf.id.to_string().to_uppercase().contains(".AUX") => {
-                println!("Here!")
-            }
-            _ => ()
-        }*/
-
         let ret = int.read_token_list(true,true,true,true)?;
         let string = int.tokens_to_string(&ret) + "\n".into();
         return Ok(ExecutableWhatsit {
@@ -893,7 +885,7 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
-        print!("{}",Yellow.paint(string.to_string()));
+        int.params.message(string.to_string().as_str());
         Ok(())
     }
 };
@@ -1067,8 +1059,6 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_,int| {
         use ansi_term::Colour::*;
-        //println!("Error: {}",int.preview());
-        //TeXErr!((int,Some(tk.0.clone())),"Debug");
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!((int,Some(next)),"Begin group token expected after \\errmessage")
@@ -1076,10 +1066,8 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
         let mut eh = int.state_tokens(-(ERRHELP.index as i32));
-       // println!("Errhelp: {}",TokenList(&eh));
         let rethelp = if !eh.is_empty() {
             eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
-            //eh.insert(0,Token::new(0,CategoryCode::BeginGroup,None,SourceReference::None,false));
             int.push_tokens(eh);
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp)
@@ -1180,11 +1168,9 @@ fn expr_loop_inner(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric
 pub static NUMEXPR: NumericCommand = NumericCommand {
     name:"numexpr",
     _getvalue: |int| {
-        //println!("\\numexpr starts: >{}",int.preview());
         log!("\\numexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| i.read_number_i(false))?;
         int.eat_relax();
-        //println!("\\numexpr: {}",ret);
         log!("\\numexpr: {}",ret);
         Ok(ret)
     }
@@ -1193,11 +1179,9 @@ pub static NUMEXPR: NumericCommand = NumericCommand {
 pub static DIMEXPR: NumericCommand = NumericCommand {
     name:"dimexpr",
     _getvalue: |int| {
-        //println!("\\dimexpr starts: >{}",int.preview());
         log!("\\dimexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Dim(i.read_dimension()?)))?;
         int.eat_relax();
-        //println!("\\dimexpr: {}",ret);
         log!("\\dimexpr: {}",ret);
         Ok(ret)
     }
@@ -1206,11 +1190,9 @@ pub static DIMEXPR: NumericCommand = NumericCommand {
 pub static GLUEEXPR: NumericCommand = NumericCommand {
     name:"glueexpr",
     _getvalue: |int| {
-        //println!("\\glueexpr starts: >{}",int.preview());
         log!("\\glueexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::Skip(i.read_skip()?)))?;
         int.eat_relax();
-        //println!("\\glueexpr: {}",ret);
         log!("\\glueexpr: {}",ret);
         Ok(ret)
     }
@@ -1219,11 +1201,9 @@ pub static GLUEEXPR: NumericCommand = NumericCommand {
 pub static MUEXPR: NumericCommand = NumericCommand {
     name:"muexpr",
     _getvalue: |int| {
-        //println!("\\muexpr starts: >{}",int.preview());
         log!("\\muexpr starts: >{}",int.preview());
         let ret =expr_loop(int,|i| Ok(Numeric::MuSkip(i.read_muskip()?)))?;
         int.eat_relax();
-        //println!("\\muexpr: {}",ret);
         log!("\\muexpr: {}",ret);
         Ok(ret)
     }
@@ -2557,7 +2537,6 @@ pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
 
 fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         (Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>),TeXError> {
-    //println!("Here! Vsize: {}",crate::interpreter::dimensions::dimtostr(crate::commands::pgfsvg::get_dimen("vsize",int)?));
     int.expand_until(false)?;
     let bg = int.next_token();
     match bg.catcode {
@@ -2571,11 +2550,6 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         }
         _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
     }
-
-    /*if int.get_mode() == TeXMode::Displaymath {
-        unsafe { crate::LOG = true }
-        println!("Here!")
-    }*/
 
     int.new_group(GroupType::Box(betweenmode));
 

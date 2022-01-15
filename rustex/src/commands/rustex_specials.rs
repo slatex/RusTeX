@@ -134,7 +134,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     fn closes_with_group(&self) -> bool { false }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
     fn as_xml_internal(&self,_:&Vec<Whatsit>, _: String) -> String {
-        todo!()
+        "".to_string()
     }
     fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut nret : Vec<Whatsit> = vec!();

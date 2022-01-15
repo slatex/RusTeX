@@ -11,4 +11,4 @@ path = "src/lib.rs"
 
 [dependencies]
 rustex = { path = "../rustex" }
-robusta_jni = "0.2.0"
+jni = "0.19.0"
