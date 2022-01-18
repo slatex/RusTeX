@@ -4,7 +4,7 @@ use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro,
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, Expansion, ExpansionRef};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{FontStyle, GroupType, StateChange};
+use crate::interpreter::state::{FontStyle, GroupType};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
@@ -17,17 +17,17 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        match int.get_mode() {
+        match int.state.mode {
             TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Space(
                 SpaceChar {
-                    font: int.get_font(),
+                    font: int.state.currfont.get(&()),
                     sourceref: int.update_reference(tk)
                 })),
             _ => Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {
-                    class:0,family:0,position:0,font:int.state.borrow().get_text_font(0),
+                    class:0,family:0,position:0,font:int.state.textfonts.get(&0),
                     sourceref:int.update_reference(tk)
-                }),int.state.borrow().display_mode())))
+                }),int.state.displaymode.get(&()))))
         }
     }
 };
@@ -35,14 +35,14 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+    _apply:|_, _| {
         Ok(())
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+    _apply:|_, _| {
         Ok(())
     }
 };
@@ -52,12 +52,12 @@ pub static CATCODE : NumAssValue = NumAssValue {
         let num = int.read_number()? as u8;
         int.read_eq();
         let cat = CategoryCode::fromint(int.read_number()?);
-        int.change_state(StateChange::Cat(num,cat,global));
+        int.state.catcodes.set(num,cat,global);
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()?;
-        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32))
+        Ok(Numeric::Int(CategoryCode::toint(&int.state.catcodes.get_scheme().get_code(char as u8)) as i32))
     }
 };
 
@@ -67,12 +67,12 @@ pub static SFCODE : NumAssValue = NumAssValue {
         let char = int.read_number()? as u8;
         int.read_eq();
         let val = int.read_number()?;
-        int.change_state(StateChange::Sfcode(char,val,global));
+        int.state.sfcodes.set(char,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_sfcode(char)))
+        Ok(Numeric::Int(int.state.sfcodes.get(&char)))
     }
 };
 
@@ -87,7 +87,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(rf);
-        int.change_state(StateChange::Cs(c.cmdname().clone(),Some(cmd),global));
+        int.state.commands.set(c.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -99,12 +99,12 @@ pub static COUNT : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_number()?;
         log!("\\count sets {} to {}",index,val);
-        int.change_state(StateChange::Register(index as i32,val,global));
+        int.state.registers.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as i32;
-        let num = int.state_register(index);
+        let num = int.state.registers.get(&index);
         log!("\\count {} = {}",index,num);
         Ok(Numeric::Int(num))
     }
@@ -117,12 +117,12 @@ pub static DIMEN : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_dimension()?;
         log!("\\dimen sets {} to {}",index,val);
-        int.change_state(StateChange::Dimen(index as i32,val,global));
+        int.state.dimensions.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state_dimension(index as i32);
+        let dim = int.state.dimensions.get(&(index as i32));
         log!("\\dimen {} = {}",index,dim);
         Ok(Numeric::Dim(dim))
     }
@@ -135,12 +135,12 @@ pub static SKIP : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_skip()?;
         log!("\\skip sets {} to {}",index,val);
-        int.change_state(StateChange::Skip(index as i32,val,global));
+        int.state.skips.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state_skip(index as i32);
+        let dim = int.state.skips.get(&(index as i32));
         log!("\\skip {} = {}",index,dim);
         Ok(Numeric::Skip(dim))
     }
@@ -155,9 +155,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-                                         global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -171,9 +169,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -186,10 +182,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_ref(rf);
-
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -203,9 +196,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-                                         global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -219,9 +210,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -349,7 +338,7 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
     FileEnd!(int)
 }
 
-fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
+fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
@@ -364,9 +353,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         sig,
         ret
     }).as_ref(rf);
-    int.change_state(StateChange::Cs(command.cmdname().clone(),
-                                     Some(dm),
-        global));
+    int.state.commands.set(command.cmdname(),Some(dm),global);
     Ok(())
 }
 
@@ -423,11 +410,11 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
         log!("\\let {}={}",cmd,def);
         let ch = match def.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state_get_command(&def.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&def.cmdname()).map(|x| x.as_ref(rf.0))
             }
             _ => Some(PrimitiveTeXCommand::Char(def).as_ref(rf))
         };
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),ch,global));
+        int.state.commands.set(cmd.cmdname(),ch,global);
         Ok(())
     }
 };
@@ -444,11 +431,11 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
         let second = int.next_token();
         let p = match second.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state_get_command(&second.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&second.cmdname()).map(|x| x.as_ref(rf.0))
             }
             _ => Some(PrimitiveTeXCommand::Char(second.clone()).as_command())
         };
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),p,global));
+        int.state.commands.set(newcmd.cmdname(),p,global);
         int.push_tokens(vec!(first,second));
         Ok(())
     }
@@ -460,11 +447,11 @@ pub static NEWLINECHAR : NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\newlinechar: {}",num);
-        int.change_state(StateChange::Newline(num,global));
+        int.state.catcodes.set_newline(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().newlinechar as i32))
     }
 };
 
@@ -474,11 +461,11 @@ pub static ENDLINECHAR : NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\endlinechar: {}",num);
-        int.change_state(StateChange::Endline(num,global));
+        int.state.catcodes.set_endline(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().endlinechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().endlinechar as i32))
     }
 };
 
@@ -488,11 +475,11 @@ pub static ESCAPECHAR: NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\escapechar: {}",num);
-        int.change_state(StateChange::Escapechar(num,global));
+        int.state.catcodes.set_escape(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().escapechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().escapechar as i32))
     }
 };
 
@@ -537,7 +524,7 @@ pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"begingroup",
     expandable:false,
     _apply:|_rf,int| {
-        int.new_group(GroupType::Begingroup);
+        int.state.push(GroupType::Begingroup);
         Ok(())
     }
 };
@@ -636,12 +623,11 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
-        let ch = match num {
-            Numeric::Int(i) => StateChange::Register(index, i / div.get_i32(), global),
-            Numeric::Dim(i) => StateChange::Dimen(index, i / div.get_i32(),global),
+        match num {
+            Numeric::Int(i) => int.state.registers.set(index, i / div.get_i32(), global),
+            Numeric::Dim(i) => int.state.dimensions.set(index, i / div.get_i32(),global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -650,18 +636,17 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,fac) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
-        let ch = match num {
-            Numeric::Int(_) => StateChange::Register(index,match num * fac.as_int() {
+        match num {
+            Numeric::Int(_) => int.state.registers.set(index,match num * fac.as_int() {
                 Numeric::Int(i) => i,
                 _ => unreachable!()
             }, global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match num * fac.as_int() {
+            Numeric::Dim(_) => int.state.dimensions.set(index,match num * fac.as_int() {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -670,14 +655,13 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,sum) = get_inrv(int,false)?;
         log!("\\advance sets {} to {}",index,num+sum);
-        let ch = match (num,sum) {
-            (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
-            (Numeric::Int(num),Numeric::Dim(sum)) => StateChange::Register(index,num+sum,global),
-            (Numeric::Dim(num),Numeric::Dim(sum)) => StateChange::Dimen(index,num + sum,global),
-            (Numeric::Skip(num),Numeric::Skip(sum)) => StateChange::Skip(index,num + sum,global),
+        match (num,sum) {
+            (Numeric::Int(num),Numeric::Int(sum)) => int.state.registers.set(index,num + sum,global),
+            (Numeric::Int(num),Numeric::Dim(sum)) => int.state.registers.set(index,num+sum,global),
+            (Numeric::Dim(num),Numeric::Dim(sum)) => int.state.dimensions.set(index,num + sum,global),
+            (Numeric::Skip(num),Numeric::Skip(sum)) => int.state.skips.set(index,num + sum,global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -698,10 +682,10 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 stt(ret.to_string().into())
             },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
-            AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-(i.index as i32)).to_string().into()),
-            AV(AssignableValue::Register(i)) => stt(int.state_register(*i as i32).to_string().into()),
-            AV(AssignableValue::Toks(i)) => int.state_tokens(*i as i32),
-            AV(AssignableValue::PrimToks(r)) => int.state_tokens(-(r.index as i32)),
+            AV(AssignableValue::PrimReg(i)) => stt(int.state.registers.get(&-(i.index as i32)).to_string().into()),
+            AV(AssignableValue::Register(i)) => stt(int.state.registers.get(&(*i as i32)).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state.toks.get(&(*i as i32)),
+            AV(AssignableValue::PrimToks(r)) => int.state.toks.get(&-(r.index as i32)),
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             MathChar(i) => stt(i.to_string().into()),
@@ -818,9 +802,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
-            Some(cmd),
-            global));
+        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -848,9 +830,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
-                                         Some(cmd),
-                                         global));
+        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -987,8 +967,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(rf);
-        int.change_state(StateChange::Cs(chartok.cmdname().clone(),Some(cmd),
-            global));
+        int.state.commands.set(chartok.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -1037,7 +1016,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => (),
             None => {
                 let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.get_ref());
-                int.change_state(StateChange::Cs(cmdname,Some(cmd),false))
+                int.state.commands.set(cmdname,Some(cmd),false)
             }
         }
         rf.2.push(ret);
@@ -1335,7 +1314,7 @@ pub static LCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.change_state(StateChange::Lccode(num1,num2,global));
+        int.state.lccodes.set(num1,num2,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1350,7 +1329,7 @@ pub static UCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.change_state(StateChange::Uccode(num1, num2, global));
+        int.state.uccodes.set(num1, num2, global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1412,8 +1391,8 @@ pub static FONT: FontAssValue = FontAssValue {
             })),
             _ => None
         };
-        let font = Font::new(ff,at,cmd.cmdname().clone());
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global));
+        let font = Font::new(ff,at,cmd.cmdname());
+        int.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
         Ok(())
     },
     _getvalue: |_int| {
@@ -1429,7 +1408,7 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
             TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Textfont(ind as usize,f,global));
+        int.state.textfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1449,7 +1428,7 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
             TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Scriptfont(ind as usize,f,global));
+        int.state.scriptfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1468,7 +1447,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
             TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Scriptscriptfont(ind as usize,f,global));
+        int.state.scriptscriptfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1649,9 +1628,9 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_rf,int,global| {
         let index = int.read_number()? as u16;
         int.read_eq();
-        int.state.borrow_mut().insetbox = true;
+        int.state.insetbox = true;
         let wi = int.read_box()?;
-        int.change_state(StateChange::Box(index as i32,wi,global));
+        int.state.boxes.set(index as i32,wi,global);
         Ok(())
     }
 };
@@ -1767,7 +1746,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         let (first,second) = crate::stomach::split_vertical(vbox.children,target,int);
         ret.children = first;
         rest.children = second;
-        int.change_state(StateChange::Box(boxnum,TeXBox::V(rest),false));
+        int.state.boxes.set(boxnum,TeXBox::V(rest),false);
         Ok(TeXBox::V(ret))
     }
 };
@@ -1840,7 +1819,7 @@ pub static TOKS: TokAssValue = TokAssValue {
         let num = int.read_number()? as u16;
         int.read_eq();
         let r = int.read_balanced_argument(false,false,false,true)?;
-        int.change_state(StateChange::Tokens(num as i32,r.iter().map(|x| x.cloned()).collect(),global));
+        int.state.toks.set(num as i32,r.iter().map(|x| x.cloned()).collect(),global);
         Ok(())
     },
     _getvalue: |int| {
@@ -1856,7 +1835,7 @@ pub static MATHCODE: NumAssValue = NumAssValue {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
-        int.change_state(StateChange::Mathcode(i,v,global));
+        int.state.mathcodes.set(i,v,global);
         Ok(())
     }
 };
@@ -1868,7 +1847,7 @@ pub static DELCODE: NumAssValue = NumAssValue {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
-        int.change_state(StateChange::Delcode(i,v,global));
+        int.state.delcodes.set(i,v,global);
         Ok(())
     }
 };
@@ -1876,8 +1855,8 @@ pub static DELCODE: NumAssValue = NumAssValue {
 pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
-        int.change_state(StateChange::Font(NULL_FONT.try_with(|x| x.clone()).unwrap(),global));
-        int.stomach.borrow_mut().add(int,FontChange {
+        int.state.currfont.set((),NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
+        int.stomach.add(int,FontChange {
             font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
             children: vec![],
@@ -2257,7 +2236,7 @@ pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"textstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Text));
+        int.state.fontstyle.set((),FontStyle::Text,false);
         Ok(())
     }
 };
@@ -2266,7 +2245,7 @@ pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Script));
+        int.state.fontstyle.set((),FontStyle::Script,false);
         Ok(())
     }
 };
@@ -2275,7 +2254,7 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Scriptscript));
+        int.state.fontstyle.set((),FontStyle::Scriptscript,false);
         Ok(())
     }
 };
@@ -2303,7 +2282,7 @@ pub static WD: NumAssValue = NumAssValue {
             TeXBox::H(ref mut hb) => hb._width = Some(dim),
             TeXBox::V(ref mut hb) => hb._width = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -2324,7 +2303,7 @@ pub static HT: NumAssValue = NumAssValue {
             TeXBox::H(ref mut hb) => hb._height = Some(dim),
             TeXBox::V(ref mut hb) => hb._height = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -2345,7 +2324,7 @@ pub static DP: NumAssValue = NumAssValue {
             TeXBox::H(ref mut hb) => hb._depth = Some(dim),
             TeXBox::V(ref mut hb) => hb._depth = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
@@ -2358,7 +2337,7 @@ pub static PAGEGOAL: NumAssValue = NumAssValue {
     name:"pagegoal",
     _assign: |_,int,_| {
         let dim = int.read_dimension()?;
-        int.state.borrow_mut().pagegoal = dim;
+        int.state.pagegoal = dim;
         Ok(())
     },
     _getvalue: |int| {

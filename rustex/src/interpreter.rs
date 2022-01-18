@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::commands::{TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
-use crate::interpreter::state::{GroupType, State, StateChange};
+use crate::interpreter::state::{GroupType, State};
 use crate::utils::{TeXError, TeXString, TeXStr, MaybeThread};
 use std::sync::Arc;
 
@@ -54,11 +54,10 @@ impl Jobinfo {
 }
 
 pub struct Interpreter<'a> {
-    pub state:RefCell<State>,
+    pub state:State,
     pub jobinfo:Jobinfo,
-    mouths:RefCell<Mouths>,
-    catcodes:RefCell<CategoryCodeScheme>,
-    pub stomach:RefCell<&'a mut dyn Stomach>,
+    mouths:Mouths,
+    pub stomach:&'a mut dyn Stomach,
     pub params:&'a dyn InterpreterParams
 }
 use crate::{TeXErr,FileEnd};
@@ -118,7 +117,7 @@ impl Interpreter<'_> {
         crate::kpathsea::kpsewhich(filename,self.jobinfo.in_file())
     }
 
-    pub fn get_file(&self,filename : &str) -> Result<Arc<VFile>,TeXError> {
+    pub fn get_file(&mut self,filename : &str) -> Result<Arc<VFile>,TeXError> {
         /*if filename.contains("tetrapod") {
             unsafe {crate::LOG = true}
             println!("Here!")
@@ -126,14 +125,14 @@ impl Interpreter<'_> {
         match self.kpsewhich(filename) {
             None =>TeXErr!((self,None),"File {} not found",filename),
             Some((p,b)) => {
-                Ok(VFile::new(&p,b,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore))
+                Ok(VFile::new(&p,b,self.jobinfo.in_file(),&mut self.state.filestore))
             }
         }
     }
     pub fn with_state<'a>(s : State,stomach: &'a mut dyn Stomach,params:&'a dyn InterpreterParams) -> Interpreter<'a> {
         let catcodes = s.catcodes().clone();
         Interpreter {
-            state:RefCell::new(s),
+            state:s,
             jobinfo:Jobinfo::new(PathBuf::new()),
             mouths:RefCell::new(Mouths::new()),
             catcodes:RefCell::new(catcodes),
@@ -142,12 +141,12 @@ impl Interpreter<'_> {
         }
     }
 
-    fn predoc_toploop(&self) -> Result<bool,TeXError> {
+    fn predoc_toploop(&mut self) -> Result<bool,TeXError> {
         while self.has_next() {
             let next = self.next_token();
-            let indoc = self.state.borrow().indocument;
+            let indoc = self.state.indocument;
             if !indoc {
-                let isline = match self.state.borrow().indocument_line.as_ref() {
+                let isline = match self.state.indocument_line.as_ref() {
                     Some((f,i)) if self.current_file() == *f && self.line_no() > *i => true,
                     _ => false
                 };
@@ -247,12 +246,11 @@ impl Interpreter<'_> {
         let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
         let ret = int.do_file(p,colon);
-        let st = int.state.borrow().clone();
-        (st.close(int),ret)
+        (int.state,ret)
     }
 
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
-        match self.state.borrow().get_command(s) {
+        match self.state.commands.get(s) {
             Some(p) => Ok(p),
             None if s.len() == 0 => {
                 let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
@@ -269,13 +267,13 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn do_top(&self,next:Token,inner:bool) -> Result<(),TeXError> {
+    pub fn do_top(&mut self,next:Token,inner:bool) -> Result<(),TeXError> {
         use crate::commands::primitives;
         use crate::catcodes::CategoryCode::*;
         use TeXMode::*;
         use PrimitiveTeXCommand::*;
 
-        let mode = self.get_mode();
+        let mode = self.state.mode;
         /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/img/int-partial-biview.tex (14, 65)") {
             unsafe { crate::LOG = true }
             println!("Here!: {}",self.preview())
@@ -327,18 +325,18 @@ impl Interpreter<'_> {
 
                 }
             },
-            (BeginGroup,_) => Ok(self.new_group(GroupType::Token)),
+            (BeginGroup,_) => Ok(self.state.push(GroupType::Token)),
             (EndGroup,_) => self.pop_group(GroupType::Token),
             (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
             (Space | EOL, Horizontal | RestrictedHorizontal) => {
-                let font = self.get_font();
+                let font = self.state.currfont.get(&());
                 let sourceref = self.update_reference(&next);
                 self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Space(SpaceChar {
                     font,sourceref
                 }))
             }
             (Letter | Other , Horizontal | RestrictedHorizontal) => {
-                let font = self.get_font();
+                let font = self.state.currfont.get(&());
                 let sourceref = self.update_reference(&next);
                 self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(PrintChar {
                     char:next.char,
@@ -348,7 +346,7 @@ impl Interpreter<'_> {
             (MathShift, Horizontal) => self.do_math(false),
             (MathShift, RestrictedHorizontal) => self.do_math(true),
             (Letter | Other, Math | Displaymath) => {
-                let mc = self.state_get_mathcode(next.char as u8);
+                let mc = self.state.mathcodes.get(&next.char);
                 match mc {
                     32768 => {
                         self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true));
@@ -359,7 +357,7 @@ impl Interpreter<'_> {
                         self.stomach.borrow_mut().add(self,
                           crate::stomach::Whatsit::Math(MathGroup::new(
                               crate::stomach::math::MathKernel::MathChar(wi),
-                              self.state.borrow().display_mode())))?;
+                              self.state.displaymode.get(&()))))?;
                         Ok(())
                     }
                 }
@@ -394,7 +392,7 @@ impl Interpreter<'_> {
             }
         };
         if cls == 7 {
-            match self.state_register(-(crate::commands::primitives::FAM.index as i32)) {
+            match self.state.registers.get(&-(crate::commands::primitives::FAM.index as i32)) {
                 i if i < 0 || i > 15 => {
                     cls = 0;
                     //num = 256 * fam + pos
@@ -406,11 +404,11 @@ impl Interpreter<'_> {
                 }
             }
         }
-        let mode = self.state.borrow().font_style();
+        let mode = self.state.fontstyle.get(&());
         let font = match mode {
-            FontStyle::Text => self.state.borrow().get_text_font(fam as u8),
-            FontStyle::Script => self.state.borrow().get_script_font(fam as u8),
-            FontStyle::Scriptscript => self.state.borrow().get_scriptscript_font(fam as u8),
+            FontStyle::Text => self.state.textfonts.get(&(fam as usize)),
+            FontStyle::Script => self.state.scriptfonts.get(&(fam as usize)),
+            FontStyle::Scriptscript => self.state.scriptscriptfonts.get(&(fam as usize)),
         };
         crate::stomach::math::MathChar {
             class:cls,family:fam,position:pos,font,
@@ -421,28 +419,28 @@ impl Interpreter<'_> {
         }
     }
 
-    fn switch_to_H(&self,next:Token) -> Result<(),TeXError> {
+    fn switch_to_H(&mut self,next:Token) -> Result<(),TeXError> {
         let indent = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 let pr = self.get_command(&next.cmdname())?;
                 match &*pr.orig {
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::NOINDENT => 0,
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::INDENT =>
-                        self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),
+                        self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
                     _ => {
                         self.requeue(next);
-                        self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32))
+                        self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32))
                     }
                 }
             }
             _ => {
                 self.requeue(next);
-                self.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32))
+                self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32))
             }
         };
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::primitives::EVERYPAR);
-        let parskip = self.state_skip(-(crate::commands::primitives::PARSKIP.index as i32));
+        let parskip = self.state.skips.get(&-(crate::commands::primitives::PARSKIP.index as i32));
         self.stomach.borrow_mut().start_paragraph(self,parskip.base);
         if indent != 0 {
             self.stomach.borrow_mut().add(self, Indent {
@@ -453,20 +451,21 @@ impl Interpreter<'_> {
         Ok(())
     }
 
-    fn end_paragraph(&self,inner : bool) -> Result<(),TeXError> {
-        if inner { self.set_mode(TeXMode::InternalVertical) } else { self.set_mode(TeXMode::Vertical) }
+    fn end_paragraph(&mut self,inner : bool) -> Result<(),TeXError> {
+        if inner { self.state.mode = TeXMode::InternalVertical }
+        else { self.state.mode = TeXMode::Vertical }
         self.stomach.borrow_mut().end_paragraph(self)?;
-        let vadjusts = std::mem::take(&mut self.state.borrow_mut().vadjust);
+        let vadjusts = std::mem::take(&mut self.state.vadjust);
         for w in vadjusts {
             self.stomach.borrow_mut().add(self,w)?
         }
         Ok(())
     }
 
-    fn do_math(&self, inner : bool) -> Result<(),TeXError> {
+    fn do_math(&mut self, inner : bool) -> Result<(),TeXError> {
         use crate::catcodes::CategoryCode::*;
         use crate::stomach::Whatsit as WI;
-        self.new_group(GroupType::Math);
+        self.state.push(GroupType::Math);
         let mode = if inner {
             self.insert_every(&crate::commands::primitives::EVERYMATH);
             TeXMode::Math
@@ -475,7 +474,7 @@ impl Interpreter<'_> {
             match next.catcode {
                 MathShift => {
                     self.insert_every(&crate::commands::primitives::EVERYDISPLAY);
-                    self.change_state(StateChange::Displaymode(true));
+                    self.state.displaymode.set((),true,false);
                     TeXMode::Displaymath
                 }
                 _ => {
@@ -485,8 +484,8 @@ impl Interpreter<'_> {
                 }
             }
         };
-        let _oldmode = self.get_mode();
-        self.set_mode(mode);
+        let _oldmode = self.state.mode;
+        self.state.mode = mode;
 
         let mut mathgroup: Option<MathGroup> = None;
         while self.has_next() {
@@ -496,7 +495,7 @@ impl Interpreter<'_> {
                     let nnext = self.next_token();
                     match nnext.catcode {
                         MathShift => {
-                            self.set_mode(_oldmode);
+                            self.state.mode = _oldmode;
                             for g in mathgroup.take() {
                                 self.stomach.borrow_mut().add(self,WI::Math(g))?
                             }
@@ -534,7 +533,7 @@ impl Interpreter<'_> {
                     }
                 },
                 MathShift => {
-                    self.set_mode(_oldmode);
+                    self.state.mode = _oldmode;
                     for g in mathgroup.take() {
                         self.stomach.borrow_mut().add(self,WI::Math(g))?
                     }
@@ -588,7 +587,7 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn read_math_whatsit(&self,previous: Option<&mut MathGroup>) -> Result<Option<Whatsit>,TeXError> {
+    pub fn read_math_whatsit(&mut self,previous: Option<&mut MathGroup>) -> Result<Option<Whatsit>,TeXError> {
         use crate::catcodes::CategoryCode::*;
         use crate::commands::PrimitiveTeXCommand::*;
         use crate::stomach::Whatsit as WI;
@@ -601,7 +600,7 @@ impl Interpreter<'_> {
                     return Ok(None)
                 }
                 BeginGroup => {
-                    self.new_group(GroupType::Math);
+                    self.state.push(GroupType::Math);
                     let mut mathgroup: Option<MathGroup> = None;
                     while self.has_next() {
                         let next = self.next_token();
@@ -684,10 +683,10 @@ impl Interpreter<'_> {
                     }
                 },
                 Superscript => {
-                    let oldmode = self.state.borrow().font_style();
+                    let oldmode = self.state.fontstyle.get(&());
                     //println!("Here! {}",self.preview());
                     //unsafe { crate::LOG = true }
-                    self.change_state(StateChange::Fontstyle(oldmode.inc()));
+                    self.state.fontstyle.set((),oldmode.inc(),false);
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
@@ -695,28 +694,28 @@ impl Interpreter<'_> {
                             TeXErr!((self,Some(next)),"Expected Whatsit after ^")
                         }
                     };
-                    self.change_state(StateChange::Fontstyle(oldmode));
+                    self.state.fontstyle.set((),oldmode,false);
                     match previous {
                         Some(mg) => {
                             mg.superscript = Some(ret);
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
+                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
                             mg.superscript = Some(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
                     }
                 }
                 Subscript => {
-                    let oldmode = self.state.borrow().font_style();
-                    self.change_state(StateChange::Fontstyle(oldmode.inc()));
+                    let oldmode = self.state.fontstyle.get(&());
+                    self.state.fontstyle.set((),oldmode.inc(),false);
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
                         _ => TeXErr!((self,Some(next)),"Expected Whatsit after _")
                     };
-                    self.change_state(StateChange::Fontstyle(oldmode));
+                    self.state.fontstyle.set((),oldmode,false);
                     match previous {
                         Some(mg) => {
                             mg.subscript = Some(ret);

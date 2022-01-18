@@ -14,12 +14,12 @@ use crate::utils::{TeXError, TeXString,TeXStr};
 use crate::{COPY_COMMANDS_FULL, log};
 
 pub struct PrimitiveExecutable {
-    pub (in crate) _apply:fn(tk:&mut Expansion,itp:&Interpreter) -> Result<(),TeXError>,
+    pub (in crate) _apply:fn(tk:&mut Expansion,itp:&mut Interpreter) -> Result<(),TeXError>,
     pub expandable : bool,
     pub name: &'static str
 }
 impl PrimitiveExecutable {
-    pub fn apply(&self,tk:&mut Expansion,itp:&Interpreter) -> Result<(),TeXError> {
+    pub fn apply(&self,tk:&mut Expansion,itp:&mut Interpreter) -> Result<(),TeXError> {
         (self._apply)(tk,itp)
     }
 }
@@ -41,7 +41,7 @@ impl PartialEq for PrimitiveExecutable {
 
 pub struct NumAssValue {
     pub name: &'static str,
-    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
+    pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>
 }
 impl PartialEq for NumAssValue {
@@ -54,7 +54,7 @@ use crate::fonts::Font;
 
 pub struct FontAssValue {
     pub name: &'static str,
-    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
+    pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<Arc<Font>,TeXError>
 }
 impl PartialEq for FontAssValue {
@@ -65,7 +65,7 @@ impl PartialEq for FontAssValue {
 
 pub struct TokAssValue {
     pub name: &'static str,
-    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>,
+    pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
     pub _getvalue: fn(int: &Interpreter) -> Result<Vec<Token>,TeXError>
 }
 impl PartialEq for TokAssValue {
@@ -111,7 +111,7 @@ pub struct TokReference {
 
 pub struct PrimitiveAssignment {
     pub name: &'static str,
-    pub _assign: fn(rf:ExpansionRef,int: &Interpreter,global: bool) -> Result<(),TeXError>
+    pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>
 }
 impl PartialEq for PrimitiveAssignment {
     fn eq(&self, other: &Self) -> bool {
@@ -152,12 +152,12 @@ use crate::stomach::boxes::TeXBox;
 
 pub struct ProvidesExecutableWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<ExecutableWhatsit,TeXError>
+    pub _get: fn(tk:&Token,int: &mut Interpreter) -> Result<ExecutableWhatsit,TeXError>
 }
 
 pub struct ProvidesBox {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<TeXBox,TeXError>
+    pub _get: fn(tk:&Token,int: &mut Interpreter) -> Result<TeXBox,TeXError>
 }
 
 impl PartialEq for ProvidesBox {
@@ -168,7 +168,7 @@ impl PartialEq for ProvidesBox {
 
 pub struct MathWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &Interpreter,prev:Option<&mut MathGroup>) -> Result<Option<MathKernel>,TeXError>
+    pub _get: fn(tk:&Token,int: &mut Interpreter,prev:Option<&mut MathGroup>) -> Result<Option<MathKernel>,TeXError>
 }
 
 impl PartialEq for MathWhatsit {
@@ -229,7 +229,6 @@ impl AssignableValue {
 
 use crate::TeXErr;
 
-use crate::interpreter::state::StateChange;
 use crate::stomach::groups::FontChange;
 
 pub trait ExternalCommand : Send + Sync {

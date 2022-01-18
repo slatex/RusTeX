@@ -7,7 +7,7 @@ use crate::commands::{TokReference, PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
-use crate::interpreter::state::{GroupType, StateChange};
+use crate::interpreter::state::GroupType;
 use crate::references::SourceReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
@@ -18,8 +18,7 @@ impl Interpreter<'_> {
 
     pub fn insert_every(&self,tr:&TokReference) {
         let i = -(tr.index as i32);
-        let insert = self.state_tokens(i);
-        //println!("Every: {}",TokenList(&insert));
+        let insert = self.state.toks.get(&i);
         self.push_tokens(insert)
     }
 
@@ -137,7 +136,7 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    let p = self.state_get_command(&next.cmdname());
+                    let p = self.state.commands.get(&next.cmdname());
                     match p {
                         None =>{ cmd = Some(next); break }
                         Some(p) => match *p.orig {
@@ -177,7 +176,7 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
-                    match self.state_get_command(&next.cmdname()) {
+                    match self.state.commands.get(&next.cmdname()) {
                         Some(cmd) => match &*cmd.orig {
                             PrimitiveTeXCommand::Primitive(x) if (the && **x == THE) || **x == UNEXPANDED => {
                                 match cmd.get_expansion(next,self)? {
@@ -274,9 +273,9 @@ impl Interpreter<'_> {
         self.read_token_list(expand, protect,the,allowunknowns)
     }
 
-    pub fn set_relax(&self,cmd:&Token) {
+    pub fn set_relax(&mut self,cmd:&Token) {
         use crate::commands::primitives::RELAX;
-        self.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false));
+        self.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false);
     }
 
     pub fn eat_relax(&self) {

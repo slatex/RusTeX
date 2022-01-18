@@ -4,7 +4,6 @@ use crate::{Interpreter, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
-use crate::interpreter::state::StateChange;
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
 use crate::stomach::simple::{PDFDest, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
 use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};

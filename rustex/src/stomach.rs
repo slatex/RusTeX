@@ -3,7 +3,7 @@ pub use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, TeXErr};
 use crate::commands::DefMacro;
 use crate::fonts::Font;
-use crate::interpreter::state::{GroupType, StateChange};
+use crate::interpreter::state::GroupType;
 use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::{AlignBlock, HAlign, HSkip, SimpleWI};
