@@ -8,7 +8,7 @@ pub mod stomach;
 pub mod fonts;
 pub mod kpathsea;
 //pub mod new_state;
-mod new_mouth;
+//mod new_mouth;
 
 static SINGLETHREADED : bool = false;
 static PGF_AS_SVG : bool = true;
