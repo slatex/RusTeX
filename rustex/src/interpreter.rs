@@ -181,7 +181,7 @@ impl Interpreter<'_> {
         if cont {
             let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(self);
             colon.initialize(fnt,color,self);
-            let mut colonthread = if crate::SINGLETHREADED {
+            let mut colonthread = if self.params.singlethreaded() {
                 MaybeThread::Single(receiver,Box::new(move |rec,end| {
                     if end {
                         loop {

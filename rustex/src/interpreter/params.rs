@@ -16,11 +16,12 @@ pub trait InterpreterParams {
 }
 
 pub struct DefaultParams {
-    pub log:bool
+    pub log:bool,
+    pub singlethreaded:bool
 }
 use ansi_term::Colour::*;
 impl InterpreterParams for DefaultParams {
-    fn singlethreaded(&self) -> bool { false}
+    fn singlethreaded(&self) -> bool { self.singlethreaded }
     fn do_log(&self) -> bool { self.log }
     fn set_log(&mut self,b: bool) { self.log = b }
     fn store_in_file(&self) -> bool { false }

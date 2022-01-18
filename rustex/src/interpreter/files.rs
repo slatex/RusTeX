@@ -57,7 +57,7 @@ impl VFile {
                         string:Arc::new(RwLock::new(Some(UNICODEDATA_TXT.into()))),
                         id:simplename
                     }
-                } */ else if simplename.to_string().contains("pgfsys-rust.def") && crate::PGF_AS_SVG {
+                } */ else if simplename.to_string().contains("pgfsys-rust.def") {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Arc::new(RwLock::new(Some(PGFSYS_RUST.into()))),

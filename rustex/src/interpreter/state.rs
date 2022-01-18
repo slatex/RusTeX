@@ -641,17 +641,13 @@ pub fn default_pdf_latex_state() -> State {
     //println!("{}",latex_ltx.to_str().expect("wut"));
     st = Interpreter::do_file_with_state(&pdftex_cfg,st,NoColon::new(),&NoOutput {}).0;
     st = Interpreter::do_file_with_state(&latex_ltx,st,NoColon::new(),&NoOutput {}).0;
-    if crate::PGF_AS_SVG {
-        for c in pgf_commands() {
-            let c = c.as_command();
-            st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
-        }
+    for c in pgf_commands() {
+        let c = c.as_command();
+        st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
     }
-    if crate::RUSTEX_SPECIALS {
-        for c in rustex_special_commands() {
-            let c = c.as_command();
-            st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
-        }
+    for c in rustex_special_commands() {
+        let c = c.as_command();
+        st.stacks.first_mut().unwrap().commands.insert(c.name().unwrap().clone(),Some(c));
     }
     st
     /*

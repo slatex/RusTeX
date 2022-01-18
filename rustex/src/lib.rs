@@ -10,14 +10,10 @@ pub mod kpathsea;
 //pub mod new_state;
 //mod new_mouth;
 
-static SINGLETHREADED : bool = false;
-static PGF_AS_SVG : bool = true;
-static RUSTEX_SPECIALS: bool = true;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;
 static COPY_COMMANDS_FULL : bool = true;
-pub static LOG_FILE : &str = "/home/jazzpirate/rustex.log.xhtml";
 
 #[macro_export]
 macro_rules! log {

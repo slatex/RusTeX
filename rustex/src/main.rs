@@ -8,59 +8,6 @@ use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXError;
 
-fn do_latexltx() {
-    use rustex::interpreter::state::default_pdf_latex_state;
-    let state = default_pdf_latex_state();
-    state.get_command(&"eTeXversion".into()).expect("");
-    println!("\n\nSuccess! \\o/")
-}
-
-fn do_thesis() {
-    do_other("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex")
-}
-
-fn do_other(filename : &str) {
-    use rustex::interpreter::state::default_pdf_latex_state;
-    let state = default_pdf_latex_state();
-    let mut stomach = NoShipoutRoutine::new();
-    let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&DefaultParams {log : false});
-    let s = int.do_file(Path::new(filename),HTMLColon::new(true));
-    let mut file = std::fs::File::create(rustex::LOG_FILE).unwrap();
-    file.write_all(s.as_bytes());
-    println!("\n\nSuccess! \\o/\nResult written to {}",rustex::LOG_FILE)
-}
-
-fn do_smglom() {
-    use rustex::interpreter::state::default_pdf_latex_state;
-    let mut state = default_pdf_latex_state();
-    let arr = vec!("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/asymptoticdensity.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/baxterhickersonfunction.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/chebyshevfunction.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralbig.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralint.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralsmall.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/generalharmonicseries.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/gregorynumber.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/harmonicseries.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",
-                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex");
-    for filename in arr {
-        println!("{}",filename);
-        let mut stomach = NoShipoutRoutine::new();
-        let mut int = Interpreter::with_state(state.clone(), stomach.borrow_mut(), &DefaultParams { log:false });
-        let s = int.do_file(Path::new(filename), HTMLColon::new(true));
-        /*let frame = int.state.into_inner().stacks.remove(0);
-        for (n,cmd) in frame.commands {
-            if n.to_string().starts_with("c_stex_module_") {
-                state.stacks.first_mut().unwrap().commands.insert(n,cmd);
-            }
-        }*/
-    }
-}
-
 fn generate_test() -> Vec<Vec<String>> {
     let mut ret : Vec<Vec<String>> = vec!();
     for i in 0..10000 {
@@ -269,12 +216,62 @@ fn err_Test() {
 }
  */
 
+use clap::Parser;
+#[derive(Parser,Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Parameters {
+    /// Input file (tex)
+    #[clap(short, long)]
+    input: Option<String>,
+
+    /// Output file (xhtml)
+    #[clap(short, long)]
+    output: Option<String>,
+
+    /// use only one thread
+    #[clap(short, long)]
+    singlethreaded:bool
+
+}
+
 fn main() {
+    let params : Parameters = Parameters::parse();
+    use rustex::interpreter::state::default_pdf_latex_state;
+    match params.input {
+        None => {
+            let state = default_pdf_latex_state();
+            state.get_command(&"eTeXversion".into()).expect("");
+            println!("\n\nSuccess! \\o/")
+        }
+        Some(i) => {
+            let path = Path::new(&i);
+            if !path.exists() {
+                println!("File {} not found",i)
+            }
+            let mut stomach = NoShipoutRoutine::new();
+            let p = DefaultParams {
+                log:false,
+                singlethreaded:params.singlethreaded
+            };
+            let state = default_pdf_latex_state();
+            let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
+            let s = int.do_file(path,HTMLColon::new(true));
+            match params.output {
+                None => println!("\n\nSuccess!\n{}",s),
+                Some(f) => {
+                    let mut file = std::fs::File::create(&f).unwrap();
+                    file.write_all(s.as_bytes());
+                    println!("\n\nSuccess! \\o/\nResult written to {}",f)
+                }
+            }
+
+        }
+    }
     //my_test_2()
     //my_test()
     //rustex::kpathsea::kpsewhich("pdftexconfig.tex",&std::env::current_dir().expect("No current directory!"));
     //do_smglom()
-    let mut args: Vec<String> = std::env::args().collect();
+    /*let mut args: Vec<String> = std::env::args().collect();
     args.remove(0);
     if args.is_empty() {
         do_latexltx()
@@ -290,4 +287,6 @@ fn main() {
 
         do_other(&str)
     }
+
+     */
 }
