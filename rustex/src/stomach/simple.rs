@@ -580,10 +580,19 @@ impl WhatsitTrait for Raise {
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref,"raise",node_top,node => {
-            node.style("bottom".into(),dimtohtml(self.dim));
-            self.content.as_html(mode,colon,htmlparent!(node))
-        })
+        match mode {
+            ColonMode::H | ColonMode::V =>
+                htmlnode!(colon,span,self.sourceref,"raise",node_top,node => {
+                node.style("bottom".into(),dimtohtml(self.dim));
+                self.content.as_html(mode,colon,htmlparent!(node))
+            }),
+            ColonMode::M =>
+                htmlnode!(colon,mrow,self.sourceref,"raise",node_top,node => {
+                node.style("bottom".into(),dimtohtml(self.dim));
+                self.content.as_html(mode,colon,htmlparent!(node))
+            }),
+            _ => todo!()
+        }
     }
 }
 

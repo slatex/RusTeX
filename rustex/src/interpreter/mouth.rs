@@ -711,10 +711,7 @@ impl Mouths {
 impl Interpreter<'_> {
     pub fn end(&self) { self.mouths.borrow_mut().close() }
     pub fn preview(&self) -> TeXString {
-        match self.mouths.borrow().preview().0.get(0..10000) {
-            Some(s) => TeXString(s.to_vec()),
-            None => "".into()
-        }
+        self.mouths.borrow().preview()
     }
     pub fn push_file(&self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;

@@ -3,7 +3,7 @@ use crate::utils::TeXStr;
 use std::fs;
 use crate::utils::TeXString;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum VFileBase {
     Real(TeXStr),
     Virtual

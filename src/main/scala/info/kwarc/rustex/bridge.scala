@@ -10,7 +10,7 @@ object Implicits {
 import Implicits._
 private class Bridge {
   @native def initialize() : Boolean
-  @native def parse(file:String,p:Params) : String
+  @native def parse(file:String,p:Params) : String//,memories:util.ArrayList[String]) : String
 }
 abstract class Params {
   var singlethreaded = false
@@ -49,10 +49,10 @@ object Bridge {
     System.load(actualpath)
     bridge = Some(new Bridge)
     bridge.get.initialize()
-    println("TeX Engine Initialized")
+    //println("TeX Engine Initialized")
   }
-  def parse(s : String,p:Params) = bridge match {
-    case Some(b) => b.parse(s,p)
+  def parse(s : String,p:Params, memories:List[String] = Nil) = bridge match {
+    case Some(b) => b.parse(s,p)//,Implicits(memories))
     case None => ???
   }
   def library_filename() = {
@@ -80,19 +80,46 @@ object Bridge {
 object Test {
   def main(args: Array[String]): Unit = {
     val testparams = new Params {
-      override def log(s: String): Unit = println("LOG: " + s)
-      override def write_16(s: String): Unit = println("WRITE16: " + s)
-      override def write_17(s: String): Unit = println("WRITE17: " + s)
-      override def write_18(s: String): Unit = println("WRITE18: " + s)
-      override def write_neg_1(s: String): Unit = println("WRITE-1: " + s)
-      override def write_other(s: String): Unit = println("OTHER: " + s)
-      override def file_clopen(s: String): Unit = println("FILE: " + s)
-      override def message(s: String): Unit = println("MSG: " + s)
+      override def log(s: String): Unit = {}//println("LOG: " + s)
+      override def write_16(s: String): Unit = {}//println("WRITE16: " + s)
+      override def write_17(s: String): Unit = {}//println("WRITE17: " + s)
+      override def write_18(s: String): Unit = {}//println("WRITE18: " + s)
+      override def write_neg_1(s: String): Unit = {}//println("WRITE-1: " + s)
+      override def write_other(s: String): Unit = {}//println("OTHER: " + s)
+      override def file_clopen(s: String): Unit = {}//println("FILE: " + s)
+      override def message(s: String): Unit = {}//println("MSG: " + s)
     }
     //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
     Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
-    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/thesis.tex",testparams)
+    println("jupyterNB.en.tex")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",testparams,List("a","b","c"))
+    println("BBPformula")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",testparams,List("a","b","c"))
+    println("alternatingharmonic")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex",testparams,List("a","b","c"))
+    println("asymptotic")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/asymptoticdensity.en.tex",testparams,List("a","b","c"))
+    println("baxterhickerson")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/baxterhickersonfunction.en.tex",testparams,List("a","b","c"))
+    println("chebyshev")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/chebyshevfunction.en.tex",testparams,List("a","b","c"))
+    println("cosineintegralbig")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralbig.en.tex",testparams,List("a","b","c"))
+    println("cosineintegralint")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralint.en.tex",testparams,List("a","b","c"))
+    println("cosineintegralsmall")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralsmall.en.tex",testparams,List("a","b","c"))
+    println("generalharmonic")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/generalharmonicseries.en.tex",testparams,List("a","b","c"))
+    println("gregory number")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/gregorynumber.en.tex",testparams,List("a","b","c"))
+    println("harmonic series")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/harmonicseries.en.tex",testparams,List("a","b","c"))
+    println("hurwitzzeta")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",testparams,List("a","b","c"))
+    println("hyperboliccosine")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex",testparams,List("a","b","c"))
     println("Done")
-    println(ret)
+    //println(ret)
   }
 }

@@ -408,23 +408,14 @@ pub trait Stomach : Send {
         } else {
             let mut ng = top.new_from();
             let mut nv = top.get_d();
-            let mut latter : Vec<Whatsit> = vec!();
-            loop {
-                match nv.last() {
-                    None => break,
-                    Some(s) if s.has_ink() => break,
-                    Some(_) => latter.push(nv.pop().unwrap())
-                }
-            }
             if !nv.is_empty() {
                 for v in nv { ng.push(v) }
                 self.add_inner_actually(int, match ng {
                     StomachGroup::Other(wg) => Whatsit::Grouped(wg),
-                    _ => todo!()
+                    _ => TeXErr!((int,None),"No group to close")
                 })?;
             }
             self._close_stomach_group(int,wi)?;
-            for l in latter { self.add_inner_actually(int,l)? }
             Ok(())
         }
     }

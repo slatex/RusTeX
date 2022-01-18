@@ -4,7 +4,7 @@ use rustex::interpreter::state::State;
 pub static mut MAIN_STATE : Option<State> = None;
 
 use jni::JNIEnv;
-use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
+use jni::objects::{GlobalRef, JClass, JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jstring};
 use rustex::interpreter::Interpreter;
 use rustex::interpreter::params::{DefaultParams, InterpreterParams};
@@ -33,19 +33,26 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
 pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
     env: JNIEnv,
     _class: JClass,
-    file:JString,params:JObject) -> jstring {
+    file:JString,params:JObject//,memory_j:JObject
+) -> jstring {
     let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
     let filename : String = env
         .get_string(file)
         .expect("Couldn't get java string!")
         .into();
     let mut p = JavaParams::new(&env,params);
-    //params.testb(env);
-    //params.test(env).unwrap();
-    //println!("Here1 {:?}",env.find_class("info/kwarc/rustex/Params"));
-    println!("Params: {} {} {} {} {}",p.singlethreaded,p.do_log,p.store_in_file,p.copy_tokens_full,p.copy_commands_full);
-    let (_,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
-    // TODO maybe update main state unsafe { MAIN_STATE = Some(state)}
+    /*let mut memories : Vec<String> = vec!();
+    for m in JList::from_env(&env,memory_j).unwrap().iter().unwrap() {
+        memories.push(env.get_string(JString::from(m)).unwrap().into())
+    }*/
+    let (mut s,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
+    /*
+    let frame = s.stacks.remove(0);
+    for (n,cmd) in frame.commands {
+        if memories.iter().any(|x| n.to_string().starts_with(x) ) {
+            unsafe { MAIN_STATE.as_mut().unwrap().stacks.first_mut().unwrap().commands.insert(n,cmd);}
+        }
+    }*/
     let output = env
         .new_string(ret)
         .expect("Couldn't create java string!");

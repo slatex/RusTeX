@@ -2115,7 +2115,7 @@ pub static LOWER: SimpleWhatsit = SimpleWhatsit {
 pub static RAISE: SimpleWhatsit = SimpleWhatsit {
     name:"raise",
     modes:|m| {match m {
-        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal | TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     }},
     _get: |tk,int| {
@@ -3427,24 +3427,24 @@ pub static LEFT: MathWhatsit = MathWhatsit {
     name:"left",
     _get: |tk,int,_| {
         int.new_group(GroupType::LeftRight);
+        int.expand_until(true)?;
+        let next = int.next_token();
+        match next.char {
+            46 => {
+                int.stomach.borrow_mut().add(int,Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                return Ok(None)
+            }
+            _ => int.requeue(next)
+        }
         let wi = int.read_math_whatsit(None)?;
         match wi {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                    superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
-                if mc.class == 4 || mc.class == 3 {
-                    Left {
-                        bx:Some(mc),
-                        sourceref:int.update_reference(tk)
-                    }
-                } else if mc.class == 6 || mc.class == 0 {
-                    Left {
-                        bx:None,
-                        sourceref:int.update_reference(tk)
-                    }
-                } else {
-                    TeXErr!((int,None),"Missing delimiter after \\left")
+                Left {
+                    bx:Some(mc),
+                    sourceref:int.update_reference(tk)
                 })))?,
             _ => TeXErr!((int,None),"Missing delimiter after \\left")
         }
@@ -3474,24 +3474,25 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
 pub static RIGHT: MathWhatsit = MathWhatsit {
     name:"right",
     _get: |tk,int,_| {
+        int.expand_until(true)?;
+        let next = int.next_token();
+        match next.char {
+            46 => {
+                int.stomach.borrow_mut().add(int,Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.pop_group(GroupType::LeftRight)?;
+                return Ok(None)
+            }
+            _ => int.requeue(next)
+        }
         let wi = int.read_math_whatsit(None)?;
         match wi {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
                                    superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
-                if mc.class == 5 || mc.class == 3 {
-                    Right {
-                        bx:Some(mc),
-                        sourceref:int.update_reference(tk)
-                    }
-                } else if mc.class == 6 || mc.class == 0  {
-                    Right {
-                        bx:None,
-                        sourceref:int.update_reference(tk)
-                    }
-                } else {
-                    TeXErr!((int,None),"Missing delimiter after \\right")
+                Right {
+                    bx:Some(mc),
+                    sourceref:int.update_reference(tk)
                 })))?,
             _ => TeXErr!((int,None),"Missing delimiter after \\right")
         }

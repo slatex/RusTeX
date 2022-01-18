@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 pub mod mouth;
 pub mod state;
-mod files;
+pub(crate) mod files;
 pub mod dimensions;
 pub mod methods;
 pub mod params;
@@ -54,7 +54,7 @@ impl Jobinfo {
 }
 
 pub struct Interpreter<'a> {
-    pub (in crate) state:RefCell<State>,
+    pub state:RefCell<State>,
     pub jobinfo:Jobinfo,
     mouths:RefCell<Mouths>,
     catcodes:RefCell<CategoryCodeScheme>,
@@ -688,9 +688,12 @@ impl Interpreter<'_> {
                     //println!("Here! {}",self.preview());
                     //unsafe { crate::LOG = true }
                     self.change_state(StateChange::Fontstyle(oldmode.inc()));
-                    let ret = match self.read_math_whatsit(None)? {
+                    let read = self.read_math_whatsit(None)?;
+                    let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                        _ => {
+                            TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                        }
                     };
                     self.change_state(StateChange::Fontstyle(oldmode));
                     match previous {
@@ -708,9 +711,10 @@ impl Interpreter<'_> {
                 Subscript => {
                     let oldmode = self.state.borrow().font_style();
                     self.change_state(StateChange::Fontstyle(oldmode.inc()));
-                    let ret = match self.read_math_whatsit(None)? {
+                    let read = self.read_math_whatsit(None)?;
+                    let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after _")
                     };
                     self.change_state(StateChange::Fontstyle(oldmode));
                     match previous {

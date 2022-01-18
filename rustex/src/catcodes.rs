@@ -90,7 +90,7 @@ impl CategoryCode {
 
 use std::fmt::Formatter;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub struct CategoryCodeScheme {
     pub (in crate) catcodes : [CategoryCode;256],// = HashMap::new();
     pub endlinechar: u8,

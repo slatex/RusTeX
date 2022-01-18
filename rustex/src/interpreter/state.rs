@@ -40,10 +40,10 @@ impl Display for GroupType {
 }
 
 #[derive(Clone)]
-struct StackFrame {
+pub struct StackFrame {
     //parent: Option<&'a StackFrame<'a>>,
     pub(crate) catcodes: CategoryCodeScheme,
-    pub(crate) commands: HashMap<TeXStr,Option<TeXCommand>>,
+    pub commands: HashMap<TeXStr,Option<TeXCommand>>,
     pub(crate) registers: HashMap<i32,i32>,
     pub(crate) dimensions: HashMap<i32,i32>,
     pub(crate) skips : HashMap<i32,Skip>,
@@ -161,7 +161,7 @@ impl StackFrame {
 
 #[derive(Clone)]
 pub struct State {
-    stacks: Vec<StackFrame>,
+    pub stacks: Vec<StackFrame>,
     pub(in crate) conditions:Vec<Option<bool>>,
     pub(in crate) outfiles:HashMap<u8,Arc<VFile>>,
     pub(in crate) infiles:HashMap<u8,StringMouth>,

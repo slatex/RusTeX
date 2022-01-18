@@ -628,9 +628,9 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "frametitle" {
+        /*if tk.cmdname().to_string() == "environment definition code" {
             println!("Here");
-            //unsafe{crate::LOG = true}
+            unsafe{crate::LOG = true}
         }*/
         /*if /*int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/course/fragments/syllabus1.en.tex (53,") && */ tk.cmdname().to_string() == "endframe" { // {
              println!("Here {}  >>{}",int.current_line(),int.preview());

@@ -119,7 +119,10 @@ struct AnnotateBegin {
 }
 impl ExternalWhatsitGroup for AnnotateBegin {
     fn name(&self) -> TeXStr { "HTMLannotate".into() }
-    fn params(&self,_:&str) -> Option<TeXStr> { None }
+    fn params(&self,s:&str) -> Option<TeXStr> { match self.attrs.get(s) {
+        Some(x) => Some(x.clone().into()),
+        _ => None
+    } }
     fn width(&self,_:&Vec<Whatsit>) -> i32 { 0 }
     fn height(&self,_:&Vec<Whatsit>) -> i32 { 0 }
     fn depth(&self,_:&Vec<Whatsit>) -> i32 { 0 }
@@ -248,8 +251,9 @@ pub static ANNOTATE_END: SimpleWhatsit = SimpleWhatsit {
 };
 
 pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
-    _apply: |_,_| {
-        println!("BREAK!");
+    _apply: |_,int| {
+        let prev = int.preview();
+        println!("BREAK! {}",prev);
         Ok(())
     },
     expandable: false,

@@ -558,6 +558,7 @@ impl HTMLStr {
             '>' => "&gt;".to_string(),
             '<' => "&lt;".to_string(),
             '&' => "&amp;".to_string(),
+            '\'' => "&#39;".to_string(),
             o => o.to_string()
         }).collect();
         retstr.into()

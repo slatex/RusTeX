@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::io::Write;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
-use rustex::interpreter::params::DefaultParams;
+use rustex::interpreter::params::{DefaultParams, NoOutput};
 use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 use rustex::utils::TeXError;
@@ -28,6 +28,37 @@ fn do_other(filename : &str) {
     let mut file = std::fs::File::create(rustex::LOG_FILE).unwrap();
     file.write_all(s.as_bytes());
     println!("\n\nSuccess! \\o/\nResult written to {}",rustex::LOG_FILE)
+}
+
+fn do_smglom() {
+    use rustex::interpreter::state::default_pdf_latex_state;
+    let mut state = default_pdf_latex_state();
+    let arr = vec!("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/asymptoticdensity.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/baxterhickersonfunction.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/chebyshevfunction.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralbig.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralint.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralsmall.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/generalharmonicseries.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/gregorynumber.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/harmonicseries.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",
+                   "/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex");
+    for filename in arr {
+        println!("{}",filename);
+        let mut stomach = NoShipoutRoutine::new();
+        let mut int = Interpreter::with_state(state.clone(), stomach.borrow_mut(), &DefaultParams { log:false });
+        let s = int.do_file(Path::new(filename), HTMLColon::new(true));
+        /*let frame = int.state.into_inner().stacks.remove(0);
+        for (n,cmd) in frame.commands {
+            if n.to_string().starts_with("c_stex_module_") {
+                state.stacks.first_mut().unwrap().commands.insert(n,cmd);
+            }
+        }*/
+    }
 }
 
 fn generate_test() -> Vec<Vec<String>> {
@@ -242,7 +273,7 @@ fn main() {
     //my_test_2()
     //my_test()
     //rustex::kpathsea::kpsewhich("pdftexconfig.tex",&std::env::current_dir().expect("No current directory!"));
-
+    //do_smglom()
     let mut args: Vec<String> = std::env::args().collect();
     args.remove(0);
     if args.is_empty() {
@@ -258,6 +289,5 @@ fn main() {
         }
 
         do_other(&str)
-
     }
 }

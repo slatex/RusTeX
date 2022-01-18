@@ -417,13 +417,14 @@ impl WhatsitTrait for MathChar {
             Some(HTMLChild::Node(n)) => Some(n),
             _ => None
         };
-        let charstr : HTMLStr = match &self.font.file.chartable {
+        let mut charstr : HTMLStr = match &self.font.file.chartable {
             Some(ct) => ct.get_char(self.position as u8).into(),
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
                 "???".into()
             }
         };
+        charstr = charstr.html_escape();
         let mimoinfo = MiMoInfo::new(&self.font);
         let clsstr : HTMLStr = (match self.class {
             1 => "largeop",
