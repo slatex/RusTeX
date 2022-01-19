@@ -50,7 +50,7 @@ pub fn false_loop(int:&mut Interpreter,initifs:usize,allowelse : bool) -> Result
             _ => {}
         }
     }
-    FileEnd!(int)
+    FileEnd!()
 }
 
 pub fn dofalse(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
@@ -69,7 +69,7 @@ pub fn dofalse(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXErr
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |rf,int| {
         match int.state.conditions.last() {
-            None => TeXErr!((int,None),"extra \\fi"),
+            None => TeXErr!("extra \\fi"),
             Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
@@ -97,10 +97,10 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
                         int.state.conditions.push(None);
                         (c._apply)(int,i,true)
                     }
-                    _ => TeXErr!((int,Some(cnd)),"Expected conditional after \\unless")
+                    _ => TeXErr!(cnd => "Expected conditional after \\unless")
                 }
             }
-            _ => TeXErr!((int,Some(cnd)),"Expected conditional after \\unless")
+            _ => TeXErr!(cnd => "Expected conditional after \\unless")
         }
     },
     expandable: true
@@ -110,7 +110,7 @@ pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
     _apply: |rf,int| {
         match int.state.conditions.last() {
-            None => TeXErr!((int,None),"extra \\or"),
+            None => TeXErr!("extra \\or"),
             Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
@@ -129,7 +129,7 @@ use crate::TeXErr;
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |rf,int| {
         match int.state.conditions.last() {
-            None => TeXErr!((int,None),"extra \\else"),
+            None => TeXErr!("extra \\else"),
             Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
@@ -206,7 +206,7 @@ pub static IFNUM : Conditional = Conditional {
             Some(ref s) if s == "<" => i1 < i2,
             Some(ref s) if s == "=" => i1 == i2,
             Some(ref s) if s == ">" => i1 > i2,
-            _ =>  TeXErr!((int,None),"Expected '<','=' or '>' in \\ifnum")
+            _ =>  TeXErr!("Expected '<','=' or '>' in \\ifnum")
         };
         log!("\\ifnum {}{}{}: {}",i1,rel.as_ref().unwrap(),i2,istrue);
         if istrue {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
@@ -252,7 +252,7 @@ fn get_if_token(cond:usize,int:&mut Interpreter) -> Result<Option<Token>,TeXErro
             _ => return Ok(Some(next))
         }
     }
-    FileEnd!(int)
+    FileEnd!()
 }
 
 pub static IF : Conditional = Conditional {
@@ -303,7 +303,7 @@ pub static IFDEFINED : Conditional = Conditional {
         let istrue = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active =>
                 int.state.commands.get(&next.cmdname()).is_some(),
-            _ => TeXErr!((int,Some(next.clone())),"Expected command after \\ifdefined; got: {}",next)
+            _ => TeXErr!(next.clone() => "Expected command after \\ifdefined; got: {}",next)
         };
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
@@ -408,7 +408,7 @@ pub static IFCASE : Conditional = Conditional {
                     _ => {}
                 }
             }
-            FileEnd!(int)
+            FileEnd!()
         }
     }
 };
@@ -423,7 +423,7 @@ pub static IFDIM : Conditional = Conditional {
             Some(s) if s == "<" => dim1 < dim2,
             Some(s) if s == "=" => dim1 == dim2,
             Some(s) if s == ">" => dim1 > dim2,
-            _ => TeXErr!((int,None),"Expected <,= or > after \\ifdim")
+            _ => TeXErr!("Expected <,= or > after \\ifdim")
         };
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }

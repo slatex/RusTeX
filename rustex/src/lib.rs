@@ -27,7 +27,7 @@ macro_rules! log {
     }})
 }
 
-fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {
+/*fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {
     match tk {
         None if int.has_next() => tex_stacktrace(int,Some(int.next_token())),
         None => "(No tracing information available)".to_string(),
@@ -36,11 +36,18 @@ fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {
             crate::utils::stacktrace(tk,int,&catcodes)
         }
     }
-}
+}*/
 
 
 #[macro_export]
 macro_rules! TeXErr {
+    ($tk:expr => $head:tt$(,$tl:expr)*) => (
+        return Err(crate::utils::TeXError::new(std::format!($head$(,$tl)*),Some($tk)))
+    );
+    ($head:tt$(,$tl:expr)*) => (
+        return Err(crate::utils::TeXError::new(std::format!($head$(,$tl)*),None))
+    )
+    /*
     (($int:tt,$tk:expr),$head:tt) => (return Err(crate::utils::TeXError::new(std::format!("{} in: {}:\n>>{}\n\n{}",$head,crate::interpreter::Interpreter::current_line($int),
         crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk)))));
     (($int:tt,$tk:expr),$head:tt,$($tl:expr),*) => ({
@@ -49,12 +56,12 @@ macro_rules! TeXErr {
             crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk));
         return Err(crate::utils::TeXError::new(retstr))
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
-    })
+    }) */
 }
 
 #[macro_export]
 macro_rules! FileEnd {
-    ($int:tt) => (TeXErr!(($int,None),"File ended unexpectedly"))
+    () => (TeXErr!("File ended unexpectedly"))
 }
 
 #[macro_use]

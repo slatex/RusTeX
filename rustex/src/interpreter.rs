@@ -121,7 +121,7 @@ impl Interpreter<'_> {
             println!("Here!")
         }*/
         match self.kpsewhich(filename) {
-            None =>TeXErr!((self,None),"File {} not found",filename),
+            None =>TeXErr!("File {} not found",filename),
             Some((p,b)) => {
                 Ok(VFile::new(&p,b,self.jobinfo.in_file(),&mut self.state.filestore))
             }
@@ -258,7 +258,7 @@ impl Interpreter<'_> {
                 let tk = Token::new(char,CategoryCode::Other,None,SourceReference::None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
-            None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)
+            None => TeXErr!("Unknown control sequence: \\{}",s)
         }
     }
 
@@ -316,7 +316,7 @@ impl Interpreter<'_> {
                         self.requeue(next);
                         self.end_paragraph(inner)
                     }
-                    _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
+                    _ => TeXErr!(next.clone() => "TODO: {} in {}",next,self.current_line())
 
                 }
             },
@@ -367,10 +367,10 @@ impl Interpreter<'_> {
                         self.push_tokens(v);
                         Ok(())
                     }
-                    _ => TeXErr!((self,Some(next)),"Misplaced alignment tab")
+                    _ => TeXErr!(next => "Misplaced alignment tab")
                 }
             }
-            _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
+            _ => TeXErr!(next.clone() => "Urgh: {}",next),
         }
     }
 
@@ -524,7 +524,7 @@ impl Interpreter<'_> {
                             self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)))?;
                             return Ok(())
                         }
-                        _ => TeXErr!((self,Some(nnext)),"displaymode must be closed with $$")
+                        _ => TeXErr!(nnext => "displaymode must be closed with $$")
                     }
                 },
                 MathShift => {
@@ -536,7 +536,7 @@ impl Interpreter<'_> {
                     self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)))?;
                     return Ok(())
                 }
-                EndGroup => TeXErr!((self,Some(next)),"Unexpected } in math environment"),
+                EndGroup => TeXErr!(next => "{}","Unexpected } in math environment"),
                 _ => {
                     self.requeue(next);
                     let ret = self.read_math_whatsit(match mathgroup.as_mut() {
@@ -579,7 +579,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     pub fn read_math_whatsit(&mut self,previous: Option<&mut MathGroup>) -> Result<Option<Whatsit>,TeXError> {
@@ -686,7 +686,7 @@ impl Interpreter<'_> {
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
                         _ => {
-                            TeXErr!((self,Some(next)),"Expected Whatsit after ^")
+                            TeXErr!(next => "Expected Whatsit after ^")
                         }
                     };
                     self.state.fontstyle.set((),oldmode,false);
@@ -708,7 +708,7 @@ impl Interpreter<'_> {
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        _ => TeXErr!((self,Some(next)),"Expected Whatsit after _")
+                        _ => TeXErr!(next => "Expected Whatsit after _")
                     };
                     self.state.fontstyle.set((),oldmode,false);
                     match previous {
@@ -765,7 +765,7 @@ impl Interpreter<'_> {
                                     return Ok(Some(ret))
                                 }
                             },
-                            _ => TeXErr!((self,Some(next.clone())),"TODO: {} in {}",next,self.current_line())
+                            _ => TeXErr!(next.clone() => "TODO: {} in {}",next,self.current_line())
                         }
                     }
                 },
@@ -794,13 +794,13 @@ impl Interpreter<'_> {
                             self.push_tokens(v);
                             ()
                         }
-                        _ => TeXErr!((self,Some(next)),"Misplaced alignment tab")
+                        _ => TeXErr!(next => "Misplaced alignment tab")
                     }
                 }
-                _ => TeXErr!((self,Some(next.clone())),"Urgh: {}",next),
+                _ => TeXErr!(next.clone() => "Urgh: {}",next),
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     /*pub fn assert_has_next(&self) -> Result<(),TeXError> {

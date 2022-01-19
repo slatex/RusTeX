@@ -452,10 +452,10 @@ impl State {
         stomach.new_group(gt);
         self.tp.set_locally((),gt)
     }
-    pub fn pop(&mut self,int:&Interpreter,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
+    pub fn pop(&mut self,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
         match self.tp.values.as_ref().unwrap().0.unwrap() {
             t if t == tp => (),
-            t => TeXErr!((int,None),"Group opened by {} ended by {}",t,tp)
+            t => TeXErr!("Group opened by {} ended by {}",t,tp)
         }
         let ag = match self.aftergroups.values {
             Some(ref mut v) => std::mem::take(&mut v.0),
@@ -490,7 +490,7 @@ impl State {
                     }
                     _ => {
                         println!("Here! {}", int.current_line());
-                        TeXErr!((int,None),"Font file {} not found",name)
+                        TeXErr!("Font file {} not found",name)
                     }
                 }
             }
@@ -605,7 +605,7 @@ impl State {
 impl Interpreter<'_> {
     pub fn pop_group(&mut self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
-        let ag = self.state.pop(self,tp)?;
+        let ag = self.state.pop(tp)?;
         match ag {
             Some(v) => self.push_tokens(v),
             _ => ()
@@ -614,7 +614,7 @@ impl Interpreter<'_> {
     }
     pub fn get_whatsit_group(&mut self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
         log!("Pop: {}",tp);
-        let ag = self.state.pop(self,tp)?;
+        let ag = self.state.pop(tp)?;
         match ag {
             Some(v) => self.push_tokens(v),
             _ => ()
@@ -623,7 +623,7 @@ impl Interpreter<'_> {
     }
     pub fn file_read_line(&mut self,index:u8) -> Result<Vec<Token>,TeXError> {
         match self.state.infiles.get_mut(&index) {
-            None => TeXErr!((self,None),"No file open at index {}",index),
+            None => TeXErr!("No file open at index {}",index),
             Some(fm) => Ok(fm.read_line(self.state.catcodes.get_scheme()))
         }
     }
@@ -637,7 +637,7 @@ impl Interpreter<'_> {
             }
             i => {
                 match self.state.infiles.get_mut(&i) {
-                    None => TeXErr!((self,None),"No file open at index {}",i),
+                    None => TeXErr!("No file open at index {}",i),
                     Some(fm) => Ok(fm.read(self.state.catcodes.get_scheme(), nocomment))
                 }
             }
@@ -645,7 +645,7 @@ impl Interpreter<'_> {
     }
     pub fn file_eof(&mut self,index:u8) -> Result<bool,TeXError> {
         match self.state.infiles.get_mut(&index) {
-            None => TeXErr!((self,None),"No file open at index {}",index),
+            None => TeXErr!("No file open at index {}",index),
             Some(fm) => {
                 Ok(fm.is_eof())
             }
@@ -701,7 +701,7 @@ impl Interpreter<'_> {
                             Some(st) => *st += s
                         }
                     }
-                    None => TeXErr!((self,None),"No file open at index {}",index)
+                    None => TeXErr!("No file open at index {}",index)
                 }
                 Ok(())
             }

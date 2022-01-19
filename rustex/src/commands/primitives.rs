@@ -244,13 +244,13 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
                             global = true;
                         }
-                        _ => TeXErr!((int,Some(next.clone())),"Expected \\def or \\edef or \\long after \\protected: {}",next)
+                        _ => TeXErr!(next.clone() => "Expected \\def or \\edef or \\long after \\protected: {}",next)
                     }
                 }
-                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!(next.clone() => "Expected control sequence or active character; got: {}",next)
             }
         }
-        FileEnd!(int)
+        FileEnd!()
     }
 };
 
@@ -283,13 +283,13 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
                             global = true;
                         }
-                        _ => TeXErr!((int,Some(next)),"Expected \\def or \\edef or \\protected after \\long")
+                        _ => TeXErr!(next => "Expected \\def or \\edef or \\protected after \\long")
                     }
                 }
-                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!(next.clone() => "Expected control sequence or active character; got: {}",next)
             }
         }
-        FileEnd!(int)
+        FileEnd!()
     }
 };
 
@@ -320,14 +320,14 @@ fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
                     }
                     _ => {
                         if inext.char < 48 {
-                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                            TeXErr!(inext.clone() => "Expected argument #{}; got:#{}",currarg,inext)
                         }
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
                             currarg += 1
                         } else {
-                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                            TeXErr!(inext.clone() => "Expected argument #{}; got:#{}",currarg,inext)
                         }
                     }
                 }
@@ -335,14 +335,14 @@ fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
             _ => retsig.push(ParamToken::Token(next))
         }
     }
-    FileEnd!(int)
+    FileEnd!()
 }
 
 fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
-        _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
+        _ => TeXErr!(command.clone() => "\\def expected control sequence or active character; got: {}",command)
     }
     let sig = read_sig(int)?;
     let ret = int.read_token_list(edef,true,edef,false)?;
@@ -371,7 +371,7 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
         let next = int.read_command_token()?;
         let cmd = int.get_command(&next.cmdname())?;
         if !cmd.assignable() {
-            TeXErr!((int,Some(next.clone())),"Assignment expected after \\global; found: {}",next)
+            TeXErr!(next.clone() => "Assignment expected after \\global; found: {}",next)
         }
         cmd.assign(next,int,true)?;
         Ok(())
@@ -403,7 +403,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |rf,int,global| {
         let cmd = int.next_token();
         if cmd.catcode != CategoryCode::Escape && cmd.catcode != CategoryCode::Active {
-            TeXErr!((int,Some(cmd.clone())),"Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
+            TeXErr!(cmd.clone() => "Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
         }
         int.read_eq();
         let def = int.next_token();
@@ -425,7 +425,7 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
         let newcmd = int.next_token();
         match newcmd.catcode {
             CategoryCode::Escape | CategoryCode::Active => {}
-            _ => TeXErr!((int,Some(newcmd)),"Expected command after \\futurelet")
+            _ => TeXErr!(newcmd => "Expected command after \\futurelet")
         }
         let first = int.next_token();
         let second = int.next_token();
@@ -788,7 +788,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"\"to\" expected in \\read")
+            None => TeXErr!("\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
         let toks = int.file_read(index,true)?;
@@ -813,7 +813,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"\"to\" expected in \\read")
+            None => TeXErr!("\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
         /*if int.current_line() == "/home/jazzpirate/work/Software/ext/sTeX/doc/manual.tex (157, 1)" {
@@ -842,7 +842,7 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\write")
+            TeXErr!(next => "Begin group token expected after \\write")
         }
         let ret = int.read_token_list(true,true,true,true)?;
         let string = int.tokens_to_string(&ret) + "\n".into();
@@ -858,10 +858,9 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"message",
     expandable:false,
     _apply:|_,int| {
-        use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\message")
+            TeXErr!(next => "Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
@@ -986,7 +985,7 @@ pub fn csname(int : &mut Interpreter) -> Result<TeXString,TeXError> {
                 match *cmd.orig {
                     PrimitiveTeXCommand::Primitive(ec) if *ec == ENDCSNAME => {
                         if int.state.incs <= 0 {
-                            TeXErr!((int,Some(next)),"spurious \\endcsname")
+                            TeXErr!(next => "spurious \\endcsname")
                         }
                         int.state.incs -=1;
                     }
@@ -1035,7 +1034,7 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         if int.state.incs <= 0 {
-            TeXErr!((int,Some(tk.0.clone())),"spurious \\endcsname")
+            TeXErr!(tk.0.clone() => "spurious \\endcsname")
         }
         int.state.incs -=1;
         Ok(())
@@ -1046,10 +1045,10 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
     _apply:|_,int| {
-        use ansi_term::Colour::*;
+        use ansi_term::Colour::Red;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\errmessage")
+            TeXErr!(next => "Begin group token expected after \\errmessage")
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
@@ -1060,7 +1059,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp)
         } else {"".into()};
-        TeXErr!((int,None),"{}\n{}",Red.bold().paint(string.to_string()),rethelp)
+        TeXErr!("{}\n{}",Red.bold().paint(string.to_string()),rethelp)
     }
 };
 
@@ -1146,7 +1145,7 @@ fn expr_loop_inner(int: &mut Interpreter,getnum : fn(&Interpreter) -> Result<Num
             let r = expr_loop(int,getnum)?;
             match int.read_keyword(vec!(")"))? {
                 Some(_) => Ok(r),
-                None => TeXErr!((int,None),"Expected ')'")
+                None => TeXErr!("Expected ')'")
             }
         }
         None => (getnum)(int)
@@ -1414,7 +1413,7 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
         int.state.textfonts.set(ind as usize,f,global);
@@ -1423,7 +1422,7 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
         Ok(int.state.textfonts.get(&(ind as usize)))
     }
@@ -1434,7 +1433,7 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
         int.state.scriptfonts.set(ind as usize,f,global);
@@ -1443,7 +1442,7 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         Ok(int.state.scriptfonts.get(&(ind as usize)))
     }
@@ -1453,7 +1452,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
         int.state.scriptscriptfonts.set(ind as usize,f,global);
@@ -1462,7 +1461,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         Ok(int.state.scriptscriptfonts.get(&(ind as usize)))
     }
@@ -1479,7 +1478,7 @@ pub fn read_font<'a>(int : &mut Interpreter) -> Result<Arc<Font>,TeXError> {
         PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.state.currfont.get(&())),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
         Ok(NULL_FONT.try_with(|x| x.clone()).unwrap()),
-        _ => TeXErr!((int, Some(tk)),"Font expected!")
+        _ => TeXErr!(tk => "Font expected!")
     }
 }
 
@@ -1726,13 +1725,13 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         let boxnum = int.read_number()?;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"Expected \"to\" after \\vsplit")
+            None => TeXErr!("Expected \"to\" after \\vsplit")
         }
         let target = int.read_dimension()?;
         let vbox = match int.state.boxes.take(boxnum) {
             TeXBox::Void => return Ok(TeXBox::Void),
             TeXBox::V(vb) => vb,
-            _ => TeXErr!((int,None),"Cannot \\vsplit horizontal box")
+            _ => TeXErr!("Cannot \\vsplit horizontal box")
         };
         let mut ret = VBox {
             children: vec!(),
@@ -1865,7 +1864,7 @@ pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
         int.state.currfont.set((),NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
-        int.stomach.add(int,FontChange {
+        int.stomach.add(FontChange {
             font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
             children: vec![],
@@ -2182,7 +2181,7 @@ pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2196,7 +2195,7 @@ pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2211,7 +2210,7 @@ pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
             (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2226,7 +2225,7 @@ pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
             (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2440,7 +2439,7 @@ pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
 pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"omit",
     expandable:false,
-    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\omit")}
+    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\omit")}
 };
 
 pub static CR: PrimitiveExecutable = PrimitiveExecutable {
@@ -2454,12 +2453,12 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
                 int.insert_every(&EVERYCR);
                 match ENDROW.try_with(|x| int.requeue(x.clone())) {
                     Ok(_) => (),
-                    _ => TeXErr!((int,Some(tk.0.clone())),"Error inserting \\endrow")
+                    _ => TeXErr!(tk.0.clone() => "Error inserting \\endrow")
                 };
                 tk.2 = ret;
                 Ok(())
             }
-            _ => TeXErr!((int,Some(tk.0.clone())),"Unexpected \\cr")
+            _ => TeXErr!(tk.0.clone() => "Unexpected \\cr")
         }
     }
 };
@@ -2494,7 +2493,7 @@ pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
                 int.push_tokens(v);
                 Ok(())
             }
-            _ => TeXErr!((int,Some(tk.0.clone())),"Misplaced \\span")
+            _ => TeXErr!(tk.0.clone() => "Misplaced \\span")
         }
     }
 };
@@ -2520,7 +2519,7 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
 pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"noalign",
     expandable:false,
-    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\noalign")}
+    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\noalign")}
 };
 
 fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
@@ -2533,10 +2532,10 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             let cmd = int.get_command(&bg.cmdname())?;
             match &*cmd.orig {
                 PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::BeginGroup => (),
-                _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+                _ => TeXErr!(bg.clone() => "Expected begin group token; found: {}",bg)
             }
         }
-        _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+        _ => TeXErr!(bg.clone() => "Expected begin group token; found: {}",bg)
     }
 
     int.state.push(int.stomach,GroupType::Box(betweenmode));
@@ -2557,7 +2556,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 in_v = false
             }
             CategoryCode::Parameter if !in_v => in_v = true,
-            CategoryCode::Parameter => TeXErr!((int,Some(next)),"Misplaced # in alignment"),
+            CategoryCode::Parameter => TeXErr!(next => "Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
                 let proc = int.state.commands.get(&next.cmdname());
                 match proc {
@@ -2582,10 +2581,10 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                     if p.expandable(true) {
                                         p.expand(next,int)?
                                     } else {
-                                        TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                                        TeXErr!(next => "Expandable command expected after \\span")
                                     }
                                 }
-                                _ => TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                                _ => TeXErr!(next => "Expandable command expected after \\span")
                             }
                         }
                         _ => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
@@ -2685,7 +2684,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             if columns.len() <= columnindex {
                 match recindex {
                     Some(i) => columnindex = i,
-                    None => TeXErr!((int,None),"Invalid column index in align")
+                    None => TeXErr!("Invalid column index in align")
                 }
             }
             if doheader {
@@ -2729,7 +2728,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             }
             match int.state.aligns.pop() {
                 Some(None) => (),
-                _ => TeXErr!((int,None),"align error")
+                _ => TeXErr!("align error")
             }
             if !inspan {
                 let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
@@ -2740,7 +2739,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         }
         match int.state.aligns.pop() {
             Some(None) => (),
-            _ => TeXErr!((int,None),"align error")
+            _ => TeXErr!("align error")
         }
         boxes.push(AlignBlock::Block(row))
     }
@@ -2864,7 +2863,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
                     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == VRULE => {
                         (VRULE._get)(&cmdtk,int)?
                     }
-                    _ => TeXErr!((int,Some(cmdtk)),"Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
+                    _ => TeXErr!(cmdtk => "Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
                 };
                 Ok(Whatsit::Simple(SimpleWI::Leaders(Leaders {
                     bx: Box::new(content),
@@ -2948,9 +2947,9 @@ fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
             } else if mc.class == 6 || mc.class == 0 {
                 Ok(None)
             } else {
-                TeXErr!((int,None),"Missing delimiter after \\left")
+                TeXErr!("Missing delimiter after \\left")
             },
-        _ => TeXErr!((int,None),"Missing delimiter after \\left")
+        _ => TeXErr!("Missing delimiter after \\left")
     }
 }
 
@@ -3071,7 +3070,7 @@ pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"indent",
     expandable:false,
     _apply:|tk,int| {
-        int.stomach.add(int,Whatsit::Simple(SimpleWI::Indent(
+        int.stomach.add(Whatsit::Simple(SimpleWI::Indent(
             Indent {
                 dim:int.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
                 sourceref:int.update_reference(&tk.0)
@@ -3152,7 +3151,7 @@ pub static MATHCLOSE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathclose")
+            None => TeXErr!("unfinished \\mathclose")
         }
     }
 };
@@ -3167,7 +3166,7 @@ pub static MATHBIN: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathbin")
+            None => TeXErr!("unfinished \\mathbin")
         }
     }
 };
@@ -3182,7 +3181,7 @@ pub static MATHOPEN: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathopen")
+            None => TeXErr!("unfinished \\mathopen")
         }
     }
 };
@@ -3197,7 +3196,7 @@ pub static MATHORD: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathord")
+            None => TeXErr!("unfinished \\mathord")
         }
     }
 };
@@ -3212,7 +3211,7 @@ pub static MATHPUNCT: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathpunct")
+            None => TeXErr!("unfinished \\mathpunct")
         }
     }
 };
@@ -3227,7 +3226,7 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathrel")
+            None => TeXErr!("unfinished \\mathrel")
         }
     }
 };
@@ -3259,7 +3258,7 @@ pub static MATHOP : MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathop")
+            None => TeXErr!("unfinished \\mathop")
         }
     }
 };
@@ -3274,7 +3273,7 @@ pub static MATHINNER: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathinner")
+            None => TeXErr!("unfinished \\mathinner")
         }
     }
 };
@@ -3289,7 +3288,7 @@ pub static UNDERLINE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\underline")
+            None => TeXErr!("unfinished \\underline")
         }
     }
 };
@@ -3304,7 +3303,7 @@ pub static OVERLINE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\overline")
+            None => TeXErr!("unfinished \\overline")
         }
     }
 };
@@ -3316,7 +3315,7 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
         let mc = int.do_math_char(None,num as u32);
         let next = match int.read_math_whatsit(None)? {
             Some(w) => w,
-            None => TeXErr!((int,None),"unfinished \\mathaccent")
+            None => TeXErr!("unfinished \\mathaccent")
         };
         let accent = MathAccent {
             content:Box::new(next),
@@ -3370,7 +3369,7 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         match int.state.mode {
             TeXMode::Math | TeXMode::Displaymath => (),
-            _ => TeXErr!((int,Some(tk.0.clone())),"\\displaymode only allowed in math mode")
+            _ => TeXErr!(tk.0.clone() => "\\displaymode only allowed in math mode")
         }
         int.state.mode = TeXMode::Displaymath;
         Ok(())
@@ -3380,7 +3379,7 @@ pub static LIMITS: MathWhatsit = MathWhatsit {
     name:"limits",
     _get: |tk,int,last| {
         match last {
-            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\limits here"),
+            None => TeXErr!(tk.clone() => "Nothing to \\limits here"),
             Some(s) => s.limits = true
         }
         Ok(None)
@@ -3391,7 +3390,7 @@ pub static NOLIMITS: MathWhatsit = MathWhatsit {
     name:"nolimits",
     _get: |tk,int,last| {
         match last {
-            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\nolimits here"),
+            None => TeXErr!(tk.clone() => "Nothing to \\nolimits here"),
             Some(s) => s.limits = false
         }
         Ok(None)
@@ -3418,7 +3417,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.add(int,Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach.add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 return Ok(None)
             }
             _ => int.requeue(next)
@@ -3428,12 +3427,12 @@ pub static LEFT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(int,Whatsit::Simple(SimpleWI::Left(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Left(
                 Left {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\left")
+            _ => TeXErr!("Missing delimiter after \\left")
         }
         Ok(None)
     }
@@ -3447,12 +3446,12 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(int,Whatsit::Simple(SimpleWI::Middle(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Middle(
                 Middle {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\middle")
+            _ => TeXErr!("Missing delimiter after \\middle")
         }
         Ok(None)
     }
@@ -3465,7 +3464,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.add(int,Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach.add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }
@@ -3476,12 +3475,12 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(int,Whatsit::Simple(SimpleWI::Right(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Right(
                 Right {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\right")
+            _ => TeXErr!("Missing delimiter after \\right")
         }
         int.pop_group(GroupType::LeftRight)?;
         Ok(None)

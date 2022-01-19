@@ -126,7 +126,7 @@ impl Interpreter<'_> {
                 _ => ret.push(next.char)
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     pub fn read_command_token(&mut self) -> Result<Token,TeXError> {
@@ -146,18 +146,18 @@ impl Interpreter<'_> {
                         }
                     }
                 }
-                _ => TeXErr!((self,Some(next.clone())),"Command expected; found: {}",next)
+                _ => TeXErr!(next.clone() => "Command expected; found: {}",next)
             }
         };
         match cmd {
             Some(t) => Ok(t),
-            _ => FileEnd!(self)
+            _ => FileEnd!()
         }
     }
 
     // Token lists ---------------------------------------------------------------------------------
 
-    pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
+    pub fn read_argument(&mut self) -> Result<Vec<Token>,TeXError> {
         let next = self.next_token();
         if next.catcode == CategoryCode::BeginGroup {
             self.read_token_list(false,false,false,true)
@@ -220,7 +220,7 @@ impl Interpreter<'_> {
                 _ => ret.push(next)
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     pub fn expand_until(&mut self,eat_space:bool) -> Result<(),TeXError> {
@@ -253,10 +253,10 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn read_balanced_argument(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_balanced_argument(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         self.expand_until(true)?;
         let next = self.next_token();
         match next.catcode {
@@ -265,10 +265,10 @@ impl Interpreter<'_> {
                 let p = self.get_command(&next.cmdname())?;
                 match &*p.orig {
                     PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => {},
-                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+                    _ => TeXErr!(next => "Expected Begin Group Token")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+            _ => TeXErr!(next => "Expected Begin Group Token")
         }
         self.read_token_list(expand, protect,the,allowunknowns)
     }
@@ -310,10 +310,10 @@ impl Interpreter<'_> {
                 let p = self.get_command(&next.cmdname())?;
                 match &*p.orig {
                     PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => tk.clone(),
-                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+                    _ => TeXErr!(next => "Expected Begin Group Token")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+            _ => TeXErr!(next => "Expected Begin Group Token")
         };
         let _oldmode = self.state.mode;
         self.state.push(self.stomach,GroupType::Box(bm));
@@ -328,7 +328,7 @@ impl Interpreter<'_> {
             },
             BoxMode::M => TeXMode::Math,
             BoxMode::DM => TeXMode::Displaymath,
-            _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
+            _ => TeXErr!("read_whatsit_group requires non-void box mode")
         };
         if self.state.insetbox {
             self.state.insetbox = false;
@@ -352,10 +352,10 @@ impl Interpreter<'_> {
                     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(b)) => {
                         (b._get)(&next,self)
                     }
-                    _ => TeXErr!((self,Some(next)),"Expected box")
+                    _ => TeXErr!(next => "Expected box")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+            _ => TeXErr!(next => "Expected Begin Group Token or Whatsit")
         }
     }
 
@@ -369,10 +369,10 @@ impl Interpreter<'_> {
                 if cmd.has_whatsit() {
                     todo!()
                 } else {
-                    TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+                    TeXErr!(next => "Expected Begin Group Token or Whatsit")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+            _ => TeXErr!(next => "Expected Begin Group Token or Whatsit")
         }
         let mut ingroups : u8 = 0;
         //let mut ret : Vec<Whatsit> = vec!();
@@ -393,7 +393,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     // Numbers -------------------------------------------------------------------------------------
@@ -405,29 +405,29 @@ impl Interpreter<'_> {
         };
         let num = if ishex {
             Numeric::Int(i32::from_str_radix(&utf, 16).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else if isoct {
             Numeric::Int(i32::from_str_radix(&utf, 8).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else if allowfloat {
             Numeric::Float(f32::from_str(&utf).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else {
             Numeric::Int(i32::from_str(&utf).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
 
-    pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
+    pub(crate) fn read_number_i(&mut self,allowfloat:bool) -> Result<Numeric,TeXError> {
         self.skip_ws();
         match self.read_number_i_opt(allowfloat)? {
             Some(i) => Ok(i),
-            _ => TeXErr!((self,None),"Number expected")
+            _ => TeXErr!("Number expected")
         }
     }
 
@@ -450,7 +450,7 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
-                            _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
+                            _ => TeXErr!(next.clone() => "Number expected; found {}",next)
                         }
                     }
                 }
@@ -495,7 +495,7 @@ impl Interpreter<'_> {
                                         self.expand_until(true)?;
                                         return Ok(Some(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32})))
                                     }
-                                    _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
+                                    _ => TeXErr!(next.clone() => "Number expected; found {}",next)
                                 }
                             }
                         }
@@ -518,10 +518,10 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn read_number(&self) -> Result<i32,TeXError> {
+    pub fn read_number(&mut self) -> Result<i32,TeXError> {
         match self.read_number_i(false)? {
             Numeric::Int(i) => Ok(i),
             Numeric::Dim(i) => Ok(i),
@@ -575,20 +575,20 @@ impl Interpreter<'_> {
         } else { round_f(f) }
     }
 
-    pub fn read_dimension(&self) -> Result<i32,TeXError> {
+    pub fn read_dimension(&mut self) -> Result<i32,TeXError> {
         match match self.read_number_i(true)? {
             Numeric::Dim(i) => return Ok(i),
             Numeric::Int(i) => self.point_to_int(i as f32,false)?,
             Numeric::Float(f) => self.point_to_int(f,false)?,
             Numeric::Skip(sk) => return Ok(sk.base),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Dimension expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!("Dimension expected; muskip found")
         } {
             SkipDim::Pt(i) => Ok(i),
             _ => unreachable!()
         }
     }
 
-    pub fn read_skip(&self) -> Result<Skip,TeXError> {
+    pub fn read_skip(&mut self) -> Result<Skip,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => self.rest_skip(i,None,None),
             Numeric::Float(f) => self.rest_skip(match self.point_to_int(f,false)? {
@@ -600,11 +600,11 @@ impl Interpreter<'_> {
                 _ => unreachable!()
             },None,None),
             Numeric::Skip(s) => self.rest_skip(s.base,s.stretch,s.shrink),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
         }
     }
 
-    pub fn read_muskip(&self) -> Result<MuSkip,TeXError> {
+    pub fn read_muskip(&mut self) -> Result<MuSkip,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => self.rest_muskip(i,None,None),
             Numeric::Float(f) => self.rest_muskip(match self.point_to_muskip(f)? {
@@ -615,7 +615,7 @@ impl Interpreter<'_> {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
+            Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
             Numeric::MuSkip(s) =>  self.rest_muskip(s.base,s.stretch,s.shrink)
         }
     }
@@ -723,22 +723,22 @@ impl Interpreter<'_> {
         }
     }
 
-    fn read_skipdim(&self) -> Result<SkipDim,TeXError> {
+    fn read_skipdim(&mut self) -> Result<SkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(SkipDim::Pt(i)),
             Numeric::Int(i) => self.point_to_int(i as f32,true),
             Numeric::Float(f) => self.point_to_int(f,true),
             Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base)),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
         }
     }
 
-    fn read_muskipdim(&self) -> Result<MuSkipDim,TeXError> {
+    fn read_muskipdim(&mut self) -> Result<MuSkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(MuSkipDim::Mu(i)),
             Numeric::Int(i) => self.point_to_muskip(i as f32),
             Numeric::Float(f) => self.point_to_muskip(f),
-            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
+            Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
             Numeric::MuSkip(sk) => Ok(MuSkipDim::Mu(sk.base))
         }
     }

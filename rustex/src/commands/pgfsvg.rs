@@ -217,7 +217,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
     match &*p.orig {
         PrimitiveTeXCommand::AV(AssignableValue::Dim(u)) => Ok(int.state.dimensions.get(&(*u as i32))),
         PrimitiveTeXCommand::AV(AssignableValue::PrimDim(r)) => Ok(int.state.dimensions.get(&-(r.index as i32))),
-        _ => TeXErr!((int,None),"Not a dimension: \\{}",s)
+        _ => TeXErr!("Not a dimension: \\{}",s)
     }
 }
 

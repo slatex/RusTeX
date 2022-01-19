@@ -208,7 +208,7 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
                                 index += 1;
                                 break
                             }
-                            _ => TeXErr!((int,None),"Expected \" after = in \\rustex@annotateHTML")
+                            _ => TeXErr!("Expected \" after = in \\rustex@annotateHTML")
                         }
                     }
                     Some(32) if attr.is_empty() => index += 1,

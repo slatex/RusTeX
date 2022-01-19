@@ -322,8 +322,9 @@ impl TeXError {
         frames = Vec::from(frames.get(2..).unwrap());
         Backtrace::from(frames)
     }
-    pub (in crate) fn new(msg:String) -> TeXError {
-        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace()}
+    pub (in crate) fn new(msg:String,tk:Option<Token>) -> TeXError {
+        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace()};
+        todo!()
     }
     pub fn derive(self,msg:String) -> TeXError {
         TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}

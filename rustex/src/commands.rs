@@ -44,7 +44,7 @@ impl PartialEq for PrimitiveExecutable {
 pub struct NumAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>
+    pub _getvalue: fn(int: &mut Interpreter) -> Result<Numeric,TeXError>
 }
 impl PartialEq for NumAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -57,7 +57,7 @@ use crate::fonts::Font;
 pub struct FontAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<Arc<Font>,TeXError>
+    pub _getvalue: fn(int: &mut Interpreter) -> Result<Arc<Font>,TeXError>
 }
 impl PartialEq for FontAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -628,23 +628,7 @@ impl PrimitiveTeXCommand {
             None => Ok(())
         }
     }
-    fn do_def(&self, tk:Token, int:&Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "environment definition code" {
-            println!("Here");
-            unsafe{crate::LOG = true}
-        }*/
-        /*if /*int.current_line().starts_with("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/course/fragments/syllabus1.en.tex (53,") && */ tk.cmdname().to_string() == "endframe" { // {
-             println!("Here {}  >>{}",int.current_line(),int.preview());
-             //TeXErr!((int,Some(tk)),"Have a stack trace");
-             //TeXErr!((int,None),"Here!!");
-             //println!("Maxdimen: {} = {}",int.state_dimension(10),Numeric::Dim(int.state_dimension(10)));
-             unsafe{crate::LOG = true}
-             print!("");
-        }*/
-        /*if unsafe{crate::LOG} && tk.name().to_string() == "__int_step:NNnnnn" {
-            println!("Here! {}",int.preview());
-            print!("")
-        }*/
+    fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())
@@ -657,7 +641,7 @@ impl PrimitiveTeXCommand {
                     //int.assert_has_next()?;
                     let next = int.next_token();
                     if *tk != next {
-                        TeXErr!((int,Some(next.clone())),"Expected >{}<; found >{}< (in {})\n{}  >>{}",tk,next,d,int.current_line(),int.preview())
+                        TeXErr!(next.clone() => "Expected >{}<; found >{}< (in {})\n{}  >>{}",tk,next,d,int.current_line(),int.preview())
                     }
                     i += 1;
                 }
@@ -711,7 +695,7 @@ impl PrimitiveTeXCommand {
                                     _ => ()
                                 }
                                 if groups < 0 {
-                                    TeXErr!((int,Some(next)),"Missing begin group token somewhere: {}\nsofar: {}\nin: {}:{}",TokenList(&delim),TokenList(&retarg),tk.name(),d)
+                                    TeXErr!(next => "Missing begin group token somewhere: {}\nsofar: {}\nin: {}:{}",TokenList(&delim),TokenList(&retarg),tk.name(),d)
                                 }
                                 retarg.push(next);
                                 if groups == 0 && retarg.ends_with(delim.as_slice()) {break}
@@ -753,7 +737,7 @@ impl PrimitiveTeXCommand {
                             i += 1;
                             let arg = next.char - 49;
                             if arg >= d.sig.arity {
-                                TeXErr!((int,Some(next.clone())),"Expected argument number; got:{}",next)
+                                TeXErr!(next.clone() => "Expected argument number; got:{}",next)
                             }
                             for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.cloned()) }
                         }
@@ -852,10 +836,10 @@ impl PrimitiveTeXCommand {
                             match &*cmd.orig {
                                 PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
                                 PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
-                                _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                                _ => TeXErr!("Expected balanced argument or token register in token assignment")
                             }
                         }
-                        _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                        _ => TeXErr!("Expected balanced argument or token register in token assignment")
                     };
                     int.state.toks.set(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
@@ -874,10 +858,10 @@ impl PrimitiveTeXCommand {
                             match &*cmd.orig {
                                 PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
                                 PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
-                                _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                                _ => TeXErr!("Expected balanced argument or token register in token assignment")
                             }
                         }
-                        _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
+                        _ => TeXErr!("Expected balanced argument or token register in token assignment")
                     };
                     int.state.toks.set(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
