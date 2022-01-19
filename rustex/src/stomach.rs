@@ -566,12 +566,7 @@ pub trait Stomach : Send {
                 self.base_mut().buffer.push(HAlign{
                     skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
                 }.as_whatsit());
-                for w in v.drain(..).rev() {
-                    /*match w {
-                        Whatsit::Simple(SimpleWI::Penalty(_)) => (),
-                        _ =>*/ self.base_mut().buffer.push(w)
-                    //}
-                }
+                for w in v.drain(..).rev() { self.base_mut().buffer.push(w) }
                 true
             }
             _ => false
