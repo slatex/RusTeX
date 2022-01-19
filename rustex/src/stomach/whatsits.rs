@@ -196,7 +196,7 @@ impl ActionSpec {
 // -------------------------------------------------------------------------------------------------
 
 pub struct ExecutableWhatsit {
-    pub _apply : Box<dyn (Fn(&Interpreter) -> Result<(),TeXError>) + Send + Sync>
+    pub _apply : Box<dyn (Fn(&mut Interpreter) -> Result<(),TeXError>) + Send + Sync>
 }
 impl ExecutableWhatsit {
     pub fn as_whatsit(self) -> Whatsit {

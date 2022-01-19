@@ -187,9 +187,9 @@ impl Colon<String> for HTMLColon {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
             };
-            self.pagewidth = int.state_dimension(-(crate::commands::pdftex::PDFPAGEWIDTH.index as i32));
-            self.textwidth = int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32));
-            self.lineheight = int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32));
+            self.pagewidth = int.state.dimensions.get(&-(crate::commands::pdftex::PDFPAGEWIDTH.index as i32));
+            self.textwidth = int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32));
+            self.lineheight = int.state.skips.get(&-(crate::commands::primitives::BASELINESKIP.index as i32));
 
             let base = self.base_mut();
             base.basefont = Some(basefont);

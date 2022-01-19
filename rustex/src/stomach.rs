@@ -228,8 +228,8 @@ pub enum StomachMessage {
 pub trait Stomach : Send {
     fn base_mut(&mut self) -> &mut StomachBase;
     fn base(&self) -> &StomachBase;
-    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError>;
-    fn on_begin_document_inner(&mut self, int: &Interpreter);
+    fn add(&mut self,int:&mut Interpreter, wi: Whatsit) -> Result<(),TeXError>;
+    fn on_begin_document_inner(&mut self, int: &mut Interpreter);
 
     // ---------------------------------------------------------------------------------------------
 
@@ -238,7 +238,7 @@ pub trait Stomach : Send {
         self.base_mut().stomachgroups.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
-    fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
+    fn end_paragraph(&mut self,int:&mut Interpreter) -> Result<(),TeXError> {
         self.flush(int)?;
         let mut p = self.end_paragraph_loop(int)?;
         let hangindent = self.base().hangindent;
@@ -250,7 +250,7 @@ pub trait Stomach : Send {
         Ok(())
     }
 
-    fn end_paragraph_loop(&mut self,int:&Interpreter) -> Result<Paragraph,TeXError> {
+    fn end_paragraph_loop(&mut self,int:&mut Interpreter) -> Result<Paragraph,TeXError> {
         if self.base().stomachgroups.len() < 2 {
             TeXErr!((int,None),"Can't close paragraph in stomach!")
         } else {
@@ -278,7 +278,7 @@ pub trait Stomach : Send {
     fn new_group(&mut self,tp:GroupType) {
         self.base_mut().buffer.push(Whatsit::GroupOpen(WIGroup::GroupOpen(tp)))
     }
-    fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
+    fn pop_group(&mut self,int:&mut Interpreter) -> Result<Vec<Whatsit>, TeXError> {
         self.flush(int)?;
         if self.base().stomachgroups.len() < 2 {
             TeXErr!((int,None),"Can't close group in stomach!")
@@ -420,7 +420,7 @@ pub trait Stomach : Send {
         }
     }
 
-    fn add_inner(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+    fn add_inner(&mut self,int:&mut Interpreter, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::Ls(ls) => {
                 for wi in ls { self.add(int,wi)? }
@@ -645,7 +645,7 @@ pub trait Stomach : Send {
         None
     }
 
-    fn on_begin_document(&mut self, int: &Interpreter) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
+    fn on_begin_document(&mut self, int: &mut Interpreter) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
         self.flush(int).unwrap();
         int.state.borrow_mut().indocument = true;
         let base = self.base_mut();
@@ -678,38 +678,8 @@ pub trait Stomach : Send {
             }
         }
         for r in rets {base.stomachgroups.first_mut().unwrap().push(r)}
-        /*loop {
-            let pop = stack.pop();
-            match pop {
-                Some(StomachGroup::Top(v)) => {
-                    stack.push(StomachGroup::Top(v));
-                    break
-                }
-                Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_)) => panic!("This shouldn't happen!"),
-                Some(StomachGroup::TeXGroup(gt,v)) => {
-                    groups.push(gt);
-                    for c in v {stack.last_mut().unwrap().push(c)}
-                }
-                Some(StomachGroup::Other(WIGroup::FontChange(f))) => {
-                    basefont = Some(f.font);
-                    for c in f.children {stack.last_mut().unwrap().push(c)}
-                }
-                Some(StomachGroup::Other(WIGroup::ColorChange(cc))) => {
-                    basecolor = ColorChange::color_to_html(cc.color).into();
-                    for c in cc.children {stack.last_mut().unwrap().push(c)}
-                }
-                Some(o) => {
-                    stack.push(o);
-                    panic!("This shouldn't happen")
-                }
-                None => panic!("This shouldn't happen")
-            }
-        }
-        for gt in groups.iter().rev() {
-            stack.push(StomachGroup::TeXGroup(*gt,vec!()))
-        } */
         if basefont.is_none() {
-            basefont = Some(int.get_font())
+            basefont = Some(int.state.currfont.get(&()))
         }
         self.on_begin_document_inner(int);
         let (sender,receiver) = mpsc::channel::<StomachMessage>();
@@ -726,7 +696,7 @@ pub trait Stomach : Send {
     fn page_height(&self) -> i32 {
         self.base().pageheight
     }
-    fn close_all(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>,TeXError> {
+    fn close_all(&mut self,int:&mut Interpreter) -> Result<Vec<Whatsit>,TeXError> {
         self.flush(int)?;
         loop {
             let last = self.base_mut().stomachgroups.pop();
@@ -747,7 +717,7 @@ pub trait Stomach : Send {
             }
         }
     }
-    fn finish(&mut self,int:&Interpreter) {
+    fn finish(&mut self,int:&mut Interpreter) {
         let wis = self.close_all(int);
         match self.base().sender.as_ref() {
             Some(sender) => {
@@ -760,7 +730,7 @@ pub trait Stomach : Send {
             _ => ()
         }
     }
-    fn final_xml(&mut self,int:&Interpreter) -> Result<String,TeXError> {
+    fn final_xml(&mut self,int:&mut Interpreter) -> Result<String,TeXError> {
         let wis = self.close_all(int)?;
         self.finish(int);
         let mut ret = "<doc>\n".to_string();
@@ -822,11 +792,11 @@ impl NoShipoutRoutine {
             floatcmd:None
         }
     }
-    fn do_floats(&mut self, int: &Interpreter) -> Result<(), TeXError> {
+    fn do_floats(&mut self, int: &mut Interpreter) -> Result<(), TeXError> {
         use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
         //for s in &self.floatlist { println!("{}",s)}
-        let inserts = int.state.borrow_mut().inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
+        let inserts = int.state.inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
         let cmd = int.get_command(&"@freelist".into()).unwrap();
         let floatregs : Vec<i32> = match &*cmd.orig {
             PrimitiveTeXCommand::Def(df) if *df != *self.floatcmd.as_ref().unwrap() => {
@@ -846,11 +816,11 @@ impl NoShipoutRoutine {
             self.add(int,Whatsit::Inserts(Insert(inserts)))?
         }
         if !floatregs.is_empty() {
-            int.change_state(StateChange::Cs("@freelist".into(),
-                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true))
+            int.state.commands.set("@freelist".into(),
+                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true)
         }
         for fnm in floatregs {
-            self.add(int,Whatsit::Float(int.state_get_box(fnm)))?
+            self.add(int,Whatsit::Float(int.state.boxes.take(fnm)))?
         }
         Ok(())
     }
@@ -865,7 +835,7 @@ impl NoShipoutRoutine {
                     match (tk.catcode, tk.cmdname()) {
                         (_, s) if &s == "@elt" => (),
                         (Escape, o) => {
-                            let p = &*int.state_get_command(&o).unwrap().orig;
+                            let p = &*int.state.commands.get(&o).unwrap().orig;
                             match p {
                                 PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
                                 _ => panic!("Weird float setup")
@@ -893,7 +863,7 @@ impl Stomach for NoShipoutRoutine {
     fn base(&self) -> &StomachBase {
         &self.base
     }
-    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+    fn add(&mut self,int:&mut Interpreter, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::Simple(SimpleWI::Penalty(ref p)) if p.penalty <= -1000 && self.is_top() && self.base().indocument => {
                 /*let last_one = self.base_mut().stomachgroups.iter_mut().rev().find(|x| match x {
@@ -911,9 +881,9 @@ impl Stomach for NoShipoutRoutine {
             _ => self.add_inner(int,wi)
         }
     }
-    fn on_begin_document_inner(&mut self, int: &Interpreter) {
+    fn on_begin_document_inner(&mut self, int: &mut Interpreter) {
         self.floatlist = self.get_float_list(int);
         let maxval= i32::MAX;
-        int.change_state(StateChange::Dimen(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true));
+        int.state.dimensions.set(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true);
     }
 }

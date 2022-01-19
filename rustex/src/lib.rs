@@ -32,7 +32,7 @@ fn tex_stacktrace(int:&Interpreter,tk:Option<Token>) -> String {
         None if int.has_next() => tex_stacktrace(int,Some(int.next_token())),
         None => "(No tracing information available)".to_string(),
         Some(tk) => {
-            let catcodes = int.state_catcodes().clone();
+            let catcodes = int.state.catcodes.get_scheme().clone();
             crate::utils::stacktrace(tk,int,&catcodes)
         }
     }

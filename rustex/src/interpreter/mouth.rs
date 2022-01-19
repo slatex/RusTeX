@@ -709,11 +709,11 @@ impl Mouths {
 }
 
 impl Interpreter<'_> {
-    pub fn end(&self) { self.mouths.borrow_mut().close() }
+    pub fn end(&mut self) { self.mouths.close() }
     pub fn preview(&self) -> TeXString {
         self.mouths.borrow().preview()
     }
-    pub fn push_file(&self,file:Arc<VFile>) {
+    pub fn push_file(&mut self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
             self.params.file_clopen(&match file.source {
@@ -721,20 +721,20 @@ impl Interpreter<'_> {
                 _ => "\n(".to_string() + &file.id.to_string()
             });
         }
-        self.mouths.borrow_mut().push_file(&self.state_catcodes(),&file);
+        self.mouths.push_file(self.state.catcodes.get_scheme(),&file);
         //self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
-    pub fn push_string(&self,exp:Expansion,str:TeXString,filelike:bool) {
-        self.mouths.borrow_mut().push_string(&self.state_catcodes(),exp,str,filelike)
+    pub fn push_string(&mut self,exp:Expansion,str:TeXString,filelike:bool) {
+        self.mouths.push_string(self.state.catcodes.get_scheme(),exp,str,filelike)
     }
-    pub fn push_expansion(&self,exp:Expansion) {
-        self.mouths.borrow_mut().push_expansion(exp)
+    pub fn push_expansion(&mut self,exp:Expansion) {
+        self.mouths.push_expansion(exp)
     }
-    pub fn push_tokens(&self,tks:Vec<Token>) {
-        self.mouths.borrow_mut().push_tokens(tks)
+    pub fn push_tokens(&mut self,tks:Vec<Token>) {
+        self.mouths.push_tokens(tks)
     }
-    pub fn next_token(&self) -> Token {
-        let ret = self.mouths.borrow_mut().next_token(&self.state_catcodes(),self.params);
+    pub fn next_token(&mut self) -> Token {
+        let ret = self.mouths.next_token(self.state.catcodes.get_scheme(),self.params);
         match ret {
             Ok(t) => t,
             Err(_) => {
@@ -743,11 +743,11 @@ impl Interpreter<'_> {
             }
         }
     }
-    pub fn requeue(&self,token:Token) {
-        self.mouths.borrow_mut().requeue(token)
+    pub fn requeue(&mut self,token:Token) {
+        self.mouths.requeue(token)
     }
-    pub fn has_next(&self) -> bool {
-        let ret = self.mouths.borrow_mut().has_next(&self.state_catcodes(),self.params);
+    pub fn has_next(&mut self) -> bool {
+        let ret = self.mouths.has_next(self.state.catcodes.get_scheme(),self.params);
         match ret {
             Ok(t) => t,
             Err(_) => {
@@ -756,7 +756,7 @@ impl Interpreter<'_> {
             }
         }
     }
-    pub(in crate::interpreter::mouth) fn doeof(&self) {
+    pub(in crate::interpreter::mouth) fn doeof(&mut self) {
         self.push_tokens(vec!(self.eof_token()));
         self.insert_every(&crate::commands::primitives::EVERYEOF)
     }
@@ -764,8 +764,8 @@ impl Interpreter<'_> {
     pub fn eof_token(&self) -> Token {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
     }
-    pub fn end_input(&self) {
-        self.mouths.borrow_mut().end_input(self.params)
+    pub fn end_input(&mut self) {
+        self.mouths.end_input(self.params)
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
         let mut rf = &*tk.reference;

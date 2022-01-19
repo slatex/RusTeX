@@ -50,7 +50,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_keyword(&self,mut kws:Vec<&str>) -> Result<Option<String>,TeXError> {
+    pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Result<Option<String>,TeXError> {
         use std::str;
         let mut tokens:Vec<Token> = Vec::new();
         let mut ret : String = "".to_string();
@@ -96,7 +96,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_string(&self) -> Result<String,TeXError> {
+    pub fn read_string(&mut self) -> Result<String,TeXError> {
         use std::str::from_utf8;
         let mut ret : Vec<u8> = Vec::new();
         let mut quoted = false;
@@ -129,7 +129,7 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn read_command_token(&self) -> Result<Token,TeXError> {
+    pub fn read_command_token(&mut self) -> Result<Token,TeXError> {
         let mut cmd: Option<Token> = None;
         while self.has_next() {
             self.skip_ws();
@@ -168,7 +168,7 @@ impl Interpreter<'_> {
 
 
     #[inline(always)]
-    pub fn read_token_list(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_token_list(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
         let mut ingroups : u8 = 0;
         let mut ret : Vec<Token> = vec!();
@@ -223,12 +223,12 @@ impl Interpreter<'_> {
         FileEnd!(self)
     }
 
-    pub fn expand_until(&self,eat_space:bool) -> Result<(),TeXError> {
+    pub fn expand_until(&mut self,eat_space:bool) -> Result<(),TeXError> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = match self.state_get_command(&next.cmdname()) {
+                    let cmd = match self.state.commands.get(&next.cmdname()) {
                         None => return Ok(()),
                         Some(p) => p
                     };
@@ -284,7 +284,7 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match self.state_get_command(&next.cmdname()).map(|x| x.orig) {
+                    match self.state.commands.get(&next.cmdname()).map(|x| x.orig) {
                         Some(p)  => match &*p {
                             PrimitiveTeXCommand::Primitive(r) if **r == RELAX => (),
                             _ => self.requeue(next)
@@ -301,7 +301,7 @@ impl Interpreter<'_> {
 
     // Boxes & Whatsits ----------------------------------------------------------------------------
 
-    pub fn read_whatsit_group(&self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {
+    pub fn read_whatsit_group(&mut self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         let tk = match next.catcode {
@@ -315,9 +315,9 @@ impl Interpreter<'_> {
             }
             _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
         };
-        let _oldmode = self.get_mode();
-        self.new_group(GroupType::Box(bm));
-        self.set_mode(match bm {
+        let _oldmode = self.state.mode;
+        self.state.push(self.stomach,GroupType::Box(bm));
+        self.state.mode = match bm {
             BoxMode::H => {
                 if insertevery { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
                 TeXMode::RestrictedHorizontal
@@ -329,19 +329,19 @@ impl Interpreter<'_> {
             BoxMode::M => TeXMode::Math,
             BoxMode::DM => TeXMode::Displaymath,
             _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
-        });
-        if self.state.borrow().insetbox {
-            self.state.borrow_mut().insetbox = false;
+        };
+        if self.state.insetbox {
+            self.state.insetbox = false;
             self.insert_afterassignment();
         }
         self.requeue(tk);
         self.read_whatsits()?;
         let ret = self.get_whatsit_group(GroupType::Box(bm))?;
-        self.set_mode(_oldmode);
+        self.state.mode = _oldmode;
         Ok(ret)
     }
 
-    pub fn read_box(&self) -> Result<TeXBox,TeXError> {
+    pub fn read_box(&mut self) -> Result<TeXBox,TeXError> {
         use crate::commands::ProvidesWhatsit;
         self.expand_until(false)?;
         let next = self.next_token();
@@ -359,7 +359,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_whatsits(&self) -> Result<(),TeXError> {
+    pub fn read_whatsits(&mut self) -> Result<(),TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         match next.catcode {
@@ -382,7 +382,7 @@ impl Interpreter<'_> {
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(()),
                 CategoryCode::BeginGroup => {
                     ingroups += 1;
-                    self.new_group(GroupType::Token);
+                    self.state.push(self.stomach,GroupType::Token);
                 }
                 CategoryCode::EndGroup => {
                     ingroups -= 1;
@@ -431,7 +431,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub(crate) fn read_number_i_opt(&self,allowfloat:bool) -> Result<Option<Numeric>,TeXError> {
+    pub(crate) fn read_number_i_opt(&mut self,allowfloat:bool) -> Result<Option<Numeric>,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
         let mut isoct = false;
@@ -512,7 +512,7 @@ impl Interpreter<'_> {
                 _ => {
                     self.requeue(next);
                     if isnegative {
-                        self.push_tokens(vec!(Token::new(45,self.state_catcodes().get_code(45),None,SourceReference::None,true)))
+                        self.push_tokens(vec!(Token::new(45,self.state.catcodes.get_scheme().get_code(45),None,SourceReference::None,true)))
                     }
                     return Ok(None)
                 }
@@ -550,10 +550,10 @@ impl Interpreter<'_> {
             Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
             Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
             Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
-            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f32 * f,istrue))),
-            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f32 * f,istrue))),
+            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(5) as f32 * f,istrue))),
+            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(6) as f32 * f,istrue))),
             Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
-                self.state_dimension(-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f32 * f,
+                self.state.dimensions.get(&-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f32 * f,
                 istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
@@ -570,7 +570,7 @@ impl Interpreter<'_> {
     fn make_true(&self,f : f32,istrue:bool) -> i32 {
         use crate::commands::primitives::MAG;
         if istrue {
-            let mag = (self.state_register(-(MAG.index as i32)) as f32) / 1000.0;
+            let mag = (self.state.registers.get(&-(MAG.index as i32)) as f32) / 1000.0;
             round_f(f * mag)
         } else { round_f(f) }
     }

@@ -328,12 +328,12 @@ impl TeXError {
     pub fn derive(self,msg:String) -> TeXError {
         TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
     }
-    pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
+    pub fn throw<A>(mut self, int: Option<&mut Interpreter>) -> A {
         //std::io::stdout().flush();
         self.backtrace.resolve();
         match int {
             None => panic!("{}",self),
-            Some(i) => match i.stomach.borrow_mut().final_xml(i) {
+            Some(i) => match i.stomach.final_xml(i) {
                 Ok(_) => {
                     /*let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
                     file.write_all(s.as_bytes());
@@ -404,7 +404,7 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) 
                 let next = stacktrace(tk.clone(), int,catcodes);
                 "Expanded from ".to_string() + &match tk.catcode {
                     CategoryCode::Escape => {
-                        let cmd = int.state_get_command(&tk.cmdname());
+                        let cmd = int.state.commands.get(&tk.cmdname());
                         "\\".to_string() + &tk.name().to_string() + " " + &match cmd {
                             Some(o) => o.meaning(&catcodes).to_string(),
                             _ => "".to_string()

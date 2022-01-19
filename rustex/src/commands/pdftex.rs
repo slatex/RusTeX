@@ -137,7 +137,7 @@ pub static PDFSHELLESCAPE: NumericCommand = NumericCommand {
 pub static PDFLASTXIMAGE: NumericCommand = NumericCommand {
     name: "pdflastximage",
     _getvalue:|int| {
-        Ok(Numeric::Int(int.state.borrow().pdfximages.len() as i32 -1))
+        Ok(Numeric::Int(int.state.pdfximages.len() as i32 -1))
     }
 };
 
@@ -236,8 +236,8 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
                     ))
                 }
                 if matches.is_empty() {
-                    int.change_state(StateChange::Pdfmatches(vec!()));
-                    rf.2 = tokenize("0".into(),&int.state_catcodes());
+                    int.state.pdfmatches = vec!();
+                    rf.2 = tokenize("0".into(),int.state.catcodes.get_scheme());
                     Ok(())
                 } else {
                     matches.reverse();
@@ -250,14 +250,14 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
                             Some((st,s,_)) => rets.push((s.to_string() + "->" + &st).as_str().into())
                         }
                     }
-                    int.change_state(StateChange::Pdfmatches(rets));
-                    rf.2 = tokenize("1".into(),&int.state_catcodes());
+                    int.state.pdfmatches = rets;
+                    rf.2 = tokenize("1".into(),int.state.catcodes.get_scheme());
                     Ok(())
                 }
             }
             Err(_) => {
-                int.change_state(StateChange::Pdfmatches(vec!()));
-                rf.2 = tokenize("-1".into(),&int.state_catcodes());
+                int.state.pdfmatches = vec!();
+                rf.2 = tokenize("-1".into(),int.state.catcodes.get_scheme());
                 Ok(())
             }
         }
@@ -269,21 +269,30 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         let num = int.read_number()?;
+        let len = int.state.pdfcolorstacks.len();
         let prestring = int.read_keyword(vec!("push", "pop", "set", "current"))?;
         match prestring {
             Some(s) if s == "pop" => {
-                int.state_color_pop(num as usize);
-                int.stomach.borrow_mut().add(int,ColorEnd {
+                match int.state.pdfcolorstacks.get_mut(len - 1 - num as usize) {
+                    Some(s) => {s.pop();},
+                    _ => TeXErr!((int,None),"No color stack at index {}",num)
+                }
+                int.stomach.add(int,ColorEnd {
                     sourceref:int.update_reference(&tk.0)
                 }.as_whatsit())?
             },
             Some(s) if s == "set" => {
                 let color: TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
-                int.state_color_set(num as usize,color.clone());
-                int.stomach.borrow_mut().add(int,ColorEnd{
+                match int.state.pdfcolorstacks.get_mut(len - 1 - num as usize) {
+                    Some(v) => {
+                        v.pop();v.push(color.clone())
+                    }
+                    _ => TeXErr!((int,None),"No color stack at index {}",num)
+                }
+                int.stomach.add(int,ColorEnd{
                     sourceref:int.update_reference(&tk.0)
                 }.as_whatsit())?;
-                int.stomach.borrow_mut().add(int,ColorChange {
+                int.stomach.add(int,ColorChange {
                     color,
                     children: vec![],
                     sourceref: int.update_reference(&tk.0)
@@ -291,8 +300,11 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
             }
             Some(s) if s == "push" => {
                 let color : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
-                int.state_color_push(num as usize,color.clone());
-                int.stomach.borrow_mut().add(int,ColorChange {
+                match int.state.pdfcolorstacks.get_mut(len - 1 - num as usize) {
+                    Some(s) => s.push(color.clone()),
+                    _ => TeXErr!((int,None),"No color stack at index {}",num)
+                }
+                int.stomach.add(int,ColorChange {
                     color,
                     children: vec![],
                     sourceref: int.update_reference(&tk.0)
@@ -309,12 +321,13 @@ pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfcolorstackinit",
     expandable:true,
     _apply:|tk,int| {
-        let num = int.state_color_push_stack();
+        let num = int.state.pdfcolorstacks.len();
+        int.state.pdfcolorstacks.push(vec!());
         match int.read_keyword(vec!("page","direct"))? {
             Some(s) if s == "direct" => {
                 let tks = int.read_balanced_argument(true,false,false,false)?;
                 let str = int.tokens_to_string(&tks);
-                int.state_color_push(num,str.into());
+                int.state.pdfcolorstacks.last_mut().unwrap().push(str.into());
             }
             Some(_) => todo!(),
             None => TeXErr!((int,None),"Expected \"page\" or \"direct\" after \\pdfcolorstackinit")
@@ -330,14 +343,14 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_,int| {
         match int.read_keyword(vec!("reserveobjnum","useobjnum","stream"))? {
             Some(s) if s == "reserveobjnum" => {
-                let num = int.state_register(-(PDFLASTOBJ.index as i32));
-                int.change_state(StateChange::Register(-(PDFLASTOBJ.index as i32),num+1,true));
+                let num = int.state.registers.get(&-(PDFLASTOBJ.index as i32));
+                int.state.registers.set(-(PDFLASTOBJ.index as i32),num+1,true);
                 Ok(())
             }
             Some(s) if s == "useobjnum" => {
                 let index = int.read_number()?;
                 let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
-                int.state_set_pdfobj(index as u16,str.into());
+                int.state.pdfobjs.insert(index as u16,str.into());
                 Ok(())
             }
             Some(_) => todo!(),
@@ -353,10 +366,10 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
         let attr = read_attrspec(int)?;
         let resource = read_resource_spec(int)?;
         let ind = int.read_number()?;
-        let bx = int.state_get_box(ind as i32);
-        let lastform = int.state_register(-(PDFLASTXFORM.index as i32));
-        int.change_state(StateChange::Register(-(PDFLASTXFORM.index as i32),lastform + 1,true));
-        int.state_set_pdfxform(PDFXForm {
+        let bx = int.state.boxes.take(ind as i32);
+        let lastform = int.state.registers.get(&-(PDFLASTXFORM.index as i32));
+        int.state.registers.set(-(PDFLASTXFORM.index as i32),lastform + 1,true);
+        int.state.pdfxforms.push(PDFXForm {
             attr,
             resource,
             content: bx,
@@ -371,7 +384,12 @@ pub static PDFREFXFORM: SimpleWhatsit = SimpleWhatsit {
     modes: |_| {true},
     _get: |_,int| {
         let num = int.read_number()?;
-        Ok(Whatsit::Simple(SimpleWI::PDFXForm(int.state_get_pdfxform(num as usize)?)))
+        let len = int.state.pdfxforms.len();
+        let form = match int.state.pdfxforms.get(len - num as usize) {
+            Some(s) => s.clone(),
+            None => TeXErr!((int,None),"No pdfxform at index {}",num)
+        };
+        Ok(Whatsit::Simple(SimpleWI::PDFXForm(form)))
     }
 };
 
@@ -478,7 +496,7 @@ pub static PDFSAVE: SimpleWhatsit = SimpleWhatsit {
     _get:|tk,int| {
         use crate::interpreter::TeXMode;
         Ok(PDFMatrixSave {
-            is_vertical:match int.get_mode() {
+            is_vertical:match int.state.mode {
                 TeXMode::Vertical | TeXMode::InternalVertical => true,
                 _ => false
             },
@@ -504,7 +522,7 @@ pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
     modes: |_| {true},
     _get:|tk,int| {
         let num = int.read_number()?;
-        let img = match int.state.borrow().pdfximages.get(num as usize) {
+        let img = match int.state.pdfximages.get(num as usize) {
             Some(i) => i.clone(),
             None => TeXErr!((int,Some(tk.clone())),"No image as index {}",num)
         };
@@ -550,7 +568,7 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
                 }
             }
         };
-        int.state.borrow_mut().pdfximages.push(
+        int.state.pdfximages.push(
             PDFXImage {
                 rule:rule.into(),
                 attr,

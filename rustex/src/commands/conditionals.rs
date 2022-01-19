@@ -7,18 +7,21 @@ use crate::log;
 use crate::stomach::boxes::TeXBox;
 
 
-pub fn dotrue(int: &Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
+pub fn dotrue(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
     if unless {
         dofalse(int,cond,false)
     } else {
-        int.setcondition(cond,true)?;
+        match int.state.conditions.get_mut(cond) {
+            Some(o@None) => *o = Some(false),
+            _ => unreachable!()
+        }
         Ok(())
     }
 }
 
 use crate::FileEnd;
 
-pub fn false_loop(int:&Interpreter,initifs:usize,allowelse : bool) -> Result<(),TeXError> {
+pub fn false_loop(int:&mut Interpreter,initifs:usize,allowelse : bool) -> Result<(),TeXError> {
     use PrimitiveTeXCommand::*;
     let mut inifs = initifs;
     //log!("false loop: {}",inifs);
@@ -26,12 +29,12 @@ pub fn false_loop(int:&Interpreter,initifs:usize,allowelse : bool) -> Result<(),
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                match int.state_get_command(&next.cmdname()) {
+                match int.state.commands.get(&next.cmdname()) {
                     None => {}
                     Some(p) => {
                         match *p.orig {
                             Primitive(x) if inifs == 0 && *x == FI => {
-                                int.popcondition();
+                                int.state.conditions.pop();
                                 return Ok(())
                             }
                             Primitive(x) if allowelse && inifs == 0 && *x == ELSE => {
@@ -50,25 +53,29 @@ pub fn false_loop(int:&Interpreter,initifs:usize,allowelse : bool) -> Result<(),
     FileEnd!(int)
 }
 
-pub fn dofalse(int: &Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
+pub fn dofalse(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXError> {
     if unless {
         dotrue(int,cond,false)
     } else {
-        let inifs = int.setcondition(cond,false)?;
+        match int.state.conditions.get_mut(cond) {
+            Some(o@None) => *o = Some(false),
+            _ => unreachable!()
+        }
+        let inifs = int.state.conditions.len() - (cond + 1);
         false_loop(int,inifs,true)
     }
 }
 
 pub static FI : PrimitiveExecutable = PrimitiveExecutable {
     _apply: |rf,int| {
-        match int.getcondition() {
+        match int.state.conditions.last() {
             None => TeXErr!((int,None),"extra \\fi"),
-            Some((_,None)) => {
+            Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
             }
-            Some((_,_)) => {
-                int.popcondition();
+            Some(_) => {
+                int.state.conditions.pop();
                 Ok(())
             }
         }
@@ -86,7 +93,9 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
                 let cmd = int.get_command(&cnd.cmdname())?;
                 match *cmd.orig {
                     PrimitiveTeXCommand::Cond(c) => {
-                        (c._apply)(int,int.pushcondition(),true)
+                        let i = int.state.conditions.len();
+                        int.state.conditions.push(None);
+                        (c._apply)(int,i,true)
                     }
                     _ => TeXErr!((int,Some(cnd)),"Expected conditional after \\unless")
                 }
@@ -100,13 +109,13 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
 pub static OR: PrimitiveExecutable = PrimitiveExecutable {
     name:"or",
     _apply: |rf,int| {
-        match int.getcondition() {
+        match int.state.conditions.last() {
             None => TeXErr!((int,None),"extra \\or"),
-            Some((_,None)) => {
+            Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
             }
-            Some((_,_)) => {
+            Some(_) => {
                 false_loop(int,0,false)?;
                 Ok(())
             }
@@ -119,13 +128,13 @@ use crate::TeXErr;
 
 pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |rf,int| {
-        match int.getcondition() {
+        match int.state.conditions.last() {
             None => TeXErr!((int,None),"extra \\else"),
-            Some((_,None)) => {
+            Some(None) => {
                 int.push_tokens(vec!(Token::dummy(),rf.0.clone()));
                 Ok(())
             }
-            Some((_,_)) => {
+            Some(_) => {
                 false_loop(int,0,false)?;
                 Ok(())
             }
@@ -138,7 +147,7 @@ pub static ELSE: PrimitiveExecutable = PrimitiveExecutable {
 pub fn get_char(tk:Token, int:&Interpreter) -> Token {
     match tk.catcode {
         CategoryCode::Active | CategoryCode::Escape => {
-            match int.state_get_command(&tk.cmdname()) {
+            match int.state.commands.get(&tk.cmdname()) {
                 Some(p) => match &*p.orig {
                     PrimitiveTeXCommand::Char(t) => {
                         get_char(t.clone(), int)
@@ -161,14 +170,14 @@ pub static IFX : Conditional = Conditional {
         let istrue = match (tka.catcode,tkb.catcode) {
             //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
             (Active|Escape,Active|Escape) => {
-                let cmd1 = int.state_get_command(&tka.cmdname());
-                let cmd2 = int.state_get_command(&tkb.cmdname());
+                let cmd1 = int.state.commands.get(&tka.cmdname());
+                let cmd2 = int.state.commands.get(&tkb.cmdname());
                match (cmd1,cmd2) {
                    (None,None) => true,
                    (None,_) => false,
                    (_,None) => false,
                    (Some(c1),Some(c2)) => {
-                       log!("     Compare:\n    {}\n    {}",c1.meaning(&int.state_catcodes()),c2.meaning(&int.state_catcodes()));
+                       log!("     Compare:\n    {}\n    {}",c1.meaning(int.state.catcodes.get_scheme()),c2.meaning(int.state.catcodes.get_scheme()));
                        match (tka.expand,tkb.expand) {
                            (true,true) | (false,false) => c1 == c2,
                            (true,false) | (false,true) => {
@@ -221,16 +230,13 @@ pub static IFEOF : Conditional = Conditional {
 
 use crate::ontology::Token;
 
-fn get_if_token(cond:usize,int:&Interpreter) -> Result<Option<Token>,TeXError> {
+fn get_if_token(cond:usize,int:&mut Interpreter) -> Result<Option<Token>,TeXError> {
     while int.has_next() {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                let currcond = match int.getcondition() {
-                    Some((i, _)) => i == cond,
-                    _ => unreachable!()
-                };
-                let p = int.state_get_command(&next.cmdname());
+                let currcond = int.state.conditions.len() - 1 == cond;
+                let p = int.state.commands.get(&next.cmdname());
                 match p {
                     Some(p) => match &*p.orig {
                         PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk.clone())),
@@ -296,7 +302,7 @@ pub static IFDEFINED : Conditional = Conditional {
         let next = int.next_token();
         let istrue = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active =>
-                int.state_get_command(&next.cmdname()).is_some(),
+                int.state.commands.get(&next.cmdname()).is_some(),
             _ => TeXErr!((int,Some(next.clone())),"Expected command after \\ifdefined; got: {}",next)
         };
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
@@ -308,7 +314,7 @@ pub static IFCSNAME : Conditional = Conditional {
     _apply: |int,cond,unless| {
         use crate::commands::primitives::csname;
         let cmdname = csname(int)?.into();
-        let istrue = int.state_get_command(&cmdname).is_some();
+        let istrue = int.state.commands.get(&cmdname).is_some();
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
@@ -326,7 +332,7 @@ pub static IFCAT : Conditional = Conditional {
         };
         let cc1 = match first.catcode {
             CategoryCode::Escape => {
-                let cmd = int.state_get_command(&first.cmdname());
+                let cmd = int.state.commands.get(&first.cmdname());
                 match cmd {
                     None => 255,
                     Some(cmd) => match &*cmd.orig {
@@ -339,7 +345,7 @@ pub static IFCAT : Conditional = Conditional {
         };
         let cc2 = match second.catcode {
             CategoryCode::Escape => {
-                let cmd = int.state_get_command(&first.cmdname());
+                let cmd = int.state.commands.get(&first.cmdname());
                 match cmd {
                     None => 255,
                     Some(cmd) => match &*cmd.orig {
@@ -367,7 +373,10 @@ pub static IFCASE : Conditional = Conditional {
         let num = int.read_number()? as u8;
         if num == 0 {dotrue(int,cond,unless)} else {
             use PrimitiveTeXCommand::*;
-            int.setcondition(cond,false)?;
+            match int.state.conditions.last_mut() {
+                Some(o@None) => *o = Some(false),
+                _ => unreachable!()
+            }
             let mut inifs = 0 as u8;
             let mut currnum = 1 as u8;
             //log!("false loop: {}",inifs);
@@ -375,12 +384,12 @@ pub static IFCASE : Conditional = Conditional {
                 let next = int.next_token();
                 match next.catcode {
                     CategoryCode::Escape | CategoryCode::Active => {
-                        match int.state_get_command(&next.cmdname()) {
+                        match int.state.commands.get(&next.cmdname()) {
                             None => {}
                             Some(p) => {
                                 match *p.orig {
                                     Primitive(x) if inifs == 0 && *x == FI => {
-                                        int.popcondition();
+                                        int.state.conditions.pop();
                                         return Ok(())
                                     }
                                     Primitive(x) if inifs == 0 && *x == ELSE => {
@@ -423,7 +432,7 @@ pub static IFDIM : Conditional = Conditional {
 pub static IFMMODE : Conditional = Conditional {
     name:"ifmmode",
     _apply: |int,cond,unless| {
-        if int.get_mode() == TeXMode::Math || int.get_mode() == TeXMode::Displaymath {
+        if int.state.mode == TeXMode::Math || int.state.mode == TeXMode::Displaymath {
             dotrue(int,cond,unless)
         } else {
             dofalse(int,cond,unless)
@@ -434,7 +443,7 @@ pub static IFMMODE : Conditional = Conditional {
 pub static IFVMODE : Conditional = Conditional {
     name:"ifvmode",
     _apply: |int,cond,unless| {
-        if int.get_mode() == TeXMode::Vertical || int.get_mode() == TeXMode::InternalVertical {
+        if int.state.mode == TeXMode::Vertical || int.state.mode == TeXMode::InternalVertical {
             dotrue(int,cond,unless)
         } else {
             dofalse(int,cond,unless)
@@ -445,7 +454,7 @@ pub static IFVMODE : Conditional = Conditional {
 pub static IFHMODE : Conditional = Conditional {
     name:"ifhmode",
     _apply: |int,cond,unless| {
-        if int.get_mode() == TeXMode::Horizontal || int.get_mode() == TeXMode::RestrictedHorizontal {
+        if int.state.mode == TeXMode::Horizontal || int.state.mode == TeXMode::RestrictedHorizontal {
             dotrue(int,cond,unless)
         } else {
             dofalse(int,cond,unless)
@@ -456,8 +465,8 @@ pub static IFVOID : Conditional = Conditional {
     name:"ifvoid",
     _apply: |int,cond,unless| {
         let ind = int.read_number()?;
-        match int.state_copy_box(ind as i32) {
-            TeXBox::Void => dotrue(int,cond,unless),
+        match int.state.boxes.get_maybe(&(ind as i32)) {
+            Some(TeXBox::Void) => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
@@ -467,8 +476,8 @@ pub static IFVBOX : Conditional = Conditional {
     name:"ifvbox",
     _apply: |int,cond,unless| {
         let ind = int.read_number()?;
-        match int.state_copy_box(ind as i32) {
-            TeXBox::V(_) => dotrue(int,cond,unless),
+        match int.state.boxes.get_maybe(&(ind as i32)) {
+            Some(TeXBox::V(_)) => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
@@ -478,8 +487,8 @@ pub static IFHBOX : Conditional = Conditional {
     name:"ifhbox",
     _apply: |int,cond,unless| {
         let ind = int.read_number()?;
-        match int.state_copy_box(ind as i32) {
-            TeXBox::H(_) => dotrue(int,cond,unless),
+        match int.state.boxes.get_maybe(&(ind as i32)) {
+            Some(TeXBox::H(_)) => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
@@ -488,7 +497,7 @@ pub static IFHBOX : Conditional = Conditional {
 pub static IFINCSNAME : Conditional = Conditional {
     name:"ifincsname",
     _apply: |int,cond,unless| {
-        if int.currcs() > 0 {
+        if int.state.incs > 0 {
             dotrue(int,cond,unless)
         } else {
             dofalse(int,cond,unless)
@@ -511,7 +520,7 @@ pub static IFFONTCHAR : Conditional = Conditional {
 pub static IFINNER : Conditional = Conditional {
     name:"ifinner",
     _apply: |int,cond,unless| {
-        let istrue = match int.state.borrow().mode {
+        let istrue = match int.state.mode {
             TeXMode::RestrictedHorizontal | TeXMode::InternalVertical | TeXMode::Math => true,
             _ => false
         };

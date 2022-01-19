@@ -25,11 +25,13 @@ impl PrimitiveExecutable {
 }
 pub struct Conditional {
     pub name: &'static str,
-    _apply:fn(int:&Interpreter,cond:usize,unless:bool) -> Result<(),TeXError>
+    _apply:fn(int:&mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXError>
 }
 impl Conditional {
-    pub fn expand(&self,int:&Interpreter) -> Result<(),TeXError> {
-        (self._apply)(int,int.pushcondition(),false)
+    pub fn expand(&self,int:&mut Interpreter) -> Result<(),TeXError> {
+        let i = int.state.conditions.len();
+        int.state.conditions.push(None);
+        (self._apply)(int,i,false)
     }
 }
 
@@ -75,7 +77,7 @@ impl PartialEq for TokAssValue {
 }
 
 pub struct NumericCommand {
-    pub _getvalue: fn(int: &Interpreter) -> Result<Numeric,TeXError>,
+    pub _getvalue: fn(int: &mut Interpreter) -> Result<Numeric,TeXError>,
     pub name : &'static str
 }
 
@@ -180,7 +182,7 @@ impl PartialEq for MathWhatsit {
 pub struct SimpleWhatsit {
     pub name: &'static str,
     pub modes: fn(TeXMode) -> bool,
-    pub _get: fn(tk:&Token,int: &Interpreter) -> Result<Whatsit,TeXError>
+    pub _get: fn(tk:&Token,int: &mut Interpreter) -> Result<Whatsit,TeXError>
 }
 
 impl PartialEq for SimpleWhatsit {
@@ -347,7 +349,7 @@ impl ProvidesWhatsit {
             ProvidesWhatsit::Simple(b) => Some(b.name.into()),
         }
     }
-    pub fn get(&self,tk:&Token,int:&Interpreter) -> Result<Whatsit,TeXError> {
+    pub fn get(&self,tk:&Token,int:&mut Interpreter) -> Result<Whatsit,TeXError> {
         use ProvidesWhatsit::*;
         match self {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
@@ -581,27 +583,27 @@ impl PrimitiveTeXCommand {
             _ => false
         }
     }
-    pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> {
+    pub fn get_num(&self,int:&mut Interpreter) -> Result<Numeric,TeXError> {
         use PrimitiveTeXCommand::*;
         use AssignableValue::*;
         match self {
-            AV(Dim(i)) => Ok(Numeric::Dim(int.state_dimension(*i as i32))),
-            AV(Register(i)) => Ok(Numeric::Int(int.state_register(*i as i32))),
-            AV(Skip(i)) => Ok(Numeric::Skip(int.state_skip(*i as i32))),
-            AV(MuSkip(i)) => Ok(Numeric::MuSkip(int.state_muskip(*i as i32))),
+            AV(Dim(i)) => Ok(Numeric::Dim(int.state.dimensions.get(&(*i as i32)))),
+            AV(Register(i)) => Ok(Numeric::Int(int.state.registers.get(&(*i as i32)))),
+            AV(Skip(i)) => Ok(Numeric::Skip(int.state.skips.get(&(*i as i32)))),
+            AV(MuSkip(i)) => Ok(Numeric::MuSkip(int.state.muskips.get(&(*i as i32)))),
             AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
             PrimitiveTeXCommand::Num(i) => Ok((i._getvalue)(int)?),
-            AV(PrimReg(r)) => Ok(Numeric::Int(int.state_register(-(r.index as i32)))),
-            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state_dimension(-(r.index as i32)))),
-            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state_skip(-(r.index as i32)))),
-            AV(PrimMuSkip(r)) => Ok(Numeric::MuSkip(int.state_muskip(-(r.index as i32)))),
+            AV(PrimReg(r)) => Ok(Numeric::Int(int.state.registers.get(&-(r.index as i32)))),
+            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state.dimensions.get(&-(r.index as i32)))),
+            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state.skips.get(&-(r.index as i32)))),
+            AV(PrimMuSkip(r)) => Ok(Numeric::MuSkip(int.state.muskips.get(&-(r.index as i32)))),
             Ext(r) => r.get_num(int),
             Char(u) => Ok(Numeric::Int(u.char as i32)),
             MathChar(u) => Ok(Numeric::Int(*u as i32)),
             _ => unreachable!("{}",self)
         }
     }
-    pub fn get_expansion(&self,tk:Token,int:&Interpreter,cmd:Arc<TeXCommand>) -> Result<Option<Expansion>,TeXError> {
+    pub fn get_expansion(&self,tk:Token,int:&mut Interpreter,cmd:Arc<TeXCommand>) -> Result<Option<Expansion>,TeXError> {
         use PrimitiveTeXCommand::*;
         log!("Expanding {}",tk);
         match self {
@@ -620,7 +622,7 @@ impl PrimitiveTeXCommand {
             _ => unreachable!()
         }
     }
-    pub fn expand(&self,tk:Token,int:&Interpreter,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
+    pub fn expand(&self,tk:Token,int:&mut Interpreter,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
         match self.get_expansion(tk,int,cmd)? {
             Some(exp) => Ok(int.push_expansion(exp)),
             None => Ok(())
@@ -765,11 +767,11 @@ impl PrimitiveTeXCommand {
         }
         Ok(exp)
     }
-    pub fn assign(&self,tk:Token,int:&Interpreter,globally:bool,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
+    pub fn assign(&self,tk:Token,int:&mut Interpreter,globally:bool,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
         use crate::commands::primitives::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 
-        let globals = int.state_register(-(GLOBALDEFS.index as i32));
+        let globals = int.state.registers.get(&-(GLOBALDEFS.index as i32));
         let global = !(globals < 0) && ( globally || globals > 0 );
         let rf = ExpansionRef(tk,cmd);
         match self {
@@ -783,7 +785,7 @@ impl PrimitiveTeXCommand {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
-                    int.change_state(StateChange::Register(*i as i32, num, global));
+                    int.state.registers.set(*i as i32, num, global);
                     Ok(())
                 }
                 AssignableValue::Font(f) => {
@@ -792,8 +794,8 @@ impl PrimitiveTeXCommand {
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
-                    int.change_state(StateChange::Font(f.clone(),global));
-                    int.stomach.borrow_mut().add(int,FontChange {
+                    int.state.currfont.set((),f.clone(),global);
+                    int.stomach.add(int,FontChange {
                         font: f.clone(),
                         closes_with_group: !global,
                         children: vec!(),
@@ -805,35 +807,35 @@ impl PrimitiveTeXCommand {
                     log!("Assigning dimen {}",i);
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.change_state(StateChange::Dimen(*i as i32, num, global));
+                    int.state.dimensions.set(*i as i32, num, global);
                     Ok(())
                 }
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign skip register {} to {}",i,num);
-                    int.change_state(StateChange::Skip(*i as i32, num, global));
+                    int.state.skips.set(*i as i32, num, global);
                     Ok(())
                 }
                 AssignableValue::MuSkip(i) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign muskip register {} to {}",i,num);
-                    int.change_state(StateChange::MuSkip(*i as i32, num, global));
+                    int.state.muskips.set(*i as i32, num, global);
                     Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Skip(-(r.index as i32), num, global));
+                    int.state.skips.set(-(r.index as i32), num, global);
                     Ok(())
                 },
                 AssignableValue::PrimMuSkip(r) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::MuSkip(-(r.index as i32), num, global));
+                    int.state.muskips.set(-(r.index as i32), num, global);
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
@@ -848,14 +850,14 @@ impl PrimitiveTeXCommand {
                         CategoryCode::Escape | CategoryCode::Active => {
                             let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
-                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
-                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
                                 _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
                             }
                         }
                         _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
                     };
-                    int.change_state(StateChange::Tokens(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global));
+                    int.state.toks.set(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
@@ -870,28 +872,28 @@ impl PrimitiveTeXCommand {
                         CategoryCode::Escape | CategoryCode::Active => {
                             let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
-                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state_tokens(*j as i32),
-                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state_tokens(-(j.index as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
                                 _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
                             }
                         }
                         _ => TeXErr!((int,None),"Expected balanced argument or token register in token assignment")
                     };
-                    int.change_state(StateChange::Tokens(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global));
+                    int.state.toks.set(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
                 },
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.change_state(StateChange::Register(-(r.index as i32), num, global));
+                    int.state.registers.set(-(r.index as i32), num, global);
                     Ok(())
                 },
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.change_state(StateChange::Dimen(-(r.index as i32), num, global));
+                    int.state.dimensions.set(-(r.index as i32), num, global);
                     Ok(())
                 }
             },
@@ -981,15 +983,15 @@ impl TeXCommand {
     pub fn has_num(&self) -> bool {self.orig.has_num()}
     pub fn assignable(&self) -> bool {self.orig.assignable()}
     pub fn has_whatsit(&self) -> bool {self.orig.has_whatsit()}
-    pub fn get_num(&self,int:&Interpreter) -> Result<Numeric,TeXError> { self.orig.get_num(int) }
-    pub fn get_expansion(self,tk:Token,int:&Interpreter) -> Result<Option<Expansion>,TeXError> {
+    pub fn get_num(&self,int:&mut Interpreter) -> Result<Numeric,TeXError> { self.orig.get_num(int) }
+    pub fn get_expansion(self,tk:Token,int:&mut Interpreter) -> Result<Option<Expansion>,TeXError> {
         let o = self.orig.clone();
         o.get_expansion(tk,int,Arc::new(self))
     }
-    pub fn expand(self,tk:Token,int:&Interpreter) -> Result<(),TeXError> {
+    pub fn expand(self,tk:Token,int:&mut Interpreter) -> Result<(),TeXError> {
         self.orig.clone().expand(tk,int,Arc::new(self))
     }
-    pub fn assign(self,tk:Token,int:&Interpreter,globally:bool) -> Result<(),TeXError> {
+    pub fn assign(self,tk:Token,int:&mut Interpreter,globally:bool) -> Result<(),TeXError> {
         self.orig.clone().assign(tk,int,globally,Arc::new(self))
     }
 }

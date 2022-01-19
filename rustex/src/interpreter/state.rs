@@ -12,8 +12,8 @@ use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::TeXMode;
 use crate::stomach::boxes::{BoxMode, TeXBox};
 use crate::stomach::simple::{PDFXForm, PDFXImage};
-use crate::stomach::Whatsit;
-use crate::{Interpreter, TeXErr, Token};
+use crate::stomach::{Stomach, Whatsit};
+use crate::{Interpreter, log, TeXErr, TeXString, Token};
 use crate::commands::conditionals::conditional_commands;
 use crate::commands::pdftex::pdftex_commands;
 use crate::commands::primitives::tex_commands;
@@ -252,6 +252,14 @@ impl LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox>> {
         }
     }
 }
+impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
+    pub fn add(&mut self,b:B) {
+        match self.values {
+            Some(Var(Some(ref mut v))) => v.push(b),
+            _ => self.values = Some(Var(Some(vec!(b))))
+        }
+    }
+}
 
 
 #[derive(Clone,PartialEq)]
@@ -439,8 +447,9 @@ macro_rules! pass_on {
     }
 }
 impl State {
-    pub fn push(&mut self,gt:GroupType) {
+    pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
         pass_on!(self,push);
+        stomach.new_group(gt);
         self.tp.set_locally((),gt)
     }
     pub fn pop(&mut self,int:&Interpreter,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
@@ -464,6 +473,25 @@ impl State {
                 Some(p) => {
                     ret += 1;
                     curr = p.borrow()
+                }
+            }
+        }
+    }
+    pub fn get_font(&mut self,int:&Interpreter,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
+        match self.fontfiles.get(&name) {
+            Some(ff) => Ok(Arc::clone(ff)),
+            None => {
+                let ret = unsafe{int.kpsewhich(std::str::from_utf8_unchecked(name.iter()))};
+                match ret {
+                    Some((pb,_)) if pb.exists() => {
+                        let f = Arc::new(FontFile::new(pb));
+                        self.fontfiles.insert(name,Arc::clone(&f));
+                        Ok(f)
+                    }
+                    _ => {
+                        println!("Here! {}", int.current_line());
+                        TeXErr!((int,None),"Font file {} not found",name)
+                    }
                 }
             }
         }
@@ -541,9 +569,17 @@ impl State {
         state.registers.set_locally(-(crate::commands::primitives::MAG.index as i32),1000);
         state.registers.set_locally(-(crate::commands::primitives::FAM.index as i32),-1);
         state.dimensions.set_locally(-(crate::commands::pdftex::PDFPXDIMEN.index as i32),65536);
+        for i in 0..97 {
+            state.uccodes.set_locally(i,i);
+            state.lccodes.set_locally(i,i);
+        }
         for i in 97..123 {
             state.uccodes.set_locally(i,i-32);
             state.lccodes.set_locally(i-32,i);
+        }
+        for i in 123..256 {
+            state.uccodes.set_locally(i,i);
+            state.lccodes.set_locally(i,i);
         }
         state
     }
@@ -563,5 +599,121 @@ impl State {
         }
 
         state
+    }
+}
+
+impl Interpreter<'_> {
+    pub fn pop_group(&mut self,tp:GroupType) -> Result<(),TeXError> {
+        log!("Pop: {}",tp);
+        let ag = self.state.pop(self,tp)?;
+        match ag {
+            Some(v) => self.push_tokens(v),
+            _ => ()
+        }
+        self.stomach.close_group(self)
+    }
+    pub fn get_whatsit_group(&mut self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
+        log!("Pop: {}",tp);
+        let ag = self.state.pop(self,tp)?;
+        match ag {
+            Some(v) => self.push_tokens(v),
+            _ => ()
+        }
+        self.stomach.pop_group(self)
+    }
+    pub fn file_read_line(&mut self,index:u8) -> Result<Vec<Token>,TeXError> {
+        match self.state.infiles.get_mut(&index) {
+            None => TeXErr!((self,None),"No file open at index {}",index),
+            Some(fm) => Ok(fm.read_line(self.state.catcodes.get_scheme()))
+        }
+    }
+    pub fn file_read(&mut self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
+        use std::io::BufRead;
+        match index {
+            255 => {
+                let stdin = std::io::stdin();
+                let string = stdin.lock().lines().next().unwrap().unwrap();
+                Ok(crate::interpreter::tokenize(string.into(),self.state.catcodes.get_scheme()))
+            }
+            i => {
+                match self.state.infiles.get_mut(&i) {
+                    None => TeXErr!((self,None),"No file open at index {}",i),
+                    Some(fm) => Ok(fm.read(self.state.catcodes.get_scheme(), nocomment))
+                }
+            }
+        }
+    }
+    pub fn file_eof(&mut self,index:u8) -> Result<bool,TeXError> {
+        match self.state.infiles.get_mut(&index) {
+            None => TeXErr!((self,None),"No file open at index {}",index),
+            Some(fm) => {
+                Ok(fm.is_eof())
+            }
+        }
+    }
+    pub fn file_openin(&mut self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
+        let mouth = StringMouth::new_from_file(self.state.catcodes.get_scheme(),&file);
+        self.state.infiles.insert(index,mouth);
+        Ok(())
+    }
+    pub fn file_closein(&mut self,index:u8) -> Result<(),TeXError> {
+        match self.state.infiles.remove(&index) {
+            Some(f) => {
+                f.source.pop_file().unwrap();
+            }
+            None => ()
+        }
+        Ok(())
+    }
+    pub fn file_openout(&mut self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
+        file.string.write().unwrap().take();
+        self.state.outfiles.insert(index,file);
+        Ok(())
+    }
+    pub fn file_write(&mut self,index:u8,s:TeXString) -> Result<(),TeXError> {
+        match index {
+            17 => {
+                self.params.write_17(s.to_utf8().as_str());
+                Ok(())
+            }
+            16 => {
+                self.params.write_16(s.to_utf8().as_str());
+                Ok(())
+            }
+            18 => {
+                self.params.write_18(s.to_utf8().as_str());
+                Ok(())
+            }
+            255 => {
+                self.params.write_neg_1(s.to_utf8().as_str());
+                Ok(())
+            }
+            i if !self.state.borrow().outfiles.contains_key(&i) => {
+                self.params.write_other(s.to_utf8().as_str());
+                Ok(())
+            }
+            _ => {
+                match self.state.outfiles.get_mut(&index) {
+                    Some(f) => {
+                        let mut string = f.string.write().unwrap();
+                        match &mut*string {
+                            None => {*string = Some(s) },
+                            Some(st) => *st += s
+                        }
+                    }
+                    None => TeXErr!((self,None),"No file open at index {}",index)
+                }
+                Ok(())
+            }
+        }
+    }
+    pub fn file_closeout(&mut self,index:u8) {
+        self.state.outfiles.remove(&index);
+    }
+    pub fn insert_afterassignment(&mut self) {
+        match self.state.afterassignment.take() {
+            Some(tk) => self.push_tokens(vec!(tk)),
+            _ => ()
+        }
     }
 }

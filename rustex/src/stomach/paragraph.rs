@@ -270,10 +270,10 @@ impl Paragraph {
         (p1,p2)
     }
     pub fn close(&mut self,int:&Interpreter,hangindent:i32,hangafter:usize,parshape:Vec<(i32,i32)>) {
-        self.rightskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)));
-        self.leftskip.get_or_insert(int.state_skip(-(crate::commands::primitives::LEFTSKIP.index as i32)));
-        self.hsize.get_or_insert(int.state_dimension(-(crate::commands::primitives::HSIZE.index as i32)));
-        self.lineheight.get_or_insert(int.state_skip(-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
+        self.rightskip.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
+        self.leftskip.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
+        self.hsize.get_or_insert(int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32)));
+        self.lineheight.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
         self._width = self.hsize.unwrap() - (self.leftskip.unwrap().base  + self.rightskip.unwrap().base);
 
         self.lines.get_or_insert(if !parshape.is_empty() {

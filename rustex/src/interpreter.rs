@@ -5,7 +5,6 @@ pub enum TeXMode {
 }
 
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::references::SourceReference;
@@ -109,8 +108,7 @@ use crate::stomach::whatsits::{PrintChar, SpaceChar, WhatsitTrait};
 
 impl Interpreter<'_> {
     pub fn tokens_to_string(&self,tks:&Vec<Token>) -> TeXString {
-        let catcodes = self.catcodes.borrow();
-        tokens_to_string(tks,&catcodes)
+        tokens_to_string(tks,self.state.catcodes.get_scheme())
     }
 
     pub fn kpsewhich(&self,filename: &str) -> Option<(PathBuf,bool)> {
@@ -130,13 +128,11 @@ impl Interpreter<'_> {
         }
     }
     pub fn with_state<'a>(s : State,stomach: &'a mut dyn Stomach,params:&'a dyn InterpreterParams) -> Interpreter<'a> {
-        let catcodes = s.catcodes().clone();
         Interpreter {
             state:s,
             jobinfo:Jobinfo::new(PathBuf::new()),
-            mouths:RefCell::new(Mouths::new()),
-            catcodes:RefCell::new(catcodes),
-            stomach:RefCell::new(stomach),
+            mouths:Mouths::new(),
+            stomach:stomach,
             params
         }
     }
@@ -254,13 +250,12 @@ impl Interpreter<'_> {
             Some(p) => Ok(p),
             None if s.len() == 0 => {
                 let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
-                let tk = Token::new(self.catcodes.borrow().endlinechar,catcode,None,SourceReference::None,true);
+                let tk = Token::new(self.state.catcodes.get_scheme().endlinechar,catcode,None,SourceReference::None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
             None if s.len() == 1 => {
                 let char = *s.iter().first().unwrap();
-                let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
-                let tk = Token::new(char,catcode,None,SourceReference::None,true);
+                let tk = Token::new(char,CategoryCode::Other,None,SourceReference::None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
             None => TeXErr!((self,None),"Unknown control sequence: \\{}",s)
@@ -325,7 +320,7 @@ impl Interpreter<'_> {
 
                 }
             },
-            (BeginGroup,_) => Ok(self.state.push(GroupType::Token)),
+            (BeginGroup,_) => Ok(self.state.push(self.stomach,GroupType::Token)),
             (EndGroup,_) => self.pop_group(GroupType::Token),
             (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
             (Space | EOL, Horizontal | RestrictedHorizontal) => {
@@ -465,7 +460,7 @@ impl Interpreter<'_> {
     fn do_math(&mut self, inner : bool) -> Result<(),TeXError> {
         use crate::catcodes::CategoryCode::*;
         use crate::stomach::Whatsit as WI;
-        self.state.push(GroupType::Math);
+        self.state.push(self.stomach,GroupType::Math);
         let mode = if inner {
             self.insert_every(&crate::commands::primitives::EVERYMATH);
             TeXMode::Math
@@ -600,7 +595,7 @@ impl Interpreter<'_> {
                     return Ok(None)
                 }
                 BeginGroup => {
-                    self.state.push(GroupType::Math);
+                    self.state.push(self.stomach,GroupType::Math);
                     let mut mathgroup: Option<MathGroup> = None;
                     while self.has_next() {
                         let next = self.next_token();
@@ -637,7 +632,7 @@ impl Interpreter<'_> {
                                         }
                                     }
                                 }
-                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.borrow().display_mode()))))
+                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get(&())))))
                             }
                             _ => {
                                 self.requeue(next);
@@ -722,7 +717,7 @@ impl Interpreter<'_> {
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.borrow().display_mode());
+                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
                             mg.subscript = Some(ret);
                             return Ok(Some(WI::Math(mg)))
                         },
@@ -750,11 +745,11 @@ impl Interpreter<'_> {
                             },
                             Whatsit(ProvidesWhatsit::Math(mw)) => {
                                 return match (mw._get)(&next,self,previous)? {
-                                    Some(k) => Ok(Some(WI::Math(MathGroup::new(k,self.state.borrow().display_mode())))),
+                                    Some(k) => Ok(Some(WI::Math(MathGroup::new(k,self.state.displaymode.get(&()))))),
                                     _ => Ok(None)
                                 }
                             },
-                            Whatsit(w) if w.allowed_in(self.get_mode()) => {
+                            Whatsit(w) if w.allowed_in(self.state.mode) => {
                                 let next = w.get(&next, self)?;
                                 return Ok(Some(next))
                             },
@@ -766,7 +761,7 @@ impl Interpreter<'_> {
                                     let wi = self.do_math_char(Some(next),*mc);
                                     let ret = crate::stomach::Whatsit::Math(MathGroup::new(
                                         crate::stomach::math::MathKernel::MathChar(wi),
-                                        self.state.borrow().display_mode()));
+                                        self.state.displaymode.get(&())));
                                     return Ok(Some(ret))
                                 }
                             },
@@ -776,7 +771,7 @@ impl Interpreter<'_> {
                 },
                 Space | EOL=> (),
                 Letter | Other => {
-                    let mc = self.state_get_mathcode(next.char as u8);
+                    let mc = self.state.mathcodes.get(&(next.char as u8));
                     match mc {
                         32768 => {
                             self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true))
@@ -785,7 +780,7 @@ impl Interpreter<'_> {
                             let wi = self.do_math_char(Some(next),mc as u32);
                             let ret = crate::stomach::Whatsit::Math(MathGroup::new(
                                 crate::stomach::math::MathKernel::MathChar(wi),
-                                self.state.borrow().display_mode()));
+                                self.state.displaymode.get(&())));
                             return Ok(Some(ret))
                         }
                     }
