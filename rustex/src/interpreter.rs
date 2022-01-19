@@ -174,7 +174,7 @@ impl Interpreter<'_> {
             Err(e) => return e.throw(Some(self))
         };
         if cont {
-            let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(self);
+            let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(&mut self.state);
             colon.initialize(fnt,color,self);
             let mut colonthread = if self.params.singlethreaded() {
                 MaybeThread::Single(receiver,Box::new(move |rec,end| {
@@ -229,7 +229,7 @@ impl Interpreter<'_> {
                 };
             }
 
-            self.stomach.borrow_mut().finish(self);
+            self.stomach.borrow_mut().finish(&mut self.state);
             match colonthread.join() {
                 Ok(r) => return r,
                 Err(_) => panic!("Error in colon thread")
@@ -307,7 +307,7 @@ impl Interpreter<'_> {
                     },
                     (Whatsit(w),_) if w.allowed_in(mode) => {
                         let next = w.get(&next,self)?;
-                        self.stomach.borrow_mut().add(self,next)
+                        self.stomach_add(next)
                     },
                     (Whatsit(w), Vertical | InternalVertical) if w.allowed_in(TeXMode::Horizontal) => {
                         self.switch_to_H(next)
@@ -326,14 +326,14 @@ impl Interpreter<'_> {
             (Space | EOL, Horizontal | RestrictedHorizontal) => {
                 let font = self.state.currfont.get(&());
                 let sourceref = self.update_reference(&next);
-                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Space(SpaceChar {
+                self.stomach_add(crate::stomach::Whatsit::Space(SpaceChar {
                     font,sourceref
                 }))
             }
             (Letter | Other , Horizontal | RestrictedHorizontal) => {
                 let font = self.state.currfont.get(&());
                 let sourceref = self.update_reference(&next);
-                self.stomach.borrow_mut().add(self,crate::stomach::Whatsit::Char(PrintChar {
+                self.stomach_add(crate::stomach::Whatsit::Char(PrintChar {
                     char:next.char,
                     font,sourceref
                 }))
@@ -349,8 +349,7 @@ impl Interpreter<'_> {
                     }
                     _ => {
                         let wi = self.do_math_char(Some(next),mc as u32);
-                        self.stomach.borrow_mut().add(self,
-                          crate::stomach::Whatsit::Math(MathGroup::new(
+                        self.stomach_add(crate::stomach::Whatsit::Math(MathGroup::new(
                               crate::stomach::math::MathKernel::MathChar(wi),
                               self.state.displaymode.get(&()))))?;
                         Ok(())
@@ -436,9 +435,9 @@ impl Interpreter<'_> {
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::primitives::EVERYPAR);
         let parskip = self.state.skips.get(&-(crate::commands::primitives::PARSKIP.index as i32));
-        self.stomach.borrow_mut().start_paragraph(self,parskip.base);
+        self.stomach.borrow_mut().start_paragraph(parskip.base);
         if indent != 0 {
-            self.stomach.borrow_mut().add(self, Indent {
+            self.stomach_add(Indent {
                 dim: indent,
                 sourceref: None
             }.as_whatsit())?
@@ -449,10 +448,10 @@ impl Interpreter<'_> {
     fn end_paragraph(&mut self,inner : bool) -> Result<(),TeXError> {
         if inner { self.state.mode = TeXMode::InternalVertical }
         else { self.state.mode = TeXMode::Vertical }
-        self.stomach.borrow_mut().end_paragraph(self)?;
+        self.stomach.end_paragraph(&mut self.state)?;
         let vadjusts = std::mem::take(&mut self.state.vadjust);
         for w in vadjusts {
-            self.stomach.borrow_mut().add(self,w)?
+            self.stomach_add(w)?
         }
         Ok(())
     }
@@ -492,7 +491,7 @@ impl Interpreter<'_> {
                         MathShift => {
                             self.state.mode = _oldmode;
                             for g in mathgroup.take() {
-                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                self.stomach_add(WI::Math(g))?
                             }
                             let mut ret = self.get_whatsit_group(GroupType::Math)?;
                             {
@@ -521,7 +520,7 @@ impl Interpreter<'_> {
                                     }
                                 }
                             }
-                            self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)))?;
+                            self.stomach_add(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)))?;
                             return Ok(())
                         }
                         _ => TeXErr!(nnext => "displaymode must be closed with $$")
@@ -530,10 +529,10 @@ impl Interpreter<'_> {
                 MathShift => {
                     self.state.mode = _oldmode;
                     for g in mathgroup.take() {
-                        self.stomach.borrow_mut().add(self,WI::Math(g))?
+                        self.stomach_add(WI::Math(g))?
                     }
                     let ret = self.get_whatsit_group(GroupType::Math)?;
-                    self.stomach.borrow_mut().add(self,WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)))?;
+                    self.stomach_add(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)))?;
                     return Ok(())
                 }
                 EndGroup => TeXErr!(next => "{}","Unexpected } in math environment"),
@@ -547,32 +546,32 @@ impl Interpreter<'_> {
                         Some(WI::Ls(v)) if v.is_empty() => (),
                         Some(WI::Ls(mut v)) => {
                             for g in mathgroup.take() {
-                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                self.stomach_add(WI::Math(g))?
                             }
                             let last = v.pop();
-                            for w in v { self.stomach.borrow_mut().add(self,w)? }
+                            for w in v { self.stomach_add(w)? }
                             match last {
                                 Some(WI::Math(mg)) => {
                                     match mathgroup.replace(mg) {
-                                        Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                        Some(m) => self.stomach_add(WI::Math(m))?,
                                         _ => ()
                                     }
                                 },
-                                Some(w) => self.stomach.borrow_mut().add(self,w)?,
+                                Some(w) => self.stomach_add(w)?,
                                 None => ()
                             }
                         }
                         Some(WI::Math(mg)) => {
                             match mathgroup.replace(mg) {
-                                Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                Some(m) => self.stomach_add(WI::Math(m))?,
                                 _ => ()
                             }
                         },
                         Some(w) => {
                             for g in mathgroup.take() {
-                                self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                self.stomach_add(WI::Math(g))?
                             }
-                            self.stomach.borrow_mut().add(self,w)?
+                            self.stomach_add(w)?
                         },
                         None => ()
                     }
@@ -603,7 +602,7 @@ impl Interpreter<'_> {
                             EndGroup => {
                                 //let mode = self.state.borrow().display_mode();
                                 for g in mathgroup.take() {
-                                    self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                    self.stomach_add(WI::Math(g))?
                                 }
                                 let mut ret = self.get_whatsit_group(GroupType::Math)?;
                                 {
@@ -644,32 +643,32 @@ impl Interpreter<'_> {
                                     Some(WI::Ls(v)) if v.is_empty() => (),
                                     Some(WI::Ls(mut v)) => {
                                         for g in mathgroup.take() {
-                                            self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                            self.stomach_add(WI::Math(g))?
                                         }
                                         let last = v.pop();
-                                        for w in v { self.stomach.borrow_mut().add(self,w)? }
+                                        for w in v { self.stomach_add(w)? }
                                         match last {
                                             Some(WI::Math(mg)) => {
                                                 match mathgroup.replace(mg) {
-                                                    Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                                    Some(m) => self.stomach_add(WI::Math(m))?,
                                                     _ => ()
                                                 }
                                             },
-                                            Some(w) => self.stomach.borrow_mut().add(self,w)?,
+                                            Some(w) => self.stomach_add(w)?,
                                             None => ()
                                         }
                                     }
                                     Some(WI::Math(mg)) => {
                                         match mathgroup.replace(mg) {
-                                            Some(m) => self.stomach.borrow_mut().add(self,WI::Math(m))?,
+                                            Some(m) => self.stomach_add(WI::Math(m))?,
                                             _ => ()
                                         }
                                     },
                                     Some(w) => {
                                         for g in mathgroup.take() {
-                                            self.stomach.borrow_mut().add(self,WI::Math(g))?
+                                            self.stomach_add(WI::Math(g))?
                                         }
-                                        self.stomach.borrow_mut().add(self,w)?
+                                        self.stomach_add(w)?
                                     },
                                     None => ()
                                 }

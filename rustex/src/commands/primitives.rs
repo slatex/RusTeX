@@ -4,7 +4,7 @@ use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro,
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, ExpansionRef};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{FontStyle, GroupType};
+use crate::interpreter::state::{FontStyle, GroupType, State};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
@@ -717,7 +717,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
         match *int.get_command(&next.cmdname())?.orig {
             PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
-                (wi._apply)(int)?;
+                (wi._apply)(&mut int.state,int.params)?;
                 Ok(())
             }
             PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM || *x==PDFOBJ => {
@@ -737,8 +737,8 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
         Ok(ExecutableWhatsit {
-            _apply: Box::new(move |nint: &mut Interpreter| {
-                nint.file_openout(num,file.clone())
+            _apply: Box::new(move |state: &mut State,_| {
+                state.file_openout(num,file.clone())
             })
         })
     }
@@ -751,7 +751,7 @@ pub static OPENIN: PrimitiveExecutable = PrimitiveExecutable {
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
         log!("\\openin {}",num);
-        int.file_openin(num,file)?;
+        int.state.file_openin(num,file)?;
         Ok(())
     },
     name:"openin",
@@ -764,8 +764,8 @@ pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
 
         Ok(ExecutableWhatsit {
-            _apply: Box::new(move |nint: &mut Interpreter| {
-                nint.file_closeout(num);Ok(())
+            _apply: Box::new(move |state: &mut State,_| {
+                state.file_closeout(num);Ok(())
             })
         })
     }
@@ -775,7 +775,7 @@ pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |_,int| {
         let num = int.read_number()? as u8;
         log!("\\closein {}",num);
-        int.file_closein(num)?;
+        int.state.file_closein(num)?;
         Ok(())
     },
     name:"closein",
@@ -791,7 +791,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             None => TeXErr!("\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
-        let toks = int.file_read(index,true)?;
+        let toks = int.state.file_read(index,true)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,
@@ -819,7 +819,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
         /*if int.current_line() == "/home/jazzpirate/work/Software/ext/sTeX/doc/manual.tex (157, 1)" {
             unsafe { crate::LOG = true }
         }*/
-        let toks = int.file_read_line(index)?;
+        let toks = int.state.file_read_line(index)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,
@@ -847,8 +847,8 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let ret = int.read_token_list(true,true,true,true)?;
         let string = int.tokens_to_string(&ret) + "\n".into();
         return Ok(ExecutableWhatsit {
-            _apply: Box::new(move |int| {
-                int.file_write(num,string.clone())
+            _apply: Box::new(move |state,params| {
+                state.file_write(num,string.clone(),params)
             })
         });
     }
@@ -1079,7 +1079,7 @@ pub static ETEXVERSION : NumericCommand = NumericCommand {
     name: "eTeXversion"
 };
 
-fn expr_loop(int: &mut Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
     log!("expr_loop: >{}",int.preview());
     let mut first = expr_loop_inner(int,getnum)?;
@@ -1139,7 +1139,7 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,T
     }
 }
 
-fn expr_loop_inner(int: &mut Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+fn expr_loop_inner(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     match int.read_keyword(vec!("("))? {
         Some(_) => {
             let r = expr_loop(int,getnum)?;
@@ -1322,7 +1322,11 @@ pub static LCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.state.lccodes.set(num1,num2,global);
+        if num2 == 0 {
+            int.state.lccodes.set(num1, num1, global);
+        } else {
+            int.state.lccodes.set(num1, num2, global);
+        }
         Ok(())
     },
     _getvalue: |int| {
@@ -1337,7 +1341,11 @@ pub static UCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.state.uccodes.set(num1, num2, global);
+        if num2 == 0 {
+            int.state.uccodes.set(num1, num1, global);
+        } else {
+            int.state.uccodes.set(num1, num2, global);
+        }
         Ok(())
     },
     _getvalue: |int| {
@@ -1389,7 +1397,7 @@ pub static FONT: FontAssValue = FontAssValue {
         int.read_eq();
         let mut name = int.read_string()?;
         if !name.ends_with(".tfm") {name += ".tfm"}
-        let ff = int.state.get_font(int,name.into())?;
+        let ff = int.state.get_font(int.jobinfo.in_file(),name.into())?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
             Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f32) * match int.read_number_i(true)? {
@@ -1584,7 +1592,7 @@ pub static INPUTLINENO: NumericCommand = NumericCommand {
 pub static LASTSKIP: NumericCommand = NumericCommand {
     name:"lastskip",
     _getvalue: |int| {
-        match int.stomach.last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VSkip(s))) => Ok(Numeric::Skip(s.skip)),
             Some(Whatsit::Simple(SimpleWI::HSkip(s))) => Ok(Numeric::Skip(s.skip)),
             _ => Ok(Numeric::Skip(Skip {
@@ -1597,7 +1605,7 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
 pub static LASTKERN: NumericCommand = NumericCommand {
     name:"lastkern",
     _getvalue: |int| {
-        match int.stomach.last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VKern(s))) => Ok(Numeric::Dim(s.dim)),
             Some(Whatsit::Simple(SimpleWI::HKern(s))) => Ok(Numeric::Dim(s.dim)),
             _ => Ok(Numeric::Dim(0))
@@ -1609,7 +1617,7 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"unkern",
     expandable:false,
     _apply:|_,int| {
-        let remove = match int.stomach.last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => true,
             _ => false
         };
@@ -1622,7 +1630,7 @@ pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
     expandable:false,
     _apply:|_,int| {
-        let remove = match int.stomach.last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::Penalty(_))) => true,
             _ => false
         };
@@ -1761,7 +1769,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
 
 pub static LASTBOX: ProvidesBox = ProvidesBox {
     _get: |_tk,int| {
-        match int.stomach.last_box(int)? {
+        match int.stomach.last_box()? {
             Some(tb) => {
                 Ok(tb)
             },
@@ -1775,7 +1783,7 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"unskip",
     expandable:false,
     _apply:|_tk,int| {
-        let remove = match int.stomach.last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_))) => {
                 true
             },
@@ -1838,7 +1846,11 @@ pub static TOKS: TokAssValue = TokAssValue {
 
 pub static MATHCODE: NumAssValue = NumAssValue {
     name:"mathcode",
-    _getvalue: |int| {Ok(Numeric::Int(int.state.mathcodes.get(&(int.read_number()? as u8))))},
+    _getvalue: |int| {
+        let num = int.read_number()? as u8;
+        let mc = int.state.mathcodes.get(&num);
+        Ok(Numeric::Int(mc))
+    },
     _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
@@ -1850,7 +1862,10 @@ pub static MATHCODE: NumAssValue = NumAssValue {
 
 pub static DELCODE: NumAssValue = NumAssValue {
     name:"delcode",
-    _getvalue: |int| {Ok(Numeric::Int(int.state.delcodes.get(&(int.read_number()? as u8))))},
+    _getvalue: |int| {
+        let num = int.read_number()? as u8;
+        Ok(Numeric::Int(int.state.delcodes.get(&num)))
+    },
     _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
@@ -1864,7 +1879,7 @@ pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
         int.state.currfont.set((),NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
-        int.stomach.add(FontChange {
+        int.stomach_add(FontChange {
             font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
             children: vec![],
@@ -2402,7 +2417,7 @@ pub static FONTCHARIC: NumericCommand = NumericCommand {
 pub static LASTPENALTY: NumericCommand = NumericCommand {
     name:"lastpenalty",
     _getvalue: |int| {
-        match int.stomach.last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::Penalty(p))) => Ok(Numeric::Int(p.penalty)),
             _ => Ok(Numeric::Int(0))
         }
@@ -2935,7 +2950,7 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
-fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
+fn dodelim(int:&mut Interpreter) -> Result<Option<MathChar>,TeXError> {
     let wi = int.read_math_whatsit(None)?;
     match wi {
         Some(Whatsit::Math(MathGroup { kernel:
@@ -3070,7 +3085,7 @@ pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"indent",
     expandable:false,
     _apply:|tk,int| {
-        int.stomach.add(Whatsit::Simple(SimpleWI::Indent(
+        int.stomach_add(Whatsit::Simple(SimpleWI::Indent(
             Indent {
                 dim:int.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
                 sourceref:int.update_reference(&tk.0)
@@ -3417,7 +3432,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach_add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 return Ok(None)
             }
             _ => int.requeue(next)
@@ -3427,7 +3442,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Left(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Left(
                 Left {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
@@ -3446,7 +3461,7 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Middle(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Middle(
                 Middle {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
@@ -3464,7 +3479,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach_add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }
@@ -3475,7 +3490,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.add(Whatsit::Simple(SimpleWI::Right(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Right(
                 Right {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)

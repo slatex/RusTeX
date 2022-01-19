@@ -1,6 +1,7 @@
 use std::cmp::max;
-use crate::{htmlliteral, htmlnode, htmlparent, Interpreter};
+use crate::{htmlliteral, htmlnode, htmlparent};
 use crate::interpreter::dimensions::{Skip, SkipDim};
+use crate::interpreter::state::State;
 use crate::stomach::{StomachGroup, Whatsit};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -109,7 +110,7 @@ impl Paragraph {
         };
         (np,self.children)
     }
-    pub fn split(self,target:i32,int:&Interpreter) -> (Paragraph,Paragraph) {
+    pub fn split(self,target:i32,state:&State) -> (Paragraph,Paragraph) {
         let mut presplit : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
         let mut currentwidth : i32 = 0;
         let mut currentheight : i32 = 0;
@@ -266,14 +267,14 @@ impl Paragraph {
                 }
             }
         }
-        p2.close(int,0,0,vec!());
+        p2.close(state,0,0,vec!());
         (p1,p2)
     }
-    pub fn close(&mut self,int:&Interpreter,hangindent:i32,hangafter:usize,parshape:Vec<(i32,i32)>) {
-        self.rightskip.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
-        self.leftskip.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
-        self.hsize.get_or_insert(int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32)));
-        self.lineheight.get_or_insert(int.state.skips.get(&-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
+    pub fn close(&mut self,state:&State,hangindent:i32,hangafter:usize,parshape:Vec<(i32,i32)>) {
+        self.rightskip.get_or_insert(state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
+        self.leftskip.get_or_insert(state.skips.get(&-(crate::commands::primitives::LEFTSKIP.index as i32)));
+        self.hsize.get_or_insert(state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32)));
+        self.lineheight.get_or_insert(state.skips.get(&-(crate::commands::primitives::BASELINESKIP.index as i32)).base);
         self._width = self.hsize.unwrap() - (self.leftskip.unwrap().base  + self.rightskip.unwrap().base);
 
         self.lines.get_or_insert(if !parshape.is_empty() {

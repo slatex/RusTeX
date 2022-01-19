@@ -16,13 +16,13 @@ impl Interpreter<'_> {
 
     // General -------------------------------------------------------------------------------------
 
-    pub fn insert_every(&self,tr:&TokReference) {
+    pub fn insert_every(&mut self,tr:&TokReference) {
         let i = -(tr.index as i32);
         let insert = self.state.toks.get(&i);
         self.push_tokens(insert)
     }
 
-    pub fn skip_ws(&self) {
+    pub fn skip_ws(&mut self) {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -35,7 +35,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_eq(&self) {
+    pub fn read_eq(&mut self) {
         self.skip_ws();
         let next = self.next_token();
         match next.char {
@@ -278,7 +278,7 @@ impl Interpreter<'_> {
         self.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false);
     }
 
-    pub fn eat_relax(&self) {
+    pub fn eat_relax(&mut self) {
         use crate::commands::primitives::RELAX;
         if self.has_next() {
             let next = self.next_token();
@@ -533,7 +533,7 @@ impl Interpreter<'_> {
 
     // Dimensions ----------------------------------------------------------------------------------
 
-    fn point_to_int(&self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
+    fn point_to_int(&mut self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let mut kws = vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px");
         if allowfills {
@@ -589,40 +589,42 @@ impl Interpreter<'_> {
     }
 
     pub fn read_skip(&mut self) -> Result<Skip,TeXError> {
-        match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_skip(i,None,None),
-            Numeric::Float(f) => self.rest_skip(match self.point_to_int(f,false)? {
+        let (a,b,c) = match self.read_number_i(true)? {
+            Numeric::Dim(i) => (i,None,None),
+            Numeric::Float(f) => (match self.point_to_int(f,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f32,false)? {
+            Numeric::Int(f) => (match self.point_to_int(f as f32,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Skip(s) => self.rest_skip(s.base,s.stretch,s.shrink),
+            Numeric::Skip(s) => (s.base,s.stretch,s.shrink),
             Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
-        }
+        };
+        self.rest_skip(a,b,c)
     }
 
     pub fn read_muskip(&mut self) -> Result<MuSkip,TeXError> {
-        match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_muskip(i,None,None),
-            Numeric::Float(f) => self.rest_muskip(match self.point_to_muskip(f)? {
+        let (a,b,c) = match self.read_number_i(true)? {
+            Numeric::Dim(i) => (i,None,None),
+            Numeric::Float(f) => (match self.point_to_muskip(f)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_muskip(match self.point_to_muskip(f as f32)? {
+            Numeric::Int(f) => (match self.point_to_muskip(f as f32)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
             Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
-            Numeric::MuSkip(s) =>  self.rest_muskip(s.base,s.stretch,s.shrink)
-        }
+            Numeric::MuSkip(s) =>  (s.base,s.stretch,s.shrink)
+        };
+        self.rest_muskip(a,b,c)
     }
 
 
 
-    fn point_to_muskip(&self,f:f32) -> Result<MuSkipDim,TeXError> {
+    fn point_to_muskip(&mut self,f:f32) -> Result<MuSkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let kws = vec!("mu","fil","fill","filll");
         //let istrue = self.read_keyword(vec!("true"))?.is_some();
@@ -640,7 +642,7 @@ impl Interpreter<'_> {
         }
     }
 
-    fn rest_skip(&self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
+    fn rest_skip(&mut self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(Skip {
                 base: dim,
@@ -682,7 +684,7 @@ impl Interpreter<'_> {
     }
 
 
-    fn rest_muskip(&self,dim:i32,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
+    fn rest_muskip(&mut self,dim:i32,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(MuSkip {
                 base: dim,

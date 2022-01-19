@@ -236,11 +236,11 @@ struct Parameters {
 
 fn main() {
     let params : Parameters = Parameters::parse();
-    use rustex::interpreter::state::default_pdf_latex_state;
+    use rustex::interpreter::state::State;
     match params.input {
         None => {
-            let state = default_pdf_latex_state();
-            state.get_command(&"eTeXversion".into()).expect("");
+            let state = State::pdf_latex();
+            state.commands.get(&"eTeXversion".into()).expect("");
             println!("\n\nSuccess! \\o/")
         }
         Some(i) => {
@@ -253,7 +253,7 @@ fn main() {
                 log:false,
                 singlethreaded:params.singlethreaded
             };
-            let state = default_pdf_latex_state();
+            let state = State::pdf_latex();
             let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
             let s = int.do_file(path,HTMLColon::new(true));
             match params.output {

@@ -9,31 +9,33 @@ use crate::stomach::simple::{PDFDest, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage
 use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
-fn read_attrspec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+fn read_attrspec(int:&mut Interpreter) -> Result<Option<TeXStr>,TeXError> {
     int.expand_until(true)?;
     let ret = match int.read_keyword(vec!("attr"))? {
         Some(_) => {
             int.skip_ws();
-            Some(int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into())
+            let tks = int.read_balanced_argument(true,false,false,false)?;
+            Some(int.tokens_to_string(&tks).into())
         },
         None => None
     };
     Ok(ret)
 }
 
-fn read_rule_spec(int:&Interpreter )-> Result<String,TeXError> {
+fn read_rule_spec(int:&mut Interpreter )-> Result<String,TeXError> {
     int.expand_until(true)?;
     match int.read_keyword(vec!("width", "height", "depth"))? {
         Some(s) => Ok((s + " " + &dimtostr(int.read_dimension()?) + " " + &read_rule_spec(int)?.to_string()).into()),
         None => Ok("".into())
     }
 }
-fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
+fn read_resource_spec(int:&mut Interpreter) -> Result<Option<TeXStr>,TeXError> {
     int.expand_until(true)?;
     let ret = match int.read_keyword(vec!("resources"))? {
         Some(_) => {
             int.skip_ws();
-            Some(int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into())
+            let tks = int.read_balanced_argument(true,false,false,false)?;
+            Some(int.tokens_to_string(&tks).into())
         },
         None => None
     };
@@ -43,7 +45,8 @@ fn read_resource_spec(int:&Interpreter) -> Result<Option<TeXStr>,TeXError> {
 fn read_action_spec(int:&mut Interpreter) -> Result<ActionSpec,TeXError> {
     match int.read_keyword(vec!("user","goto","thread"))? {
         Some(s) if s == "user" => {
-            let retstr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+            let tks = int.read_balanced_argument(true,false,false,true)?;
+            let retstr = int.tokens_to_string(&tks);
             Ok(ActionSpec::User(retstr.into()))
         }
         Some(s) if s == "goto" => {
@@ -155,8 +158,10 @@ pub static PDFSTRCMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfstrcmp",
     expandable:true,
     _apply:|rf,int| {
-        let first = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
-        let second = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let mut tks = int.read_balanced_argument(true,false,false,true)?;
+        let first = int.tokens_to_string(&tks);
+        tks = int.read_balanced_argument(true,false,false,true)?;
+        let second = int.tokens_to_string(&tks);
         log!("\\pdfstrcmp: \"{}\" == \"{}\"?",first,second);
         if first == second {
             log!("true");
@@ -219,8 +224,10 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => int.read_number()?,
             _ => -1
         };
-        let mut pattern_string = int.tokens_to_string(&int.read_argument()?).to_string();
-        let target = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).to_string();
+        let mut tks = int.read_argument()?;
+        let mut pattern_string = int.tokens_to_string(&tks).to_string();
+        tks = int.read_balanced_argument(true,false,false,false)?;
+        let target = int.tokens_to_string(&tks).to_string();
         if icase {
             pattern_string = "(?i)".to_string() + &pattern_string
         }
@@ -277,34 +284,36 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
                     Some(s) => {s.pop();},
                     _ => TeXErr!("No color stack at index {}",num)
                 }
-                int.stomach.add(ColorEnd {
+                int.stomach_add(ColorEnd {
                     sourceref:int.update_reference(&tk.0)
                 }.as_whatsit())?
             },
             Some(s) if s == "set" => {
-                let color: TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let color: TeXStr = int.tokens_to_string(&tks).into();
                 match int.state.pdfcolorstacks.get_mut(len - 1 - num as usize) {
                     Some(v) => {
                         v.pop();v.push(color.clone())
                     }
                     _ => TeXErr!("No color stack at index {}",num)
                 }
-                int.stomach.add(ColorEnd{
+                int.stomach_add(ColorEnd{
                     sourceref:int.update_reference(&tk.0)
                 }.as_whatsit())?;
-                int.stomach.add(ColorChange {
+                int.stomach_add(ColorChange {
                     color,
                     children: vec![],
                     sourceref: int.update_reference(&tk.0)
                 }.as_whatsit())?
             }
             Some(s) if s == "push" => {
-                let color : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let color : TeXStr = int.tokens_to_string(&tks).into();
                 match int.state.pdfcolorstacks.get_mut(len - 1 - num as usize) {
                     Some(s) => s.push(color.clone()),
                     _ => TeXErr!("No color stack at index {}",num)
                 }
-                int.stomach.add(ColorChange {
+                int.stomach_add(ColorChange {
                     color,
                     children: vec![],
                     sourceref: int.update_reference(&tk.0)
@@ -349,7 +358,8 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
             }
             Some(s) if s == "useobjnum" => {
                 let index = int.read_number()?;
-                let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?);
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let str = int.tokens_to_string(&tks);
                 int.state.pdfobjs.insert(index as u16,str.into());
                 Ok(())
             }
@@ -398,7 +408,8 @@ pub static PDFLITERAL: SimpleWhatsit = SimpleWhatsit {
     modes: |_| {true},
     _get: |tk, int| {
         int.read_keyword(vec!("direct","page"))?;
-        let str : TeXStr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,false)?).into();
+        let tks = int.read_balanced_argument(true,false,false,false)?;
+        let str : TeXStr = int.tokens_to_string(&tks).into();
         Ok(Whatsit::Simple(SimpleWI::PDFLiteral(PDFLiteral{
             literal:str,sourceref:int.update_reference(tk)
         })))
@@ -551,7 +562,8 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
             Some(s) => Some(s.as_str().into()),
             None => None
         };
-        let filename = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let filename = int.tokens_to_string(&tks);
         let file = match int.kpsewhich(filename.to_string().as_str()) {
             Some((p,_)) if p.exists() => p,
             _ => TeXErr!("No image file by name {} found",filename)

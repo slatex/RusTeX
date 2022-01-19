@@ -68,7 +68,7 @@ impl PartialEq for FontAssValue {
 pub struct TokAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &Interpreter) -> Result<Vec<Token>,TeXError>
+    pub _getvalue: fn(int: &mut Interpreter) -> Result<Vec<Token>,TeXError>
 }
 impl PartialEq for TokAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -779,7 +779,7 @@ impl PrimitiveTeXCommand {
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
                     int.state.currfont.set((),f.clone(),global);
-                    int.stomach.add(int,FontChange {
+                    int.stomach_add(FontChange {
                         font: f.clone(),
                         closes_with_group: !global,
                         children: vec!(),

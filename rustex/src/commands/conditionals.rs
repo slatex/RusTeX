@@ -220,7 +220,7 @@ pub static IFEOF : Conditional = Conditional {
         match int.read_number()? as u8 {
             18 => dofalse(int,cond,unless),
             i => {
-                let ret = int.file_eof(i)?;
+                let ret = int.state.file_eof(i)?;
                 log!("\\ifeof {}: {}",i,ret);
                 if ret {dotrue(int,cond,unless)} else {dofalse(int,cond,unless)}
             }
