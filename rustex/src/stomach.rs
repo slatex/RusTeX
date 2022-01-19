@@ -398,25 +398,26 @@ pub trait Stomach : Send {
             self.base_mut().stomachgroups.push(top.new_from());
             *nwi.children_mut() = top.get_d();
             self.base_mut().stomachgroups.last_mut().unwrap().push(Whatsit::Grouped(nwi));
-            /*let mut grv : Vec<Whatsit> = vec!();
-            for w in top.get_d() {
-                if grv.is_empty() && !w.has_ink() { self.add_inner_actually(int,w)? } else { grv.push(w) }
-            }
-            for w in grv { nwi.push(w) }
-            self.base_mut().stomachgroups.push(StomachGroup::Other(nwi));*/
             Ok(())
         } else {
-            let mut ng = top.new_from();
-            let mut nv = top.get_d();
-            if !nv.is_empty() {
-                for v in nv { ng.push(v) }
-                self.add_inner_actually(int, match ng {
-                    StomachGroup::Other(wg) => Whatsit::Grouped(wg),
-                    _ => TeXErr!((int,None),"No group to close")
-                })?;
+            match top {
+                StomachGroup::Other(mut wg) => {
+                    let ng = StomachGroup::Other(wg.new_from());
+                    self.add_inner_actually(int,Whatsit::Grouped(wg))?;
+                    self._close_stomach_group(int,wi)?;
+                    self.base_mut().stomachgroups.push(ng);
+                    Ok(())
+                }
+                StomachGroup::TeXGroup(gt@(GroupType::Token|GroupType::Begingroup),nv) => {
+                    for w in nv {self.add_inner_actually(int,w)?;}
+                    self._close_stomach_group(int,wi)?;
+                    self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(gt,vec!()));
+                    Ok(())
+                }
+                _ => {
+                    TeXErr!((int,None),"No group to close")
+                }
             }
-            self._close_stomach_group(int,wi)?;
-            Ok(())
         }
     }
 
