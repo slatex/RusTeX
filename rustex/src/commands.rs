@@ -629,11 +629,6 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        if tk.cmdname().to_string() == "@ifundefinedcolor" && int.current_line().starts_with("/usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty") {
-            unsafe{crate::LOG = true}
-            println!("{}",int.current_line());
-            println!("Here!")
-        }
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())
