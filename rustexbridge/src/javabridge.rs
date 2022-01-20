@@ -95,48 +95,48 @@ impl<'borrow,'env> InterpreterParams for JavaParams<'borrow,'env> {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"log","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"log","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn write_16(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"write_16","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"write_16","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn write_17(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"write_17","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"write_17","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn write_18(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"write_18","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"write_18","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn write_neg_1(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"write_neg_1","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"write_neg_1","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn write_other(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"write_other","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"write_other","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn file_clopen(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"file_clopen","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"file_clopen","(Ljava/lang/String;)V",&[output]).unwrap();
     }
     fn message(&self, s: &str) {
         let output = JValue::Object(JObject::from(self.env
             .new_string(s)
             .expect("Couldn't create java string!").into_inner()));
-        self.env.call_method(self.params,"message","(Ljava/lang/String;)V",&[output]);
+        self.env.call_method(self.params,"message","(Ljava/lang/String;)V",&[output]).unwrap();
     }
 }
