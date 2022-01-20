@@ -224,7 +224,7 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => int.read_number()?,
             _ => -1
         };
-        let mut tks = int.read_argument()?;
+        let mut tks = int.read_balanced_argument(true,false,false,true)?;
         let mut pattern_string = int.tokens_to_string(&tks).to_string();
         tks = int.read_balanced_argument(true,false,false,false)?;
         let target = int.tokens_to_string(&tks).to_string();
@@ -268,6 +268,20 @@ pub static PDFMATCH: PrimitiveExecutable = PrimitiveExecutable {
                 Ok(())
             }
         }
+    }
+};
+
+pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdflastmatch",
+    expandable:true,
+    _apply:|rf,int| {
+        let num = int.read_number()?;
+        let str: TeXStr = match int.state.pdfmatches.get(num as usize) {
+            Some(s) => s.clone(),
+            _ => "-1->".into()
+        };
+        rf.2 = tokenize(str.into(),int.state.catcodes.get_scheme());
+        Ok(())
     }
 };
 
@@ -885,12 +899,6 @@ pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfinfo",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PDFLASTMATCH: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdflastmatch",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
