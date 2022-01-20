@@ -4,10 +4,10 @@ use rustex::interpreter::state::State;
 pub static mut MAIN_STATE : Option<State> = None;
 
 use jni::JNIEnv;
-use jni::objects::{GlobalRef, JClass, JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbyteArray, jint, jlong, jstring};
+use jni::objects::{JClass, JObject, JString, JValue};
+use jni::sys::{jboolean, jstring};
 use rustex::interpreter::Interpreter;
-use rustex::interpreter::params::{DefaultParams, InterpreterParams};
+use rustex::interpreter::params::InterpreterParams;
 use rustex::stomach::html::HTMLColon;
 
 
@@ -20,8 +20,7 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
         match MAIN_STATE {
             Some(_) => (),
             None => {
-                use rustex::interpreter::state::default_pdf_latex_state;
-                let state = default_pdf_latex_state();
+                let state = State::pdf_latex();
                 MAIN_STATE = Some(state);
             }
         }
@@ -40,12 +39,12 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
         .get_string(file)
         .expect("Couldn't get java string!")
         .into();
-    let mut p = JavaParams::new(&env,params);
+    let p = JavaParams::new(&env,params);
     /*let mut memories : Vec<String> = vec!();
     for m in JList::from_env(&env,memory_j).unwrap().iter().unwrap() {
         memories.push(env.get_string(JString::from(m)).unwrap().into())
     }*/
-    let (mut s,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
+    let (_,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
     /*
     let frame = s.stacks.remove(0);
     for (n,cmd) in frame.commands {

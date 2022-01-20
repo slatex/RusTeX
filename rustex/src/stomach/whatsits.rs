@@ -1,4 +1,3 @@
-use crate::interpreter::Interpreter;
 use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
 use crate::fonts::Font;

@@ -112,7 +112,7 @@ impl WhatsitTrait for MathGroup {
                         }
                     }
                 }
-                k => (),
+                _ => (),
             };
         }
         ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());

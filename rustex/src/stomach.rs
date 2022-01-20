@@ -396,7 +396,7 @@ pub trait Stomach : Send {
             Ok(())
         } else {
             match top {
-                StomachGroup::Other(mut wg) => {
+                StomachGroup::Other(wg) => {
                     let ng = StomachGroup::Other(wg.new_from());
                     self.add_inner_actually(Whatsit::Grouped(wg))?;
                     self._close_stomach_group(wi)?;
@@ -662,7 +662,7 @@ pub trait Stomach : Send {
             match base.stomachgroups.get(i) {
                 Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) | StomachGroup::Par(_)) => break,
                 Some(StomachGroup::Other(WIGroup::ColorChange(_) | WIGroup::FontChange(_))) => {base.stomachgroups.remove(i);}
-                Some(o) => i +=1,
+                Some(_) => i +=1,
                 None => break
             }
         }

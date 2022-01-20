@@ -136,14 +136,14 @@ impl<K:Hash+Eq,V:HasDefault> StateStore<K,V> for HashMap<K,V> {
 #[derive(Clone,PartialEq)]
 pub struct Var<V>(pub Option<V>) where V:HasDefault;
 impl<V:HasDefault> StateStore<(),V> for Var<V> {
-    fn get(&self, k: &()) -> Option<&V> {
+    fn get(&self, _k: &()) -> Option<&V> {
         match &self.0 {
             None => None,
             Some(v) => Some(v)
         }
     }
-    fn set(&mut self, k: (), v: V) { self.0 = Some(v) }
-    fn remove(&mut self, k: &()) { self.0 = None }
+    fn set(&mut self, _k: (), v: V) { self.0 = Some(v) }
+    fn remove(&mut self, _k: &()) { self.0 = None }
     fn new() -> Self { Var(None) }
 }
 impl StateStore<usize,Arc<Font>> for [Option<Arc<Font>>;16] {
@@ -675,7 +675,7 @@ impl State {
             match fontfiles.as_ref().unwrap().get(&name) {
                 Some(ff) => Ok(Arc::clone(ff)),
                 None => {
-                    let ret = unsafe{crate::kpathsea::kpsewhich(std::str::from_utf8_unchecked(name.iter()),indir)};
+                    let ret = crate::kpathsea::kpsewhich(std::str::from_utf8_unchecked(name.iter()),indir);
                     match ret {
                         Some((pb,_)) if pb.exists() => {
                             let f = Arc::new(FontFile::new(pb));

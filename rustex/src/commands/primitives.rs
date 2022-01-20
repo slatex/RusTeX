@@ -2454,7 +2454,7 @@ pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
 pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"omit",
     expandable:false,
-    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\omit")}
+    _apply:|tk,_int| {TeXErr!(tk.0.clone() => "Unexpected \\omit")}
 };
 
 pub static CR: PrimitiveExecutable = PrimitiveExecutable {
@@ -2534,7 +2534,7 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
 pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"noalign",
     expandable:false,
-    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\noalign")}
+    _apply:|tk,_int| {TeXErr!(tk.0.clone() => "Unexpected \\noalign")}
 };
 
 fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
@@ -2769,7 +2769,7 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
         || x == TeXMode::Displaymath // only allowed if it's the only whatsit in the math list
     },
     _get:|tk,int| {
-        let width = match int.read_keyword(vec!("to"))? {
+        let _width = match int.read_keyword(vec!("to"))? {
             Some(_) => Some(int.read_dimension()?),
             None => None
         };
@@ -2784,7 +2784,7 @@ pub static VALIGN: SimpleWhatsit = SimpleWhatsit {
     name:"valign",
     modes: |x|  {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal },
     _get:|tk,int| {
-        let height = match int.read_keyword(vec!("to"))? {
+        let _height = match int.read_keyword(vec!("to"))? {
             Some(_) => Some(int.read_dimension()?),
             None => None
         };
@@ -3422,7 +3422,7 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
 };
 pub static LIMITS: MathWhatsit = MathWhatsit {
     name:"limits",
-    _get: |tk,int,last| {
+    _get: |tk,_int,last| {
         match last {
             None => TeXErr!(tk.clone() => "Nothing to \\limits here"),
             Some(s) => s.limits = true
@@ -3433,7 +3433,7 @@ pub static LIMITS: MathWhatsit = MathWhatsit {
 
 pub static NOLIMITS: MathWhatsit = MathWhatsit {
     name:"nolimits",
-    _get: |tk,int,last| {
+    _get: |tk,_int,last| {
         match last {
             None => TeXErr!(tk.clone() => "Nothing to \\nolimits here"),
             Some(s) => s.limits = false
@@ -3446,9 +3446,9 @@ pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"discretionary",
     expandable:false,
     _apply:|tk,int| {
-        let prebreak = int.read_argument()?;
+        let _prebreak = int.read_argument()?;
         let postbreak = int.read_argument()?;
-        let nobreak = int.read_argument()?;
+        let _nobreak = int.read_argument()?;
         tk.2 = postbreak;
         Ok(())
     }
@@ -3462,7 +3462,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach_add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach_add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
                 return Ok(None)
             }
             _ => int.requeue(next)
@@ -3509,7 +3509,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach_add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach_add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
                 int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }

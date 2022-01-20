@@ -99,23 +99,23 @@ impl WIGroup {
 }
 impl WIGroupTrait for WIGroup {
     fn children(&self) -> &Vec<Whatsit> {
-        pass_on!(self,children,(e,ch)=>ch)
+        pass_on!(self,children,(_e,ch)=>ch)
     }
     fn children_mut(&mut self) -> &mut Vec<Whatsit> {
-        pass_on!(self,children_mut,(e,ch)=>ch)
+        pass_on!(self,children_mut,(_e,ch)=>ch)
     }
     fn children_prim(self) -> Vec<Whatsit> {
-        pass_on!(self,children_prim,(e,ch)=>ch)
+        pass_on!(self,children_prim,(_e,ch)=>ch)
     }
     fn opaque(&self) -> bool {
-        pass_on!(self,opaque,(e,ch)=>e.opaque())
+        pass_on!(self,opaque,(e,_ch)=>e.opaque())
     }
     fn priority(&self) -> i16 {
-        pass_on!(self,priority,(e,ch)=>e.priority())
+        pass_on!(self,priority,(e,_ch)=>e.priority())
     }
     fn as_wi_group(self) -> WIGroup { self }
     fn closes_with_group(&self) -> bool {
-        pass_on!(self,closes_with_group,(e,ch)=>e.closes_with_group())
+        pass_on!(self,closes_with_group,(e,_ch)=>e.closes_with_group())
     }
 }
 
