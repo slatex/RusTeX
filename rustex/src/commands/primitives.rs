@@ -3461,7 +3461,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.borrow_mut().add(int,Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach.borrow_mut().add(int,Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
                 return Ok(None)
             }
             _ => int.requeue(next)
@@ -3508,7 +3508,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.borrow_mut().add(int,Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
+                int.stomach.borrow_mut().add(int,Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
                 int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }
