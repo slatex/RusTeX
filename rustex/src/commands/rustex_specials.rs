@@ -96,7 +96,8 @@ pub static DIRECT_HTML: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@directHTML",
     modes: |_| { true },
     _get: |_, int| {
-        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let str = int.tokens_to_string(&tks);
         Ok(HTMLLiteral { str:str.into() }.as_whatsit())
     },
 };
@@ -105,8 +106,10 @@ pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
     name:"rustex@addNamespaceAbbrev",
     modes: |_| { true },
     _get: |_, int| {
-        let abbr = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
-        let ns = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let mut tks = int.read_balanced_argument(true,false,false,true)?;
+        let abbr = int.tokens_to_string(&tks);
+        tks = int.read_balanced_argument(true,false,false,true)?;
+        let ns = int.tokens_to_string(&tks);
         Ok(HTMLNamespace { abbr:abbr.into(),ns:ns.into() }.as_whatsit())
     }
 };
@@ -186,7 +189,8 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTML",
     modes: |_| { true },
     _get: |tk, int| {
-        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?).to_string().trim().to_string();
+        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let str = int.tokens_to_string(&tks).to_string().trim().to_string();
         let mut annotate = AnnotateBegin {sourceref:int.update_reference(tk),attrs:HashMap::new(),styles:HashMap::new()};
         let mut index = 0;
         'outer: loop {
@@ -208,7 +212,7 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
                                 index += 1;
                                 break
                             }
-                            _ => TeXErr!((int,None),"Expected \" after = in \\rustex@annotateHTML")
+                            _ => TeXErr!("Expected \" after = in \\rustex@annotateHTML")
                         }
                     }
                     Some(32) if attr.is_empty() => index += 1,

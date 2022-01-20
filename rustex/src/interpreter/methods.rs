@@ -7,7 +7,7 @@ use crate::commands::{TokReference, PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
-use crate::interpreter::state::{GroupType, StateChange};
+use crate::interpreter::state::GroupType;
 use crate::references::SourceReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
@@ -16,14 +16,13 @@ impl Interpreter<'_> {
 
     // General -------------------------------------------------------------------------------------
 
-    pub fn insert_every(&self,tr:&TokReference) {
+    pub fn insert_every(&mut self,tr:&TokReference) {
         let i = -(tr.index as i32);
-        let insert = self.state_tokens(i);
-        //println!("Every: {}",TokenList(&insert));
+        let insert = self.state.toks.get(&i);
         self.push_tokens(insert)
     }
 
-    pub fn skip_ws(&self) {
+    pub fn skip_ws(&mut self) {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
@@ -36,7 +35,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_eq(&self) {
+    pub fn read_eq(&mut self) {
         self.skip_ws();
         let next = self.next_token();
         match next.char {
@@ -51,7 +50,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_keyword(&self,mut kws:Vec<&str>) -> Result<Option<String>,TeXError> {
+    pub fn read_keyword(&mut self,mut kws:Vec<&str>) -> Result<Option<String>,TeXError> {
         use std::str;
         let mut tokens:Vec<Token> = Vec::new();
         let mut ret : String = "".to_string();
@@ -97,7 +96,7 @@ impl Interpreter<'_> {
         }
     }
 
-    pub fn read_string(&self) -> Result<String,TeXError> {
+    pub fn read_string(&mut self) -> Result<String,TeXError> {
         use std::str::from_utf8;
         let mut ret : Vec<u8> = Vec::new();
         let mut quoted = false;
@@ -127,17 +126,17 @@ impl Interpreter<'_> {
                 _ => ret.push(next.char)
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn read_command_token(&self) -> Result<Token,TeXError> {
+    pub fn read_command_token(&mut self) -> Result<Token,TeXError> {
         let mut cmd: Option<Token> = None;
         while self.has_next() {
             self.skip_ws();
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    let p = self.state_get_command(&next.cmdname());
+                    let p = self.state.commands.get(&next.cmdname());
                     match p {
                         None =>{ cmd = Some(next); break }
                         Some(p) => match *p.orig {
@@ -147,18 +146,18 @@ impl Interpreter<'_> {
                         }
                     }
                 }
-                _ => TeXErr!((self,Some(next.clone())),"Command expected; found: {}",next)
+                _ => TeXErr!(next.clone() => "Command expected; found: {}",next)
             }
         };
         match cmd {
             Some(t) => Ok(t),
-            _ => FileEnd!(self)
+            _ => FileEnd!()
         }
     }
 
     // Token lists ---------------------------------------------------------------------------------
 
-    pub fn read_argument(&self) -> Result<Vec<Token>,TeXError> {
+    pub fn read_argument(&mut self) -> Result<Vec<Token>,TeXError> {
         let next = self.next_token();
         if next.catcode == CategoryCode::BeginGroup {
             self.read_token_list(false,false,false,true)
@@ -169,7 +168,7 @@ impl Interpreter<'_> {
 
 
     #[inline(always)]
-    pub fn read_token_list(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_token_list(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
         let mut ingroups : u8 = 0;
         let mut ret : Vec<Token> = vec!();
@@ -177,7 +176,7 @@ impl Interpreter<'_> {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape if expand && next.expand => {
-                    match self.state_get_command(&next.cmdname()) {
+                    match self.state.commands.get(&next.cmdname()) {
                         Some(cmd) => match &*cmd.orig {
                             PrimitiveTeXCommand::Primitive(x) if (the && **x == THE) || **x == UNEXPANDED => {
                                 match cmd.get_expansion(next,self)? {
@@ -221,15 +220,15 @@ impl Interpreter<'_> {
                 _ => ret.push(next)
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn expand_until(&self,eat_space:bool) -> Result<(),TeXError> {
+    pub fn expand_until(&mut self,eat_space:bool) -> Result<(),TeXError> {
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = match self.state_get_command(&next.cmdname()) {
+                    let cmd = match self.state.commands.get(&next.cmdname()) {
                         None => return Ok(()),
                         Some(p) => p
                     };
@@ -254,10 +253,10 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn read_balanced_argument(&self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
+    pub fn read_balanced_argument(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         self.expand_until(true)?;
         let next = self.next_token();
         match next.catcode {
@@ -266,26 +265,26 @@ impl Interpreter<'_> {
                 let p = self.get_command(&next.cmdname())?;
                 match &*p.orig {
                     PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => {},
-                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+                    _ => TeXErr!(next => "Expected Begin Group Token")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+            _ => TeXErr!(next => "Expected Begin Group Token")
         }
         self.read_token_list(expand, protect,the,allowunknowns)
     }
 
-    pub fn set_relax(&self,cmd:&Token) {
+    pub fn set_relax(&mut self,cmd:&Token) {
         use crate::commands::primitives::RELAX;
-        self.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false));
+        self.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::Primitive(&RELAX).as_command()),false);
     }
 
-    pub fn eat_relax(&self) {
+    pub fn eat_relax(&mut self) {
         use crate::commands::primitives::RELAX;
         if self.has_next() {
             let next = self.next_token();
             match next.catcode {
                 CategoryCode::Escape | CategoryCode::Active => {
-                    match self.state_get_command(&next.cmdname()).map(|x| x.orig) {
+                    match self.state.commands.get(&next.cmdname()).map(|x| x.orig) {
                         Some(p)  => match &*p {
                             PrimitiveTeXCommand::Primitive(r) if **r == RELAX => (),
                             _ => self.requeue(next)
@@ -302,7 +301,7 @@ impl Interpreter<'_> {
 
     // Boxes & Whatsits ----------------------------------------------------------------------------
 
-    pub fn read_whatsit_group(&self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {
+    pub fn read_whatsit_group(&mut self,bm : BoxMode,insertevery:bool) -> Result<Vec<Whatsit>,TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         let tk = match next.catcode {
@@ -311,14 +310,14 @@ impl Interpreter<'_> {
                 let p = self.get_command(&next.cmdname())?;
                 match &*p.orig {
                     PrimitiveTeXCommand::Char(tk) if tk.catcode == BeginGroup => tk.clone(),
-                    _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+                    _ => TeXErr!(next => "Expected Begin Group Token")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token")
+            _ => TeXErr!(next => "Expected Begin Group Token")
         };
-        let _oldmode = self.get_mode();
-        self.new_group(GroupType::Box(bm));
-        self.set_mode(match bm {
+        let _oldmode = self.state.mode;
+        self.state.push(self.stomach,GroupType::Box(bm));
+        self.state.mode = match bm {
             BoxMode::H => {
                 if insertevery { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
                 TeXMode::RestrictedHorizontal
@@ -329,20 +328,20 @@ impl Interpreter<'_> {
             },
             BoxMode::M => TeXMode::Math,
             BoxMode::DM => TeXMode::Displaymath,
-            _ => TeXErr!((self,None),"read_whatsit_group requires non-void box mode")
-        });
-        if self.state.borrow().insetbox {
-            self.state.borrow_mut().insetbox = false;
+            _ => TeXErr!("read_whatsit_group requires non-void box mode")
+        };
+        if self.state.insetbox {
+            self.state.insetbox = false;
             self.insert_afterassignment();
         }
         self.requeue(tk);
         self.read_whatsits()?;
         let ret = self.get_whatsit_group(GroupType::Box(bm))?;
-        self.set_mode(_oldmode);
+        self.state.mode = _oldmode;
         Ok(ret)
     }
 
-    pub fn read_box(&self) -> Result<TeXBox,TeXError> {
+    pub fn read_box(&mut self) -> Result<TeXBox,TeXError> {
         use crate::commands::ProvidesWhatsit;
         self.expand_until(false)?;
         let next = self.next_token();
@@ -353,14 +352,14 @@ impl Interpreter<'_> {
                     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(b)) => {
                         (b._get)(&next,self)
                     }
-                    _ => TeXErr!((self,Some(next)),"Expected box")
+                    _ => TeXErr!(next => "Expected box")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+            _ => TeXErr!(next => "Expected Begin Group Token or Whatsit")
         }
     }
 
-    pub fn read_whatsits(&self) -> Result<(),TeXError> {
+    pub fn read_whatsits(&mut self) -> Result<(),TeXError> {
         self.expand_until(false)?;
         let next = self.next_token();
         match next.catcode {
@@ -370,10 +369,10 @@ impl Interpreter<'_> {
                 if cmd.has_whatsit() {
                     todo!()
                 } else {
-                    TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+                    TeXErr!(next => "Expected Begin Group Token or Whatsit")
                 }
             }
-            _ => TeXErr!((self,Some(next)),"Expected Begin Group Token or Whatsit")
+            _ => TeXErr!(next => "Expected Begin Group Token or Whatsit")
         }
         let mut ingroups : u8 = 0;
         //let mut ret : Vec<Whatsit> = vec!();
@@ -383,7 +382,7 @@ impl Interpreter<'_> {
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(()),
                 CategoryCode::BeginGroup => {
                     ingroups += 1;
-                    self.new_group(GroupType::Token);
+                    self.state.push(self.stomach,GroupType::Token);
                 }
                 CategoryCode::EndGroup => {
                     ingroups -= 1;
@@ -394,7 +393,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
     // Numbers -------------------------------------------------------------------------------------
@@ -406,33 +405,33 @@ impl Interpreter<'_> {
         };
         let num = if ishex {
             Numeric::Int(i32::from_str_radix(&utf, 16).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else if isoct {
             Numeric::Int(i32::from_str_radix(&utf, 8).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else if allowfloat {
             Numeric::Float(f32::from_str(&utf).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         } else {
             Numeric::Int(i32::from_str(&utf).or_else(|_| {
-                TeXErr!((self,None),"Number error (should be impossible)")
+                TeXErr!("Number error (should be impossible)")
             })?)
         };
         Ok(if isnegative {num.negate()} else {num})
     }
 
-    pub(crate) fn read_number_i(&self,allowfloat:bool) -> Result<Numeric,TeXError> {
+    pub(crate) fn read_number_i(&mut self,allowfloat:bool) -> Result<Numeric,TeXError> {
         self.skip_ws();
         match self.read_number_i_opt(allowfloat)? {
             Some(i) => Ok(i),
-            _ => TeXErr!((self,None),"Number expected")
+            _ => TeXErr!("Number expected")
         }
     }
 
-    pub(crate) fn read_number_i_opt(&self,allowfloat:bool) -> Result<Option<Numeric>,TeXError> {
+    pub(crate) fn read_number_i_opt(&mut self,allowfloat:bool) -> Result<Option<Numeric>,TeXError> {
         let mut isnegative = false;
         let mut ishex = false;
         let mut isoct = false;
@@ -451,7 +450,7 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
-                            _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
+                            _ => TeXErr!(next.clone() => "Number expected; found {}",next)
                         }
                     }
                 }
@@ -496,7 +495,7 @@ impl Interpreter<'_> {
                                         self.expand_until(true)?;
                                         return Ok(Some(Numeric::Int(if isnegative {-(c.char as i32)} else {c.char as i32})))
                                     }
-                                    _ => TeXErr!((self,Some(next.clone())),"Number expected; found {}",next)
+                                    _ => TeXErr!(next.clone() => "Number expected; found {}",next)
                                 }
                             }
                         }
@@ -513,16 +512,16 @@ impl Interpreter<'_> {
                 _ => {
                     self.requeue(next);
                     if isnegative {
-                        self.push_tokens(vec!(Token::new(45,self.state_catcodes().get_code(45),None,SourceReference::None,true)))
+                        self.push_tokens(vec!(Token::new(45,self.state.catcodes.get_scheme().get_code(45),None,SourceReference::None,true)))
                     }
                     return Ok(None)
                 }
             }
         }
-        FileEnd!(self)
+        FileEnd!()
     }
 
-    pub fn read_number(&self) -> Result<i32,TeXError> {
+    pub fn read_number(&mut self) -> Result<i32,TeXError> {
         match self.read_number_i(false)? {
             Numeric::Int(i) => Ok(i),
             Numeric::Dim(i) => Ok(i),
@@ -534,7 +533,7 @@ impl Interpreter<'_> {
 
     // Dimensions ----------------------------------------------------------------------------------
 
-    fn point_to_int(&self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
+    fn point_to_int(&mut self,f:f32,allowfills:bool) -> Result<SkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let mut kws = vec!("sp","pt","pc","in","bp","cm","mm","dd","cc","em","ex","px");
         if allowfills {
@@ -551,10 +550,10 @@ impl Interpreter<'_> {
             Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
             Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
             Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
-            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(5) as f32 * f,istrue))),
-            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.get_font().get_dimen(6) as f32 * f,istrue))),
+            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(5) as f32 * f,istrue))),
+            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(6) as f32 * f,istrue))),
             Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
-                self.state_dimension(-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f32 * f,
+                self.state.dimensions.get(&-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f32 * f,
                 istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
@@ -571,59 +570,61 @@ impl Interpreter<'_> {
     fn make_true(&self,f : f32,istrue:bool) -> i32 {
         use crate::commands::primitives::MAG;
         if istrue {
-            let mag = (self.state_register(-(MAG.index as i32)) as f32) / 1000.0;
+            let mag = (self.state.registers.get(&-(MAG.index as i32)) as f32) / 1000.0;
             round_f(f * mag)
         } else { round_f(f) }
     }
 
-    pub fn read_dimension(&self) -> Result<i32,TeXError> {
+    pub fn read_dimension(&mut self) -> Result<i32,TeXError> {
         match match self.read_number_i(true)? {
             Numeric::Dim(i) => return Ok(i),
             Numeric::Int(i) => self.point_to_int(i as f32,false)?,
             Numeric::Float(f) => self.point_to_int(f,false)?,
             Numeric::Skip(sk) => return Ok(sk.base),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Dimension expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!("Dimension expected; muskip found")
         } {
             SkipDim::Pt(i) => Ok(i),
             _ => unreachable!()
         }
     }
 
-    pub fn read_skip(&self) -> Result<Skip,TeXError> {
-        match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_skip(i,None,None),
-            Numeric::Float(f) => self.rest_skip(match self.point_to_int(f,false)? {
+    pub fn read_skip(&mut self) -> Result<Skip,TeXError> {
+        let (a,b,c) = match self.read_number_i(true)? {
+            Numeric::Dim(i) => (i,None,None),
+            Numeric::Float(f) => (match self.point_to_int(f,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_skip(match self.point_to_int(f as f32,false)? {
+            Numeric::Int(f) => (match self.point_to_int(f as f32,false)? {
                 SkipDim::Pt(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Skip(s) => self.rest_skip(s.base,s.stretch,s.shrink),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
-        }
+            Numeric::Skip(s) => (s.base,s.stretch,s.shrink),
+            Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
+        };
+        self.rest_skip(a,b,c)
     }
 
-    pub fn read_muskip(&self) -> Result<MuSkip,TeXError> {
-        match self.read_number_i(true)? {
-            Numeric::Dim(i) => self.rest_muskip(i,None,None),
-            Numeric::Float(f) => self.rest_muskip(match self.point_to_muskip(f)? {
+    pub fn read_muskip(&mut self) -> Result<MuSkip,TeXError> {
+        let (a,b,c) = match self.read_number_i(true)? {
+            Numeric::Dim(i) => (i,None,None),
+            Numeric::Float(f) => (match self.point_to_muskip(f)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Int(f) => self.rest_muskip(match self.point_to_muskip(f as f32)? {
+            Numeric::Int(f) => (match self.point_to_muskip(f as f32)? {
                 MuSkipDim::Mu(i) => i,
                 _ => unreachable!()
             },None,None),
-            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
-            Numeric::MuSkip(s) =>  self.rest_muskip(s.base,s.stretch,s.shrink)
-        }
+            Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
+            Numeric::MuSkip(s) =>  (s.base,s.stretch,s.shrink)
+        };
+        self.rest_muskip(a,b,c)
     }
 
 
 
-    fn point_to_muskip(&self,f:f32) -> Result<MuSkipDim,TeXError> {
+    fn point_to_muskip(&mut self,f:f32) -> Result<MuSkipDim,TeXError> {
         use crate::interpreter::dimensions::*;
         let kws = vec!("mu","fil","fill","filll");
         //let istrue = self.read_keyword(vec!("true"))?.is_some();
@@ -641,7 +642,7 @@ impl Interpreter<'_> {
         }
     }
 
-    fn rest_skip(&self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
+    fn rest_skip(&mut self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(Skip {
                 base: dim,
@@ -683,7 +684,7 @@ impl Interpreter<'_> {
     }
 
 
-    fn rest_muskip(&self,dim:i32,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
+    fn rest_muskip(&mut self,dim:i32,plus:Option<MuSkipDim>,minus:Option<MuSkipDim>) -> Result<MuSkip,TeXError> {
         match self.read_keyword(vec!("plus","minus"))? {
             None => Ok(MuSkip {
                 base: dim,
@@ -724,22 +725,22 @@ impl Interpreter<'_> {
         }
     }
 
-    fn read_skipdim(&self) -> Result<SkipDim,TeXError> {
+    fn read_skipdim(&mut self) -> Result<SkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(SkipDim::Pt(i)),
             Numeric::Int(i) => self.point_to_int(i as f32,true),
             Numeric::Float(f) => self.point_to_int(f,true),
             Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base)),
-            Numeric::MuSkip(_) => TeXErr!((self,None),"Skip expected; muskip found")
+            Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
         }
     }
 
-    fn read_muskipdim(&self) -> Result<MuSkipDim,TeXError> {
+    fn read_muskipdim(&mut self) -> Result<MuSkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(MuSkipDim::Mu(i)),
             Numeric::Int(i) => self.point_to_muskip(i as f32),
             Numeric::Float(f) => self.point_to_muskip(f),
-            Numeric::Skip(_) => TeXErr!((self,None),"MuSkip expected; skip found"),
+            Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
             Numeric::MuSkip(sk) => Ok(MuSkipDim::Mu(sk.base))
         }
     }

@@ -99,8 +99,9 @@ pub static PGFHBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!hbox",
     modes: |_| {true},
     _get: |tk, int| {
+        let num = int.read_number()?;
         Ok(PGFEscape {
-            bx:int.state_get_box(int.read_number()?),
+            bx:int.state.boxes.take(num),
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     },
@@ -215,9 +216,9 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
     use crate::commands::AssignableValue;
     let p = int.get_command(&s.into())?;
     match &*p.orig {
-        PrimitiveTeXCommand::AV(AssignableValue::Dim(u)) => Ok(int.state_dimension(*u as i32)),
-        PrimitiveTeXCommand::AV(AssignableValue::PrimDim(r)) => Ok(int.state_dimension(- (r.index as i32))),
-        _ => TeXErr!((int,None),"Not a dimension: \\{}",s)
+        PrimitiveTeXCommand::AV(AssignableValue::Dim(u)) => Ok(int.state.dimensions.get(&(*u as i32))),
+        PrimitiveTeXCommand::AV(AssignableValue::PrimDim(r)) => Ok(int.state.dimensions.get(&-(r.index as i32))),
+        _ => TeXErr!("Not a dimension: \\{}",s)
     }
 }
 
@@ -225,8 +226,9 @@ pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
     modes: |x| {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal},
     _get: |tk, int| {
+        let num = int.read_number()?;
         Ok(PGFBox {
-            content:int.state_get_box(int.read_number()?).children(),
+            content:int.state.boxes.take(num).children(),
             sourceref:int.update_reference(tk),
             minx:get_dimen("pgf@picminx",int)?,
             miny:get_dimen("pgf@picminy",int)?,
@@ -278,7 +280,8 @@ pub static PGFLITERAL : SimpleWhatsit = SimpleWhatsit {
     name: "rustex!pgf!literal",
     modes: |_| { true },
     _get: |_, int| {
-        let str = int.tokens_to_string(&int.read_balanced_argument(true,false,false,true)?);
+        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let str = int.tokens_to_string(&tks);
         Ok(PGFLiteral { str:str.into() }.as_whatsit())
     },
 };

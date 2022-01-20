@@ -3,7 +3,7 @@ pub use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, TeXErr};
 use crate::commands::DefMacro;
 use crate::fonts::Font;
-use crate::interpreter::state::{GroupType, StateChange};
+use crate::interpreter::state::{GroupType, State};
 use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
 use crate::stomach::simple::{AlignBlock, HAlign, HSkip, SimpleWI};
@@ -11,6 +11,7 @@ use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::{Insert, PrintChar, WhatsitTrait};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
+use crate::interpreter::params::InterpreterParams;
 use crate::stomach::boxes::{HBox, TeXBox};
 
 pub mod whatsits;
@@ -61,7 +62,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                             if currentheight + p.lineheight.unwrap() > target {
                                 break Some(Whatsit::Par(p))
                             }
-                            let (f,s) = p.split(target - currentheight,int);
+                            let (f,s) = p.split(target - currentheight,&int.state);
                             presplit.last_mut().unwrap().push(Whatsit::Par(f));
                             break Some(Whatsit::Par(s))
                         } else {
@@ -180,12 +181,6 @@ impl StomachGroup {
             Top(t) => t.push(wi),
             TeXGroup(_,t) => t.push(wi),
             Par(t) => {
-                /*match wi {
-                    Whatsit::Simple(SimpleWI::VSkip(_)) => {
-                        println!("Here!")
-                    }
-                    _ => ()
-                }*/
                 t.children.push(wi)
             },
             Other(wg) => wg.push(wi),
@@ -228,45 +223,45 @@ pub enum StomachMessage {
 pub trait Stomach : Send {
     fn base_mut(&mut self) -> &mut StomachBase;
     fn base(&self) -> &StomachBase;
-    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError>;
-    fn on_begin_document_inner(&mut self, int: &Interpreter);
+    fn add(&mut self,state:&mut State,params:&dyn InterpreterParams, wi: Whatsit) -> Result<(),TeXError>;
+    fn on_begin_document_inner(&mut self, state: &mut State);
 
     // ---------------------------------------------------------------------------------------------
 
-    fn start_paragraph(&mut self,int:&Interpreter,parskip:i32) {
-        self.flush(int).unwrap();
+    fn start_paragraph(&mut self,parskip:i32) {
+        self.flush().unwrap();
         self.base_mut().stomachgroups.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
-    fn end_paragraph(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        self.flush(int)?;
-        let mut p = self.end_paragraph_loop(int)?;
+    fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
+        self.flush()?;
+        let mut p = self.end_paragraph_loop()?;
         let hangindent = self.base().hangindent;
         let hangafter = self.base().hangafter;
         let parshape = std::mem::take(&mut self.base_mut().parshape);
-        p.close(int,hangindent,hangafter,parshape);
-        self.add(int,Whatsit::Par(p))?;
+        p.close(state,hangindent,hangafter,parshape);
+        self.add_inner_actually(Whatsit::Par(p))?;
         self.reset_par();
         Ok(())
     }
 
-    fn end_paragraph_loop(&mut self,int:&Interpreter) -> Result<Paragraph,TeXError> {
+    fn end_paragraph_loop(&mut self) -> Result<Paragraph,TeXError> {
         if self.base().stomachgroups.len() < 2 {
-            TeXErr!((int,None),"Can't close paragraph in stomach!")
+            TeXErr!("Can't close paragraph in stomach!")
         } else {
             let ret = self.base_mut().stomachgroups.pop().unwrap();
             match ret {
                 StomachGroup::Par(p) => Ok(p),
                 StomachGroup::TeXGroup(gt,v) => {
-                    for c in v { self.add(int,c)? }
-                    let ret = self.end_paragraph_loop(int)?;
+                    for c in v { self.add_inner_actually(c)? }
+                    let ret = self.end_paragraph_loop()?;
                     self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(gt, vec!()));
                     Ok(ret)
                 }
                 StomachGroup::Other(g) => {
                     let ng = StomachGroup::Other(g.new_from());
-                    self.add(int,Whatsit::Grouped(g))?;
-                    let ret = self.end_paragraph_loop(int)?;
+                    self.add_inner_actually(Whatsit::Grouped(g))?;
+                    let ret = self.end_paragraph_loop()?;
                     self.base_mut().stomachgroups.push(ng);
                     Ok(ret)
                 }
@@ -278,10 +273,10 @@ pub trait Stomach : Send {
     fn new_group(&mut self,tp:GroupType) {
         self.base_mut().buffer.push(Whatsit::GroupOpen(WIGroup::GroupOpen(tp)))
     }
-    fn pop_group(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>, TeXError> {
-        self.flush(int)?;
+    fn pop_group(&mut self,state:&mut State) -> Result<Vec<Whatsit>, TeXError> {
+        self.flush()?;
         if self.base().stomachgroups.len() < 2 {
-            TeXErr!((int,None),"Can't close group in stomach!")
+            TeXErr!("Can't close group in stomach!")
         } else {
             let ret = self.base_mut().stomachgroups.pop().unwrap();
             match ret {
@@ -294,7 +289,7 @@ pub trait Stomach : Send {
                         let buf = self.base_mut().stomachgroups.last_mut().unwrap();
                         for c in g.children_prim() {buf.push(c)}
                     }
-                    let ret = self.pop_group(int)?;
+                    let ret = self.pop_group(state)?;
                     for c in repushes {
                         self.base_mut().stomachgroups.push(StomachGroup::Other(c))
                     }
@@ -302,16 +297,16 @@ pub trait Stomach : Send {
                 }
                 StomachGroup::Par(_) => {
                     self.base_mut().stomachgroups.push(ret);
-                    self.end_paragraph(int)?;
-                    self.pop_group(int)
+                    self.end_paragraph(state)?;
+                    self.pop_group(state)
                 }
                 _ => todo!()
             }
         }
     }
 
-    fn close_group(&mut self,int:&Interpreter) -> Result<(),TeXError> {
-        self.flush(int)?;
+    fn close_group(&mut self) -> Result<(),TeXError> {
+        self.flush()?;
         let mut cwgs: Vec<WIGroup> = vec!();
         for bg in self.base().stomachgroups.iter().rev() {
             match bg {
@@ -323,19 +318,19 @@ pub trait Stomach : Send {
                 _ => ()
             }
         }
-        for _ in cwgs { self._close_stomach_group(int,GroupClose::EndGroup(EndGroup{sourceref:None}))?; }
+        for _ in cwgs { self._close_stomach_group(GroupClose::EndGroup(EndGroup{sourceref:None}))?; }
 
         let top = self.base_mut().stomachgroups.pop();
         match top {
             None => {
-                TeXErr!((int,None),"Stomach empty")
+                TeXErr!("Stomach empty")
             },
             Some(StomachGroup::TeXGroup(_,v)) => {
-                for c in v { self.add_inner_actually(int,c)? }
+                for c in v { self.add_inner_actually(c)? }
                 Ok(())
             }
             Some(StomachGroup::Other(g)) if g.closes_with_group() => {
-                self.close_group(int)?;
+                self.close_group()?;
                 let mut ng = g.new_from();
                 let mut nv = g.children_prim();
                 let mut latter : Vec<Whatsit> = vec!();
@@ -348,22 +343,22 @@ pub trait Stomach : Send {
                 }
                 if !nv.is_empty() {
                     for v in nv { ng.push(v) }
-                    self.add_inner_actually(int, Whatsit::Grouped(ng))?;
+                    self.add_inner_actually( Whatsit::Grouped(ng))?;
                 }
-                for r in latter { self.add_inner_actually(int,r)? }
+                for r in latter { self.add_inner_actually(r)? }
                 Ok(())
             }
             Some(p) => {
-                self.close_group(int)?;
+                self.close_group()?;
                 self.base_mut().stomachgroups.push(p);
                 Ok(())
             }
         }
     }
 
-    fn _close_stomach_group(&mut self, int:&Interpreter, wi:GroupClose) -> Result<(),TeXError> {
+    fn _close_stomach_group(&mut self, wi:GroupClose) -> Result<(),TeXError> {
         let top = match self.base_mut().stomachgroups.pop() {
-            None => TeXErr!((int,None),"Error in Stomach: Stomach empty"),
+            None => TeXErr!("Error in Stomach: Stomach empty"),
             Some(p) => p
         };
         if top.priority() == wi.priority() {
@@ -382,19 +377,19 @@ pub trait Stomach : Send {
             }
             if !nv.is_empty() {
                 for v in nv { ng.push(v) }
-                self.add_inner_actually(int, Whatsit::Grouped(ng))?;
+                self.add_inner_actually(Whatsit::Grouped(ng))?;
             }
-            for r in latter { self.add_inner_actually(int,r)? }
+            for r in latter { self.add_inner_actually(r)? }
             Ok(())
         } else if top.priority() > wi.priority() {
             let wiopen = match self.base().stomachgroups.iter().rev().find(|x| x.priority() == wi.priority()) {
                 Some(StomachGroup::Other(w)) => w,
                 _ => {
-                    TeXErr!((int,None),"No group to close")
+                    TeXErr!("No group to close")
                 }
             };
             let mut nwi = wiopen.new_from();
-            self._close_stomach_group(int,wi)?;
+            self._close_stomach_group(wi)?;
             self.base_mut().stomachgroups.push(top.new_from());
             *nwi.children_mut() = top.get_d();
             self.base_mut().stomachgroups.last_mut().unwrap().push(Whatsit::Grouped(nwi));
@@ -403,28 +398,26 @@ pub trait Stomach : Send {
             match top {
                 StomachGroup::Other(mut wg) => {
                     let ng = StomachGroup::Other(wg.new_from());
-                    self.add_inner_actually(int,Whatsit::Grouped(wg))?;
-                    self._close_stomach_group(int,wi)?;
+                    self.add_inner_actually(Whatsit::Grouped(wg))?;
+                    self._close_stomach_group(wi)?;
                     self.base_mut().stomachgroups.push(ng);
                     Ok(())
                 }
                 StomachGroup::TeXGroup(gt@(GroupType::Token|GroupType::Begingroup),nv) => {
-                    for w in nv {self.add_inner_actually(int,w)?;}
-                    self._close_stomach_group(int,wi)?;
+                    for w in nv {self.add_inner_actually(w)?;}
+                    self._close_stomach_group(wi)?;
                     self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(gt,vec!()));
                     Ok(())
                 }
-                _ => {
-                    TeXErr!((int,None),"No group to close")
-                }
+                _ => TeXErr!("No group to close")
             }
         }
     }
 
-    fn add_inner(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+    fn add_inner(&mut self,state:&mut State,params:&dyn InterpreterParams, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::Ls(ls) => {
-                for wi in ls { self.add(int,wi)? }
+                for wi in ls { self.add(state,params,wi)? }
                 Ok(())
             }
             Whatsit::GroupOpen(_) => {
@@ -445,14 +438,14 @@ pub trait Stomach : Send {
                             Ok(())
                         }
                         None => {
-                            self.flush(int)?;
+                            self.flush()?;
                             self.base_mut().buffer.push(wi);
                             Ok(())
                         }
                     }
                 }
                 _ => {
-                    self.flush(int)?;
+                    self.flush()?;
                     self.base_mut().buffer.push(wi);
                     Ok(())
                 }
@@ -477,21 +470,21 @@ pub trait Stomach : Send {
                 Ok(())
             },
             _ => {
-                self.flush(int)?;
-                self.add_inner_actually(int,wi)
+                self.flush()?;
+                self.add_inner_actually(wi)
             }
         }
     }
 
-    fn flush(&mut self,int:&Interpreter) -> Result<(),TeXError> {
+    fn flush(&mut self) -> Result<(),TeXError> {
         let buffer : Vec<Whatsit> = std::mem::take(self.base_mut().buffer.as_mut());
         for w in buffer {
-            self.add_inner_actually(int,w)?
+            self.add_inner_actually(w)?
         }
         Ok(())
     }
 
-    fn add_inner_actually(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+    fn add_inner_actually(&mut self, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::GroupOpen(WIGroup::GroupOpen(tp)) => {
                 self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(tp, vec!()));
@@ -502,7 +495,7 @@ pub trait Stomach : Send {
                 Ok(())
             }
             Whatsit::GroupClose(g) => {
-                self._close_stomach_group(int,g)
+                self._close_stomach_group(g)
             },
             o => {
                 if self.base().stomachgroups.is_empty() {
@@ -534,7 +527,7 @@ pub trait Stomach : Send {
         for r in repush { self.base_mut().buffer.push(r) }
     }
 
-    fn last_halign(&mut self,_:&Interpreter,mut halign:HAlign) -> bool {
+    fn last_halign(&mut self,mut halign:HAlign) -> bool {
         match halign.rows.pop() {
             Some(AlignBlock::Block(v)) => {
                 let mut ch : Vec<Whatsit> = vec!();
@@ -571,19 +564,14 @@ pub trait Stomach : Send {
                 self.base_mut().buffer.push(HAlign{
                     skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
                 }.as_whatsit());
-                for w in v.drain(..).rev() {
-                    /*match w {
-                        Whatsit::Simple(SimpleWI::Penalty(_)) => (),
-                        _ =>*/ self.base_mut().buffer.push(w)
-                    //}
-                }
+                for w in v.drain(..).rev() { self.base_mut().buffer.push(w) }
                 true
             }
             _ => false
         }
     }
 
-    fn last_box(&mut self,int:&Interpreter) -> Result<Option<TeXBox>,TeXError> {
+    fn last_box(&mut self) -> Result<Option<TeXBox>,TeXError> {
         let mut repush : Vec<Whatsit> = vec!();
         loop {
             match self.base_mut().buffer.pop() {
@@ -598,10 +586,10 @@ pub trait Stomach : Send {
                     return Ok(Some(tb))
                 }
                 Some(Whatsit::Simple(SimpleWI::HAlign(h))) => {
-                    let done = self.last_halign(int,h);
+                    let done = self.last_halign(h);
                     repush.reverse();
                     for r in repush { self.base_mut().buffer.push(r) }
-                    if done { return self.last_box(int) } else { return Ok(None) }
+                    if done { return self.last_box() } else { return Ok(None) }
                 },
                 Some(r) => {
                     repush.push(r);
@@ -615,7 +603,7 @@ pub trait Stomach : Send {
         Ok(None)
     }
 
-    fn last_whatsit(&mut self,int:&Interpreter) -> Option<Whatsit> {
+    fn last_whatsit(&mut self) -> Option<Whatsit> {
         let mut repush : Vec<Whatsit> = vec!();
         loop {
             match self.base_mut().buffer.pop() {
@@ -627,10 +615,10 @@ pub trait Stomach : Send {
                     repush.push(r);
                 },
                 Some(Whatsit::Simple(SimpleWI::HAlign(h))) => {
-                    let ret = self.last_halign(int,h);
+                    let ret = self.last_halign(h);
                     repush.reverse();
                     for r in repush { self.base_mut().buffer.push(r) }
-                    if ret { return self.last_whatsit(int) } else {return None}
+                    if ret { return self.last_whatsit() } else {return None}
                 },
                 Some(r) => {
                     repush.push(r.clone());
@@ -646,9 +634,9 @@ pub trait Stomach : Send {
         None
     }
 
-    fn on_begin_document(&mut self, int: &Interpreter) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
-        self.flush(int).unwrap();
-        int.state.borrow_mut().indocument = true;
+    fn on_begin_document(&mut self, state:&mut State) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
+        self.flush().unwrap();
+        state.indocument = true;
         let base = self.base_mut();
         base.indocument = true;
         let mut basefont: Option<Arc<Font>> = None;
@@ -679,40 +667,10 @@ pub trait Stomach : Send {
             }
         }
         for r in rets {base.stomachgroups.first_mut().unwrap().push(r)}
-        /*loop {
-            let pop = stack.pop();
-            match pop {
-                Some(StomachGroup::Top(v)) => {
-                    stack.push(StomachGroup::Top(v));
-                    break
-                }
-                Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_)) => panic!("This shouldn't happen!"),
-                Some(StomachGroup::TeXGroup(gt,v)) => {
-                    groups.push(gt);
-                    for c in v {stack.last_mut().unwrap().push(c)}
-                }
-                Some(StomachGroup::Other(WIGroup::FontChange(f))) => {
-                    basefont = Some(f.font);
-                    for c in f.children {stack.last_mut().unwrap().push(c)}
-                }
-                Some(StomachGroup::Other(WIGroup::ColorChange(cc))) => {
-                    basecolor = ColorChange::color_to_html(cc.color).into();
-                    for c in cc.children {stack.last_mut().unwrap().push(c)}
-                }
-                Some(o) => {
-                    stack.push(o);
-                    panic!("This shouldn't happen")
-                }
-                None => panic!("This shouldn't happen")
-            }
-        }
-        for gt in groups.iter().rev() {
-            stack.push(StomachGroup::TeXGroup(*gt,vec!()))
-        } */
         if basefont.is_none() {
-            basefont = Some(int.get_font())
+            basefont = Some(state.currfont.get(&()))
         }
-        self.on_begin_document_inner(int);
+        self.on_begin_document_inner(state);
         let (sender,receiver) = mpsc::channel::<StomachMessage>();
         self.base_mut().sender = Some(sender);
         (receiver,basefont.unwrap(),basecolor)
@@ -727,29 +685,29 @@ pub trait Stomach : Send {
     fn page_height(&self) -> i32 {
         self.base().pageheight
     }
-    fn close_all(&mut self,int:&Interpreter) -> Result<Vec<Whatsit>,TeXError> {
-        self.flush(int)?;
+    fn close_all(&mut self,state:&mut State) -> Result<Vec<Whatsit>,TeXError> {
+        self.flush()?;
         loop {
             let last = self.base_mut().stomachgroups.pop();
             match last {
                 Some(StomachGroup::Top(v)) => {
                     return Ok(v)
                 },
-                Some(StomachGroup::Other(g)) => self.add_inner_actually(int,Whatsit::Grouped(g))?,
+                Some(StomachGroup::Other(g)) => self.add_inner_actually(Whatsit::Grouped(g))?,
                 Some(p@StomachGroup::Par(_)) => {
                     self.base_mut().stomachgroups.push(p);
-                    self.end_paragraph(int)?
+                    self.end_paragraph(state)?
                 },
                 Some(g@StomachGroup::TeXGroup(_,_)) => {
                     self.base_mut().stomachgroups.push(g);
-                    for w in self.pop_group(int)? { self.add_inner_actually(int,w)? }
+                    for w in self.pop_group(state)? { self.add_inner_actually(w)? }
                 }
                 None => return Ok(vec!())
             }
         }
     }
-    fn finish(&mut self,int:&Interpreter) {
-        let wis = self.close_all(int);
+    fn finish(&mut self,state:&mut State) {
+        let wis = self.close_all(state);
         match self.base().sender.as_ref() {
             Some(sender) => {
                 match wis {
@@ -761,9 +719,9 @@ pub trait Stomach : Send {
             _ => ()
         }
     }
-    fn final_xml(&mut self,int:&Interpreter) -> Result<String,TeXError> {
-        let wis = self.close_all(int)?;
-        self.finish(int);
+    fn final_xml(&mut self,state:&mut State) -> Result<String,TeXError> {
+        let wis = self.close_all(state)?;
+        self.finish(state);
         let mut ret = "<doc>\n".to_string();
         for w in wis {
             ret += &w.as_xml_internal("  ".to_string())
@@ -823,12 +781,12 @@ impl NoShipoutRoutine {
             floatcmd:None
         }
     }
-    fn do_floats(&mut self, int: &Interpreter) -> Result<(), TeXError> {
+    fn do_floats(&mut self, state: &mut State, params:&dyn InterpreterParams) -> Result<(), TeXError> {
         use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
         //for s in &self.floatlist { println!("{}",s)}
-        let inserts = int.state.borrow_mut().inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
-        let cmd = int.get_command(&"@freelist".into()).unwrap();
+        let inserts = state.inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
+        let cmd = state.commands.get(&"@freelist".into()).unwrap();
         let floatregs : Vec<i32> = match &*cmd.orig {
             PrimitiveTeXCommand::Def(df) if *df != *self.floatcmd.as_ref().unwrap() => {
                 let mut freefloats: Vec<TeXStr> = vec!();
@@ -844,29 +802,30 @@ impl NoShipoutRoutine {
             _ => vec!()
         };
         if !inserts.is_empty() {
-            self.add(int,Whatsit::Inserts(Insert(inserts)))?
+            self.add(state,params,Whatsit::Inserts(Insert(inserts)))?
         }
         if !floatregs.is_empty() {
-            int.change_state(StateChange::Cs("@freelist".into(),
-                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true))
+            state.commands.set("@freelist".into(),
+                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true)
         }
         for fnm in floatregs {
-            self.add(int,Whatsit::Float(int.state_get_box(fnm)))?
+            let bx = state.boxes.take(fnm);
+            self.add(state,params,Whatsit::Float(bx))?
         }
         Ok(())
     }
-    fn get_float_list(&mut self, int: &Interpreter) -> Vec<(TeXStr,i32)> {
+    fn get_float_list(&mut self, state: &State) -> Vec<(TeXStr,i32)> {
         use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
         let mut ret: Vec<(TeXStr,i32)> = vec!();
-        let cmd = int.get_command(&"@freelist".into()).unwrap();
+        let cmd = state.commands.get(&"@freelist".into()).unwrap();
         match &*cmd.orig {
             PrimitiveTeXCommand::Def(df) => {
                 for tk in &df.ret {
                     match (tk.catcode, tk.cmdname()) {
                         (_, s) if &s == "@elt" => (),
                         (Escape, o) => {
-                            let p = &*int.state_get_command(&o).unwrap().orig;
+                            let p = &*state.commands.get(&o).unwrap().orig;
                             match p {
                                 PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
                                 _ => panic!("Weird float setup")
@@ -894,27 +853,26 @@ impl Stomach for NoShipoutRoutine {
     fn base(&self) -> &StomachBase {
         &self.base
     }
-    fn add(&mut self,int:&Interpreter, wi: Whatsit) -> Result<(),TeXError> {
+    fn add(&mut self,state:&mut State,params:&dyn InterpreterParams, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::Simple(SimpleWI::Penalty(ref p)) if p.penalty <= -1000 && self.is_top() && self.base().indocument => {
-                /*let last_one = self.base_mut().stomachgroups.iter_mut().rev().find(|x| match x {
-                    StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) => true,
-                    StomachGroup::Par(_) => true,
-                    StomachGroup::Top(_) => true,
-                    o => !o.get().is_empty()
-                }).unwrap();
-                last_one.push(wi);*/
-                self.add_inner(int,wi)?;
-                self.do_floats(int)?;
+                self.add_inner(state,params,wi)?;
+                self.do_floats(state,params)?;
                 Ok(())
             }
-            Whatsit::Exec(e) => (std::sync::Arc::try_unwrap(e).ok().unwrap()._apply)(int),
-            _ => self.add_inner(int,wi)
+            Whatsit::Exec(e) => (std::sync::Arc::try_unwrap(e).ok().unwrap()._apply)(state,params),
+            _ => self.add_inner(state,params,wi)
         }
     }
-    fn on_begin_document_inner(&mut self, int: &Interpreter) {
-        self.floatlist = self.get_float_list(int);
+    fn on_begin_document_inner(&mut self, state: &mut State) {
+        self.floatlist = self.get_float_list(state);
         let maxval= i32::MAX;
-        int.change_state(StateChange::Dimen(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true));
+        state.dimensions.set(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true);
+    }
+}
+
+impl Interpreter<'_> {
+    pub fn stomach_add(&mut self,wi:Whatsit) -> Result<(),TeXError> {
+        self.stomach.add(&mut self.state,self.params,wi)
     }
 }

@@ -4,6 +4,8 @@ use std::sync::Arc;
 use crate::fonts::Font;
 use crate::references::SourceFileReference;
 use crate::{htmlliteral};
+use crate::interpreter::params::InterpreterParams;
+use crate::interpreter::state::State;
 
 pub trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
@@ -198,7 +200,7 @@ impl ActionSpec {
 // -------------------------------------------------------------------------------------------------
 
 pub struct ExecutableWhatsit {
-    pub _apply : Box<dyn (Fn(&Interpreter) -> Result<(),TeXError>) + Send + Sync>
+    pub _apply : Box<dyn (Fn(&mut State,&dyn InterpreterParams) -> Result<(),TeXError>) + Send + Sync>
 }
 impl ExecutableWhatsit {
     pub fn as_whatsit(self) -> Whatsit {

@@ -2,9 +2,9 @@ use std::ops::Deref;
 use std::sync::Arc;
 use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
-use crate::ontology::{Token, Expansion, ExpansionRef};
+use crate::ontology::{Token, ExpansionRef};
 use crate::catcodes::CategoryCode;
-use crate::interpreter::state::{FontStyle, GroupType, StateChange};
+use crate::interpreter::state::{FontStyle, GroupType, State};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
@@ -17,17 +17,17 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     },
     _get: |tk,int| {
-        match int.get_mode() {
+        match int.state.mode {
             TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Space(
                 SpaceChar {
-                    font: int.get_font(),
+                    font: int.state.currfont.get(&()),
                     sourceref: int.update_reference(tk)
                 })),
             _ => Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {
-                    class:0,family:0,position:0,font:int.state.borrow().get_text_font(0),
+                    class:0,family:0,position:0,font:int.state.textfonts.get(&0),
                     sourceref:int.update_reference(tk)
-                }),int.state.borrow().display_mode())))
+                }),int.state.displaymode.get(&()))))
         }
     }
 };
@@ -35,14 +35,14 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
 pub static PAR : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"par",
-    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+    _apply:|_, _| {
         Ok(())
     }
 };
 pub static RELAX : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     name:"relax",
-    _apply:|_cs: &mut Expansion, _int: &Interpreter| {
+    _apply:|_, _| {
         Ok(())
     }
 };
@@ -52,12 +52,12 @@ pub static CATCODE : NumAssValue = NumAssValue {
         let num = int.read_number()? as u8;
         int.read_eq();
         let cat = CategoryCode::fromint(int.read_number()?);
-        int.change_state(StateChange::Cat(num,cat,global));
+        int.state.catcodes.set(num,cat,global);
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()?;
-        Ok(Numeric::Int(CategoryCode::toint(&int.state_catcodes().get_code(char as u8)) as i32))
+        Ok(Numeric::Int(CategoryCode::toint(&int.state.catcodes.get_scheme().get_code(char as u8)) as i32))
     }
 };
 
@@ -67,12 +67,12 @@ pub static SFCODE : NumAssValue = NumAssValue {
         let char = int.read_number()? as u8;
         int.read_eq();
         let val = int.read_number()?;
-        int.change_state(StateChange::Sfcode(char,val,global));
+        int.state.sfcodes.set(char,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_sfcode(char)))
+        Ok(Numeric::Int(int.state.sfcodes.get(&char)))
     }
 };
 
@@ -87,7 +87,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(rf);
-        int.change_state(StateChange::Cs(c.cmdname().clone(),Some(cmd),global));
+        int.state.commands.set(c.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -99,12 +99,12 @@ pub static COUNT : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_number()?;
         log!("\\count sets {} to {}",index,val);
-        int.change_state(StateChange::Register(index as i32,val,global));
+        int.state.registers.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as i32;
-        let num = int.state_register(index);
+        let num = int.state.registers.get(&index);
         log!("\\count {} = {}",index,num);
         Ok(Numeric::Int(num))
     }
@@ -117,12 +117,12 @@ pub static DIMEN : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_dimension()?;
         log!("\\dimen sets {} to {}",index,val);
-        int.change_state(StateChange::Dimen(index as i32,val,global));
+        int.state.dimensions.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state_dimension(index as i32);
+        let dim = int.state.dimensions.get(&(index as i32));
         log!("\\dimen {} = {}",index,dim);
         Ok(Numeric::Dim(dim))
     }
@@ -135,12 +135,12 @@ pub static SKIP : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_skip()?;
         log!("\\skip sets {} to {}",index,val);
-        int.change_state(StateChange::Skip(index as i32,val,global));
+        int.state.skips.set(index as i32,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state_skip(index as i32);
+        let dim = int.state.skips.get(&(index as i32));
         log!("\\skip {} = {}",index,dim);
         Ok(Numeric::Skip(dim))
     }
@@ -155,9 +155,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-                                         global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -171,9 +169,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -186,10 +182,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_ref(rf);
-
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -203,9 +196,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-                                         global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -219,9 +210,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_ref(rf);
 
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),
-                                         Some(command),
-            global));
+        int.state.commands.set(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -255,13 +244,13 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
                             global = true;
                         }
-                        _ => TeXErr!((int,Some(next.clone())),"Expected \\def or \\edef or \\long after \\protected: {}",next)
+                        _ => TeXErr!(next.clone() => "Expected \\def or \\edef or \\long after \\protected: {}",next)
                     }
                 }
-                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!(next.clone() => "Expected control sequence or active character; got: {}",next)
             }
         }
-        FileEnd!(int)
+        FileEnd!()
     }
 };
 
@@ -294,18 +283,18 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                         PrimitiveTeXCommand::Ass(a) if *a == GLOBAL => {
                             global = true;
                         }
-                        _ => TeXErr!((int,Some(next)),"Expected \\def or \\edef or \\protected after \\long")
+                        _ => TeXErr!(next => "Expected \\def or \\edef or \\protected after \\long")
                     }
                 }
-                _ => TeXErr!((int,Some(next.clone())),"Expected control sequence or active character; got: {}",next)
+                _ => TeXErr!(next.clone() => "Expected control sequence or active character; got: {}",next)
             }
         }
-        FileEnd!(int)
+        FileEnd!()
     }
 };
 
 
-fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
+fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
     let mut retsig : Vec<ParamToken> = Vec::new();
     let mut currarg = 1 as u8;
     while int.has_next() {
@@ -331,14 +320,14 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
                     }
                     _ => {
                         if inext.char < 48 {
-                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                            TeXErr!(inext.clone() => "Expected argument #{}; got:#{}",currarg,inext)
                         }
                         let arg = inext.char - 48;
                         if currarg == arg {
                             retsig.push(ParamToken::Param(arg,next));
                             currarg += 1
                         } else {
-                            TeXErr!((int,Some(inext.clone())),"Expected argument #{}; got:#{}",currarg,inext)
+                            TeXErr!(inext.clone() => "Expected argument #{}; got:#{}",currarg,inext)
                         }
                     }
                 }
@@ -346,14 +335,14 @@ fn read_sig(int:&Interpreter) -> Result<Signature,TeXError> {
             _ => retsig.push(ParamToken::Token(next))
         }
     }
-    FileEnd!(int)
+    FileEnd!()
 }
 
-fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
+fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
-        _ => TeXErr!((int,Some(command.clone())),"\\def expected control sequence or active character; got: {}",command)
+        _ => TeXErr!(command.clone() => "\\def expected control sequence or active character; got: {}",command)
     }
     let sig = read_sig(int)?;
     let ret = int.read_token_list(edef,true,edef,false)?;
@@ -364,9 +353,7 @@ fn do_def(rf:ExpansionRef, int:&Interpreter, global:bool, protected:bool, long:b
         sig,
         ret
     }).as_ref(rf);
-    int.change_state(StateChange::Cs(command.cmdname().clone(),
-                                     Some(dm),
-        global));
+    int.state.commands.set(command.cmdname(),Some(dm),global);
     Ok(())
 }
 
@@ -384,7 +371,7 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
         let next = int.read_command_token()?;
         let cmd = int.get_command(&next.cmdname())?;
         if !cmd.assignable() {
-            TeXErr!((int,Some(next.clone())),"Assignment expected after \\global; found: {}",next)
+            TeXErr!(next.clone() => "Assignment expected after \\global; found: {}",next)
         }
         cmd.assign(next,int,true)?;
         Ok(())
@@ -416,18 +403,18 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |rf,int,global| {
         let cmd = int.next_token();
         if cmd.catcode != CategoryCode::Escape && cmd.catcode != CategoryCode::Active {
-            TeXErr!((int,Some(cmd.clone())),"Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
+            TeXErr!(cmd.clone() => "Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
         }
         int.read_eq();
         let def = int.next_token();
         log!("\\let {}={}",cmd,def);
         let ch = match def.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state_get_command(&def.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&def.cmdname()).map(|x| x.as_ref(rf.0))
             }
             _ => Some(PrimitiveTeXCommand::Char(def).as_ref(rf))
         };
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),ch,global));
+        int.state.commands.set(cmd.cmdname(),ch,global);
         Ok(())
     }
 };
@@ -438,17 +425,17 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
         let newcmd = int.next_token();
         match newcmd.catcode {
             CategoryCode::Escape | CategoryCode::Active => {}
-            _ => TeXErr!((int,Some(newcmd)),"Expected command after \\futurelet")
+            _ => TeXErr!(newcmd => "Expected command after \\futurelet")
         }
         let first = int.next_token();
         let second = int.next_token();
         let p = match second.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state_get_command(&second.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&second.cmdname()).map(|x| x.as_ref(rf.0))
             }
             _ => Some(PrimitiveTeXCommand::Char(second.clone()).as_command())
         };
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),p,global));
+        int.state.commands.set(newcmd.cmdname(),p,global);
         int.push_tokens(vec!(first,second));
         Ok(())
     }
@@ -460,11 +447,11 @@ pub static NEWLINECHAR : NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\newlinechar: {}",num);
-        int.change_state(StateChange::Newline(num,global));
+        int.state.catcodes.set_newline(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().newlinechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().newlinechar as i32))
     }
 };
 
@@ -474,11 +461,11 @@ pub static ENDLINECHAR : NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\endlinechar: {}",num);
-        int.change_state(StateChange::Endline(num,global));
+        int.state.catcodes.set_endline(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().endlinechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().endlinechar as i32))
     }
 };
 
@@ -488,11 +475,11 @@ pub static ESCAPECHAR: NumAssValue = NumAssValue {
         int.read_eq();
         let num = int.read_number()? as u8;
         log!("\\escapechar: {}",num);
-        int.change_state(StateChange::Escapechar(num,global));
+        int.state.catcodes.set_escape(num,global);
         Ok(())
     },
     _getvalue: |int| {
-        Ok(Numeric::Int(int.state_catcodes().escapechar as i32))
+        Ok(Numeric::Int(int.state.catcodes.get_scheme().escapechar as i32))
     }
 };
 
@@ -537,7 +524,7 @@ pub static BEGINGROUP : PrimitiveExecutable = PrimitiveExecutable {
     name:"begingroup",
     expandable:false,
     _apply:|_rf,int| {
-        int.new_group(GroupType::Begingroup);
+        int.state.push(int.stomach,GroupType::Begingroup);
         Ok(())
     }
 };
@@ -590,39 +577,39 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
     name: "number"
 };
 
-fn get_inrv(int:&Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
+fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     int.expand_until(true)?;
     let cmd = int.read_command_token()?;
     let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) => {
             int.read_keyword(vec!("by"))?;
-            ((i as i32),Numeric::Int(int.state_register(i as i32)),int.read_number_i(false)?)
+            ((i as i32),Numeric::Int(int.state.registers.get(&(i as i32))),int.read_number_i(false)?)
         }
         AV(AssignableValue::PrimReg(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Int(int.state_register(- (r.index as i32))), int.read_number_i(false)?)
+            (-(r.index as i32), Numeric::Int(int.state.registers.get(&-(r.index as i32))), int.read_number_i(false)?)
         }
         AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = int.read_number()? as u16;
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Int(int.state_register(i as i32)),int.read_number_i(false)?)
+            (i as i32,Numeric::Int(int.state.registers.get(&(i as i32))),int.read_number_i(false)?)
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Dim(int.state_dimension(i as i32)), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Dim(int.state_register(-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            (-(r.index as i32), Numeric::Dim(int.state.registers.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         AV(AssignableValue::Skip(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32, Numeric::Skip(int.state_skip(i as i32)),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+            (i as i32, Numeric::Skip(int.state.skips.get(&(i as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
         }
         AV(AssignableValue::PrimSkip(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Skip(int.state_skip(-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+            (-(r.index as i32), Numeric::Skip(int.state.skips.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
         }
         ref p =>{
             todo!("{}",p)
@@ -636,12 +623,11 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,div) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
-        let ch = match num {
-            Numeric::Int(i) => StateChange::Register(index, i / div.get_i32(), global),
-            Numeric::Dim(i) => StateChange::Dimen(index, i / div.get_i32(),global),
+        match num {
+            Numeric::Int(i) => int.state.registers.set(index, i / div.get_i32(), global),
+            Numeric::Dim(i) => int.state.dimensions.set(index, i / div.get_i32(),global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -650,18 +636,17 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,fac) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
-        let ch = match num {
-            Numeric::Int(_) => StateChange::Register(index,match num * fac.as_int() {
+        match num {
+            Numeric::Int(_) => int.state.registers.set(index,match num * fac.as_int() {
                 Numeric::Int(i) => i,
                 _ => unreachable!()
             }, global),
-            Numeric::Dim(_) => StateChange::Dimen(index,match num * fac.as_int() {
+            Numeric::Dim(_) => int.state.dimensions.set(index,match num * fac.as_int() {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -670,14 +655,13 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_,int,global| {
         let (index,num,sum) = get_inrv(int,false)?;
         log!("\\advance sets {} to {}",index,num+sum);
-        let ch = match (num,sum) {
-            (Numeric::Int(num),Numeric::Int(sum)) => StateChange::Register(index,num + sum,global),
-            (Numeric::Int(num),Numeric::Dim(sum)) => StateChange::Register(index,num+sum,global),
-            (Numeric::Dim(num),Numeric::Dim(sum)) => StateChange::Dimen(index,num + sum,global),
-            (Numeric::Skip(num),Numeric::Skip(sum)) => StateChange::Skip(index,num + sum,global),
+        match (num,sum) {
+            (Numeric::Int(num),Numeric::Int(sum)) => int.state.registers.set(index,num + sum,global),
+            (Numeric::Int(num),Numeric::Dim(sum)) => int.state.registers.set(index,num+sum,global),
+            (Numeric::Dim(num),Numeric::Dim(sum)) => int.state.dimensions.set(index,num + sum,global),
+            (Numeric::Skip(num),Numeric::Skip(sum)) => int.state.skips.set(index,num + sum,global),
             _ => todo!()
         };
-        int.change_state(ch);
         Ok(())
     }
 };
@@ -698,20 +682,20 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 stt(ret.to_string().into())
             },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
-            AV(AssignableValue::PrimReg(i)) => stt(int.state_register(-(i.index as i32)).to_string().into()),
-            AV(AssignableValue::Register(i)) => stt(int.state_register(*i as i32).to_string().into()),
-            AV(AssignableValue::Toks(i)) => int.state_tokens(*i as i32),
-            AV(AssignableValue::PrimToks(r)) => int.state_tokens(-(r.index as i32)),
+            AV(AssignableValue::PrimReg(i)) => stt(int.state.registers.get(&-(i.index as i32)).to_string().into()),
+            AV(AssignableValue::Register(i)) => stt(int.state.registers.get(&(*i as i32)).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state.toks.get(&(*i as i32)),
+            AV(AssignableValue::PrimToks(r)) => int.state.toks.get(&-(r.index as i32)),
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             MathChar(i) => stt(i.to_string().into()),
-            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state_dimension(*i as i32)).into()),
-            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state_dimension(-(r.index as i32))).into()),
-            AV(AssignableValue::Skip(i)) => stt(int.state_skip(*i as i32).to_string().into()),
-            AV(AssignableValue::PrimSkip(r)) => stt(int.state_skip(- (r.index as i32)).to_string().into()),
+            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state.dimensions.get(&(*i as i32))).into()),
+            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state.dimensions.get(&-(r.index as i32))).into()),
+            AV(AssignableValue::Skip(i)) => stt(int.state.skips.get(&(*i as i32)).to_string().into()),
+            AV(AssignableValue::PrimSkip(r)) => stt(int.state.skips.get(&-(r.index as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
-                vec!(Token::new(0,CategoryCode::Escape,Some(int.get_font().name.clone()),SourceReference::None,true)),
+                vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get(&()).name.clone()),SourceReference::None,true)),
             AV(AssignableValue::Font(f)) => {
                 let font = (f._getvalue)(int)?;
                 vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),SourceReference::None,true))
@@ -733,7 +717,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
         match *int.get_command(&next.cmdname())?.orig {
             PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Exec(e)) => {
                 let wi = (e._get)(&next,int)?;
-                (wi._apply)(int)?;
+                (wi._apply)(&mut int.state,int.params)?;
                 Ok(())
             }
             PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM || *x==PDFOBJ => {
@@ -753,8 +737,8 @@ pub static OPENOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
         Ok(ExecutableWhatsit {
-            _apply: Box::new(move |nint: &Interpreter| {
-                nint.file_openout(num,file.clone())
+            _apply: Box::new(move |state: &mut State,_| {
+                state.file_openout(num,file.clone())
             })
         })
     }
@@ -767,7 +751,7 @@ pub static OPENIN: PrimitiveExecutable = PrimitiveExecutable {
         let filename = int.read_string()?;
         let file = int.get_file(&filename)?;
         log!("\\openin {}",num);
-        int.file_openin(num,file)?;
+        int.state.file_openin(num,file)?;
         Ok(())
     },
     name:"openin",
@@ -780,8 +764,8 @@ pub static CLOSEOUT: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
 
         Ok(ExecutableWhatsit {
-            _apply: Box::new(move |nint: &Interpreter| {
-                nint.file_closeout(num)
+            _apply: Box::new(move |state: &mut State,_| {
+                state.file_closeout(num);Ok(())
             })
         })
     }
@@ -791,7 +775,7 @@ pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |_,int| {
         let num = int.read_number()? as u8;
         log!("\\closein {}",num);
-        int.file_closein(num)?;
+        int.state.file_closein(num)?;
         Ok(())
     },
     name:"closein",
@@ -804,10 +788,10 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"\"to\" expected in \\read")
+            None => TeXErr!("\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
-        let toks = int.file_read(index,true)?;
+        let toks = int.state.file_read(index,true)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,
@@ -818,9 +802,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
-            Some(cmd),
-            global));
+        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -831,13 +813,13 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"\"to\" expected in \\read")
+            None => TeXErr!("\"to\" expected in \\read")
         }
         let newcmd = int.read_command_token()?;
         /*if int.current_line() == "/home/jazzpirate/work/Software/ext/sTeX/doc/manual.tex (157, 1)" {
             unsafe { crate::LOG = true }
         }*/
-        let toks = int.file_read_line(index)?;
+        let toks = int.state.file_read_line(index)?;
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,
@@ -848,9 +830,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.change_state(StateChange::Cs(newcmd.cmdname().clone(),
-                                         Some(cmd),
-                                         global));
+        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -862,13 +842,13 @@ pub static WRITE: ProvidesExecutableWhatsit = ProvidesExecutableWhatsit {
         let num = int.read_number()? as u8;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\write")
+            TeXErr!(next => "Begin group token expected after \\write")
         }
         let ret = int.read_token_list(true,true,true,true)?;
         let string = int.tokens_to_string(&ret) + "\n".into();
         return Ok(ExecutableWhatsit {
-            _apply: Box::new(move |int| {
-                int.file_write(num,string.clone())
+            _apply: Box::new(move |state,params| {
+                state.file_write(num,string.clone(),params)
             })
         });
     }
@@ -878,10 +858,9 @@ pub static MESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"message",
     expandable:false,
     _apply:|_,int| {
-        use ansi_term::Colour::*;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\message")
+            TeXErr!(next => "Begin group token expected after \\message")
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
@@ -911,7 +890,7 @@ pub static EXPANDAFTER: PrimitiveExecutable = PrimitiveExecutable {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                let cmd = match int.state_get_command(&next.cmdname()) {
+                let cmd = match int.state.commands.get(&next.cmdname()) {
                     None => {
                         rf.2.push(tmp);
                         rf.2.push(next);
@@ -949,12 +928,12 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
         let next = int.next_token();
         let string = match next.catcode {
             CategoryCode::Active | CategoryCode::Escape => {
-                match int.state_get_command(&next.cmdname()) {
+                match int.state.commands.get(&next.cmdname()) {
                     None => "undefined".into(),
-                    Some(p) => p.meaning(&int.state_catcodes())
+                    Some(p) => p.meaning(&int.state.catcodes.get_scheme())
                 }
             }
-            _ => PrimitiveTeXCommand::Char(next).as_ref(rf.get_ref()).meaning(&int.state_catcodes())
+            _ => PrimitiveTeXCommand::Char(next).as_ref(rf.get_ref()).meaning(&int.state.catcodes.get_scheme())
         };
         rf.2 = crate::interpreter::string_to_tokens(string);
         Ok(())
@@ -970,7 +949,8 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
         log!("\\string: {}",next);
         rf.2 = match next.catcode {
             CategoryCode::Escape => {
-                let s : TeXString = if int.state_catcodes().escapechar == 255 {"".into()} else {int.state_catcodes().escapechar.into()};
+                let esc = int.state.catcodes.get_scheme().escapechar;
+                let s : TeXString = if esc == 255 {"".into()} else {esc.into()};
                 crate::interpreter::string_to_tokens(s + next.cmdname().into())
             }
             CategoryCode::Space => vec!(next),
@@ -987,24 +967,27 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(rf);
-        int.change_state(StateChange::Cs(chartok.cmdname().clone(),Some(cmd),
-            global));
+        int.state.commands.set(chartok.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
 
-pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
-    let incs = int.newincs();
+pub fn csname(int : &mut Interpreter) -> Result<TeXString,TeXError> {
+    int.state.incs += 1;
+    let incs = int.state.incs;
     let mut cmdname : TeXString = "".into();
     log!("\\csname: {}",int.preview());
-    while incs == int.currcs() && int.has_next() {
+    while incs == int.state.incs && int.has_next() {
         let next = int.next_token();
         match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 let cmd = int.get_command(&next.cmdname())?;
                 match *cmd.orig {
                     PrimitiveTeXCommand::Primitive(ec) if *ec == ENDCSNAME => {
-                        int.popcs()?
+                        if int.state.incs <= 0 {
+                            TeXErr!(next => "spurious \\endcsname")
+                        }
+                        int.state.incs -=1;
                     }
                     PrimitiveTeXCommand::Primitive(ec) if *ec == CSNAME => {
                         cmd.expand(next,int)?;
@@ -1012,8 +995,9 @@ pub fn csname(int : &Interpreter) -> Result<TeXString,TeXError> {
                     _ if next.expand && cmd.expandable(true) =>
                         cmd.expand(next,int)?,
                     _ if next.catcode == CategoryCode::Escape => {
-                        if int.state_catcodes().escapechar != 255 {
-                            cmdname += int.state_catcodes().escapechar
+                        let esc = int.state.catcodes.get_scheme().escapechar;
+                        if esc != 255 {
+                            cmdname += esc
                         }
                         cmdname += next.name()
                     }
@@ -1032,12 +1016,12 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         let cmdname : TeXStr = csname(int)?.into();
-        let ret = Token::new(int.state_catcodes().escapechar,CategoryCode::Escape,Some(cmdname.clone()),SourceReference::None,true);
-        match int.state_get_command(&cmdname) {
+        let ret = Token::new(int.state.catcodes.get_scheme().escapechar,CategoryCode::Escape,Some(cmdname.clone()),SourceReference::None,true);
+        match int.state.commands.get(&cmdname) {
             Some(_) => (),
             None => {
                 let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.get_ref());
-                int.change_state(StateChange::Cs(cmdname,Some(cmd),false))
+                int.state.commands.set(cmdname,Some(cmd),false)
             }
         }
         rf.2.push(ret);
@@ -1048,8 +1032,11 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"endcsname",
     expandable:false,
-    _apply:|_,int| {
-        int.popcs()?;
+    _apply:|tk,int| {
+        if int.state.incs <= 0 {
+            TeXErr!(tk.0.clone() => "spurious \\endcsname")
+        }
+        int.state.incs -=1;
         Ok(())
     }
 };
@@ -1058,21 +1045,21 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
     _apply:|_,int| {
-        use ansi_term::Colour::*;
+        use ansi_term::Colour::Red;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
-            TeXErr!((int,Some(next)),"Begin group token expected after \\errmessage")
+            TeXErr!(next => "Begin group token expected after \\errmessage")
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
-        let mut eh = int.state_tokens(-(ERRHELP.index as i32));
+        let mut eh = int.state.toks.get(&-(ERRHELP.index as i32));
         let rethelp = if !eh.is_empty() {
             eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
             int.push_tokens(eh);
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp)
         } else {"".into()};
-        TeXErr!((int,None),"{}\n{}",Red.bold().paint(string.to_string()),rethelp)
+        TeXErr!("{}\n{}",Red.bold().paint(string.to_string()),rethelp)
     }
 };
 
@@ -1092,7 +1079,7 @@ pub static ETEXVERSION : NumericCommand = NumericCommand {
     name: "eTeXversion"
 };
 
-fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
     log!("expr_loop: >{}",int.preview());
     let mut first = expr_loop_inner(int,getnum)?;
@@ -1152,13 +1139,13 @@ fn expr_loop(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXEr
     }
 }
 
-fn expr_loop_inner(int: &Interpreter,getnum : fn(&Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+fn expr_loop_inner(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     match int.read_keyword(vec!("("))? {
         Some(_) => {
             let r = expr_loop(int,getnum)?;
             match int.read_keyword(vec!(")"))? {
                 Some(_) => Ok(r),
-                None => TeXErr!((int,None),"Expected ')'")
+                None => TeXErr!("Expected ')'")
             }
         }
         None => (getnum)(int)
@@ -1298,9 +1285,9 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|exp,int| {
         let tkl = int.read_balanced_argument(false,false,false,true)?;
         let space = Token::new(32,CategoryCode::Space,None,SourceReference::None,false);
-        let escape = match int.state_catcodes().escapechar {
+        let escape = match int.state.catcodes.get_scheme().escapechar {
             255 => None,
-            _ => Some(Token::new(int.state_catcodes().escapechar, CategoryCode::Other, None, SourceReference::None, false))
+            o => Some(Token::new(o, CategoryCode::Other, None, SourceReference::None, false))
         };
         for t in tkl {
             match t.catcode {
@@ -1313,7 +1300,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
                     if t.name().len() > 1 { exp.2.push(space.clone()) }
                     else if t.name().len() == 1 {
                         let c = t.name().iter().first().unwrap();
-                        match int.state_catcodes().get_code(*c) {
+                        match int.state.catcodes.get_scheme().get_code(*c) {
                             CategoryCode::Letter => exp.2.push(space.clone()),
                             _ => ()
                         }
@@ -1335,12 +1322,16 @@ pub static LCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.change_state(StateChange::Lccode(num1,num2,global));
+        if num2 == 0 {
+            int.state.lccodes.set(num1, num1, global);
+        } else {
+            int.state.lccodes.set(num1, num2, global);
+        }
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_lccode(char) as i32))
+        Ok(Numeric::Int(int.state.lccodes.get(&char) as i32))
     }
 };
 
@@ -1350,12 +1341,16 @@ pub static UCCODE: NumAssValue = NumAssValue {
         let num1 = int.read_number()? as u8;
         int.read_eq();
         let num2 = int.read_number()? as u8;
-        int.change_state(StateChange::Uccode(num1, num2, global));
+        if num2 == 0 {
+            int.state.uccodes.set(num1, num1, global);
+        } else {
+            int.state.uccodes.set(num1, num2, global);
+        }
         Ok(())
     },
     _getvalue: |int| {
         let char = int.read_number()? as u8;
-        Ok(Numeric::Int(int.state_uccode(char) as i32))
+        Ok(Numeric::Int(int.state.uccodes.get(&char) as i32))
     }
 };
 
@@ -1368,7 +1363,7 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => {
-                    let lc = int.state_lccode(t.char);
+                    let lc = int.state.lccodes.get(&t.char);
                     rf.2.push(Token::new(lc,o,None,SourceReference::Exp(erf.clone()),true))
                 }
             }
@@ -1386,7 +1381,7 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
             match t.catcode {
                 CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
                 o => {
-                    let uc = int.state_uccode(t.char);
+                    let uc = int.state.uccodes.get(&t.char);
                     rf.2.push(Token::new(uc,o,None,SourceReference::Exp(erf.clone()),true))
                 }
             }
@@ -1402,7 +1397,7 @@ pub static FONT: FontAssValue = FontAssValue {
         int.read_eq();
         let mut name = int.read_string()?;
         if !name.ends_with(".tfm") {name += ".tfm"}
-        let ff = int.state_get_font(&name)?;
+        let ff = int.state.get_font(int.jobinfo.in_file(),name.into())?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
             Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f32) * match int.read_number_i(true)? {
@@ -1412,8 +1407,8 @@ pub static FONT: FontAssValue = FontAssValue {
             })),
             _ => None
         };
-        let font = Font::new(ff,at,cmd.cmdname().clone());
-        int.change_state(StateChange::Cs(cmd.cmdname().clone(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global));
+        let font = Font::new(ff,at,cmd.cmdname());
+        int.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
         Ok(())
     },
     _getvalue: |_int| {
@@ -1426,18 +1421,18 @@ pub static TEXTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Textfont(ind as usize,f,global));
+        int.state.textfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\textfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\textfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().get_text_font(ind as u8))
+        Ok(int.state.textfonts.get(&(ind as usize)))
     }
 };
 
@@ -1446,18 +1441,18 @@ pub static SCRIPTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Scriptfont(ind as usize,f,global));
+        int.state.scriptfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().get_script_font(ind as u8))
+        Ok(int.state.scriptfonts.get(&(ind as usize)))
     }
 };
 pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
@@ -1465,33 +1460,33 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
     _assign: |_rf,int,global| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
         let f = read_font(int)?;
-        int.change_state(StateChange::Scriptscriptfont(ind as usize,f,global));
+        int.state.scriptscriptfonts.set(ind as usize,f,global);
         Ok(())
     },
     _getvalue: |int| {
         let ind = int.read_number()?;
         if ind < 0 || ind > 15 {
-            TeXErr!((int,None),"\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
+            TeXErr!("\\scriptscriptfont expected 0 <= n <= 15; got: {}",ind)
         }
-        Ok(int.state.borrow().get_scriptscript_font(ind as u8))
+        Ok(int.state.scriptscriptfonts.get(&(ind as usize)))
     }
 };
 
 
-pub fn read_font<'a>(int : &Interpreter) -> Result<Arc<Font>,TeXError> {
+pub fn read_font<'a>(int : &mut Interpreter) -> Result<Arc<Font>,TeXError> {
     int.expand_until(true)?;
     let tk = int.read_command_token()?;
     let cmd = int.get_command(&tk.cmdname())?;
     match &*cmd.orig {
         PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
             Ok(f.clone()),
-        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.get_font()),
+        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.state.currfont.get(&())),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
         Ok(NULL_FONT.try_with(|x| x.clone()).unwrap()),
-        _ => TeXErr!((int, Some(tk)),"Font expected!")
+        _ => TeXErr!(tk => "Font expected!")
     }
 }
 
@@ -1597,7 +1592,7 @@ pub static INPUTLINENO: NumericCommand = NumericCommand {
 pub static LASTSKIP: NumericCommand = NumericCommand {
     name:"lastskip",
     _getvalue: |int| {
-        match int.stomach.borrow_mut().last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VSkip(s))) => Ok(Numeric::Skip(s.skip)),
             Some(Whatsit::Simple(SimpleWI::HSkip(s))) => Ok(Numeric::Skip(s.skip)),
             _ => Ok(Numeric::Skip(Skip {
@@ -1610,7 +1605,7 @@ pub static LASTSKIP: NumericCommand = NumericCommand {
 pub static LASTKERN: NumericCommand = NumericCommand {
     name:"lastkern",
     _getvalue: |int| {
-        match int.stomach.borrow_mut().last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VKern(s))) => Ok(Numeric::Dim(s.dim)),
             Some(Whatsit::Simple(SimpleWI::HKern(s))) => Ok(Numeric::Dim(s.dim)),
             _ => Ok(Numeric::Dim(0))
@@ -1622,11 +1617,11 @@ pub static UNKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"unkern",
     expandable:false,
     _apply:|_,int| {
-        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::VKern(_) | SimpleWI::HKern(_))) => true,
             _ => false
         };
-        if remove {int.stomach.borrow_mut().drop_last()}
+        if remove {int.stomach.drop_last()}
         Ok(())
     }
 };
@@ -1635,11 +1630,11 @@ pub static UNPENALTY: PrimitiveExecutable = PrimitiveExecutable {
     name:"unpenalty",
     expandable:false,
     _apply:|_,int| {
-        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::Penalty(_))) => true,
             _ => false
         };
-        if remove {int.stomach.borrow_mut().drop_last()}
+        if remove {int.stomach.drop_last()}
         Ok(())
     }
 };
@@ -1649,9 +1644,9 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
     _assign: |_rf,int,global| {
         let index = int.read_number()? as u16;
         int.read_eq();
-        int.state.borrow_mut().insetbox = true;
+        int.state.insetbox = true;
         let wi = int.read_box()?;
-        int.change_state(StateChange::Box(index as i32,wi,global));
+        int.state.boxes.set(index as i32,wi,global);
         Ok(())
     }
 };
@@ -1709,7 +1704,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
         let bx = (VBOX._get)(tk,int)?;
         match bx {
             TeXBox::V(mut vb) => {
-                let lineheight = int.state_skip(-(LINESKIP.index as i32)).base;
+                let lineheight = int.state.skips.get(&-(LINESKIP.index as i32)).base;
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }
@@ -1738,13 +1733,13 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         let boxnum = int.read_number()?;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
-            None => TeXErr!((int,None),"Expected \"to\" after \\vsplit")
+            None => TeXErr!("Expected \"to\" after \\vsplit")
         }
         let target = int.read_dimension()?;
-        let vbox = match int.state_get_box(boxnum) {
+        let vbox = match int.state.boxes.take(boxnum) {
             TeXBox::Void => return Ok(TeXBox::Void),
             TeXBox::V(vb) => vb,
-            _ => TeXErr!((int,None),"Cannot \\vsplit horizontal box")
+            _ => TeXErr!("Cannot \\vsplit horizontal box")
         };
         let mut ret = VBox {
             children: vec!(),
@@ -1767,14 +1762,14 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
         let (first,second) = crate::stomach::split_vertical(vbox.children,target,int);
         ret.children = first;
         rest.children = second;
-        int.change_state(StateChange::Box(boxnum,TeXBox::V(rest),false));
+        int.state.boxes.set(boxnum,TeXBox::V(rest),false);
         Ok(TeXBox::V(ret))
     }
 };
 
 pub static LASTBOX: ProvidesBox = ProvidesBox {
     _get: |_tk,int| {
-        match int.stomach.borrow_mut().last_box(int)? {
+        match int.stomach.last_box()? {
             Some(tb) => {
                 Ok(tb)
             },
@@ -1788,13 +1783,13 @@ pub static UNSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"unskip",
     expandable:false,
     _apply:|_tk,int| {
-        let remove = match int.stomach.borrow_mut().last_whatsit(int) {
+        let remove = match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_))) => {
                 true
             },
             _ => false
         };
-        if remove {int.stomach.borrow_mut().drop_last()}
+        if remove {int.stomach.drop_last()}
         Ok(())
     }
 };
@@ -1803,7 +1798,7 @@ pub static COPY: ProvidesBox = ProvidesBox {
     name:"copy",
     _get: |_tk,int| {
         let ind = int.read_number()?;
-        Ok(int.state_copy_box(ind as i32))
+        Ok(int.state.boxes.get(&(ind as i32)))
     }
 };
 
@@ -1811,7 +1806,7 @@ pub static BOX: ProvidesBox = ProvidesBox {
     name:"box",
     _get: |_tk,int| {
         let ind = int.read_number()?;
-        Ok(int.state_get_box(ind as i32))
+        Ok(int.state.boxes.take(ind as i32))
     }
 };
 
@@ -1820,7 +1815,7 @@ pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_tk,int| {
         let next = int.next_token();
-        int.state_set_afterassignment(next);
+        int.state.afterassignment = Some(next);
         Ok(())
     }
 };
@@ -1840,35 +1835,42 @@ pub static TOKS: TokAssValue = TokAssValue {
         let num = int.read_number()? as u16;
         int.read_eq();
         let r = int.read_balanced_argument(false,false,false,true)?;
-        int.change_state(StateChange::Tokens(num as i32,r.iter().map(|x| x.cloned()).collect(),global));
+        int.state.toks.set(num as i32,r.iter().map(|x| x.cloned()).collect(),global);
         Ok(())
     },
     _getvalue: |int| {
         let num = int.read_number()? as u16;
-        Ok(int.state_tokens(num as i32))
+        Ok(int.state.toks.get(&(num as i32)))
     }
 };
 
 pub static MATHCODE: NumAssValue = NumAssValue {
     name:"mathcode",
-    _getvalue: |int| {Ok(Numeric::Int(int.state_get_mathcode( int.read_number()? as u8)))},
+    _getvalue: |int| {
+        let num = int.read_number()? as u8;
+        let mc = int.state.mathcodes.get(&num);
+        Ok(Numeric::Int(mc))
+    },
     _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
-        int.change_state(StateChange::Mathcode(i,v,global));
+        int.state.mathcodes.set(i,v,global);
         Ok(())
     }
 };
 
 pub static DELCODE: NumAssValue = NumAssValue {
     name:"delcode",
-    _getvalue: |int| {Ok(Numeric::Int(int.state_get_delcode( int.read_number()? as u8)))},
+    _getvalue: |int| {
+        let num = int.read_number()? as u8;
+        Ok(Numeric::Int(int.state.delcodes.get(&num)))
+    },
     _assign: |_,int,global| {
         let i = int.read_number()? as u8;
         int.read_eq();
         let v = int.read_number()?;
-        int.change_state(StateChange::Delcode(i,v,global));
+        int.state.delcodes.set(i,v,global);
         Ok(())
     }
 };
@@ -1876,8 +1878,8 @@ pub static DELCODE: NumAssValue = NumAssValue {
 pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
-        int.change_state(StateChange::Font(NULL_FONT.try_with(|x| x.clone()).unwrap(),global));
-        int.stomach.borrow_mut().add(int,FontChange {
+        int.state.currfont.set((),NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
+        int.stomach_add(FontChange {
             font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
             children: vec![],
@@ -1925,7 +1927,7 @@ pub static IGNORESPACES: PrimitiveExecutable = PrimitiveExecutable {
             match next.catcode {
                 CategoryCode::Space | CategoryCode::EOL => (),
                 CategoryCode::Escape | CategoryCode::Active => {
-                    let p = int.state_get_command(&next.cmdname());
+                    let p = int.state.commands.get(&next.cmdname());
                     match p {
                         Some(p) if p.expandable(true) => {
                             p.expand(next,int)?;
@@ -2170,7 +2172,7 @@ pub static KERN: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         let rf = int.update_reference(tk);
-        match int.get_mode() {
+        match int.state.mode {
             TeXMode::Vertical | TeXMode::InternalVertical =>
                 Ok(Whatsit::Simple(SimpleWI::VKern(VKern {
                     dim,
@@ -2190,11 +2192,11 @@ pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state_get_box(ind as i32);
+        let bx = int.state.boxes.take(ind as i32);
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2204,11 +2206,11 @@ pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state_copy_box(ind as i32);
+        let bx = int.state.boxes.get(&(ind as i32));
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2218,12 +2220,12 @@ pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state_get_box(ind as i32);
-        let mode = int.get_mode();
+        let bx = int.state.boxes.take(ind as i32);
+        let mode = int.state.mode;
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
             (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2233,12 +2235,12 @@ pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state_copy_box(ind as i32);
-        let mode = int.get_mode();
+        let bx = int.state.boxes.get(&(ind as i32));
+        let mode = int.state.mode;
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
             (TeXBox::Void,_) => Ok(Whatsit::Ls(vec!())),
-            _ => TeXErr!((int,None),"incompatible list can't be unboxed")
+            _ => TeXErr!("incompatible list can't be unboxed")
         }
     }
 };
@@ -2248,7 +2250,7 @@ pub static AFTERGROUP: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_,int| {
         let next = int.next_token();
-        int.change_state(StateChange::Aftergroup(next));
+        int.state.aftergroups.add(next);
         Ok(())
     }
 };
@@ -2257,7 +2259,7 @@ pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"textstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Text));
+        int.state.fontstyle.set((),FontStyle::Text,false);
         Ok(())
     }
 };
@@ -2266,7 +2268,7 @@ pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Script));
+        int.state.fontstyle.set((),FontStyle::Script,false);
         Ok(())
     }
 };
@@ -2275,7 +2277,7 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.change_state(StateChange::Fontstyle(FontStyle::Scriptscript));
+        int.state.fontstyle.set((),FontStyle::Scriptscript,false);
         Ok(())
     }
 };
@@ -2297,18 +2299,18 @@ pub static WD: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_copy_box(index);
+        let mut bx = int.state.boxes.get(&index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._width = Some(dim),
             TeXBox::V(ref mut hb) => hb._width = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state_copy_box(index as i32).width()))
+        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.width()).unwrap_or(0)))
     }
 };
 
@@ -2318,18 +2320,18 @@ pub static HT: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_copy_box(index);
+        let mut bx = int.state.boxes.get(&index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._height = Some(dim),
             TeXBox::V(ref mut hb) => hb._height = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state_copy_box(index as i32).height()))
+        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.height()).unwrap_or(0)))
     }
 };
 
@@ -2339,18 +2341,18 @@ pub static DP: NumAssValue = NumAssValue {
         let index = int.read_number()? as i32;
         int.read_eq();
         let dim = int.read_dimension()?;
-        let mut bx = int.state_copy_box(index);
+        let mut bx = int.state.boxes.get(&index);
         match bx {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._depth = Some(dim),
             TeXBox::V(ref mut hb) => hb._depth = Some(dim),
         }
-        int.change_state(StateChange::Box(index,bx,global));
+        int.state.boxes.set(index,bx,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state_copy_box(index as i32).depth()))
+        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.depth()).unwrap_or(0)))
     }
 };
 
@@ -2358,17 +2360,17 @@ pub static PAGEGOAL: NumAssValue = NumAssValue {
     name:"pagegoal",
     _assign: |_,int,_| {
         let dim = int.read_dimension()?;
-        int.state.borrow_mut().pagegoal = dim;
+        int.state.pagegoal = dim;
         Ok(())
     },
     _getvalue: |int| {
-        let ph = int.stomach.borrow().page_height();
+        let ph = int.stomach.page_height();
         if ph == 0 {
             Ok(Numeric::Dim(1073741823))
         } else {
-            let pg = int.state.borrow().pagegoal;
+            let pg = int.state.pagegoal;
             if pg == 0 {
-                Ok(Numeric::Dim(int.state_dimension(-(VSIZE.index as i32))))
+                Ok(Numeric::Dim(int.state.dimensions.get(&-(VSIZE.index as i32))))
             } else {
                 Ok(Numeric::Dim(pg))
             }
@@ -2415,7 +2417,7 @@ pub static FONTCHARIC: NumericCommand = NumericCommand {
 pub static LASTPENALTY: NumericCommand = NumericCommand {
     name:"lastpenalty",
     _getvalue: |int| {
-        match int.stomach.borrow_mut().last_whatsit(int) {
+        match int.stomach.last_whatsit() {
             Some(Whatsit::Simple(SimpleWI::Penalty(p))) => Ok(Numeric::Int(p.penalty)),
             _ => Ok(Numeric::Int(0))
         }
@@ -2425,7 +2427,7 @@ pub static LASTPENALTY: NumericCommand = NumericCommand {
 pub static CURRENTGROUPLEVEL: NumericCommand = NumericCommand {
     name:"currentgrouplevel",
     _getvalue:|int| {
-        Ok(Numeric::Int(int.state.borrow().stack_depth() as i32))
+        Ok(Numeric::Int(int.state.stack_depth() as i32))
     }
 };
 
@@ -2434,7 +2436,7 @@ pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_tk,int| {
         let mut ret = int.read_whatsit_group(BoxMode::V,false)?;
-        int.state.borrow_mut().vadjust.append(&mut ret);
+        int.state.vadjust.append(&mut ret);
         Ok(())
     }
 };
@@ -2452,26 +2454,26 @@ pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
 pub static OMIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"omit",
     expandable:false,
-    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\omit")}
+    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\omit")}
 };
 
 pub static CR: PrimitiveExecutable = PrimitiveExecutable {
     name:"cr",
     expandable:false,
     _apply:|tk,int| {
-        let align = int.state.borrow_mut().aligns.pop();
-        int.state.borrow_mut().aligns.push(None);
+        let align = int.state.aligns.pop();
+        int.state.aligns.push(None);
         match align {
             Some(Some(ret)) => {
                 int.insert_every(&EVERYCR);
                 match ENDROW.try_with(|x| int.requeue(x.clone())) {
                     Ok(_) => (),
-                    _ => TeXErr!((int,Some(tk.0.clone())),"Error inserting \\endrow")
+                    _ => TeXErr!(tk.0.clone() => "Error inserting \\endrow")
                 };
                 tk.2 = ret;
                 Ok(())
             }
-            _ => TeXErr!((int,Some(tk.0.clone())),"Unexpected \\cr")
+            _ => TeXErr!(tk.0.clone() => "Unexpected \\cr")
         }
     }
 };
@@ -2498,15 +2500,15 @@ pub static SPAN: PrimitiveExecutable = PrimitiveExecutable {
     name:"span",
     expandable:false,
     _apply:|tk,int| {
-        let align = int.state.borrow_mut().aligns.pop();
-        int.state.borrow_mut().aligns.push(None);
+        let align = int.state.aligns.pop();
+        int.state.aligns.push(None);
         match align {
             Some(Some(v)) => {
                 int.requeue(ENDTEMPLATESPAN.try_with(|x| x.clone()).unwrap());
                 int.push_tokens(v);
                 Ok(())
             }
-            _ => TeXErr!((int,Some(tk.0.clone())),"Misplaced \\span")
+            _ => TeXErr!(tk.0.clone() => "Misplaced \\span")
         }
     }
 };
@@ -2515,8 +2517,8 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
     name:"crcr",
     expandable:false,
     _apply:|tk,int| {
-        let align = int.state.borrow_mut().aligns.pop();
-        int.state.borrow_mut().aligns.push(None);
+        let align = int.state.aligns.pop();
+        int.state.aligns.push(None);
         match align {
             Some(Some(v)) => {
                 int.insert_every(&EVERYCR);
@@ -2532,10 +2534,10 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
 pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
     name:"noalign",
     expandable:false,
-    _apply:|tk,int| {TeXErr!((int,Some(tk.0.clone())),"Unexpected \\noalign")}
+    _apply:|tk,int| {TeXErr!(tk.0.clone() => "Unexpected \\noalign")}
 };
 
-fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
+fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         (Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>),TeXError> {
     int.expand_until(false)?;
     let bg = int.next_token();
@@ -2545,15 +2547,15 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             let cmd = int.get_command(&bg.cmdname())?;
             match &*cmd.orig {
                 PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::BeginGroup => (),
-                _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+                _ => TeXErr!(bg.clone() => "Expected begin group token; found: {}",bg)
             }
         }
-        _ => TeXErr!((int,Some(bg.clone())),"Expected begin group token; found: {}",bg)
+        _ => TeXErr!(bg.clone() => "Expected begin group token; found: {}",bg)
     }
 
-    int.new_group(GroupType::Box(betweenmode));
+    int.state.push(int.stomach,GroupType::Box(betweenmode));
 
-    let mut tabskip = int.state_skip(-(TABSKIP.index as i32));
+    let mut tabskip = int.state.skips.get(&-(TABSKIP.index as i32));
     let firsttabskip = tabskip;
 
     let mut in_v = false;
@@ -2569,9 +2571,9 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 in_v = false
             }
             CategoryCode::Parameter if !in_v => in_v = true,
-            CategoryCode::Parameter => TeXErr!((int,Some(next)),"Misplaced # in alignment"),
+            CategoryCode::Parameter => TeXErr!(next => "Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
-                let proc = int.state_get_command(&next.cmdname());
+                let proc = int.state.commands.get(&next.cmdname());
                 match proc {
                     None => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
                     Some(p) => match &*p.orig {
@@ -2594,10 +2596,10 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                     if p.expandable(true) {
                                         p.expand(next,int)?
                                     } else {
-                                        TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                                        TeXErr!(next => "Expandable command expected after \\span")
                                     }
                                 }
-                                _ => TeXErr!((int,Some(next)),"Expandable command expected after \\span")
+                                _ => TeXErr!(next => "Expandable command expected after \\span")
                             }
                         }
                         _ => if in_v { columns.last_mut().unwrap().1.push(next) } else { columns.last_mut().unwrap().0.push(next) }
@@ -2621,7 +2623,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 CategoryCode::EndGroup => break 'table,
                 CategoryCode::Space => (),
                 CategoryCode::Active | CategoryCode::Escape => {
-                    let cmd = int.state_get_command(&next.cmdname());
+                    let cmd = int.state.commands.get(&next.cmdname());
                     match cmd {
                         None => {
                             int.requeue(next);
@@ -2665,7 +2667,7 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 match next.catcode {
                     CategoryCode::Space => (),
                     CategoryCode::Active | CategoryCode::Escape => {
-                        let cmd = int.state_get_command(&next.cmdname());
+                        let cmd = int.state.commands.get(&next.cmdname());
                         match cmd {
                             None => {
                                 int.requeue(next);
@@ -2697,27 +2699,27 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             if columns.len() <= columnindex {
                 match recindex {
                     Some(i) => columnindex = i,
-                    None => TeXErr!((int,None),"Invalid column index in align")
+                    None => TeXErr!("Invalid column index in align")
                 }
             }
             if doheader {
                 int.push_tokens(columns.get(columnindex).unwrap().0.clone())
             }
-            let _oldmode = int.get_mode();
-            int.set_mode(match tabmode {
+            let _oldmode = int.state.mode;
+            int.state.mode = match tabmode {
                 BoxMode::H => TeXMode::RestrictedHorizontal,
                 BoxMode::V => TeXMode::InternalVertical,
                 _ => unreachable!()
-            });
+            };
             if inspan { inspan = false }
             else {
                 cells = 1;
-                int.new_group(GroupType::Box(tabmode));
+                int.state.push(int.stomach,GroupType::Box(tabmode));
             }
             if doheader {
-                int.state.borrow_mut().aligns.push(Some(columns.get(columnindex).unwrap().1.clone()))
+                int.state.aligns.push(Some(columns.get(columnindex).unwrap().1.clone()))
             } else {
-                int.state.borrow_mut().aligns.push(Some(vec!()))
+                int.state.aligns.push(Some(vec!()))
             }
             'cell: loop {
                 let next = int.next_token();
@@ -2733,26 +2735,26 @@ fn do_align(int:&Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                     CategoryCode::Escape if next.char == endrow.char && next == endrow => {
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                         row.push((ret,columns.get(columnindex).unwrap().2,cells));
-                        int.set_mode(_oldmode);
+                        int.state.mode = _oldmode;
                         break 'row
                     }
                     _ => int.do_top(next,true)?
                 }
             }
-            match int.state.borrow_mut().aligns.pop() {
+            match int.state.aligns.pop() {
                 Some(None) => (),
-                _ => TeXErr!((int,None),"align error")
+                _ => TeXErr!("align error")
             }
             if !inspan {
                 let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                 row.push((ret, columns.get(columnindex).unwrap().2, cells));
-                int.set_mode(_oldmode);
+                int.state.mode = _oldmode;
             }
             columnindex += 1
         }
-        match int.state.borrow_mut().aligns.pop() {
+        match int.state.aligns.pop() {
             Some(None) => (),
-            _ => TeXErr!((int,None),"align error")
+            _ => TeXErr!("align error")
         }
         boxes.push(AlignBlock::Block(row))
     }
@@ -2876,7 +2878,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
                     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == VRULE => {
                         (VRULE._get)(&cmdtk,int)?
                     }
-                    _ => TeXErr!((int,Some(cmdtk)),"Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
+                    _ => TeXErr!(cmdtk => "Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
                 };
                 Ok(Whatsit::Simple(SimpleWI::Leaders(Leaders {
                     bx: Box::new(content),
@@ -2903,8 +2905,8 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
     name:"mathchoice",
     modes: |x| {x == TeXMode::Math || x == TeXMode::Displaymath},
     _get:|_tk,int| {
-        let mode = int.state.borrow().display_mode();
-        let font = int.state.borrow().font_style();
+        let mode = int.state.displaymode.get(&());
+        let font = int.state.fontstyle.get(&());
         let ret = match (font,mode) {
             (FontStyle::Scriptscript,_) => {
                 int.read_argument()?;int.read_argument()?;int.read_argument()?;
@@ -2948,7 +2950,7 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
-fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
+fn dodelim(int:&mut Interpreter) -> Result<Option<MathChar>,TeXError> {
     let wi = int.read_math_whatsit(None)?;
     match wi {
         Some(Whatsit::Math(MathGroup { kernel:
@@ -2960,9 +2962,9 @@ fn dodelim(int:&Interpreter) -> Result<Option<MathChar>,TeXError> {
             } else if mc.class == 6 || mc.class == 0 {
                 Ok(None)
             } else {
-                TeXErr!((int,None),"Missing delimiter after \\left")
+                TeXErr!("Missing delimiter after \\left")
             },
-        _ => TeXErr!((int,None),"Missing delimiter after \\left")
+        _ => TeXErr!("Missing delimiter after \\left")
     }
 }
 
@@ -3047,11 +3049,11 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
     _get:|tk,int| {
         let num = int.read_number()?;
         int.expand_until(false)?;
-        let fnt = int.get_font();
+        let fnt = int.state.currfont.get(&());
         let next = int.next_token();
         let pc = match next.catcode {
             CategoryCode::Letter | CategoryCode::Other => {
-                let font = int.get_font();
+                let font = int.state.currfont.get(&());
                 let sourceref = int.update_reference(&next);
                 PrintChar {
                     char:next.char,
@@ -3084,7 +3086,7 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
             log!("\\parshape: l{}={}",i,s);
             vals.push((f,s))
         }
-        int.stomach.borrow_mut().base_mut().parshape = vals;
+        int.stomach.base_mut().parshape = vals;
         Ok(())
     }
 };
@@ -3094,7 +3096,7 @@ pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let dim = int.read_dimension()?;
-        int.stomach.borrow_mut().base_mut().hangindent = dim;
+        int.stomach.base_mut().hangindent = dim;
         Ok(())
     }
 };
@@ -3104,7 +3106,7 @@ pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let num = int.read_number()?;
-        int.stomach.borrow_mut().base_mut().hangafter = num as usize;
+        int.stomach.base_mut().hangafter = num as usize;
         Ok(())
     }
 };
@@ -3113,9 +3115,9 @@ pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"indent",
     expandable:false,
     _apply:|tk,int| {
-        int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Indent(
+        int.stomach_add(Whatsit::Simple(SimpleWI::Indent(
             Indent {
-                dim:int.state_dimension(-(crate::commands::primitives::PARINDENT.index as i32)),
+                dim:int.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
                 sourceref:int.update_reference(&tk.0)
             })))?;
         Ok(())
@@ -3134,11 +3136,10 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_,int| {
         let num = int.read_number()? as u16;
         let mut bx = int.read_whatsit_group(BoxMode::V,true)?;
-        let mut state = int.state.borrow_mut();
-        let prev = state.inserts.get_mut(&num);
+        let prev = int.state.inserts.get_mut(&num);
         match prev {
             Some(v) => v.append(&mut bx),
-            None => {state.inserts.insert(num,bx);}
+            None => {int.state.inserts.insert(num,bx);}
         }
         Ok(())
     }
@@ -3178,7 +3179,7 @@ pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
     name:"displaylimits",
     _get: |_,int,pr| {
         match pr {
-            Some(p) => p.limits = int.state.borrow().display_mode(),
+            Some(p) => p.limits = int.state.displaymode.get(&()),
             _ => ()
         }
         Ok(None)
@@ -3195,7 +3196,7 @@ pub static MATHCLOSE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathclose")
+            None => TeXErr!("unfinished \\mathclose")
         }
     }
 };
@@ -3210,7 +3211,7 @@ pub static MATHBIN: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathbin")
+            None => TeXErr!("unfinished \\mathbin")
         }
     }
 };
@@ -3225,7 +3226,7 @@ pub static MATHOPEN: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathopen")
+            None => TeXErr!("unfinished \\mathopen")
         }
     }
 };
@@ -3240,7 +3241,7 @@ pub static MATHORD: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathord")
+            None => TeXErr!("unfinished \\mathord")
         }
     }
 };
@@ -3255,7 +3256,7 @@ pub static MATHPUNCT: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathpunct")
+            None => TeXErr!("unfinished \\mathpunct")
         }
     }
 };
@@ -3270,7 +3271,7 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathrel")
+            None => TeXErr!("unfinished \\mathrel")
         }
     }
 };
@@ -3302,7 +3303,7 @@ pub static MATHOP : MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathop")
+            None => TeXErr!("unfinished \\mathop")
         }
     }
 };
@@ -3317,7 +3318,7 @@ pub static MATHINNER: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\mathinner")
+            None => TeXErr!("unfinished \\mathinner")
         }
     }
 };
@@ -3332,7 +3333,7 @@ pub static UNDERLINE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\underline")
+            None => TeXErr!("unfinished \\underline")
         }
     }
 };
@@ -3347,7 +3348,7 @@ pub static OVERLINE: MathWhatsit = MathWhatsit {
                     content:Box::new(w),
                     sourceref:int.update_reference(tk)
                 }))),
-            None => TeXErr!((int,None),"unfinished \\overline")
+            None => TeXErr!("unfinished \\overline")
         }
     }
 };
@@ -3359,7 +3360,7 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
         let mc = int.do_math_char(None,num as u32);
         let next = match int.read_math_whatsit(None)? {
             Some(w) => w,
-            None => TeXErr!((int,None),"unfinished \\mathaccent")
+            None => TeXErr!("unfinished \\mathaccent")
         };
         let accent = MathAccent {
             content:Box::new(next),
@@ -3411,11 +3412,11 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"displaystyle",
     expandable:false,
     _apply:|tk,int| {
-        match int.get_mode() {
+        match int.state.mode {
             TeXMode::Math | TeXMode::Displaymath => (),
-            _ => TeXErr!((int,Some(tk.0.clone())),"\\displaymode only allowed in math mode")
+            _ => TeXErr!(tk.0.clone() => "\\displaymode only allowed in math mode")
         }
-        int.state.borrow_mut().mode = TeXMode::Displaymath;
+        int.state.mode = TeXMode::Displaymath;
         Ok(())
     }
 };
@@ -3423,7 +3424,7 @@ pub static LIMITS: MathWhatsit = MathWhatsit {
     name:"limits",
     _get: |tk,int,last| {
         match last {
-            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\limits here"),
+            None => TeXErr!(tk.clone() => "Nothing to \\limits here"),
             Some(s) => s.limits = true
         }
         Ok(None)
@@ -3434,7 +3435,7 @@ pub static NOLIMITS: MathWhatsit = MathWhatsit {
     name:"nolimits",
     _get: |tk,int,last| {
         match last {
-            None => TeXErr!((int,Some(tk.clone())),"Nothing to \\nolimits here"),
+            None => TeXErr!(tk.clone() => "Nothing to \\nolimits here"),
             Some(s) => s.limits = false
         }
         Ok(None)
@@ -3456,12 +3457,12 @@ pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
 pub static LEFT: MathWhatsit = MathWhatsit {
     name:"left",
     _get: |tk,int,_| {
-        int.new_group(GroupType::LeftRight);
+        int.state.push(int.stomach,GroupType::LeftRight);
         int.expand_until(true)?;
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.borrow_mut().add(int,Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
+                int.stomach_add(Left { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 return Ok(None)
             }
             _ => int.requeue(next)
@@ -3471,12 +3472,12 @@ pub static LEFT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Left(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Left(
                 Left {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\left")
+            _ => TeXErr!("Missing delimiter after \\left")
         }
         Ok(None)
     }
@@ -3490,12 +3491,12 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Middle(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Middle(
                 Middle {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\middle")
+            _ => TeXErr!("Missing delimiter after \\middle")
         }
         Ok(None)
     }
@@ -3508,7 +3509,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         let next = int.next_token();
         match next.char {
             46 => {
-                int.stomach.borrow_mut().add(int,Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
+                int.stomach_add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit());
                 int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }
@@ -3519,12 +3520,12 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
                 MathKernel::Delimiter(Delimiter { small:mc, large:_, sourceref:_}),
-                                   superscript:None,subscript:None,limits:_ })) => int.stomach.borrow_mut().add(int,Whatsit::Simple(SimpleWI::Right(
+                                   superscript:None,subscript:None,limits:_ })) => int.stomach_add(Whatsit::Simple(SimpleWI::Right(
                 Right {
                     bx:Some(mc),
                     sourceref:int.update_reference(tk)
                 })))?,
-            _ => TeXErr!((int,None),"Missing delimiter after \\right")
+            _ => TeXErr!("Missing delimiter after \\right")
         }
         int.pop_group(GroupType::LeftRight)?;
         Ok(None)

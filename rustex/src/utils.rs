@@ -309,7 +309,8 @@ use backtrace::Backtrace;
 pub struct TeXError {
     msg:String,
     source:Box<Option<TeXError>>,
-    backtrace : Backtrace
+    backtrace : Backtrace,
+    tk:Option<Token>
 }
 
 impl TeXError {
@@ -322,32 +323,36 @@ impl TeXError {
         frames = Vec::from(frames.get(2..).unwrap());
         Backtrace::from(frames)
     }
-    pub (in crate) fn new(msg:String) -> TeXError {
-        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace()}
+    pub (in crate) fn new(msg:String,tk:Option<Token>) -> TeXError {
+        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace(),tk}
     }
     pub fn derive(self,msg:String) -> TeXError {
-        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace()}
+        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace(),tk:None}
     }
-    pub fn throw<A>(mut self, int: Option<&Interpreter>) -> A {
-        //std::io::stdout().flush();
+    pub fn throw<A>(mut self, int: Option<&mut Interpreter>) -> A {
         self.backtrace.resolve();
         match int {
             None => panic!("{}",self),
-            Some(i) => match i.stomach.borrow_mut().final_xml(i) {
-                Ok(_) => {
-                    /*let mut file = std::fs::File::create(crate::LOG_FILE).unwrap();
-                    file.write_all(s.as_bytes());
-                    panic!("{}\n\nLOG FILE WRITTEN\n\n",self)*/
-                    panic!("{}",self)
-                },
-                Err(e) => e.throw(None)
-            }
+            Some(i) => panic!("{}\n\n{}",self,tex_stacktrace(i,self.tk.clone()))
         }
     }
     pub fn print(&mut self) {
-        //std::io::stdout().flush();
         self.backtrace.resolve();
         println!("{}",self)
+    }
+}
+
+fn tex_stacktrace(int:&mut Interpreter,tk:Option<Token>) -> String {
+    match tk {
+        None if int.has_next() => {
+            let next = int.next_token();
+            tex_stacktrace(int,Some(next))
+        },
+        None => "(No tracing information available)".to_string(),
+        Some(tk) => {
+            let catcodes = int.state.catcodes.get_scheme().clone();
+            crate::utils::stacktrace(tk,int,&catcodes)
+        }
     }
 }
 
@@ -404,7 +409,7 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) 
                 let next = stacktrace(tk.clone(), int,catcodes);
                 "Expanded from ".to_string() + &match tk.catcode {
                     CategoryCode::Escape => {
-                        let cmd = int.state_get_command(&tk.cmdname());
+                        let cmd = int.state.commands.get(&tk.cmdname());
                         "\\".to_string() + &tk.name().to_string() + " " + &match cmd {
                             Some(o) => o.meaning(&catcodes).to_string(),
                             _ => "".to_string()
