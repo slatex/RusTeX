@@ -98,6 +98,7 @@ pub enum Whatsit {
     Simple(SimpleWI),
     Char(PrintChar),
     Space(SpaceChar),
+    Accent(Accent),
     Math(MathGroup),
     Ls(Vec<Whatsit>),
     Grouped(WIGroup),
@@ -116,6 +117,7 @@ macro_rules! pass_on {
         Whatsit::Simple(g) => SimpleWI::$e(g $(,$tl)*),
         Whatsit::Char(g) => PrintChar::$e(g $(,$tl)*),
         Whatsit::Space(g) => SpaceChar::$e(g $(,$tl)*),
+        Whatsit::Accent(g) => Accent::$e(g $(,$tl)*),
         Whatsit::Math(g) => MathGroup::$e(g $(,$tl)*),
         Whatsit::Ls(_) => panic!("Should never happen!"),
         Whatsit::Grouped(g) => WIGroup::$e(g $(,$tl)*),
@@ -241,6 +243,30 @@ impl WhatsitTrait for SpaceChar {
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top," ")
+    }
+}
+
+#[derive(Clone)]
+pub struct Accent {
+    pub sourceref:Option<SourceFileReference>,
+    pub font : Arc<Font>,
+    pub char:PrintChar,
+    pub acc:i32
+}
+impl WhatsitTrait for Accent {
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+    fn as_whatsit(self) -> Whatsit { Whatsit::Accent(self) }
+    fn width(&self) -> i32 { self.char.width() }
+    fn height(&self) -> i32 { self.char.height() }
+    fn depth(&self) -> i32 { self.char.depth() }
+    fn as_xml_internal(&self, ind: String) -> String {
+        self.char.as_xml_internal(ind) // TODO
+    }
+    fn has_ink(&self) -> bool { true }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        self.char.as_html(mode,colon,node_top) // TODO
     }
 }
 

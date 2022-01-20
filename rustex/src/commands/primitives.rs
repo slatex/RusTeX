@@ -8,7 +8,7 @@ use crate::interpreter::state::{FontStyle, GroupType, StateChange};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
-use crate::stomach::whatsits::{SpaceChar, WhatsitTrait};
+use crate::stomach::whatsits::{Accent, PrintChar, SpaceChar, WhatsitTrait};
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -3039,6 +3039,36 @@ pub static ATOPWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
+    name:"accent",
+    modes: |x| {
+        x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal
+    },
+    _get:|tk,int| {
+        let num = int.read_number()?;
+        int.expand_until(false)?;
+        let fnt = int.get_font();
+        let next = int.next_token();
+        let pc = match next.catcode {
+            CategoryCode::Letter | CategoryCode::Other => {
+                let font = int.get_font();
+                let sourceref = int.update_reference(&next);
+                PrintChar {
+                    char:next.char,
+                    font,sourceref
+                }
+            }
+            _ => todo!()
+        };
+        Ok(Accent {
+            sourceref: int.update_reference(tk),
+            font: fnt,
+            char: pc,
+            acc: num
+        }.as_whatsit())
+    }
+};
+
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
     expandable:false,
@@ -4496,12 +4526,6 @@ pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static ACCENT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"accent",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"bigskip",
     expandable:true,
@@ -4620,6 +4644,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&SPACE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&EQNO)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LEQNO)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ACCENT)),
     PrimitiveTeXCommand::Ass(&READ),
     PrimitiveTeXCommand::Ass(&READLINE),
     PrimitiveTeXCommand::Ass(&NULLFONT),
@@ -4902,7 +4927,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&MUSKIP),
     PrimitiveTeXCommand::Primitive(&OUTER),
     PrimitiveTeXCommand::Primitive(&PATTERNS),
-    PrimitiveTeXCommand::Primitive(&ACCENT),
     PrimitiveTeXCommand::Primitive(&BIGSKIP),
     PrimitiveTeXCommand::Primitive(&DISCRETIONARY),
     PrimitiveTeXCommand::Primitive(&DISPLAYSTYLE),
