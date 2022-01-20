@@ -29,6 +29,7 @@ pub enum SimpleWI {
     MSkip(MSkip),
     Penalty(Penalty),
     PDFLiteral(PDFLiteral),
+    PDFInfo(PDFInfo),
     PDFXForm(PDFXForm),
     Raise(Raise),
     MoveRight(MoveRight),
@@ -69,6 +70,7 @@ macro_rules! pass_on {
         SimpleWI::MSkip(g) => MSkip::$e(g $(,$tl)*),
         SimpleWI::Penalty(g) => Penalty::$e(g $(,$tl)*),
         SimpleWI::PDFLiteral(g) => PDFLiteral::$e(g $(,$tl)*),
+        SimpleWI::PDFInfo(g) => PDFInfo::$e(g $(,$tl)*),
         SimpleWI::PDFXForm(g) => PDFXForm::$e(g $(,$tl)*),
         SimpleWI::Raise(g) => Raise::$e(g $(,$tl)*),
         SimpleWI::MoveRight(g) => MoveRight::$e(g $(,$tl)*),
@@ -492,6 +494,29 @@ impl WhatsitTrait for PDFLiteral {
     }
     fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
 }
+
+#[derive(Clone)]
+pub struct PDFInfo {
+    pub info:TeXStr,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for PDFInfo {
+    fn as_whatsit(self) -> Whatsit {
+        Whatsit::Simple(SimpleWI::PDFInfo(self))
+    }
+    fn width(&self) -> i32 { 0 }
+    fn height(&self) -> i32 { 0 }
+    fn depth(&self) -> i32 { 0 }
+    fn as_xml_internal(&self, _: String) -> String {
+        "<pdfinfo value=\"".to_string() + &self.info.to_string() + "\"/>"
+    }
+    fn has_ink(&self) -> bool { false }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+    fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
+}
+
 
 #[derive(Clone)]
 pub struct PDFXForm {

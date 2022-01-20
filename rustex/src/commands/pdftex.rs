@@ -5,7 +5,7 @@ use crate::{log,TeXErr};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
-use crate::stomach::simple::{PDFDest, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
+use crate::stomach::simple::{PDFDest, PDFInfo, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
 use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
@@ -711,6 +711,18 @@ pub static PDFGLYPHTOUNICODE: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFINFO: SimpleWhatsit = SimpleWhatsit {
+    name:"pdfinfo",
+    modes: |_| {true},
+    _get: |tk, int| {
+        let tks = int.read_balanced_argument(true,false,false,false)?;
+        let str : TeXStr = int.tokens_to_string(&tks).into();
+        Ok(PDFInfo{
+            info:str,sourceref:int.update_reference(tk)
+        }.as_whatsit())
+    }
+};
+
 // -------------------------------------------------------------------------------------------------
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
@@ -897,12 +909,6 @@ pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static PDFINFO: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfinfo",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfpageattr",
     expandable:true,
@@ -1006,6 +1012,7 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSETMATRIX)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFSAVE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFRESTORE)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PDFINFO)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFOUTPUT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PDFMINORVERSION)),
@@ -1049,7 +1056,6 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFFONTEXPAND),
     PrimitiveTeXCommand::Primitive(&PDFGLYPHTOUNICODE),
     PrimitiveTeXCommand::Primitive(&PDFUNESCAPEHEX),
-    PrimitiveTeXCommand::Primitive(&PDFINFO),
     PrimitiveTeXCommand::Primitive(&PDFMATCH),
     PrimitiveTeXCommand::Primitive(&PDFLASTMATCH),
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),

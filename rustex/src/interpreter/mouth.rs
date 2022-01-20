@@ -284,7 +284,7 @@ impl StringMouth {
             match catcodes.get_code(next.0) {
                 CategoryCode::Space => {}
                 CategoryCode::EOL => {
-                    self.mouth_state = MouthState::N;
+                    self.do_line(catcodes.endlinechar);
                     break
                 },
                 _ => {
@@ -309,92 +309,95 @@ impl StringMouth {
             Some(_) => true,
             None => {
                 loop {
+                    match self.mouth_state {
+                        MouthState::S => {
+                            self.mouth_state = MouthState::M;
+                            self.do_s(catcodes);
+                        }
+                        _ => ()
+                    }
                     match self.next_char(catcodes.endlinechar) {
                         None => return false, // ret = Some(false),
-                        Some(next) => match self.mouth_state {
-                            MouthState::S => {
-                                self.charbuffer = Some(next);
-                                self.mouth_state = MouthState::M;
-                                self.do_s(catcodes);
-                            }
-                            _ => match catcodes.get_code(next.0) {
-                                CategoryCode::Ignored if !allowignore && STORE_IN_FILE => {
-                                    let file = self.source.get_file();
-                                    match file {
-                                        Some(ltxf) => {
-                                            let nrf = SourceReference::File(
-                                                ltxf.path.as_ref().unwrap().clone(),
-                                                (next.1,next.2),
-                                                (self.line,self.pos)
-                                            );
-                                            let tk = Token::new(next.0,CategoryCode::Ignored,None,nrf,true);
-                                            ltxf.add(LaTeXObject::Token(tk))
-                                            // TODO
-                                        }
-                                        _ => {}
+                        Some(next) => match catcodes.get_code(next.0) {
+                            CategoryCode::Ignored if !allowignore && STORE_IN_FILE => {
+                                let file = self.source.get_file();
+                                match file {
+                                    Some(ltxf) => {
+                                        let nrf = SourceReference::File(
+                                            ltxf.path.as_ref().unwrap().clone(),
+                                            (next.1, next.2),
+                                            (self.line, self.pos)
+                                        );
+                                        let tk = Token::new(next.0, CategoryCode::Ignored, None, nrf, true);
+                                        ltxf.add(LaTeXObject::Token(tk))
+                                        // TODO
                                     }
+                                    _ => {}
                                 }
-                                CategoryCode::Ignored if !allowignore => {}
-                                CategoryCode::Comment if !allowignore => if nocomment {
-                                    let mut rest : Vec<u8> = (*self.string.as_ref().unwrap()).0[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
-                                    rest.insert(0,next.0);
-                                    match (STORE_IN_FILE, self.source.get_file()) {
-                                        (true,Some(ltxf)) => {
-                                            let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
-                                            let end = txt.len();
-                                            self.pos += end;
-                                            let nrf = SourceReference::File(ltxf.path.as_ref().unwrap().clone(),
-                                                (next.1,next.2), (self.line,self.pos)
-                                            );
-                                            let tk = Comment {
-                                                text: txt,
-                                                reference: nrf
-                                            };
-                                            ltxf.add(LaTeXObject::Comment(tk))
-                                        }
-                                        _ => {}
+                            }
+                            CategoryCode::Ignored if !allowignore => {}
+                            CategoryCode::Comment if !allowignore => if nocomment {
+                                let mut rest: Vec<u8> = (*self.string.as_ref().unwrap()).0[self.pos..].to_vec();//..slice(self.pos as usize,self.string.unwrap().len()).to_vec();
+                                rest.insert(0, next.0);
+                                match (STORE_IN_FILE, self.source.get_file()) {
+                                    (true, Some(ltxf)) => {
+                                        let txt = std::str::from_utf8(rest.as_slice()).unwrap().to_string();
+                                        let end = txt.len();
+                                        self.pos += end;
+                                        let nrf = SourceReference::File(ltxf.path.as_ref().unwrap().clone(),
+                                                                        (next.1, next.2), (self.line, self.pos)
+                                        );
+                                        let tk = Comment {
+                                            text: txt,
+                                            reference: nrf
+                                        };
+                                        ltxf.add(LaTeXObject::Comment(tk))
                                     }
-                                    self.do_line(catcodes.endlinechar);
-                                    loop {
-                                        match self.next_char(catcodes.endlinechar) {
-                                            None => break,
-                                            Some(n) => {
-                                                let cc = catcodes.get_code(n.0);
-                                                match cc {
-                                                    CategoryCode::Space | CategoryCode::EOL => { }
-                                                    _ => {
-                                                        self.charbuffer = Some(n);
-                                                        break
-                                                    }
+                                    _ => {}
+                                }
+                                self.do_line(catcodes.endlinechar);
+                                loop {
+                                    match self.next_char(catcodes.endlinechar) {
+                                        None => break,
+                                        Some(n) => {
+                                            let cc = catcodes.get_code(n.0);
+                                            match cc {
+                                                CategoryCode::Space | CategoryCode::EOL => {}
+                                                _ => {
+                                                    self.charbuffer = Some(n);
+                                                    break
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                CategoryCode::Space if self.mouth_state == MouthState::N => { }
-                                CategoryCode::Superscript => {
-                                    let string = self.string.as_ref().unwrap();
-                                    let len = string.0[self.pos..].len();
-                                    let peek = string.0.get(self.pos);
-                                    if len > 1 && peek.is_some() && *peek.unwrap() == next.0 {
-                                        let (startl,startpos) = (next.1,next.2);
+                            }
+                            CategoryCode::Space if self.mouth_state == MouthState::N => {}
+                            CategoryCode::Superscript => {
+                                let string = self.string.as_ref().unwrap();
+                                let len = string.0[self.pos..].len();
+                                let peek = string.0.get(self.pos);
+                                if len > 1 && peek.is_some() && *peek.unwrap() == next.0 {
+                                    let (startl, startpos) = (next.1, next.2);
+                                    self.pos += 1;
+                                    let next = *string.0.get(self.pos).unwrap();
+                                    self.pos += 1;
+                                    let maybenext = string.0.get(self.pos);
+                                    fn cond(i: u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
+                                    if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
                                         self.pos += 1;
-                                        let next = *string.0.get(self.pos).unwrap();
-                                        self.pos += 1;
-                                        let maybenext = string.0.get(self.pos);
-                                        fn cond(i:u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
-                                        if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
-                                            self.pos += 1;
-                                            self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next,*maybenext.unwrap()]).unwrap(),16).unwrap(),startl,startpos))
-                                        } else if next < 128 {
-                                            self.charbuffer = Some(((((next as i16) -64) as u8),startl,startpos))
-                                        }
-                                            else { panic!("Invalid character after ^^") }
-                                    } else {
-                                        self.charbuffer = Some(next); return true
-                                    }
-                                },
-                                _ => { self.charbuffer = Some(next); return true }
+                                        self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next, *maybenext.unwrap()]).unwrap(), 16).unwrap(), startl, startpos))
+                                    } else if next < 128 {
+                                        self.charbuffer = Some(((((next as i16) - 64) as u8), startl, startpos))
+                                    } else { panic!("Invalid character after ^^") }
+                                } else {
+                                    self.charbuffer = Some(next);
+                                    return true
+                                }
+                            },
+                            _ => {
+                                self.charbuffer = Some(next);
+                                return true
                             }
                         }
                     }
@@ -446,7 +449,7 @@ impl StringMouth {
                                     self.charbuffer = Some(nc);
                                     self.mouth_state = MouthState::S;
                                 }
-                                //CategoryCode::EOL => self.mouth_state = MouthState::M,
+                                //CategoryCode::EOL => self.mouth_state = MouthState::S,
                                 CategoryCode::Space => {
                                     buf.push(nc.0);
                                     self.mouth_state = MouthState::S
