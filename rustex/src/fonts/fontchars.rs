@@ -69,6 +69,8 @@ impl FontTableStore {
                 ("rm-lmri",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("cmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
+                ("mathkerncmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
                 // ec ---------------------------------------------------------------------
                 ("ecrm",STANDARD_TEXT_EC,FontTableParam::Text),
                 ("ec-lmr",STANDARD_TEXT_EC,FontTableParam::Text),

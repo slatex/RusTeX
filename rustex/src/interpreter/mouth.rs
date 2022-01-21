@@ -192,10 +192,6 @@ impl StringMouth {
                     vec![string]
                 } else {
                     let mut ret = string.split(newlinechar);
-                    /*match ret.last() {
-                        Some(s) if s.is_empty() => { ret.pop(); }
-                        _ => (),
-                    }*/
                     ret.reverse();
                     ret
                 };
@@ -238,7 +234,13 @@ impl StringMouth {
                 o => self.atendofline =  Some(o)
             };
             //self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let string = self.allstrings.pop().unwrap();
+            let mut string = self.allstrings.pop().unwrap();
+            loop {
+                match string.0.last() {
+                    Some(32) => string.0.pop(),
+                    _ => break
+                };
+            }
             self.string = Some(string);
             self.line += 1;
             self.pos = 0;

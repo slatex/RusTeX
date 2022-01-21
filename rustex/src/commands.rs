@@ -629,6 +629,10 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
+        /*if tk.cmdname().to_string() == "ThisComment" {
+            println!("Here!");
+            unsafe { crate::LOG = true }
+        }*/
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())
