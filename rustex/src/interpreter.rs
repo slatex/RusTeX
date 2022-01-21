@@ -338,8 +338,12 @@ impl Interpreter<'_> {
                     font,sourceref
                 }))
             }
-            (MathShift, Horizontal) => self.do_math(false),
-            (MathShift, RestrictedHorizontal) => self.do_math(true),
+            (MathShift, Horizontal) => {
+                self.do_math(false)
+            },
+            (MathShift, RestrictedHorizontal) => {
+                self.do_math(true)
+            },
             (Letter | Other, Math | Displaymath) => {
                 let mc = self.state.mathcodes.get(&next.char);
                 match mc {

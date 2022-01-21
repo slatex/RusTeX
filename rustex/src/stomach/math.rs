@@ -103,6 +103,7 @@ impl WhatsitTrait for MathGroup {
                             ret.push(o);
                             return
                         }
+                        Whatsit::Box(b) if *mode != ColonMode::M => ret.push(b.as_whatsit()),
                         o if *mode == ColonMode::M => {
                             ret.push(o);
                             return

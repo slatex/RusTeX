@@ -283,12 +283,12 @@ pub trait Stomach : Send {
                 StomachGroup::TeXGroup(_,v) => Ok(v),
                 StomachGroup::Other(g) => {
                     let repushes = if g.closes_with_group() {None} else {Some(g.new_from())};
-                    if g.has_ink() {
+                    //if g.has_ink() {
                         self.base_mut().stomachgroups.last_mut().unwrap().push(Whatsit::Grouped(g));
-                    } else {
+                    /*} else {
                         let buf = self.base_mut().stomachgroups.last_mut().unwrap();
                         for c in g.children_prim() {buf.push(c)}
-                    }
+                    }*/
                     let ret = self.pop_group(state)?;
                     for c in repushes {
                         self.base_mut().stomachgroups.push(StomachGroup::Other(c))
@@ -331,7 +331,7 @@ pub trait Stomach : Send {
             }
             Some(StomachGroup::Other(g)) if g.closes_with_group() => {
                 self.close_group()?;
-                let mut ng = g.new_from();
+                /*let mut ng = g.new_from();
                 let mut nv = g.children_prim();
                 let mut latter : Vec<Whatsit> = vec!();
                 loop {
@@ -342,10 +342,10 @@ pub trait Stomach : Send {
                     }
                 }
                 if !nv.is_empty() {
-                    for v in nv { ng.push(v) }
-                    self.add_inner_actually( Whatsit::Grouped(ng))?;
-                }
-                for r in latter { self.add_inner_actually(r)? }
+                    for v in nv { ng.push(v) } */
+                    self.add_inner_actually( Whatsit::Grouped(g))?;
+                /*}
+                for r in latter { self.add_inner_actually(r)? }*/
                 Ok(())
             }
             Some(p) => {
@@ -362,11 +362,11 @@ pub trait Stomach : Send {
             Some(p) => p
         };
         if top.priority() == wi.priority() {
-            let mut ng = match top {
-                StomachGroup::Other(ref g) => g.new_from(),
+            let ng = match top {
+                StomachGroup::Other(g) => g,
                 _ => unreachable!()
             };
-            let mut nv = top.get_d();
+            /*let mut nv = top.get_d();
             let mut latter : Vec<Whatsit> = vec!();
             loop {
                 match nv.last() {
@@ -379,7 +379,8 @@ pub trait Stomach : Send {
                 for v in nv { ng.push(v) }
                 self.add_inner_actually(Whatsit::Grouped(ng))?;
             }
-            for r in latter { self.add_inner_actually(r)? }
+            for r in latter { self.add_inner_actually(r)? }*/
+            self.add_inner_actually(Whatsit::Grouped(ng))?;
             Ok(())
         } else if top.priority() > wi.priority() {
             let wiopen = match self.base().stomachgroups.iter().rev().find(|x| x.priority() == wi.priority()) {

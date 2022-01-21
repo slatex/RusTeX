@@ -629,7 +629,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "ThisComment" {
+        /*if tk.cmdname().to_string() == "enddocument" && int.current_line().starts_with("/home/jazzpirate/work") {
             println!("Here!");
             unsafe { crate::LOG = true }
         }*/
