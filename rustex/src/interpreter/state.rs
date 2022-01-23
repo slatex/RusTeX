@@ -590,9 +590,13 @@ impl State {
         use std::io::BufRead;
         match index {
             255 => {
+                TeXErr!("Trying to read from stdin (not supported)")
+                /*
                 let stdin = std::io::stdin();
                 let string = stdin.lock().lines().next().unwrap().unwrap();
                 Ok(crate::interpreter::tokenize(string.into(),self.catcodes.get_scheme()))
+
+                 */
             }
             i => {
                 match self.infiles.get_mut(&i) {

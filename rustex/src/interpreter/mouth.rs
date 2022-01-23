@@ -549,7 +549,7 @@ impl Mouths {
                                     return Ok(false)
                                 }
                                 Mouth::File(fm) if STORE_IN_FILE => {
-                                    io.file_clopen(")");
+                                    io.file_close();
                                     let lastfile = self.mouths.iter_mut().rev().find(|x| match x {
                                         Mouth::File(_) => true,
                                         _ => false
@@ -566,7 +566,7 @@ impl Mouths {
                                     return Err(EOF {})
                                 }
                                 Mouth::File(_) => {
-                                    io.file_clopen(")");
+                                    io.file_close();
                                     return Err(EOF {})
                                 }
                                 Mouth::FileLike(_) => {
@@ -690,7 +690,7 @@ impl Mouths {
             match self.mouths.last() {
                 Some(Mouth::File(_)) => {
                     self.mouths.pop();
-                    io.file_clopen(")");
+                    io.file_close();
                     return ()
                 }
                 Some(_) => {self.mouths.pop();}
@@ -721,7 +721,7 @@ impl Interpreter<'_> {
     pub fn push_file(&mut self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
         if !self.mouths.borrow().mouths.is_empty() {
-            self.params.file_clopen(&match file.source {
+            self.params.file_open(&match file.source {
                 VFileBase::Real(ref pb) => "\n(".to_string() + &pb.to_string(),
                 _ => "\n(".to_string() + &file.id.to_string()
             });

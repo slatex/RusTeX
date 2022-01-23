@@ -11,7 +11,9 @@ pub trait InterpreterParams {
     fn write_18(&self,s:&str);
     fn write_neg_1(&self,s:&str);
     fn write_other(&self,s:&str);
-    fn file_clopen(&self,s:&str);
+    fn file_open(&self,s:&str);
+    fn file_close(&self);
+    fn error(&self,t:TeXError);
     fn message(&self,s:&str);
 }
 
@@ -20,6 +22,8 @@ pub struct DefaultParams {
     pub singlethreaded:bool
 }
 use ansi_term::Colour::*;
+use crate::utils::TeXError;
+
 impl InterpreterParams for DefaultParams {
     fn singlethreaded(&self) -> bool { self.singlethreaded }
     fn do_log(&self) -> bool { self.log }
@@ -33,8 +37,12 @@ impl InterpreterParams for DefaultParams {
     fn write_18(&self,_s:&str) { }
     fn write_neg_1(&self,s:&str) { print!("{}",Black.on(Blue).paint(s)) }
     fn write_other(&self,s:&str) { print!("{}",Black.on(Green).paint(s)) }
-    fn file_clopen(&self, s: &str) { print!("{}",s) }
+    fn file_open(&self, s: &str) { print!("{}",s) }
+    fn file_close(&self) { print!(")") }
     fn message(&self,s:&str) { print!("{}",Yellow.paint(s)) }
+    fn error(&self,t:TeXError) {
+        println!("{}",Red.paint(std::format!("{}",t)))
+    }
 }
 pub struct NoOutput {}
 impl InterpreterParams for NoOutput {
@@ -50,6 +58,10 @@ impl InterpreterParams for NoOutput {
     fn write_18(&self,_s:&str) {}
     fn write_neg_1(&self,_s:&str) {}
     fn write_other(&self,_s:&str) {}
-    fn file_clopen(&self, _s: &str) {}
+    fn file_open(&self, _s: &str) {}
+    fn file_close(&self) {}
     fn message(&self, _s: &str) {}
+    fn error(&self,t:TeXError) {
+        println!("{}",Red.paint(std::format!("{}",t)))
+    }
 }

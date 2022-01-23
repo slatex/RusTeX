@@ -6,6 +6,9 @@ import scala.collection.mutable
 object Implicits {
   import scala.jdk.CollectionConverters._
   implicit def apply[A](ls : List[A]) : util.ArrayList[A] = new util.ArrayList(ls.asJava)
+  implicit def apply[A](ls : util.List[A]) : List[A] = {
+    ls.iterator().asScala.toList
+  }
 }
 import Implicits._
 private class Bridge {
@@ -25,7 +28,10 @@ abstract class Params {
   def write_neg_1(s:String)
   def write_other(s:String)
   def message(s:String)
-  def file_clopen(s:String)
+  def file_open(s:String)
+  def file_close()
+  private def error_i(msg:String,stacktrace:Array[Array[String]]) = error(msg,stacktrace.toList.map(s => (s(0),s(1))))
+  def error(msg:String,stacktrace:List[(String,String)])
 }
 /*
 
@@ -80,18 +86,22 @@ object Bridge {
 object Test {
   def main(args: Array[String]): Unit = {
     val testparams = new Params {
-      override def log(s: String): Unit = {}//println("LOG: " + s)
-      override def write_16(s: String): Unit = {}//println("WRITE16: " + s)
-      override def write_17(s: String): Unit = {}//println("WRITE17: " + s)
-      override def write_18(s: String): Unit = {}//println("WRITE18: " + s)
-      override def write_neg_1(s: String): Unit = {}//println("WRITE-1: " + s)
-      override def write_other(s: String): Unit = {}//println("OTHER: " + s)
-      override def file_clopen(s: String): Unit = {}//println("FILE: " + s)
-      override def message(s: String): Unit = {}//println("MSG: " + s)
+      override def log(s: String): Unit = println("LOG: " + s)
+      override def write_16(s: String): Unit = println("WRITE16: " + s)
+      override def write_17(s: String): Unit = println("WRITE17: " + s)
+      override def write_18(s: String): Unit = println("WRITE18: " + s)
+      override def write_neg_1(s: String): Unit = println("WRITE-1: " + s)
+      override def write_other(s: String): Unit = println("OTHER: " + s)
+      override def file_open(s: String): Unit = println("FILE OPEN: " + s)
+      override def file_close(): Unit = println("FILE CLOSE")
+      override def message(s: String): Unit = println("MSG: " + s)
+
+      override def error(msg: String, stacktrace: List[(String, String)]): Unit = println("Error: " + msg + "\n\n" + stacktrace.map{case (a,b) => a + " - " + b}.mkString("\n"))
     }
     //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
     Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
-    println("jupyterNB.en.tex")
+    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
+    /*println("jupyterNB.en.tex")
     Bridge.parse("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",testparams,List("a","b","c"))
     println("BBPformula")
     Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",testparams,List("a","b","c"))
@@ -119,7 +129,7 @@ object Test {
     Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",testparams,List("a","b","c"))
     println("hyperboliccosine")
     Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex",testparams,List("a","b","c"))
-    println("Done")
-    //println(ret)
+    println("Done")*/
+    println(ret)
   }
 }

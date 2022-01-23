@@ -307,10 +307,11 @@ pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
 use backtrace::Backtrace;
 
 pub struct TeXError {
-    msg:String,
+    pub msg:String,
     source:Box<Option<TeXError>>,
     backtrace : Backtrace,
-    tk:Option<Token>
+    tk:Option<Token>,
+    pub textrace:Vec<(String,String)>
 }
 
 impl TeXError {
@@ -324,17 +325,14 @@ impl TeXError {
         Backtrace::from(frames)
     }
     pub (in crate) fn new(msg:String,tk:Option<Token>) -> TeXError {
-        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace(),tk}
+        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace(),tk,textrace:vec!()}
     }
     pub fn derive(self,msg:String) -> TeXError {
-        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace(),tk:None}
+        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace(),tk:None,textrace:vec!()}
     }
-    pub fn throw<A>(mut self, int: Option<&mut Interpreter>) -> A {
+    pub fn throw(&mut self, int: &mut Interpreter) {
         self.backtrace.resolve();
-        match int {
-            None => panic!("{}",self),
-            Some(i) => panic!("{}\n\n{}",self,tex_stacktrace(i,self.tk.clone()))
-        }
+        self.textrace = tex_stacktrace(int,self.tk.clone())
     }
     pub fn print(&mut self) {
         self.backtrace.resolve();
@@ -342,16 +340,15 @@ impl TeXError {
     }
 }
 
-fn tex_stacktrace(int:&mut Interpreter,tk:Option<Token>) -> String {
+fn tex_stacktrace(int:&mut Interpreter,tk:Option<Token>) -> Vec<(String,String)> {
     match tk {
         None if int.has_next() => {
             let next = int.next_token();
             tex_stacktrace(int,Some(next))
         },
-        None => "(No tracing information available)".to_string(),
+        None => vec!(),
         Some(tk) => {
-            let catcodes = int.state.catcodes.get_scheme().clone();
-            crate::utils::stacktrace(tk,int,&catcodes)
+            stacktrace(tk)
         }
     }
 }
@@ -395,15 +392,60 @@ fn get_top(tk : Token) -> Token {
     }
 }
 
-pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) -> String {
-    (match tk.catcode {
-        CategoryCode::Escape => "\\".to_string() + &tk.name().to_string(),
-        _ => TeXString(vec!(tk.char)).to_string()
-    }) + " - " +
-    &match &*tk.reference {
-        SourceReference::File(str,(sl,sp),(el,ep)) =>
-            str.to_string() + " (" + &sl.to_string() + "," + &sp.to_string() + ") - (" + &el.to_string() + "," + &ep.to_string() + ")\n",
-        SourceReference::None => "".to_string(),
+pub fn stacktrace(tk : Token) -> Vec<(String,String)> {
+    let mut currtk = tk;
+    let mut ret : Vec<(String,String)> = vec!();
+    let mut currtkstr = "".to_string();
+    let mut currline = "".to_string();
+    loop {
+        match currtk.catcode {
+            CategoryCode::Escape => {
+                currtkstr += "\\";
+                currtkstr += &currtk.name().to_string()
+            },
+            _ => {
+                currtkstr += &TeXString(vec!(currtk.char)).to_string()
+            }
+        }
+        match &*currtk.reference {
+            SourceReference::File(str,(sl,sp),(el,ep)) => {
+                currline += &str.to_string();
+                currline += " (L ";
+                currline += &sl.to_string();
+                currline += ", C ";
+                currline += &sp.to_string();
+                currline += " - L ";
+                currline += &el.to_string();
+                currline += ", C ";
+                currline += &ep.to_string();
+                currline += ")";
+                ret.push((std::mem::take(&mut currtkstr),std::mem::take(&mut currline)));
+                break
+            }
+            SourceReference::None => {
+                ret.push((std::mem::take(&mut currtkstr),"(No source information available)".to_string()));
+                break
+            }
+            SourceReference::Exp(ExpansionRef(ntk,cmd)) => {
+                currline += "Expanded from ";
+                match ntk.catcode {
+                    CategoryCode::Escape => {
+                        currline += "\\";
+                        currline += &ntk.cmdname().to_string();
+                        currline += " => ";
+                        currline += &cmd.meaning(&crate::catcodes::DEFAULT_SCHEME).to_string();
+                    }
+                    _ => ()
+                }
+                currtk = ntk.clone();
+                ret.push((std::mem::take(&mut currtkstr),std::mem::take(&mut currline)))
+            }
+        }
+    }
+    ret
+}
+/*
+pub fn stacktrace(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) -> Vec<String> {
         SourceReference::Exp(ExpansionRef(tk,cmd)) =>
             {
                 let next = stacktrace(tk.clone(), int,catcodes);
@@ -426,6 +468,7 @@ pub fn stacktrace<'a>(tk : Token,int:&Interpreter,catcodes:&CategoryCodeScheme) 
             }
     }
 }
+ */
 
 // -------------------------------------------------------------------------------------------------
 

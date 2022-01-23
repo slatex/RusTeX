@@ -1059,7 +1059,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp)
         } else {"".into()};
-        TeXErr!("{}\n{}",Red.bold().paint(string.to_string()),rethelp)
+        TeXErr!("{}\n{}",string.to_string(),rethelp)
     }
 };
 
@@ -3541,6 +3541,15 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"batchmode",
+    expandable:true,
+    _apply:|_tk,int| {
+        Ok(())
+    }
+};
+
+
 pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
     name:"nonscript",
     expandable:false,
@@ -4174,12 +4183,6 @@ pub static EVERYEOF : TokReference = TokReference {
 
 
 // TODO --------------------------------------------------------------------------------------------
-
-pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"batchmode",
-    expandable:true,
-    _apply:|_tk,int| {todo!("{} >>{}",int.current_line(),int.preview())}
-};
 
 pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     name:"bye",

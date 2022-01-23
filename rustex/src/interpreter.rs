@@ -171,7 +171,11 @@ impl Interpreter<'_> {
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         let cont = match self.predoc_toploop() {
             Ok(b) => b,
-            Err(e) => return e.throw(Some(self))
+            Err(mut e) => {
+                e.throw(self);
+                self.params.error(e);
+                return colon.close()
+            }
         };
         if cont {
             let (receiver,fnt,color) = self.stomach.borrow_mut().on_begin_document(&mut self.state);
@@ -225,7 +229,15 @@ impl Interpreter<'_> {
                 let next = self.next_token();
                 match self.do_top(next,false) {
                     Ok(b) => b,
-                    Err(e) => return e.throw(Some(self))
+                    Err(mut e) =>  {
+                        e.throw(self);
+                        self.params.error(e);
+                        self.stomach.finish(&mut self.state);
+                        return match colonthread.join() {
+                            Ok(r) => r,
+                            _ => panic!("Error in colon thread")
+                        }
+                    }
                 };
             }
 
