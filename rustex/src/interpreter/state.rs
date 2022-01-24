@@ -17,6 +17,7 @@ use crate::stomach::{Stomach, Whatsit};
 use crate::{Interpreter, log, TeXErr, TeXString, Token};
 use crate::commands::conditionals::conditional_commands;
 use crate::commands::pdftex::pdftex_commands;
+use crate::commands::pgfsvg::pgf_commands;
 use crate::commands::primitives::tex_commands;
 use crate::commands::rustex_specials::rustex_special_commands;
 use crate::utils::{PWD, TeXError, TeXStr};
@@ -575,6 +576,10 @@ impl State {
             state.commands.set_locally(c.name().unwrap(),Some(c))
         }
         for c in rustex_special_commands() {
+            let c = c.as_command();
+            state.commands.set_locally(c.name().unwrap(),Some(c))
+        }
+        for c in pgf_commands() {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))
         }
