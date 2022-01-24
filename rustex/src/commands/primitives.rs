@@ -1045,7 +1045,6 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
     _apply:|_,int| {
-        use ansi_term::Colour::Red;
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!(next => "Begin group token expected after \\errmessage")
@@ -3544,7 +3543,7 @@ pub static END: PrimitiveExecutable = PrimitiveExecutable {
 pub static BATCHMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"batchmode",
     expandable:true,
-    _apply:|_tk,int| {
+    _apply:|_tk,_int| {
         Ok(())
     }
 };

@@ -587,7 +587,7 @@ impl State {
         }
     }
     pub fn file_read(&mut self,index:u8,nocomment:bool) -> Result<Vec<Token>,TeXError> {
-        use std::io::BufRead;
+        //use std::io::BufRead;
         match index {
             255 => {
                 TeXErr!("Trying to read from stdin (not supported)")

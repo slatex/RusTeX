@@ -311,7 +311,8 @@ pub struct TeXError {
     source:Box<Option<TeXError>>,
     backtrace : Backtrace,
     tk:Option<Token>,
-    pub textrace:Vec<(String,String)>
+    pub textrace:Vec<(String,String)>,
+    pub toplinepos:Vec<(String,usize,usize)>
 }
 
 impl TeXError {
@@ -325,14 +326,29 @@ impl TeXError {
         Backtrace::from(frames)
     }
     pub (in crate) fn new(msg:String,tk:Option<Token>) -> TeXError {
-        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace(),tk,textrace:vec!()}
+        TeXError {msg,source:Box::new(None),backtrace:TeXError::backtrace(),tk,textrace:vec!(),toplinepos:vec!()}
     }
     pub fn derive(self,msg:String) -> TeXError {
-        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace(),tk:None,textrace:vec!()}
+        TeXError {msg,source:Box::new(Some(self)),backtrace:TeXError::backtrace(),tk:None,textrace:vec!(),toplinepos:vec!()}
     }
     pub fn throw(&mut self, int: &mut Interpreter) {
         self.backtrace.resolve();
-        self.textrace = tex_stacktrace(int,self.tk.clone())
+        self.textrace = tex_stacktrace(int,self.tk.clone());
+        for x in &int.mouths.mouths {
+            match x {
+                Mouth::File(sm) =>
+                    match &sm.source {
+                        StringMouthSource::File(f) =>
+                            match &f.path {
+                                Some(p) =>
+                                    self.toplinepos.push((p.to_string(),sm.line,sm.pos)),
+                                _ => ()
+                            },
+                        _ => ()
+                    }
+                _ => ()
+            }
+        }
     }
     pub fn print(&mut self) {
         self.backtrace.resolve();
@@ -377,11 +393,12 @@ impl std::error::Error for TeXError {
 
 use crate::references::SourceReference;
 use crate::ontology::ExpansionRef;
-use crate::catcodes::{CategoryCode, CategoryCodeScheme};
+use crate::catcodes::CategoryCode;
 use crate::ontology::Token;
 use crate::interpreter::Interpreter;
+use crate::interpreter::mouth::{Mouth, StringMouthSource};
 
-fn get_top(tk : Token) -> Token {
+/*fn get_top(tk : Token) -> Token {
     let mut t = tk;
     loop {
         match &*t.reference {
@@ -390,7 +407,7 @@ fn get_top(tk : Token) -> Token {
             SourceReference::Exp(ExpansionRef(nt,_)) => t = nt.clone()
         }
     }
-}
+}*/
 
 pub fn stacktrace(tk : Token) -> Vec<(String,String)> {
     let mut currtk = tk;

@@ -154,8 +154,12 @@ impl<'borrow,'env> InterpreterParams for JavaParams<'borrow,'env> {
             let v = vec!(p.0,p.1);
             jarray!(self.env,v,"Ljava/lang/String;",emptystr,s => javastring!(self.env,s))
         });
+        let filestr = jarray!(self.env,t.toplinepos,"[Ljava/lang/String;",emptyvec,p => {
+            let v = vec!(p.0,p.1.to_string(),p.2.to_string());
+            jarray!(self.env,v,"Ljava/lang/String;",emptystr,s => javastring!(self.env,s))
+        });
 
-        self.env.call_method(self.params,"error_i","(Ljava/lang/String;[[Ljava/lang/String;)V",
-                             &[a1,JValue::Object(JObject::from(retstr))]).unwrap();
+        self.env.call_method(self.params,"error_i","(Ljava/lang/String;[[Ljava/lang/String;[[Ljava/lang/String;)V",
+                             &[a1,JValue::Object(JObject::from(retstr)),JValue::Object(JObject::from(filestr))]).unwrap();
     }
 }

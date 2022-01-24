@@ -98,11 +98,11 @@ pub struct StringMouth {
     peekbuffer : Option<Token>,
     string : Option<TeXString>,
     allstrings : Vec<TeXString>,
-    line: usize,
-    pos: usize,
+    pub line: usize,
+    pub pos: usize,
     atendofline:Option<u8>,
     charbuffer:Option<(u8,usize,usize)>,
-    pub(in crate::interpreter) source : StringMouthSource,
+    pub(in crate) source : StringMouthSource,
     iseof : bool
 }
 
@@ -523,8 +523,8 @@ use crate::interpreter::files::VFile;
 use crate::interpreter::params::InterpreterParams;
 use crate::STORE_IN_FILE;
 
-pub (in crate::interpreter) struct Mouths {
-    mouths: Vec<Mouth>,
+pub (in crate) struct Mouths {
+    pub mouths: Vec<Mouth>,
     buffer: Option<Token>,
 }
 

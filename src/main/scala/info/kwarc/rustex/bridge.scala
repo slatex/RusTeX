@@ -30,8 +30,10 @@ abstract class Params {
   def message(s:String)
   def file_open(s:String)
   def file_close()
-  private def error_i(msg:String,stacktrace:Array[Array[String]]) = error(msg,stacktrace.toList.map(s => (s(0),s(1))))
-  def error(msg:String,stacktrace:List[(String,String)])
+  private def error_i(msg:String,stacktrace:Array[Array[String]],files:Array[Array[String]]) = {
+    error(msg,stacktrace.toList.map(s => (s(0),s(1))),files.toList.map(s => (s(0),s(1).toInt,s(2).toInt)))
+  }
+  def error(msg:String,stacktrace:List[(String,String)],files:List[(String,Int,Int)])
 }
 /*
 
@@ -96,7 +98,10 @@ object Test {
       override def file_close(): Unit = println("FILE CLOSE")
       override def message(s: String): Unit = println("MSG: " + s)
 
-      override def error(msg: String, stacktrace: List[(String, String)]): Unit = println("Error: " + msg + "\n\n" + stacktrace.map{case (a,b) => a + " - " + b}.mkString("\n"))
+      override def error(msg: String, stacktrace: List[(String, String)],files : List[(String,Int,Int)]): Unit =
+        println("Error: " + msg + "\n\n" + stacktrace.map{case (a,b) => a + " - " + b}.mkString("\n") + "\n\n" +
+          files.map{case (s,l,p) => s + "(" + l + "," + p + ")"}.mkString("\n")
+        )
     }
     //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
     Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")

@@ -55,7 +55,7 @@ impl Jobinfo {
 pub struct Interpreter<'a> {
     pub state:State,
     pub jobinfo:Jobinfo,
-    mouths:Mouths,
+    pub(crate) mouths:Mouths,
     pub stomach:&'a mut dyn Stomach,
     pub params:&'a dyn InterpreterParams
 }
