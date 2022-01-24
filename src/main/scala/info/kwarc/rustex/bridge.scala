@@ -55,8 +55,9 @@ object Bridge {
   def initialize(path : String): Unit = {
     val actualpath = path + "/" + library_filename()
     System.load(actualpath)
-    bridge = Some(new Bridge)
-    bridge.get.initialize()
+    val b = new Bridge
+    b.initialize()
+    bridge = Some(b)
     //println("TeX Engine Initialized")
   }
   def parse(s : String,p:Params, memories:List[String] = Nil) = bridge match {
