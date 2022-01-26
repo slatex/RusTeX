@@ -27,7 +27,7 @@ pub mod params;
 pub fn tokenize(s : TeXString,cats: &CategoryCodeScheme) -> Vec<Token> {
     let mut retvec: Vec<Token> = Vec::new();
     for next in s.0 {
-        retvec.push(Token::new(next,cats.get_code(next),None,SourceReference::None,true))
+        retvec.push(Token::new(next,cats.get_code(next),None,None,true))
     }
     retvec
 }
@@ -262,12 +262,12 @@ impl Interpreter<'_> {
             Some(p) => Ok(p),
             None if s.len() == 0 => {
                 let catcode = CategoryCode::Other;//self.catcodes.borrow().get_code(char);
-                let tk = Token::new(self.state.catcodes.get_scheme().endlinechar,catcode,None,SourceReference::None,true);
+                let tk = Token::new(self.state.catcodes.get_scheme().endlinechar,catcode,None,None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
             None if s.len() == 1 => {
                 let char = *s.iter().first().unwrap();
-                let tk = Token::new(char,CategoryCode::Other,None,SourceReference::None,true);
+                let tk = Token::new(char,CategoryCode::Other,None,None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
             None => TeXErr!("Unknown control sequence: \\{}",s)
@@ -304,7 +304,7 @@ impl Interpreter<'_> {
                     }
                     (Primitive(p),Horizontal) if **p == primitives::PAR => self.end_paragraph(inner),
                     (Primitive(np),_) => {
-                        let mut exp = Expansion(next,Arc::new(p.clone()),vec!());
+                        let mut exp = Expansion::new(next,p.orig.clone());
                         np.apply(&mut exp,self)?;
                         if !exp.2.is_empty() {
                             self.push_expansion(exp)
@@ -360,7 +360,7 @@ impl Interpreter<'_> {
                 let mc = self.state.mathcodes.get(&next.char);
                 match mc {
                     32768 => {
-                        self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true));
+                        self.requeue(Token::new(next.char,CategoryCode::Active,None,None,true));
                         Ok(())
                     }
                     _ => {
@@ -747,7 +747,7 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             Primitive(np) => {
-                                let mut exp = Expansion(next, Arc::new(p.clone()), vec!());
+                                let mut exp = Expansion::new(next, p.orig.clone());
                                 np.apply(&mut exp, self)?;
                                 if !exp.2.is_empty() {
                                     self.push_expansion(exp)
@@ -770,7 +770,7 @@ impl Interpreter<'_> {
                             },
                             MathChar(mc) => match mc {
                                 32768 => {
-                                    self.requeue(Token::new(next.char, CategoryCode::Active, None, SourceReference::None, true))
+                                    self.requeue(Token::new(next.char, CategoryCode::Active, None, None, true))
                                 }
                                 _ => {
                                     let wi = self.do_math_char(Some(next),*mc);
@@ -789,7 +789,7 @@ impl Interpreter<'_> {
                     let mc = self.state.mathcodes.get(&(next.char as u8));
                     match mc {
                         32768 => {
-                            self.requeue(Token::new(next.char,CategoryCode::Active,None,SourceReference::None,true))
+                            self.requeue(Token::new(next.char,CategoryCode::Active,None,None,true))
                         }
                         _ => {
                             let wi = self.do_math_char(Some(next),mc as u32);

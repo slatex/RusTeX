@@ -1,11 +1,13 @@
+use std::sync::Arc;
+use crate::commands::PrimitiveTeXCommand;
 use crate::ontology::ExpansionRef;
+use crate::Token;
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
 pub enum SourceReference {
     File(TeXStr,(usize,usize),(usize,usize)),
-    Exp(ExpansionRef),
-    None
+    Exp(Token,Arc<PrimitiveTeXCommand>)
 }
 
 #[derive(PartialEq,Clone)]

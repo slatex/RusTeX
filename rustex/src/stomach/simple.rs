@@ -271,11 +271,11 @@ impl WhatsitTrait for VRule {
         if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref.clone(),"vrule",node_top,n => {
+        htmlnode!(colon,div,self.sourceref.clone(),"vrule",node_top,n => {
             n.style("width".into(),dimtohtml(self.width()));
             n.style("min-width".into(),dimtohtml(self.width()));
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
-            n.style("min-height".into(),dimtohtml(self.height() + self.height()));
+            n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
             n.style("background".into(),match &colon.state.currcolor {
                 Some(c) => HTMLStr::from("#") + c,
                 None => "#000000".into()
@@ -310,11 +310,11 @@ impl WhatsitTrait for HRule {
         if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref.clone(),"vrule",node_top,n => {
+        htmlnode!(colon,div,self.sourceref.clone(),"vrule",node_top,n => {
             n.style("width".into(),dimtohtml(self.width()));
             n.style("min-width".into(),dimtohtml(self.width()));
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
-            n.style("min-height".into(),dimtohtml(self.height() + self.height()));
+            n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
             n.style("background".into(),match &colon.state.currcolor {
                 Some(c) => HTMLStr::from("#") + c,
                 None => "#000000".into()

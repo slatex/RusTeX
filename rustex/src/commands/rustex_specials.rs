@@ -257,6 +257,7 @@ pub static ANNOTATE_END: SimpleWhatsit = SimpleWhatsit {
 pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
     _apply: |_,int| {
         let prev = int.preview();
+        unsafe {crate::LOG = true}
         println!("BREAK! {}",prev);
         Ok(())
     },

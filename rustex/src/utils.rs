@@ -378,7 +378,10 @@ impl Debug for TeXError {
 
 impl Display for TeXError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{}\n",self.msg)?;
+        write!(f,"{}\n\n",self.msg)?;
+        for (x,y) in &self.textrace {
+            write!(f,"{} - {}\n",x,y)?
+        }
         self.backtrace.fmt(f)
     }
 }
@@ -424,38 +427,40 @@ pub fn stacktrace(tk : Token) -> Vec<(String,String)> {
                 currtkstr += &TeXString(vec!(currtk.char)).to_string()
             }
         }
-        match &*currtk.reference {
-            SourceReference::File(str,(sl,sp),(el,ep)) => {
-                currline += &str.to_string();
-                currline += " (L ";
-                currline += &sl.to_string();
-                currline += ", C ";
-                currline += &sp.to_string();
-                currline += " - L ";
-                currline += &el.to_string();
-                currline += ", C ";
-                currline += &ep.to_string();
-                currline += ")";
-                ret.push((std::mem::take(&mut currtkstr),std::mem::take(&mut currline)));
-                break
-            }
-            SourceReference::None => {
+        match &currtk.reference {
+            None => {
                 ret.push((std::mem::take(&mut currtkstr),"(No source information available)".to_string()));
                 break
             }
-            SourceReference::Exp(ExpansionRef(ntk,cmd)) => {
-                currline += "Expanded from ";
-                match ntk.catcode {
-                    CategoryCode::Escape => {
-                        currline += "\\";
-                        currline += &ntk.cmdname().to_string();
-                        currline += " => ";
-                        currline += &cmd.meaning(&crate::catcodes::DEFAULT_SCHEME).to_string();
-                    }
-                    _ => ()
+            Some(r) => match &**r {
+                SourceReference::File(str, (sl, sp), (el, ep)) => {
+                    currline += &str.to_string();
+                    currline += " (L ";
+                    currline += &sl.to_string();
+                    currline += ", C ";
+                    currline += &sp.to_string();
+                    currline += " - L ";
+                    currline += &el.to_string();
+                    currline += ", C ";
+                    currline += &ep.to_string();
+                    currline += ")";
+                    ret.push((std::mem::take(&mut currtkstr), std::mem::take(&mut currline)));
+                    break
                 }
-                currtk = ntk.clone();
-                ret.push((std::mem::take(&mut currtkstr),std::mem::take(&mut currline)))
+                SourceReference::Exp(ntk, cmd) => {
+                    currline += "Expanded from ";
+                    match ntk.catcode {
+                        CategoryCode::Escape => {
+                            currline += "\\";
+                            currline += &ntk.cmdname().to_string();
+                            currline += " => ";
+                            currline += &cmd.meaning(&crate::catcodes::DEFAULT_SCHEME).to_string();
+                        }
+                        _ => ()
+                    }
+                    currtk = ntk.clone();
+                    ret.push((std::mem::take(&mut currtkstr), std::mem::take(&mut currline)))
+                }
             }
         }
     }

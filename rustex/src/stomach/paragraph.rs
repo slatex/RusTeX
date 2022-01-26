@@ -44,6 +44,10 @@ impl WhatsitTrait for Paragraph {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,"\n");
         htmlnode!(colon,div,None,"paragraph",node_top,node => {
+            if crate::DO_BOX_SIZES {
+                node.attr("rustex:width".into(),dimtohtml(self.width()));
+                node.attr("rustex:height".into(),dimtohtml(self.height()));
+            }
             match self.leftskip {
                 Some(sk) if match sk.stretch {
                     Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => true,

@@ -3,19 +3,32 @@ use crate::references::SourceReference;
 use std::sync::Arc;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
-use crate::commands::TeXCommand;
+use crate::commands::{PrimitiveTeXCommand, TeXCommand};
 use crate::COPY_TOKENS_FULL;
 use crate::utils::{TeXString,TeXStr};
 
 #[derive(Clone)]
-pub struct Expansion(pub Token,pub Arc<TeXCommand>,pub Vec<Token>);
+pub struct Expansion(pub Token,pub Arc<PrimitiveTeXCommand>,pub Vec<Token>);
 
 impl Expansion {
-    pub fn get_ref(&self) -> ExpansionRef { ExpansionRef(self.0.clone(),Arc::clone(&self.1)) }
+    pub fn new(tk : Token,command:Arc<PrimitiveTeXCommand>) -> Expansion {
+        Expansion(tk,command,vec!())
+    }
+    pub fn get_ref(&mut self) -> ExpansionRef {
+        ExpansionRef(self.0.clone(),Arc::clone(&self.1),None) }
 }
 
 #[derive(Clone)]
-pub struct ExpansionRef(pub(crate) Token,pub(crate) Arc<TeXCommand>);
+pub struct ExpansionRef(pub(crate) Token,pub(crate) Arc<PrimitiveTeXCommand>,pub(crate) Option<Arc<SourceReference>>);
+
+impl ExpansionRef {
+    pub fn as_src_ref(&mut self) -> Arc<SourceReference> {
+        if self.2.is_none() {
+            self.2 = Some(Arc::new(SourceReference::Exp(self.0.clone(),self.1.clone())))
+        }
+        self.2.as_ref().unwrap().clone()
+    }
+}
 
 #[derive(Clone)]
 pub struct Token {
@@ -23,7 +36,7 @@ pub struct Token {
     pub catcode : CategoryCode,
     pub(in crate) name_opt: TeXStr,
     //pub(in crate) cmdname : TeXStr,
-    pub reference: Arc<SourceReference>,
+    pub reference: Option<Arc<SourceReference>>,
     pub(in crate) expand:bool
 }
 impl PartialEq for Token {
@@ -67,7 +80,7 @@ impl Token {
         }
 
     }
-    pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:SourceReference,expand:bool) -> Token {
+    pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:Option<Arc<SourceReference>>,expand:bool) -> Token {
         let name = match name_opt {
             Some(uv) => uv,
             None => TeXStr::new(&[char]) /*match catcode {
@@ -84,7 +97,7 @@ impl Token {
                 _ => TeXStr::new(&[])
             },*/
             name_opt: name,
-            reference: Arc::new(rf),
+            reference: rf,
             expand
         }
     }
@@ -99,7 +112,7 @@ impl Token {
     }
 
     pub fn dummy() -> Token {
-        Token::new(0,CategoryCode::Escape,Some("relax".into()),SourceReference::None,false)
+        Token::new(0,CategoryCode::Escape,Some("relax".into()),None,false)
     }
     pub fn cloned(&self) -> Token {
         Token {
@@ -111,14 +124,14 @@ impl Token {
             expand:true
         }
     }
-    pub fn copied(&self,er:ExpansionRef) -> Token {
+    pub fn copied(&self,er:&mut ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
             Token {
                 char:self.char,
                 catcode:self.catcode,
                 //cmdname:self.cmdname.clone(),
                 name_opt:self.name_opt.clone(),
-                reference:Arc::new(SourceReference::Exp(er)),
+                reference:Some(er.as_src_ref()),
                 expand:true
             }
             //Token::new(self.char,self.catcode,Some(self.name_opt.clone()),SourceReference::Exp(er),true)

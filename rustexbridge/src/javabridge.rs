@@ -54,7 +54,7 @@ macro_rules! jarray {
 pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
     env: JNIEnv,
     _class: JClass,
-    file:JString,params:JObject//,memory_j:JObject
+    file:JString,params:JObject,memory_j:JObject
 ) -> jstring {
     let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
     let filename : String = env
@@ -62,18 +62,16 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
         .expect("Couldn't get java string!")
         .into();
     let p = JavaParams::new(&env,params);
-    /*let mut memories : Vec<String> = vec!();
+    let mut memories : Vec<String> = vec!();
     for m in JList::from_env(&env,memory_j).unwrap().iter().unwrap() {
         memories.push(env.get_string(JString::from(m)).unwrap().into())
-    }*/
-    let (_,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
-    /*
-    let frame = s.stacks.remove(0);
-    for (n,cmd) in frame.commands {
+    }
+    let (s,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
+    for (n,cmd) in s.commands.values.unwrap() {
         if memories.iter().any(|x| n.to_string().starts_with(x) ) {
-            unsafe { MAIN_STATE.as_mut().unwrap().stacks.first_mut().unwrap().commands.insert(n,cmd);}
+            unsafe { MAIN_STATE.as_mut().unwrap().commands.set(n,cmd,true);}
         }
-    }*/
+    }
     javastring!(env,ret).into_inner()
 }
 

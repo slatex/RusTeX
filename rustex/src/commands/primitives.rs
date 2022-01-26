@@ -86,7 +86,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,SourceReference::None,true)).as_ref(rf);
+        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,None,true)).as_ref(rf);
         int.state.commands.set(c.cmdname(),Some(cmd),global);
         Ok(())
     }
@@ -693,12 +693,12 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state.dimensions.get(&-(r.index as i32))).into()),
             AV(AssignableValue::Skip(i)) => stt(int.state.skips.get(&(*i as i32)).to_string().into()),
             AV(AssignableValue::PrimSkip(r)) => stt(int.state.skips.get(&-(r.index as i32)).to_string().into()),
-            AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),SourceReference::None,true)),
+            AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
-                vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get(&()).name.clone()),SourceReference::None,true)),
+                vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get(&()).name.clone()),None,true)),
             AV(AssignableValue::Font(f)) => {
                 let font = (f._getvalue)(int)?;
-                vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),SourceReference::None,true))
+                vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),None,true))
             }
             p => {
                 todo!("{}",p)
@@ -954,7 +954,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
                 crate::interpreter::string_to_tokens(s + next.cmdname().into())
             }
             CategoryCode::Space => vec!(next),
-            _ => vec!(Token::new(next.char,CategoryCode::Other,Some(next.name().clone()),next.reference.deref().clone(),true))
+            _ => vec!(Token::new(next.char,CategoryCode::Other,Some(next.name().clone()),next.reference.clone(),true))
         };
         Ok(())
     }
@@ -1016,7 +1016,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         let cmdname : TeXStr = csname(int)?.into();
-        let ret = Token::new(int.state.catcodes.get_scheme().escapechar,CategoryCode::Escape,Some(cmdname.clone()),SourceReference::None,true);
+        let ret = Token::new(int.state.catcodes.get_scheme().escapechar,CategoryCode::Escape,Some(cmdname.clone()),None,true);
         match int.state.commands.get(&cmdname) {
             Some(_) => (),
             None => {
@@ -1053,7 +1053,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let string = int.tokens_to_string(&ret);
         let mut eh = int.state.toks.get(&-(ERRHELP.index as i32));
         let rethelp = if !eh.is_empty() {
-            eh.push(Token::new(0,CategoryCode::EndGroup,None,SourceReference::None,false));
+            eh.push(Token::new(0,CategoryCode::EndGroup,None,None,false));
             int.push_tokens(eh);
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp)
@@ -1283,10 +1283,10 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|exp,int| {
         let tkl = int.read_balanced_argument(false,false,false,true)?;
-        let space = Token::new(32,CategoryCode::Space,None,SourceReference::None,false);
+        let space = Token::new(32,CategoryCode::Space,None,None,false);
         let escape = match int.state.catcodes.get_scheme().escapechar {
             255 => None,
-            o => Some(Token::new(o, CategoryCode::Other, None, SourceReference::None, false))
+            o => Some(Token::new(o, CategoryCode::Other, None, None, false))
         };
         for t in tkl {
             match t.catcode {
@@ -1294,7 +1294,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
                 CategoryCode::Escape => {
                     for tk in &escape { exp.2.push(tk.clone()) }
                     for t in t.name().iter() {
-                        exp.2.push(Token::new(*t,CategoryCode::Other,None,SourceReference::None,false));
+                        exp.2.push(Token::new(*t,CategoryCode::Other,None,None,false));
                     }
                     if t.name().len() > 1 { exp.2.push(space.clone()) }
                     else if t.name().len() == 1 {
@@ -1306,7 +1306,7 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
                     }
                 }
                 _ => {
-                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,SourceReference::None,false));
+                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,None,false));
                 }
             }
         }
@@ -1357,13 +1357,13 @@ pub static LOWERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"lowercase",
     expandable:false,
     _apply:|rf,int| {
-        let erf = rf.get_ref();
+        let mut erf = rf.get_ref();
         for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
-                CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
+                CategoryCode::Escape => rf.2.push(t.copied(&mut erf)),
                 o => {
                     let lc = int.state.lccodes.get(&t.char);
-                    rf.2.push(Token::new(lc,o,None,SourceReference::Exp(erf.clone()),true))
+                    rf.2.push(Token::new(lc,o,None,Some(erf.as_src_ref()),true))
                 }
             }
         }
@@ -1375,13 +1375,13 @@ pub static UPPERCASE: PrimitiveExecutable = PrimitiveExecutable {
     name:"uppercase",
     expandable:false,
     _apply:|rf,int| {
-        let erf = rf.get_ref();
+        let mut erf = rf.get_ref();
         for t in int.read_balanced_argument(false,false,false,true)? {
             match t.catcode {
-                CategoryCode::Escape => rf.2.push(t.copied(erf.clone())),
+                CategoryCode::Escape => rf.2.push(t.copied(&mut erf)),
                 o => {
                     let uc = int.state.uccodes.get(&t.char);
-                    rf.2.push(Token::new(uc,o,None,SourceReference::Exp(erf.clone()),true))
+                    rf.2.push(Token::new(uc,o,None,Some(erf.as_src_ref()),true))
                 }
             }
         }
@@ -2445,7 +2445,7 @@ pub static CHAR: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|rf,int| {
         let num = int.read_number()? as u8;
-        rf.2 = vec!(Token::new(num,CategoryCode::Other,None,SourceReference::Exp(rf.get_ref()),true));
+        rf.2 = vec!(Token::new(num,CategoryCode::Other,None,Some(rf.get_ref().as_src_ref()),true));
         Ok(())
     }
 };
@@ -2479,17 +2479,17 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
 
 thread_local! {
     pub static ENDROW : Token = {
-        let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+        let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),None,false);
         endrow.name_opt = "relax".into();
         endrow
     };
     pub static ENDTEMPLATE : Token = {
-        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),SourceReference::None,false);
+        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplate".into()),None,false);
         endtemplate.name_opt = "relax".into();
         endtemplate
     };
     pub static ENDTEMPLATESPAN : Token = {
-        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplatespan".into()),SourceReference::None,false);
+        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplatespan".into()),None,false);
         endtemplate.name_opt = "relax".into();
         endtemplate
     };

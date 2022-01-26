@@ -127,8 +127,8 @@ impl StringMouth {
                 for c in s.0.iter() {
                     match catcodes.get_code(*c) {
                         CategoryCode::Space if ret.is_empty() => (),
-                        CategoryCode::Space => ret.push(Token::new(*c,CategoryCode::Space,None,SourceReference::None,true)),
-                        _ => ret.push(Token::new(*c,CategoryCode::Other,None,SourceReference::None,true)),
+                        CategoryCode::Space => ret.push(Token::new(*c,CategoryCode::Space,None,None,true)),
+                        _ => ret.push(Token::new(*c,CategoryCode::Other,None,None,true)),
                     }
                 }
                 self.string = None;
@@ -296,14 +296,14 @@ impl StringMouth {
             }
         }
     }
-    fn make_reference(&self,line:usize,pos:usize) -> SourceReference {
+    fn make_reference(&self,line:usize,pos:usize) -> Option<Arc<SourceReference>> {
         match self.source.get_file_ref() {
-            None => SourceReference::None,
-            Some(r) => self.make_file_reference(r,line,pos)
+            None => None,
+            Some(r) => Some(self.make_file_reference(r,line,pos))
         }
     }
-    fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> SourceReference {
-        SourceReference::File(f.path.as_ref().unwrap().clone(),(line,pos),(self.line,self.pos))
+    fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> Arc<SourceReference> {
+        Arc::new(SourceReference::File(f.path.as_ref().unwrap().clone(),(line,pos),(self.line,self.pos)))
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
@@ -325,11 +325,11 @@ impl StringMouth {
                                 let file = self.source.get_file();
                                 match file {
                                     Some(ltxf) => {
-                                        let nrf = SourceReference::File(
+                                        let nrf = Some(Arc::new(SourceReference::File(
                                             ltxf.path.as_ref().unwrap().clone(),
                                             (next.1, next.2),
                                             (self.line, self.pos)
-                                        );
+                                        )));
                                         let tk = Token::new(next.0, CategoryCode::Ignored, None, nrf, true);
                                         ltxf.add(LaTeXObject::Token(tk))
                                         // TODO
@@ -767,25 +767,27 @@ impl Interpreter<'_> {
     }
 
     pub fn eof_token(&self) -> Token {
-        Token::new(0,CategoryCode::EOL,Some("EOF".into()),SourceReference::None,true)
+        Token::new(0,CategoryCode::EOL,Some("EOF".into()),None,true)
     }
     pub fn end_input(&mut self) {
         self.mouths.end_input(self.params)
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
-        let mut rf = &*tk.reference;
+        let mut rf = &tk.reference;
         loop {
             match rf {
-                SourceReference::File(f, s, _) => {
-                    let end = self.mouths.borrow().line_no();
-                    return Some(SourceFileReference {
-                        file: f.clone(),
-                        start: s.clone(),
-                        end: end
-                    })
-                }
-                SourceReference::Exp(er) => {
-                    rf = &*er.0.reference;
+                Some(r) => match &**r {
+                    SourceReference::File(f, s, _) => {
+                        let end = self.mouths.borrow().line_no();
+                        return Some(SourceFileReference {
+                            file: f.clone(),
+                            start: s.clone(),
+                            end: end
+                        })
+                    }
+                    SourceReference::Exp(tk, _) => {
+                        rf = &tk.reference;
+                    }
                 }
                 _ => return None
             }

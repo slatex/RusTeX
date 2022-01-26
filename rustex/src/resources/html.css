@@ -36,11 +36,11 @@ span {
 .reftarget {
 }
 .vrule {
-    align-self:end;
+    /*align-self:end;*/
     display:inline-block;
 }
 .hrule {
-    align-self:start;
+    /*align-self:start;*/
     display:block;
 }
 a {
@@ -148,7 +148,7 @@ td {
 math {
     width:max-content;
     height:max-content;
-    font-size: 90%;
+    font-size:85%;
 }
 .displaymath {
     align-self: center;

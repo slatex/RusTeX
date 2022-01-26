@@ -22,7 +22,7 @@ use crate::commands::primitives::tex_commands;
 use crate::commands::rustex_specials::rustex_special_commands;
 use crate::utils::{PWD, TeXError, TeXStr};
 use crate::interpreter::files::VFile;
-use crate::interpreter::params::{InterpreterParams, NoOutput};
+use crate::interpreter::params::{DefaultParams, InterpreterParams, NoOutput};
 use crate::stomach::colon::NoColon;
 
 #[derive(Copy,Clone,PartialEq)]
@@ -164,7 +164,7 @@ fn newfonts() -> [Option<Arc<Font>>;16] {
 pub struct LinkedStateValue<K,V:HasDefault,A:StateStore<K,V>> {
     k:PhantomData<K>,
     v:PhantomData<V>,
-    values:Option<A>,
+    pub values:Option<A>,
     parent:Option<Box<LinkedStateValue<K,V,A>>>
 }
 impl<K,V:HasDefault+Clone,A:StateStore<K,V>> std::default::Default for LinkedStateValue<K,V,A> {
@@ -569,8 +569,13 @@ impl State {
         let mut state = State::new();
         let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found").0;
         let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found").0;
-        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&NoOutput {}).0;
-        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&NoOutput {}).0;
+        let p = /* DefaultParams {
+            log:false,
+            singlethreaded:true
+        }; // */ NoOutput {};
+
+        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
+        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
         for c in pdftex_commands() {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))

@@ -609,12 +609,12 @@ impl PrimitiveTeXCommand {
         match self {
             Cond(c) => {c.expand(int)?; Ok(None)},
             Primitive(p) => {
-                let mut exp = Expansion(tk,cmd,vec!());
+                let mut exp = Expansion::new(tk,cmd.orig.clone());
                 (p._apply)(&mut exp,int)?;
                 Ok(Some(exp))
             },
             Ext(p) => {
-                let mut exp = Expansion(tk,cmd,vec!());
+                let mut exp = Expansion::new(tk,cmd.orig.clone());
                 p.expand(&mut exp,int)?;
                 Ok(Some(exp))
             },
@@ -629,8 +629,8 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "enddocument" && int.current_line().starts_with("/home/jazzpirate/work") {
-            println!("Here!");
+        /*if tk.cmdname().to_string() == "pgfdeclareimage" {
+            println!("Here! {}",int.current_line());
             unsafe { crate::LOG = true }
         }*/
         log!("{}",d);
@@ -723,8 +723,8 @@ impl PrimitiveTeXCommand {
                 log!("    {}:{}",i+1,TokenList(a));
             }
         }
-        let mut exp = Expansion(tk,cmd,vec!());
-        let rf = exp.get_ref();
+        let mut exp = Expansion::new(tk,cmd.orig.clone());
+        let mut rf = exp.get_ref();
         let mut i = 0;
         while i < d.ret.len() {
             let tk = d.ret.get(i).unwrap();
@@ -735,7 +735,7 @@ impl PrimitiveTeXCommand {
                     match next.catcode {
                         CategoryCode::Parameter => {
                             i += 1;
-                            exp.2.push(tk.copied(rf.clone()))
+                            exp.2.push(tk.copied(&mut rf))
                         }
                         _ => {
                             i += 1;
@@ -749,7 +749,7 @@ impl PrimitiveTeXCommand {
                 }
                 _ => {
                     i += 1;
-                    exp.2.push(tk.copied(rf.clone()))
+                    exp.2.push(tk.copied(&mut rf))
                 },
             }
         }
@@ -761,7 +761,7 @@ impl PrimitiveTeXCommand {
 
         let globals = int.state.registers.get(&-(GLOBALDEFS.index as i32));
         let global = !(globals < 0) && ( globally || globals > 0 );
-        let rf = ExpansionRef(tk,cmd);
+        let rf = ExpansionRef(tk,cmd.orig.clone(),None);
         match self {
             Ass(p) if **p == crate::commands::primitives::SETBOX => {
                 return (p._assign)(rf,int, global)
@@ -957,7 +957,7 @@ impl TeXCommand {
         if COPY_COMMANDS_FULL {
             TeXCommand {
                 orig:Arc::clone(&self.orig),
-                rf:Some(ExpansionRef(tk,Arc::new(self)))
+                rf:Some(ExpansionRef(tk,self.orig.clone(),None))
             }
         } else { self }
     }

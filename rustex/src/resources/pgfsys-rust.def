@@ -1878,4 +1878,17 @@
 
 %\let\pgfsys@mtext@hbox\pgfsys@foreignobject@hbox
 
+% TODO maybe
+
+\def\pgfsys@imagesuffixlist{.pdf:.jpg:.jpeg:.png:}
+\def\pgfsys@defineimage{% width, height, page number
+  \ifx\pgf@imagewidth\pgfutil@empty\else\edef\pgf@imagewidth{ width \pgf@imagewidth }\fi%
+  \ifx\pgf@imageheight\pgfutil@empty\else\edef\pgf@imageheight{ height \pgf@imageheight }\fi%
+  \ifx\pgf@imagepage\pgfutil@empty\else\edef\pgf@imagepage{ page \pgf@imagepage }\fi%
+  {\pdfximage \pgf@imageheight \pgf@imagewidth attr
+    {/Interpolate \pgf@imageinterpolate\space\pgf@imagemask} \pgf@imagepage
+    {\pgf@filename}}%
+  \edef\pgf@image{\noexpand\pdfrefximage\the\pdflastximage}%
+}%
+
 \endinput

@@ -237,6 +237,10 @@ impl WhatsitTrait for HBox {
         match mode {
             ColonMode::H | ColonMode::V => {
                 htmlnode!(colon,div,None,"hbox",node_top,node => {
+                    if crate::DO_BOX_SIZES {
+                        node.attr("rustex:width".into(),dimtohtml(self.width()));
+                        node.attr("rustex:height".into(),dimtohtml(self.height()));
+                    }
                     htmlliteral!(colon,node_top,"\n");
                     match self._width {
                         Some(h) => {
@@ -467,6 +471,10 @@ impl WhatsitTrait for VBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::V | ColonMode::H => htmlnode!(colon,div,None,"vbox",node_top,node => {
+                if crate::DO_BOX_SIZES {
+                    node.attr("rustex:width".into(),dimtohtml(self.width()));
+                    node.attr("rustex:height".into(),dimtohtml(self.height()));
+                }
                 match self.tp {
                     VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
                     VBoxType::Center => node.style("vertical-align".into(),"middle".into()),

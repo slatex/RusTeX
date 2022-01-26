@@ -512,7 +512,7 @@ impl Interpreter<'_> {
                 _ => {
                     self.requeue(next);
                     if isnegative {
-                        self.push_tokens(vec!(Token::new(45,self.state.catcodes.get_scheme().get_code(45),None,SourceReference::None,true)))
+                        self.push_tokens(vec!(Token::new(45,self.state.catcodes.get_scheme().get_code(45),None,None,true)))
                     }
                     return Ok(None)
                 }

@@ -13,7 +13,7 @@ object Implicits {
 import Implicits._
 private class Bridge {
   @native def initialize() : Boolean
-  @native def parse(file:String,p:Params) : String//,memories:util.ArrayList[String]) : String
+  @native def parse(file:String,p:Params,memories:util.ArrayList[String]) : String
 }
 abstract class Params {
   var singlethreaded = false
@@ -61,7 +61,7 @@ object Bridge {
     //println("TeX Engine Initialized")
   }
   def parse(s : String,p:Params, memories:List[String] = Nil) = bridge match {
-    case Some(b) => b.parse(s,p)//,Implicits(memories))
+    case Some(b) => b.parse(s,p,Implicits(memories))
     case None => ???
   }
   def library_filename() = {
@@ -106,36 +106,36 @@ object Test {
     }
     //Bridge.initialize("/Users/dennismuller/work/RusTeX/rustexbridge/target")
     Bridge.initialize("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
-    val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
-    /*println("jupyterNB.en.tex")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",testparams,List("a","b","c"))
+    //val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
+    println("jupyterNB.en.tex")
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex",testparams,List("c_stex_module"))
     println("BBPformula")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex",testparams,List("c_stex_module"))
     println("alternatingharmonic")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex",testparams,List("c_stex_module"))
     println("asymptotic")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/asymptoticdensity.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/asymptoticdensity.en.tex",testparams,List("c_stex_module"))
     println("baxterhickerson")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/baxterhickersonfunction.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/baxterhickersonfunction.en.tex",testparams,List("c_stex_module"))
     println("chebyshev")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/chebyshevfunction.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/chebyshevfunction.en.tex",testparams,List("c_stex_module"))
     println("cosineintegralbig")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralbig.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralbig.en.tex",testparams,List("c_stex_module"))
     println("cosineintegralint")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralint.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralint.en.tex",testparams,List("c_stex_module"))
     println("cosineintegralsmall")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralsmall.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/cosineintegralsmall.en.tex",testparams,List("c_stex_module"))
     println("generalharmonic")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/generalharmonicseries.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/generalharmonicseries.en.tex",testparams,List("c_stex_module"))
     println("gregory number")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/gregorynumber.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/gregorynumber.en.tex",testparams,List("c_stex_module"))
     println("harmonic series")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/harmonicseries.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/harmonicseries.en.tex",testparams,List("c_stex_module"))
     println("hurwitzzeta")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",testparams,List("a","b","c"))
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hurwitzzetafunction.en.tex",testparams,List("c_stex_module"))
     println("hyperboliccosine")
-    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex",testparams,List("a","b","c"))
-    println("Done")*/
-    println(ret)
+    Bridge.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/hyperboliccosineintegral.en.tex",testparams,List("c_stex_module"))
+    println("Done")
+    //println(ret)
   }
 }

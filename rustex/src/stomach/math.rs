@@ -123,6 +123,10 @@ impl WhatsitTrait for MathGroup {
             ColonMode::H if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
                 div.style("width".into(),"100%".into());
                 div.style("min-width".into(),"100%".into());
+                if crate::DO_BOX_SIZES {
+                    div.attr("rustex:width".into(),dimtohtml(self.width()));
+                    div.attr("rustex:height".into(),dimtohtml(self.height()));
+                }
                 htmlnode!(colon,MATHML_NS:math,None,"",htmlparent!(div),node=> {
                     node.attr("displaystyle".into(),"true".into());
                     htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {

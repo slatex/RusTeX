@@ -224,8 +224,11 @@ impl HTMLColon {
             ret += "\n  </head>\n  <body style=\"width:";
             ret += &dimtohtml(self.pagewidth).to_string();
             ret += "\">\n    <div class=\"body\" style=\"font-size:";
-            let fontsize = match &self.base.basefont.as_ref().unwrap().at {
-                Some(i) => *i,
+            let fontsize = match &self.base.basefont.as_ref() {
+                Some(f) => match f.at {
+                    Some(i) => i,
+                    None => 655360
+                }
                 None => 655360
             };
             ret += &dimtohtml(fontsize).to_string();
@@ -237,7 +240,10 @@ impl HTMLColon {
             ret += &(self.lineheight.base as f32 / fontsize as f32).to_string();
             ret += ";\"";
             ret += " rustex:font=\"";
-            ret += self.base.basefont.as_ref().unwrap().file.name.to_string().as_str();
+            match self.base.basefont.as_ref() {
+                Some(f) => ret += f.file.name.to_string().as_str(),
+                _ => ()
+            };
             ret += "\">\n";
         }
         ret
