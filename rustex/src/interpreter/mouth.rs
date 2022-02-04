@@ -286,7 +286,7 @@ impl StringMouth {
             match catcodes.get_code(next.0) {
                 CategoryCode::Space => {}
                 CategoryCode::EOL => {
-                    self.do_line(catcodes.endlinechar);
+                    //self.do_line(catcodes.endlinechar);
                     break
                 },
                 _ => {
@@ -358,7 +358,7 @@ impl StringMouth {
                                     _ => {}
                                 }
                                 self.do_line(catcodes.endlinechar);
-                                loop {
+                                /*loop {
                                     match self.next_char(catcodes.endlinechar) {
                                         None => break,
                                         Some(n) => {
@@ -372,7 +372,7 @@ impl StringMouth {
                                             }
                                         }
                                     }
-                                }
+                                } */
                             }
                             CategoryCode::Space if self.mouth_state == MouthState::N => {}
                             CategoryCode::Superscript => {
@@ -451,7 +451,7 @@ impl StringMouth {
                                     self.charbuffer = Some(nc);
                                     self.mouth_state = MouthState::S;
                                 }
-                                //CategoryCode::EOL => self.mouth_state = MouthState::S,
+                                //CategoryCode::EOL => self.mouth_state = MouthState::M,
                                 CategoryCode::Space => {
                                     buf.push(nc.0);
                                     self.mouth_state = MouthState::S
@@ -466,7 +466,7 @@ impl StringMouth {
                     }
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {
-                    self.mouth_state = MouthState::S;
+                    //self.mouth_state = MouthState::S;
                     Token::new(32,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
                 CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {

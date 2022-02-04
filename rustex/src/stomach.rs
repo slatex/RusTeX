@@ -236,12 +236,16 @@ pub trait Stomach : Send {
     fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
         self.flush()?;
         let mut p = self.end_paragraph_loop()?;
-        let hangindent = self.base().hangindent;
-        let hangafter = self.base().hangafter;
-        let parshape = std::mem::take(&mut self.base_mut().parshape);
+        let hangindent = state.hangindent.get(&());
+        let hangafter = state.hangafter.get(&());
+        let parshape = state.parshape.get(&());
+        /*if !parshape.is_empty() {
+            unsafe{ crate::LOG = true }
+            println!("here")
+        }*/
         p.close(state,hangindent,hangafter,parshape);
         self.add_inner_actually(Whatsit::Par(p))?;
-        self.reset_par();
+        self.reset_par(state);
         Ok(())
     }
 
@@ -677,11 +681,10 @@ pub trait Stomach : Send {
         (receiver,basefont.unwrap(),basecolor)
     }
 
-    fn reset_par(&mut self) {
-        let base = self.base_mut();
-        base.hangindent = 0;
-        base.hangafter = 0;
-        base.parshape = vec!();
+    fn reset_par(&self,state:&mut State) {
+        state.hangafter.set((),0,false);
+        state.hangindent.set((),0,false);
+        state.parshape.set((),vec!(),false);
     }
     fn page_height(&self) -> i32 {
         self.base().pageheight
@@ -747,10 +750,7 @@ pub struct StomachBase {
     pub stomachgroups:Vec<StomachGroup>,
     pub buffer:Vec<Whatsit>,
     pub indocument:bool,
-    pub hangindent:i32,
-    pub hangafter:usize,
     pub pageheight:i32,
-    pub parshape:Vec<(i32,i32)>,
     pub sender:Option<Sender<StomachMessage>>
 }
 impl StomachBase {
@@ -759,9 +759,6 @@ impl StomachBase {
             stomachgroups: vec!(StomachGroup::Top(vec!())),
             buffer:vec!(),
             indocument: false,
-            hangindent: 0,
-            hangafter: 0,
-            parshape: vec!(),
             pageheight: 0,
             sender:None,
             //sender:None

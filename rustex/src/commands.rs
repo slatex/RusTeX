@@ -629,7 +629,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "pgfdeclareimage" {
+        /*if tk.cmdname().to_string() == "incl" {
             println!("Here! {}",int.current_line());
             unsafe { crate::LOG = true }
         }*/

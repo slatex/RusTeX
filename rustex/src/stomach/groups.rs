@@ -5,7 +5,7 @@ use crate::{htmlannotate, htmlnode, htmlparent};
 use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
+use crate::stomach::html::{FontInfo, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::simple::SimpleWI;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{ActionSpec, HasWhatsitIter, WhatsitTrait};
@@ -184,10 +184,11 @@ impl WhatsitTrait for FontChange {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match &self.font.file.chartable {
-            Some(ft) => {
+            Some(_) => {
                 htmlannotate!(colon,span,self.sourceref,node_top,a => {
                     a.attr("rustex:font".into(),self.font.file.name.clone().into());
-                    for prop in &ft.params {
+                    a.fontinfo = Some(FontInfo::new(&self.font));
+                    /*for prop in &ft.params {
                         match prop {
                             FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
                             FontTableParam::SansSerif => a.style("font-family".into(),"sans-serif".into()),
@@ -209,11 +210,11 @@ impl WhatsitTrait for FontChange {
                             colon.state.currsize = at;
                         }
                         _ => ()
-                    }
+                    }*/
                     for c in self.children {
                         c.as_html(mode,colon,htmlparent!(a))
                     }
-                    colon.state.currsize = _oldsize;
+                    //colon.state.currsize = _oldsize;
                 })
             }
             _ => {
@@ -501,9 +502,9 @@ impl WhatsitTrait for PDFMatrixSave {
     fn as_whatsit(self) -> Whatsit {
         WIGroup::PDFMatrixSave(self).as_whatsit()
     }
-    fn width(&self) -> i32 { todo!() }
-    fn height(&self) -> i32 { todo!() }
-    fn depth(&self) -> i32 { todo!() }
+    fn width(&self) -> i32 { 0 }
+    fn height(&self) -> i32 { 0 }
+    fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "\n".to_string() + &prefix + "<pdfmatrix>";
         for c in &self.children {

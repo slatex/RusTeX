@@ -41,9 +41,23 @@ impl WhatsitTrait for Paragraph {
         np.children = hret;
         ret.push(Whatsit::Par(np))
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(mut self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,"\n");
         htmlnode!(colon,div,None,"paragraph",node_top,node => {
+            match self.lines.as_ref().unwrap().last() {
+                Some((a,b)) if *a != 0 => {
+                    self.rightskip = Some(match self.rightskip {
+                        Some(sk) => Skip { base: sk.base + self._width - b, stretch:sk.stretch, shrink:sk.shrink},
+                        None => Skip { base: self._width - b, stretch:None, shrink:None}
+                    });
+                    self.leftskip = Some(match self.leftskip {
+                        Some(sk) => Skip { base: sk.base + a, stretch:sk.stretch, shrink:sk.shrink},
+                        None => Skip { base: *a, stretch:None, shrink:None}
+                    });
+                    self._width = *b;
+                }
+                _ => ()
+            }
             if crate::DO_BOX_SIZES {
                 node.attr("rustex:width".into(),dimtohtml(self.width()));
                 node.attr("rustex:height".into(),dimtohtml(self.height()));

@@ -68,6 +68,9 @@ impl<A> HasDefault for Option<A> {
 impl HasDefault for i32 {
     fn default() -> Self { 0 }
 }
+impl HasDefault for usize {
+    fn default() -> Self { 0 }
+}
 impl HasDefault for u8 {
     fn default() -> Self { 0 }
 }
@@ -388,6 +391,9 @@ pub struct State {
     pub mathcodes : LinkedStateValue<u8,i32,HashMap<u8,i32>>,
     pub delcodes : LinkedStateValue<u8,i32,HashMap<u8,i32>>,
     pub boxes: LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox>>,
+    pub parshape : LinkedStateValue<(),Vec<(i32,i32)>,Var<Vec<(i32,i32)>>>,
+    pub hangindent : LinkedStateValue<(),i32,Var<i32>>,
+    pub hangafter : LinkedStateValue<(),usize,Var<usize>>,
     pub(crate) currfont : LinkedStateValue<(),Arc<Font>,Var<Arc<Font>>>,
     pub(crate) aftergroups : LinkedStateValue<(),Vec<Token>,Var<Vec<Token>>>,
     pub(crate) fontstyle : LinkedStateValue<(),FontStyle,Var<FontStyle>>,
@@ -447,6 +453,10 @@ macro_rules! pass_on {
         $s.scriptfonts.$e($(,$tl)*);
         $s.scriptscriptfonts.$e($(,$tl)*);
         $s.displaymode.$e($(,$tl)*);
+        $s.parshape.$e($(,$tl)*);
+        $s.hangindent.$e($(,$tl)*);
+        $s.hangafter.$e($(,$tl)*);
+
     }
 }
 static mut fontfiles: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
@@ -536,6 +546,9 @@ impl State {
             scriptfonts: Default::default(),
             scriptscriptfonts: Default::default(),
             displaymode: Default::default(),
+            parshape: Default::default(),
+            hangindent: Default::default(),
+            hangafter: Default::default(),
             // TODO...
             filestore: Default::default(),
             //fontfiles: Default::default()

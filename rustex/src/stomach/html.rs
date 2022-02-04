@@ -5,7 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 use itertools::Itertools;
-use crate::fonts::Font;
+use crate::commands::primitives::NULLFONT;
+use crate::fonts::{Font, NULL_FONT};
 use crate::fonts::fontchars::FontTableParam;
 use crate::Interpreter;
 use crate::interpreter::dimensions::{numtostr, Skip};
@@ -176,8 +177,12 @@ impl Colon<String> for HTMLColon {
     fn base_mut(&mut self) -> &mut ColonBase { &mut self.base }
     fn ship_whatsit(&mut self, w:Whatsit) {
         for w in self.normalize_whatsit(w) { w.as_html(&ColonMode::V,self,&mut None) }
+        let fi = match self.base.basefont.as_ref() {
+            None => NULL_FONT.try_with(|x| FontInfo::new(x)).unwrap(),
+            Some(f) => FontInfo::new(f)
+        };
         for n in std::mem::take(&mut self.state.top) {
-            self.ret += &n.make_string("  ".into(),&HTML_NS).to_string()
+            self.ret += &n.make_string("  ".into(),&HTML_NS,&fi).to_string()
         }
     } //}
     fn initialize(&mut self, basefont: Arc<Font>, basecolor: TeXStr, int: &Interpreter) {
@@ -269,40 +274,20 @@ impl HTMLColon {
 
 // -------------------------------------------------------------------------------------------------
 #[derive(PartialEq,Clone)]
-pub struct MiMoInfo {
-    family:Option<HTMLStr>,
-    weight:Option<HTMLStr>,
-    style:Option<HTMLStr>,
-    variant:Option<HTMLStr>,
+pub struct FontInfo {
+    params: Vec<FontTableParam>,
     at:i32
 }
-impl MiMoInfo {
-    pub fn new(font:&Arc<Font>) -> MiMoInfo {
-        let mut ret = MiMoInfo { family:None,weight:None,style:None,variant:None,at:font.get_at()};
+impl FontInfo {
+    pub fn do_attr(&self,node:&mut HTMLNode) {
+        todo!()
+    }
+    pub fn new(font:&Arc<Font>) -> FontInfo {
+        let mut ret = FontInfo { params:vec!(),at:font.get_at()};
         match font.file.chartable {
             None => (),
             Some(ref tbl) => {
-                if tbl.params.contains(&FontTableParam::Monospaced) {
-                    ret.family = Some("monospace".into())
-                }
-                if tbl.params.contains(&FontTableParam::Italic) {
-                    ret.style = Some("monospace".into())
-                }
-                if tbl.params.contains(&FontTableParam::Bold) {
-                    ret.weight = Some("bold".into())
-                }
-                if tbl.params.contains(&FontTableParam::Blackboard) {
-                    ret.family = Some("msbm".into())
-                }
-                if tbl.params.contains(&FontTableParam::Capital) {
-                    ret.variant = Some("small-caps".into())
-                }
-                if tbl.params.contains(&FontTableParam::SansSerif) {
-                    ret.family = Some("sans-serif".into())
-                }
-                if tbl.params.contains(&FontTableParam::Script) {
-                    ret.family = Some("eusb".into())
-                }
+                ret.params = tbl.params.clone()
             }
         }
         ret
@@ -315,7 +300,7 @@ pub struct HTMLNode {
     pub classes:Vec<HTMLStr>,
     attributes:HashMap<HTMLStr,HTMLStr>,
     styles:HashMap<HTMLStr,HTMLStr>,
-    pub mimoinfo: Option<MiMoInfo>,
+    pub fontinfo: Option<FontInfo>,
     pub sourceref:Option<SourceFileReference>
 }
 
@@ -329,7 +314,8 @@ impl HTMLNode {
     }
     pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLNode { HTMLNode {
         name,namespace,children:vec!(),classes:vec!(),
-        attributes:HashMap::new(),styles:HashMap::new(),mimoinfo:None,sourceref
+        attributes:HashMap::new(),styles:HashMap::new(),
+        fontinfo:None,sourceref
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
         self.attributes.borrow_mut().insert(name,value);
@@ -337,17 +323,7 @@ impl HTMLNode {
     pub fn style(&mut self,name:HTMLStr,value:HTMLStr) {
         self.styles.borrow_mut().insert(name,value);
     }
-    pub fn make_string(&mut self,prefix:HTMLStr,namespace:&str) -> HTMLStr {
-        match self.mimoinfo.take() {
-            None => (),
-            Some(mi) => {
-                for s in mi.family { self.style("family".into(),s)}
-                for s in mi.weight { self.style("weight".into(),s)}
-                for s in mi.style { self.style("style".into(),s)}
-                for s in mi.variant { self.style("variant".into(),s)}
-                // TODO size
-            }
-        }
+    pub fn make_string(&mut self,prefix:HTMLStr,namespace:&str,fi:&FontInfo) -> HTMLStr {
         if self.children.len() == 1 {
             match self.children.first_mut() {
                 Some(HTMLChild::Annot(a)) => {
@@ -359,6 +335,7 @@ impl HTMLNode {
                         }
                     }
                     if works {
+                        if a.fontinfo.is_some() { self.fontinfo = std::mem::take(&mut a.fontinfo)}
                         for (k,v) in std::mem::take(&mut a.attributes) { self.attributes.insert(k,v); }
                         for (k,v) in std::mem::take(&mut a.styles) { self.styles.insert(k,v); }
                     }
@@ -367,12 +344,100 @@ impl HTMLNode {
                 _ => ()
             }
         }
+
+        let fi_o = self.fontinfo.take();
+        let nfi = match &fi_o {
+            None => fi,
+            Some(ref mi) if self.namespace == MATHML_NS => {
+                if mi.params.contains(&FontTableParam::SansSerif) &&
+                    mi.params.contains(&FontTableParam::Bold) &&
+                    mi.params.contains(&FontTableParam::Italic) {
+                    self.attr("mathvariant".into(),"sans-serif-bold-italic".into())
+                }
+                else if mi.params.contains(&FontTableParam::SansSerif) &&
+                    mi.params.contains(&FontTableParam::Italic) {
+                    self.attr("mathvariant".into(),"sans-serif-italic".into())
+                }
+                else if mi.params.contains(&FontTableParam::SansSerif) &&
+                    mi.params.contains(&FontTableParam::Bold) {
+                    self.attr("mathvariant".into(),"bold-sans-serif".into())
+                }
+                else if mi.params.contains(&FontTableParam::Script) &&
+                    mi.params.contains(&FontTableParam::Bold) {
+                    self.attr("mathvariant".into(),"bold-script".into())
+                }
+                else if mi.params.contains(&FontTableParam::Fraktur) &&
+                    mi.params.contains(&FontTableParam::Bold) {
+                    self.attr("mathvariant".into(),"bold-fraktur".into())
+                }
+                else if mi.params.contains(&FontTableParam::Italic) &&
+                    mi.params.contains(&FontTableParam::Bold) {
+                    self.attr("mathvariant".into(),"bold-italic".into())
+                }
+                else if mi.params.contains(&FontTableParam::Bold) {
+                    self.attr("mathvariant".into(),"bold".into())
+                }
+                else if mi.params.contains(&FontTableParam::Italic) {
+                    self.attr("mathvariant".into(),"italic".into())
+                }
+                else if mi.params.contains(&FontTableParam::Blackboard) {
+                    self.attr("mathvariant".into(),"double-struck".into())
+                }
+                else if mi.params.contains(&FontTableParam::Script) {
+                    self.attr("mathvariant".into(),"script".into())
+                }
+                else if mi.params.contains(&FontTableParam::Fraktur) {
+                    self.attr("mathvariant".into(),"fraktur".into())
+                }
+                else if mi.params.contains(&FontTableParam::SansSerif) {
+                    self.attr("mathvariant".into(),"sans-serif".into())
+                }
+                else if mi.params.contains(&FontTableParam::Monospaced) {
+                    self.attr("mathvariant".into(),"monospace".into())
+                }
+                else {
+                    self.attr("mathvariant".into(),"normal".into())
+                }
+                self.attr("mathsize".into(),(((mi.at as f32) / (fi.at as f32)).to_string()).into());
+                mi
+            }
+            Some(ref mi) => {
+                self.style("font-family".into(),"STIXgeneral, Times, Symbol, cmr10, CMSY10, CMEX10, serif".into());
+                self.style("font-style".into(),"normal".into());
+                self.style("font-weight".into(),"normal".into());
+                self.style("font-variant".into(),"normal".into());
+                if mi.params.contains(&FontTableParam::Monospaced) {
+                    self.style("font-family".into(),"monospace".into())
+                }
+                if mi.params.contains(&FontTableParam::Italic) {
+                    self.style("font-style".into(),"italic".into())
+                }
+                if mi.params.contains(&FontTableParam::Bold) {
+                    self.style("font-weight".into(),"bold".into())
+                }
+                if mi.params.contains(&FontTableParam::Blackboard) {
+                    self.style("font-family".into(),"msbm".into())
+                }
+                if mi.params.contains(&FontTableParam::Capital) {
+                    self.style("font-variant".into(),"small-caps".into())
+                }
+                if mi.params.contains(&FontTableParam::SansSerif) {
+                    self.style("font-family".into(),"sans-serif".into())
+                }
+                if mi.params.contains(&FontTableParam::Script) {
+                    self.style("font-family".into(),"eusb".into())
+                }
+                self.style("font-size".into(),((100.0 * (mi.at as f32) / (fi.at as f32)).round().to_string() + "%").into());
+                mi
+            }
+        };
+
         let mut ret : HTMLStr = "".into();
         let mut body : HTMLStr = "".into();
         for c in self.children.drain(..) {
             body += match c {
-                HTMLChild::Node(mut n) => n.make_string(prefix.clone(),self.namespace),
-                HTMLChild::Annot(mut a) => a.make_string(prefix.clone(),self.namespace),
+                HTMLChild::Node(mut n) => n.make_string(prefix.clone(),self.namespace,nfi),
+                HTMLChild::Annot(mut a) => a.make_string(prefix.clone(),self.namespace,nfi),
                 HTMLChild::Str(s) => s.clone(),
             }
         }
@@ -415,6 +480,7 @@ pub struct HTMLAnnotation {
     pub classes:Vec<HTMLStr>,
     attributes:HashMap<HTMLStr,HTMLStr>,
     styles:HashMap<HTMLStr,HTMLStr>,
+    pub fontinfo: Option<FontInfo>,
     pub sourceref:Option<SourceFileReference>
 }
 impl HTMLAnnotation {
@@ -423,7 +489,7 @@ impl HTMLAnnotation {
     }
     pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLAnnotation { HTMLAnnotation {
         name,namespace,children:vec!(),classes:vec!(),
-        attributes:HashMap::new(),styles:HashMap::new(),sourceref
+        attributes:HashMap::new(),styles:HashMap::new(),sourceref,fontinfo:None
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
         self.attributes.borrow_mut().insert(name,value);
@@ -431,7 +497,7 @@ impl HTMLAnnotation {
     pub fn style(&mut self,name:HTMLStr,value:HTMLStr) {
         self.styles.borrow_mut().insert(name,value);
     }
-    pub fn make_string(&mut self,prefix:HTMLStr,namespace:&str) -> HTMLStr {
+    pub fn make_string(&mut self,prefix:HTMLStr,namespace:&str,fi:&FontInfo) -> HTMLStr {
         if self.children.len() == 1 {
             match self.children.first_mut() {
                 Some(HTMLChild::Node(n)) => {
@@ -443,13 +509,17 @@ impl HTMLAnnotation {
                         }
                     }
                     if works {
+                        match n.fontinfo {
+                            None => n.fontinfo = std::mem::take(&mut self.fontinfo),
+                            _ => ()
+                        }
                         for (k,v) in std::mem::take(&mut self.attributes) {
                             n.attributes.insert(k,v);
                         }
                         for (k,v) in std::mem::take(&mut self.styles) {
                             if n.styles.get(&k).is_none() { n.styles.insert(k,v); }
                         }
-                        return n.make_string(prefix,namespace)
+                        return n.make_string(prefix,namespace,fi)
                     }
                 }
                 Some(HTMLChild::Annot(a)) => {
@@ -461,13 +531,17 @@ impl HTMLAnnotation {
                         }
                     }
                     if works {
+                        match a.fontinfo {
+                            None => a.fontinfo = std::mem::take(&mut self.fontinfo),
+                            _ => ()
+                        }
                         for (k,v) in std::mem::take(&mut self.attributes) {
                             a.attributes.insert(k,v);
                         }
                         for (k,v) in std::mem::take(&mut self.styles) {
                             if a.styles.get(&k).is_none() { a.styles.insert(k,v); }
                         }
-                        return a.make_string(prefix,namespace)
+                        return a.make_string(prefix,namespace,fi)
                     }
                 }
                 _ => ()
@@ -480,9 +554,9 @@ impl HTMLAnnotation {
             classes: std::mem::take(&mut self.classes),
             attributes: std::mem::take(&mut self.attributes),
             styles: std::mem::take(&mut self.styles),
-            mimoinfo: None,
+            fontinfo: std::mem::take(&mut self.fontinfo),
             sourceref: std::mem::take(&mut self.sourceref)
-        }.make_string(prefix,namespace)
+        }.make_string(prefix,namespace,fi)
     }
 }
 
@@ -505,21 +579,21 @@ pub enum HTMLChild {
     Annot(HTMLAnnotation)
 }
 impl HTMLChild {
-    pub fn make_string(self,prefix:HTMLStr,namespace:&str) -> HTMLStr {
+    pub fn make_string(self,prefix:HTMLStr,namespace:&str,fi:&FontInfo) -> HTMLStr {
         match self {
             HTMLChild::Str(s) => s,
-            HTMLChild::Node(mut n) => n.make_string(prefix,namespace),
-            HTMLChild::Annot(mut a) => a.make_string(prefix,namespace)
+            HTMLChild::Node(mut n) => n.make_string(prefix,namespace,fi),
+            HTMLChild::Annot(mut a) => a.make_string(prefix,namespace,fi)
         }
     }
-    pub fn stringify(&mut self,prefix:HTMLStr,namespace:&str) {
+    pub fn stringify(&mut self,prefix:HTMLStr,namespace:&str,fi:&FontInfo) {
         match self {
             HTMLChild::Str(_) => (),
             HTMLChild::Node(n) => {
-                *self = HTMLChild::Str(n.make_string(prefix,namespace))
+                *self = HTMLChild::Str(n.make_string(prefix,namespace,fi))
             }
             HTMLChild::Annot(n) => {
-                *self = HTMLChild::Str(n.make_string(prefix,namespace))
+                *self = HTMLChild::Str(n.make_string(prefix,namespace,fi))
             }
         }
     }
@@ -598,6 +672,11 @@ impl From<&String> for HTMLStr {
 }
 impl From<TeXStr> for HTMLStr {
     fn from(s: TeXStr) -> Self {
+        HTMLStr::Mut(s.to_utf8())
+    }
+}
+impl From<&TeXStr> for HTMLStr {
+    fn from(s: &TeXStr) -> Self {
         HTMLStr::Mut(s.to_utf8())
     }
 }

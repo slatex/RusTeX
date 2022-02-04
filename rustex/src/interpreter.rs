@@ -296,7 +296,7 @@ impl Interpreter<'_> {
                 }
                 match (&*p.orig,mode) {
                     (Primitive(p),Vertical | InternalVertical) if **p == primitives::PAR => {
-                        self.stomach.borrow_mut().reset_par();
+                        self.stomach.reset_par(&mut self.state);
                         Ok(())
                     },
                     (Primitive(p),Vertical | InternalVertical) if **p == primitives::INDENT || **p == primitives::NOINDENT => {

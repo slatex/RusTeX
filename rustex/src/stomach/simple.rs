@@ -431,11 +431,11 @@ impl WhatsitTrait for MSkip {
         match mode {
             ColonMode::M =>
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
-                    a.attr("width".into(),numtostr(self.skip.base / 1179648,"em").into())
+                    a.attr("width".into(),numtostr(self.skip.base / 12,"em").into()) // 1179648
                 }),
             ColonMode::H =>
                 htmlnode!(colon,span,self.sourceref,"hskip",node_top,node => {
-                    node.style("margin-left".into(),numtostr(self.skip.base / 1179648,"em").into());
+                    node.style("margin-left".into(),numtostr(self.skip.base / 12,"em").into());
                 }),
             _ => todo!()
         }

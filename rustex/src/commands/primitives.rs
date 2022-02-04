@@ -23,11 +23,14 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
                     font: int.state.currfont.get(&()),
                     sourceref: int.update_reference(tk)
                 })),
-            _ => Ok(Whatsit::Math(MathGroup::new(
+            _ => Ok(MSkip {
+                skip: MuSkip {base:12 * 65536, stretch:None, shrink:None},
+                sourceref: int.update_reference(tk)
+            }.as_whatsit())/*Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {
-                    class:0,family:0,position:0,font:int.state.textfonts.get(&0),
+                    class:0,family:0,position:32,font:int.state.textfonts.get(&0),
                     sourceref:int.update_reference(tk)
-                }),int.state.displaymode.get(&()))))
+                }),int.state.displaymode.get(&()))))*/
         }
     }
 };
@@ -357,7 +360,7 @@ fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, lo
     Ok(())
 }
 
-use crate::interpreter::dimensions::{dimtostr, Numeric, round_f, Skip};
+use crate::interpreter::dimensions::{dimtostr, MuSkip, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
 use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Radical, Underline};
 use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
@@ -3073,7 +3076,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
     expandable:false,
-    _apply:|_,int| {
+    _apply:|r,int| {
         //unsafe { crate::LOG = true }
         let num = int.read_number()?;
         log!("\\parshape: Reading 2*{} dimensions:",num);
@@ -3085,7 +3088,8 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
             log!("\\parshape: l{}={}",i,s);
             vals.push((f,s))
         }
-        int.stomach.base_mut().parshape = vals;
+        //TeXErr!(r.0.clone() => "Here!");
+        int.state.parshape.set((),vals,false);
         Ok(())
     }
 };
@@ -3095,7 +3099,7 @@ pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let dim = int.read_dimension()?;
-        int.stomach.base_mut().hangindent = dim;
+        int.state.hangindent.set((),dim,false);
         Ok(())
     }
 };
@@ -3105,7 +3109,7 @@ pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let num = int.read_number()?;
-        int.stomach.base_mut().hangafter = num as usize;
+        int.state.hangafter.set((),num as usize,false);
         Ok(())
     }
 };

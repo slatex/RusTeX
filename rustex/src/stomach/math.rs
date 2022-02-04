@@ -5,7 +5,7 @@ use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
 use crate::interpreter::dimensions::{MuSkip, numtostr};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, MATHML_NS, MiMoInfo};
+use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, MATHML_NS, FontInfo};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 
@@ -430,7 +430,7 @@ impl WhatsitTrait for MathChar {
             }
         };
         charstr = charstr.html_escape();
-        let mimoinfo = MiMoInfo::new(&self.font);
+        let mimoinfo = FontInfo::new(&self.font);
         let clsstr : HTMLStr = (match self.class {
             1 => "largeop",
             2 => "binop",
@@ -441,21 +441,23 @@ impl WhatsitTrait for MathChar {
             _ => "",
         }).into();
         match (maybemimo,self.class) {
-            (Some(n),0|7) if String::from(&n.name) == "mi" && n.mimoinfo.is_some() && n.mimoinfo.as_ref().unwrap() == &mimoinfo => {
+            (Some(n),0|7) if String::from(&n.name) == "mi" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
                 n.children.push(HTMLChild::Str(charstr))
             }
-            (Some(n),i) if 0<i && i<7 && String::from(&n.name) == "mo" && n.mimoinfo.is_some() && n.mimoinfo.as_ref().unwrap() == &mimoinfo => {
+            (Some(n),i) if 0<i && i<7 && String::from(&n.name) == "mo" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
                 n.children.push(HTMLChild::Str(charstr))
             }
             (_,0|7) => {
                 htmlnode!(colon,mi,self.sourceref,clsstr,node_top,a => {
-                    a.mimoinfo = Some(mimoinfo);
+                    a.fontinfo = Some(mimoinfo);
+                    a.attr("rustex:font".into(),(&self.font.file.name).into());
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }
             (_,_) => {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
-                    a.mimoinfo = Some(mimoinfo);
+                    a.fontinfo = Some(mimoinfo);
+                    a.attr("rustex:font".into(),(&self.font.file.name).into());
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }
