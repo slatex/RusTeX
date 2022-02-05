@@ -388,7 +388,7 @@ impl WhatsitTrait for HSkip {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H =>
-                htmlnode!(colon,span,self.sourceref,"hskip",node_top,node => {
+                htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
             ColonMode::M =>
@@ -434,7 +434,7 @@ impl WhatsitTrait for MSkip {
                     a.attr("width".into(),numtostr(self.skip.base / 12,"em").into()) // 1179648
                 }),
             ColonMode::H =>
-                htmlnode!(colon,span,self.sourceref,"hskip",node_top,node => {
+                htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),numtostr(self.skip.base / 12,"em").into());
                 }),
             _ => todo!()
@@ -753,7 +753,7 @@ impl WhatsitTrait for HKern {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref,"hkern",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"hkern",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
         })
     }
@@ -787,7 +787,7 @@ impl WhatsitTrait for Indent {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref,"indent",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"indent",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
         })
     }
@@ -1335,7 +1335,7 @@ macro_rules! trivial {
             fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
                 match mode {
                     ColonMode::H | ColonMode::V => {
-                        htmlnode!(colon,span,self.0,(stringify!($e)),node_top)
+                        htmlnode!(colon,div,self.0,(stringify!($e)),node_top)
                     }
                     _ => ()
                 }
