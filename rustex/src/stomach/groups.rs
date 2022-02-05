@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use crate::fonts::Font;
-use crate::fonts::fontchars::FontTableParam;
 use crate::{htmlannotate, htmlnode, htmlparent};
 use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;

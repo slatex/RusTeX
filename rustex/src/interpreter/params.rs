@@ -1,3 +1,7 @@
+pub trait CommandListener : Sync {
+    fn apply(&self,name:&TeXStr,cmd: &Option<TeXCommand>,file:&TeXStr,line:&String) -> Option<Option<TeXCommand>>;
+}
+
 pub trait InterpreterParams {
     fn singlethreaded(&self) -> bool;
     fn do_log(&self) -> bool;
@@ -15,14 +19,33 @@ pub trait InterpreterParams {
     fn file_close(&self);
     fn error(&self,t:TeXError);
     fn message(&self,s:&str);
+    fn command_listeners(&self) -> &Vec<Box<dyn CommandListener>>;
 }
 
 pub struct DefaultParams {
     pub log:bool,
-    pub singlethreaded:bool
+    pub singlethreaded:bool,
+    pub listeners: Vec<Box<dyn CommandListener>>
 }
+
+impl DefaultParams {
+    pub fn new(log:bool,singlethreaded:bool,listeners:Option<Vec<Box<dyn CommandListener>>>) -> DefaultParams {
+        use crate::commands::latex_bindings::*;
+        DefaultParams {
+            log,singlethreaded,
+            listeners: match listeners {
+                Some(v) => v,
+                None => vec!(
+                    Box::new(UrlListener())
+                )
+            }
+        }
+    }
+}
+
 use ansi_term::Colour::*;
-use crate::utils::TeXError;
+use crate::commands::TeXCommand;
+use crate::utils::{TeXError, TeXStr};
 
 impl InterpreterParams for DefaultParams {
     fn singlethreaded(&self) -> bool { self.singlethreaded }
@@ -43,8 +66,24 @@ impl InterpreterParams for DefaultParams {
     fn error(&self,t:TeXError) {
         println!("{}",Red.paint(std::format!("{}",t)))
     }
+    fn command_listeners(&self) -> &Vec<Box<dyn CommandListener>> { &self.listeners }
 }
-pub struct NoOutput {}
+pub struct NoOutput {
+    pub listeners: Vec<Box<dyn CommandListener>>
+}
+impl NoOutput {
+    pub fn new(listeners:Option<Vec<Box<dyn CommandListener>>>) -> NoOutput {
+        use crate::commands::latex_bindings::*;
+        NoOutput {
+            listeners: match listeners {
+                Some(v) => v,
+                None => vec!(
+                    Box::new(UrlListener())
+                )
+            }
+        }
+    }
+}
 impl InterpreterParams for NoOutput {
     fn singlethreaded(&self) -> bool { false}
     fn do_log(&self) -> bool { false }
@@ -64,4 +103,5 @@ impl InterpreterParams for NoOutput {
     fn error(&self,t:TeXError) {
         println!("{}",Red.paint(std::format!("{}",t)))
     }
+    fn command_listeners(&self) -> &Vec<Box<dyn CommandListener>> { &self.listeners }
 }

@@ -7,8 +7,13 @@ use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::thread::JoinHandle;
 
-pub fn u8toi16(i : u8) -> i16 {
-    i16::from(i)
+//pub fn u8toi16(i : u8) -> i16 { i16::from(i) }
+
+#[derive(Clone)]
+pub enum RusTeXStr {
+    U8(Vec<u8>),
+    Str(&'static str),
+    String(String)
 }
 
 #[derive(Clone)]
@@ -395,7 +400,6 @@ impl std::error::Error for TeXError {
 }
 
 use crate::references::SourceReference;
-use crate::ontology::ExpansionRef;
 use crate::catcodes::CategoryCode;
 use crate::ontology::Token;
 use crate::interpreter::Interpreter;

@@ -15,7 +15,7 @@ use crate::utils::TeXStr;
 
 #[derive(PartialEq,Clone)]
 pub struct HTMLLiteral {
-    str : TeXStr
+    pub(crate) str : TeXStr
 }
 impl WhatsitTrait for HTMLLiteral {
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {

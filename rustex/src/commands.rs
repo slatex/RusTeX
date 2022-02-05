@@ -2,6 +2,7 @@ pub mod primitives;
 pub mod pdftex;
 pub mod conditionals;
 pub mod pgfsvg; pub mod rustex_specials;
+pub mod latex_bindings;
 
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::{Interpreter, TeXMode};

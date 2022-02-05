@@ -22,7 +22,7 @@ use crate::commands::primitives::tex_commands;
 use crate::commands::rustex_specials::rustex_special_commands;
 use crate::utils::{PWD, TeXError, TeXStr};
 use crate::interpreter::files::VFile;
-use crate::interpreter::params::{DefaultParams, InterpreterParams, NoOutput};
+use crate::interpreter::params::{InterpreterParams, NoOutput};
 use crate::stomach::colon::NoColon;
 
 #[derive(Copy,Clone,PartialEq)]
@@ -459,7 +459,7 @@ macro_rules! pass_on {
 
     }
 }
-static mut fontfiles: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
+static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
 
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
@@ -585,7 +585,7 @@ impl State {
         let p = /* DefaultParams {
             log:false,
             singlethreaded:true
-        }; // */ NoOutput {};
+        }; // */ NoOutput::new(None);
 
         state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
         state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
@@ -695,18 +695,18 @@ impl State {
     }
     pub fn get_font(&mut self,indir:&Path,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
         unsafe {
-            match fontfiles {
-                None => fontfiles = Some(HashMap::new()),
+            match FONT_FILES {
+                None => FONT_FILES = Some(HashMap::new()),
                 _ => ()
             }
-            match fontfiles.as_ref().unwrap().get(&name) {
+            match FONT_FILES.as_ref().unwrap().get(&name) {
                 Some(ff) => Ok(Arc::clone(ff)),
                 None => {
                     let ret = crate::kpathsea::kpsewhich(std::str::from_utf8_unchecked(name.iter()),indir);
                     match ret {
                         Some((pb,_)) if pb.exists() => {
                             let f = Arc::new(FontFile::new(pb));
-                            fontfiles.as_mut().unwrap().insert(name,Arc::clone(&f));
+                            FONT_FILES.as_mut().unwrap().insert(name, Arc::clone(&f));
                             Ok(f)
                         }
                         _ => {
@@ -724,6 +724,20 @@ impl State {
 }
 
 impl Interpreter<'_> {
+    pub fn change_command(&mut self,cmdname:TeXStr,proc:Option<TeXCommand>,globally:bool) {
+        let file = self.current_file();
+        let line = self.mouths.current_line();
+        for cl in self.params.command_listeners() {
+            match cl.apply(&cmdname,&proc,&file,&line) {
+                Some(r) => {
+                    self.state.commands.set(cmdname,r,globally);
+                    return ()
+                },
+                _ => ()
+            }
+        }
+        self.state.commands.set(cmdname,proc,globally)
+    }
     pub fn pop_group(&mut self,tp:GroupType) -> Result<(),TeXError> {
         log!("Pop: {}",tp);
         let ag = self.state.pop(tp)?;

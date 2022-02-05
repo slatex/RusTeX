@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use crate::commands::PrimitiveTeXCommand;
-use crate::ontology::ExpansionRef;
 use crate::Token;
 use crate::utils::TeXStr;
 

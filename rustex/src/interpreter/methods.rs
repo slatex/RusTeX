@@ -8,7 +8,6 @@ use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
 use crate::interpreter::state::GroupType;
-use crate::references::SourceReference;
 use crate::stomach::whatsits::Whatsit;
 use crate::stomach::boxes::{BoxMode,TeXBox};
 

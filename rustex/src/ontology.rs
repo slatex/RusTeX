@@ -3,7 +3,7 @@ use crate::references::SourceReference;
 use std::sync::Arc;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
-use crate::commands::{PrimitiveTeXCommand, TeXCommand};
+use crate::commands::PrimitiveTeXCommand;
 use crate::COPY_TOKENS_FULL;
 use crate::utils::{TeXString,TeXStr};
 

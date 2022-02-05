@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use std::sync::Arc;
 use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
 use crate::interpreter::{Interpreter, TeXMode};
@@ -79,7 +78,6 @@ pub static SFCODE : NumAssValue = NumAssValue {
     }
 };
 
-use crate::references::SourceReference;
 use chrono::{Datelike, Timelike};
 use crate::fonts::{Font, NULL_FONT};
 
@@ -90,7 +88,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,None,true)).as_ref(rf);
-        int.state.commands.set(c.cmdname(),Some(cmd),global);
+        int.change_command(c.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -158,7 +156,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_ref(rf);
 
-        int.state.commands.set(cmd.cmdname(),Some(command),global);
+        int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -172,7 +170,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_ref(rf);
 
-        int.state.commands.set(cmd.cmdname(),Some(command),global);
+        int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -185,7 +183,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_ref(rf);
-        int.state.commands.set(cmd.cmdname(),Some(command),global);
+        int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -199,7 +197,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_ref(rf);
 
-        int.state.commands.set(cmd.cmdname(),Some(command),global);
+        int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -213,7 +211,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         let num = int.read_number()? as u16;
         let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_ref(rf);
 
-        int.state.commands.set(cmd.cmdname(),Some(command),global);
+        int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
 };
@@ -356,7 +354,7 @@ fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, lo
         sig,
         ret
     }).as_ref(rf);
-    int.state.commands.set(command.cmdname(),Some(dm),global);
+    int.change_command(command.cmdname(),Some(dm),global);
     Ok(())
 }
 
@@ -417,7 +415,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
             }
             _ => Some(PrimitiveTeXCommand::Char(def).as_ref(rf))
         };
-        int.state.commands.set(cmd.cmdname(),ch,global);
+        int.change_command(cmd.cmdname(),ch,global);
         Ok(())
     }
 };
@@ -438,7 +436,7 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
             }
             _ => Some(PrimitiveTeXCommand::Char(second.clone()).as_command())
         };
-        int.state.commands.set(newcmd.cmdname(),p,global);
+        int.change_command(newcmd.cmdname(),p,global);
         int.push_tokens(vec!(first,second));
         Ok(())
     }
@@ -805,7 +803,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
+        int.change_command(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -833,7 +831,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
             },
             ret: toks
         }).as_ref(rf);
-        int.state.commands.set(newcmd.cmdname(),Some(cmd),global);
+        int.change_command(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -970,7 +968,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         let num = int.read_number()?;
         let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(rf);
-        int.state.commands.set(chartok.cmdname(),Some(cmd),global);
+        int.change_command(chartok.cmdname(),Some(cmd),global);
         Ok(())
     }
 };
@@ -1024,7 +1022,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
             Some(_) => (),
             None => {
                 let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.get_ref());
-                int.state.commands.set(cmdname,Some(cmd),false)
+                int.change_command(cmdname,Some(cmd),false)
             }
         }
         rf.2.push(ret);
@@ -1410,7 +1408,7 @@ pub static FONT: FontAssValue = FontAssValue {
             _ => None
         };
         let font = Font::new(ff,at,cmd.cmdname());
-        int.state.commands.set(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
+        int.change_command(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
         Ok(())
     },
     _getvalue: |_int| {
@@ -3076,7 +3074,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
 pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshape",
     expandable:false,
-    _apply:|r,int| {
+    _apply:|_r,int| {
         //unsafe { crate::LOG = true }
         let num = int.read_number()?;
         log!("\\parshape: Reading 2*{} dimensions:",num);

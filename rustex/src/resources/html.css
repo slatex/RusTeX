@@ -131,15 +131,22 @@ td {
     width: 0%;
     height: 0%;
 }
-.hfil {
+.HFil {
     margin-left: 10px;
     width: 0%;
     height: 0%;
+    display: inline-block;
 }
-.hfill {
+.Hss {
+    width: 0%;
+    height: 0%;
+    display: inline-block;
+}
+.HFill {
     margin-left: 30px;
     width: 0%;
     height: 0%;
+    display: inline-block;
 }
 .br {
     flex-basis:100%;

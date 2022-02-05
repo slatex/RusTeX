@@ -5,7 +5,6 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 use itertools::Itertools;
-use crate::commands::primitives::NULLFONT;
 use crate::fonts::{Font, NULL_FONT};
 use crate::fonts::fontchars::FontTableParam;
 use crate::Interpreter;
@@ -279,9 +278,6 @@ pub struct FontInfo {
     at:i32
 }
 impl FontInfo {
-    pub fn do_attr(&self,node:&mut HTMLNode) {
-        todo!()
-    }
     pub fn new(font:&Arc<Font>) -> FontInfo {
         let mut ret = FontInfo { params:vec!(),at:font.get_at()};
         match font.file.chartable {

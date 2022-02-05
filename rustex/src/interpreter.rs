@@ -7,7 +7,6 @@ pub enum TeXMode {
 use std::borrow::BorrowMut;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::references::SourceReference;
 use std::path::{Path, PathBuf};
 use crate::commands::{TeXCommand,PrimitiveTeXCommand};
 use crate::interpreter::files::{VFile};
@@ -300,7 +299,7 @@ impl Interpreter<'_> {
                         Ok(())
                     },
                     (Primitive(p),Vertical | InternalVertical) if **p == primitives::INDENT || **p == primitives::NOINDENT => {
-                        self.switch_to_H(next)
+                        self.switch_to_h(next)
                     }
                     (Primitive(p),Horizontal) if **p == primitives::PAR => self.end_paragraph(inner),
                     (Primitive(np),_) => {
@@ -322,7 +321,7 @@ impl Interpreter<'_> {
                         self.stomach_add(next)
                     },
                     (Whatsit(w), Vertical | InternalVertical) if w.allowed_in(TeXMode::Horizontal) => {
-                        self.switch_to_H(next)
+                        self.switch_to_h(next)
                     }
                     (Whatsit(w), Horizontal) if w.allowed_in(TeXMode::Vertical) => {
                         self.requeue(next);
@@ -372,7 +371,7 @@ impl Interpreter<'_> {
                     }
                 }
             }
-            (Letter | Other | MathShift,Vertical | InternalVertical) => self.switch_to_H(next),
+            (Letter | Other | MathShift,Vertical | InternalVertical) => self.switch_to_h(next),
             (AlignmentTab,_) => {
                 let align = self.state.borrow_mut().aligns.pop();
                 self.state.borrow_mut().aligns.push(None);
@@ -429,7 +428,7 @@ impl Interpreter<'_> {
         }
     }
 
-    fn switch_to_H(&mut self,next:Token) -> Result<(),TeXError> {
+    fn switch_to_h(&mut self, next:Token) -> Result<(),TeXError> {
         let indent = match next.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
                 let pr = self.get_command(&next.cmdname())?;

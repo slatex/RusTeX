@@ -249,10 +249,7 @@ fn main() {
                 println!("File {} not found",i)
             }
             let mut stomach = NoShipoutRoutine::new();
-            let p = DefaultParams {
-                log:false,
-                singlethreaded:params.singlethreaded
-            };
+            let p = DefaultParams::new(false,params.singlethreaded,None);
             let state = State::pdf_latex();
             let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
             let s = int.do_file(path,HTMLColon::new(true));
