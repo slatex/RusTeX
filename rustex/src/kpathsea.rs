@@ -107,11 +107,11 @@ impl Kpathsea {
             }
         }
         let mut filestrs : Vec<String> = vec!(
-            vars.get("TEXINPUTS").map(|x| x.clone()),
             vars.get("VARTEXFONTS").map(|x| x.clone()),
             vars.get("VFFONTS").map(|x| x.clone()),
             vars.get("TFMFONTS").map(|x| x.clone()),
-            std::env::vars().find(|a| a.0 == "TEXINPUTS").map(|x| x.1.clone())
+            std::env::vars().find(|a| a.0 == "TEXINPUTS").map(|x| x.1.clone()),
+            vars.get("TEXINPUTS").map(|x| x.clone())
         ).drain(..).flatten().collect();
         vars.insert("progname".to_string(),"pdflatex".to_string());
         let home = if cfg!(target_os = "windows") {

@@ -4,15 +4,16 @@ use crate::stomach::whatsits::WhatsitTrait;
 use crate::{TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::params::CommandListener;
+use crate::stomach::html::HTMLStr;
 use crate::utils::TeXStr;
 
 pub static URL: SimpleWhatsit = SimpleWhatsit {
-    name: "rustex@directHTML",
+    name: "Url",
     modes: |_| { true },
     _get: |_, int| {
         let tks = int.read_balanced_argument(true,false,false,true)?;
         let mut str : TeXString = "<span style=\"font-family:monospace;\">".into();
-        str += int.tokens_to_string(&tks);
+        str += HTMLStr::from(int.tokens_to_string(&tks).to_string()).html_escape().to_string();
         str += "</span>";
         let endgroup = Token::new(92,CategoryCode::Escape,Some("endgroup".into()),None,true);
         int.requeue(endgroup);
@@ -30,3 +31,5 @@ impl CommandListener for UrlListener {
         }
     }
 }
+
+// TODO mapsto, sout, tableofcontents?, underbrace, overbrace, sqrt,

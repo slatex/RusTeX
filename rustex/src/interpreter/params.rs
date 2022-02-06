@@ -30,16 +30,19 @@ pub struct DefaultParams {
 
 impl DefaultParams {
     pub fn new(log:bool,singlethreaded:bool,listeners:Option<Vec<Box<dyn CommandListener>>>) -> DefaultParams {
-        use crate::commands::latex_bindings::*;
         DefaultParams {
             log,singlethreaded,
             listeners: match listeners {
                 Some(v) => v,
-                None => vec!(
-                    Box::new(UrlListener())
-                )
+                None => DefaultParams::default_listeners()
             }
         }
+    }
+    pub fn default_listeners() -> Vec<Box<dyn CommandListener>> {
+        use crate::commands::latex_bindings::*;
+        vec!(
+            Box::new(UrlListener())
+        )
     }
 }
 
@@ -77,9 +80,7 @@ impl NoOutput {
         NoOutput {
             listeners: match listeners {
                 Some(v) => v,
-                None => vec!(
-                    Box::new(UrlListener())
-                )
+                None => DefaultParams::default_listeners()
             }
         }
     }

@@ -168,7 +168,7 @@ pub struct LinkedStateValue<K,V:HasDefault,A:StateStore<K,V>> {
     k:PhantomData<K>,
     v:PhantomData<V>,
     pub values:Option<A>,
-    parent:Option<Box<LinkedStateValue<K,V,A>>>
+    pub parent:Option<Box<LinkedStateValue<K,V,A>>>
 }
 impl<K,V:HasDefault+Clone,A:StateStore<K,V>> std::default::Default for LinkedStateValue<K,V,A> {
     fn default() -> Self {

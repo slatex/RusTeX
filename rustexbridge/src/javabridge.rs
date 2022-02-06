@@ -7,7 +7,7 @@ use jni::JNIEnv;
 use jni::objects::{JClass, JList, JObject, JString, JValue};
 use jni::sys::{jarray, jboolean, jobjectArray, jsize, jstring};
 use rustex::interpreter::Interpreter;
-use rustex::interpreter::params::InterpreterParams;
+use rustex::interpreter::params::{CommandListener, DefaultParams, InterpreterParams};
 use rustex::stomach::html::HTMLColon;
 use rustex::utils::TeXError;
 
@@ -67,7 +67,14 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
         memories.push(env.get_string(JString::from(m)).unwrap().into())
     }
     let (s,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
-    for (n,cmd) in s.commands.values.unwrap() {
+    let mut topcommands = Box::new(s.commands);
+    loop {
+        match topcommands.parent {
+            Some(p) => topcommands = p,
+            _ => break
+        }
+    }
+    for (n,cmd) in topcommands.values.unwrap() {
         if memories.iter().any(|x| n.to_string().starts_with(x) ) {
             unsafe { MAIN_STATE.as_mut().unwrap().commands.set(n,cmd,true);}
         }
@@ -82,7 +89,8 @@ struct JavaParams<'borrow,'env> {
     do_log:bool,
     store_in_file:bool,
     copy_tokens_full:bool,
-    copy_commands_full:bool
+    copy_commands_full:bool,
+    pub listeners: Vec<Box<dyn CommandListener>>
 }
 impl<'borrow,'env> JavaParams<'borrow,'env> {
     pub fn new(env:&'borrow JNIEnv<'env>,params:JObject<'env>) -> JavaParams<'borrow,'env> {
@@ -93,6 +101,7 @@ impl<'borrow,'env> JavaParams<'borrow,'env> {
             store_in_file:env.get_field(params,"store_in_file","Z").unwrap().z().unwrap(),
             copy_tokens_full:env.get_field(params,"copy_tokens_full","Z").unwrap().z().unwrap(),
             copy_commands_full:env.get_field(params,"copy_commands_full","Z").unwrap().z().unwrap(),
+            listeners: DefaultParams::default_listeners()
         }
     }
 }
@@ -159,5 +168,8 @@ impl<'borrow,'env> InterpreterParams for JavaParams<'borrow,'env> {
 
         self.env.call_method(self.params,"error_i","(Ljava/lang/String;[[Ljava/lang/String;[[Ljava/lang/String;)V",
                              &[a1,JValue::Object(JObject::from(retstr)),JValue::Object(JObject::from(filestr))]).unwrap();
+    }
+    fn command_listeners(&self) -> &Vec<Box<dyn CommandListener>> {
+        &self.listeners
     }
 }
