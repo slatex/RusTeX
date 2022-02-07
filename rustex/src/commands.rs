@@ -630,9 +630,9 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "incl" {
+        /*if tk.cmdname().to_string() == "XKV@s@tk@ys" {
             println!("Here! {}",int.current_line());
-            unsafe { crate::LOG = true }
+            //unsafe { crate::LOG = true }
         }*/
         log!("{}",d);
         if unsafe{crate::LOG} {

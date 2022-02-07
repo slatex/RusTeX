@@ -178,20 +178,20 @@ impl StringMouth {
             Some(s) => Some(s.clone()),
             None => None
         };
-        StringMouth::new_i(catcodes.newlinechar,StringMouthSource::File(ltxf),string)
+        StringMouth::new_i(StringMouthSource::File(ltxf),string)
     }
-    pub fn new<'a>(newlinechar:u8, source:Expansion, string : TeXString) -> StringMouth {
-        StringMouth::new_i(newlinechar,StringMouthSource::Exp(source),Some(string))
+    pub fn new<'a>(source:Expansion, string : TeXString) -> StringMouth {
+        StringMouth::new_i(StringMouthSource::Exp(source),Some(string))
     }
-    fn new_i(newlinechar:u8, source:StringMouthSource, string : Option<TeXString>) -> StringMouth {
+    fn new_i(source:StringMouthSource, string : Option<TeXString>) -> StringMouth {
         match string {
             Some(string) => {
                 let it = if string.is_empty() {
                     vec![]
-                } else if newlinechar==u8::MAX {
+                } /*else if newlinechar==u8::MAX {
                     vec![string]
-                } else {
-                    let mut ret = string.split(newlinechar);
+                } */ else {
+                    let mut ret : Vec<TeXString> = string.split(10);
                     ret.reverse();
                     ret
                 };
@@ -235,9 +235,13 @@ impl StringMouth {
             };
             //self.allstrings.pop().unwrap().trim_end().as_bytes();
             let mut string = self.allstrings.pop().unwrap();
+            match string.0.last() {
+                Some(13) => {string.0.pop();}
+                _ => ()
+            };
             loop {
                 match string.0.last() {
-                    Some(32) => string.0.pop(),
+                    Some(32) => {string.0.pop();}
                     _ => break
                 };
             }
@@ -286,7 +290,7 @@ impl StringMouth {
             match catcodes.get_code(next.0) {
                 CategoryCode::Space => {}
                 CategoryCode::EOL => {
-                    //self.do_line(catcodes.endlinechar);
+                    self.do_line(catcodes.endlinechar);
                     break
                 },
                 _ => {
@@ -465,11 +469,11 @@ impl StringMouth {
                         }
                     }
                 }
-                CategoryCode::EOL if matches!(self.mouth_state,MouthState::M) => {
+                CategoryCode::EOL if self.mouth_state == MouthState::M => {
                     //self.mouth_state = MouthState::S;
                     Token::new(32,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
-                CategoryCode::EOL if matches!(self.mouth_state,MouthState::N) => {
+                CategoryCode::EOL if self.mouth_state == MouthState::N => {
                     while self.has_next(catcodes,nocomment,false) {
                         let (n,l2,p2) = self.next_char(catcodes.endlinechar).unwrap();
                         if !matches!(catcodes.get_code(n),CategoryCode::EOL) {
@@ -479,7 +483,7 @@ impl StringMouth {
                     }
                     Token::new(char,CategoryCode::Escape,Some("par".into()),self.make_reference(l,p),true)
                 }
-                CategoryCode::Space if matches!(self.mouth_state,MouthState::M) => {
+                CategoryCode::Space if self.mouth_state == MouthState::M => {
                     self.mouth_state = MouthState::S;
                     Token::new(32,CategoryCode::Space,None,self.make_reference(l,p),true)
                 }
@@ -494,6 +498,7 @@ impl StringMouth {
                 }
                 _ => {}
             }
+            //if ret.catcode == CategoryCode::EOL { ret.catcode = CategoryCode::Space }
             ret
         }
     }
@@ -625,9 +630,9 @@ impl Mouths {
             self.push_tokens(vec!(buf))
         }
         if filelike {
-            self.mouths.push(Mouth::FileLike(StringMouth::new(catcodes.newlinechar,exp,string)))
+            self.mouths.push(Mouth::FileLike(StringMouth::new(exp,string)))
         } else {
-            self.mouths.push(Mouth::Str(StringMouth::new(catcodes.newlinechar,exp,string)))
+            self.mouths.push(Mouth::Str(StringMouth::new(exp,string)))
         }
     }
 
