@@ -334,8 +334,8 @@ impl HTMLNode {
                         if a.fontinfo.is_some() { self.fontinfo = std::mem::take(&mut a.fontinfo)}
                         for (k,v) in std::mem::take(&mut a.attributes) { self.attributes.insert(k,v); }
                         for (k,v) in std::mem::take(&mut a.styles) { self.styles.insert(k,v); }
+                        self.children = std::mem::take(&mut a.children)
                     }
-                    self.children = std::mem::take(&mut a.children)
                 }
                 _ => ()
             }
