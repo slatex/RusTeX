@@ -630,8 +630,9 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "XKV@s@tk@ys" {
+        /*if tk.cmdname().to_string() == "msg_error:nnxx" {
             println!("Here! {}",int.current_line());
+            //TeXErr!(tk => "temp");
             //unsafe { crate::LOG = true }
         }*/
         log!("{}",d);

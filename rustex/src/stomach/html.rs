@@ -421,7 +421,7 @@ impl HTMLNode {
                     self.style("font-family".into(),"sans-serif".into())
                 }
                 if mi.params.contains(&FontTableParam::Script) {
-                    self.style("font-family".into(),"eusb".into())
+                    self.style("font-family".into(),"URW Chancery L, cursive".into())
                 }
                 self.style("font-size".into(),((100.0 * (mi.at as f32) / (fi.at as f32)).round().to_string() + "%").into());
                 mi

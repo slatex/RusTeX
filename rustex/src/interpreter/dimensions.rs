@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::ops::Add;
+use std::ops::{Add, Div};
 
 pub fn pt(f:f32) -> f32 { f * 65536.0 }
 pub fn inch(f:f32) -> f32 { pt(f) * 72.27 }
@@ -55,6 +55,15 @@ pub struct Skip {
 impl Display for Skip {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",self.to_string())
+    }
+}
+impl Div<i32> for Skip {
+    type Output = Skip;
+    fn div(self, rhs: i32) -> Self::Output {
+        Skip {
+            base:round_f((self.base as f32) / (rhs as f32)),
+            stretch:self.stretch,shrink:self.shrink
+        }
     }
 }
 impl Skip {
@@ -129,6 +138,15 @@ pub struct MuSkip {
 impl Display for MuSkip {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",self.to_string())
+    }
+}
+impl Div<i32> for MuSkip {
+    type Output = MuSkip;
+    fn div(self, rhs: i32) -> Self::Output {
+        MuSkip {
+            base:round_f((self.base as f32) / (rhs as f32)),
+            stretch:self.stretch,shrink:self.shrink
+        }
     }
 }
 impl MuSkip {

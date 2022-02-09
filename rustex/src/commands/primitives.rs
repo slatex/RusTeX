@@ -627,7 +627,9 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
         match num {
             Numeric::Int(i) => int.state.registers.set(index, i / div.get_i32(), global),
             Numeric::Dim(i) => int.state.dimensions.set(index, i / div.get_i32(),global),
-            _ => todo!()
+            Numeric::Skip(i) => int.state.skips.set(index, i / div.get_i32(),global),
+            Numeric::MuSkip(i) => int.state.muskips.set(index, i / div.get_i32(),global),
+            _ => unreachable!()
         };
         Ok(())
     }
@@ -646,7 +648,15 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
                 Numeric::Dim(i) => i,
                 _ => unreachable!()
             },global),
-            _ => todo!()
+            Numeric::Skip(_) => int.state.skips.set(index, match num * fac.as_int() {
+                Numeric::Skip(i) => i,
+                _ => unreachable!()
+            },global),
+            Numeric::MuSkip(i) => int.state.muskips.set(index, match num * fac.as_int() {
+                Numeric::MuSkip(i) => i,
+                _ => unreachable!()
+            },global),
+            _ => unreachable!()
         };
         Ok(())
     }
@@ -661,7 +671,8 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
             (Numeric::Int(num),Numeric::Dim(sum)) => int.state.registers.set(index,num+sum,global),
             (Numeric::Dim(num),Numeric::Dim(sum)) => int.state.dimensions.set(index,num + sum,global),
             (Numeric::Skip(num),Numeric::Skip(sum)) => int.state.skips.set(index,num + sum,global),
-            _ => todo!()
+            (Numeric::MuSkip(num),Numeric::MuSkip(sum)) => int.state.muskips.set(index,num + sum,global),
+            _ => unreachable!()
         };
         Ok(())
     }
@@ -1045,7 +1056,8 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
-    _apply:|_,int| {
+    _apply:|tk,int| {
+        //TeXErr!(tk.0.clone() => "temp");
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!(next => "Begin group token expected after \\errmessage")
