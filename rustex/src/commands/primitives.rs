@@ -3460,9 +3460,9 @@ pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|tk,int| {
         let _prebreak = int.read_argument()?;
-        let postbreak = int.read_argument()?;
-        let _nobreak = int.read_argument()?;
-        tk.2 = postbreak;
+        let _postbreak = int.read_argument()?;
+        let nobreak = int.read_argument()?;
+        tk.2 = nobreak;
         Ok(())
     }
 };

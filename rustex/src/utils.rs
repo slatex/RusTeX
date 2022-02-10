@@ -387,6 +387,9 @@ impl Display for TeXError {
         for (x,y) in &self.textrace {
             write!(f,"{} - {}\n",x,y)?
         }
+        for (st,s,e) in &self.toplinepos {
+            write!(f,"\n{} ({};{})",st,s,e)?
+        }
         self.backtrace.fmt(f)
     }
 }

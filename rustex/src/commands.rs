@@ -630,7 +630,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "msg_error:nnxx" {
+        /*if tk.cmdname().to_string() == "Hy@Message" {
             println!("Here! {}",int.current_line());
             //TeXErr!(tk => "temp");
             //unsafe { crate::LOG = true }
