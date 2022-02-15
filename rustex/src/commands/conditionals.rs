@@ -466,7 +466,7 @@ pub static IFVOID : Conditional = Conditional {
     _apply: |int,cond,unless| {
         let ind = int.read_number()?;
         match int.state.boxes.get_maybe(&(ind as i32)) {
-            Some(TeXBox::Void) => dotrue(int,cond,unless),
+            Some(TeXBox::Void) | None => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }

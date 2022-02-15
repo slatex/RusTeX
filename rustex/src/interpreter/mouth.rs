@@ -178,6 +178,10 @@ impl StringMouth {
             Some(s) => Some(s.clone()),
             None => None
         };
+        /*if file.id.to_string().to_lowercase().contains("omdoc/mod/nutshell.en.tex") {
+            println!("Here");
+            unsafe{ crate::LOG = true}
+        }*/
         StringMouth::new_i(StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(source:Expansion, string : TeXString) -> StringMouth {
@@ -570,7 +574,7 @@ impl Mouths {
                                     }
                                     return Err(EOF {})
                                 }
-                                Mouth::File(_) => {
+                                Mouth::File(f) => {
                                     io.file_close();
                                     return Err(EOF {})
                                 }
@@ -693,7 +697,7 @@ impl Mouths {
     pub fn end_input(&mut self,io:&dyn InterpreterParams) {
         loop {
             match self.mouths.last() {
-                Some(Mouth::File(_)) => {
+                Some(Mouth::File(f)) => {
                     self.mouths.pop();
                     io.file_close();
                     return ()

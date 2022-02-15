@@ -2112,7 +2112,7 @@ pub static PENALTY: SimpleWhatsit = SimpleWhatsit {
 pub static LOWER: SimpleWhatsit = SimpleWhatsit {
     name:"lower",
     modes:|m| {match m {
-        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal | TeXMode::Math | TeXMode::Displaymath => true,
         _ => false
     }},
     _get: |tk,int| {

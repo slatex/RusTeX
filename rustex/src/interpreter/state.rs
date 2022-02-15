@@ -463,11 +463,13 @@ static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
 
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
+        log!("Push: {} -> {}",gt,self.stack_depth() + 1);
         pass_on!(self,push);
         stomach.new_group(gt);
         self.tp.set_locally((),gt)
     }
     pub fn pop(&mut self,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
+        log!("Pop: {} -> {}",tp,self.stack_depth());
         match self.tp.values.as_ref().unwrap().0.unwrap() {
             t if t == tp => (),
             t => TeXErr!("Group opened by {} ended by {}",t,tp)
@@ -739,7 +741,6 @@ impl Interpreter<'_> {
         self.state.commands.set(cmdname,proc,globally)
     }
     pub fn pop_group(&mut self,tp:GroupType) -> Result<(),TeXError> {
-        log!("Pop: {}",tp);
         let ag = self.state.pop(tp)?;
         match ag {
             Some(v) => self.push_tokens(v),
@@ -748,7 +749,6 @@ impl Interpreter<'_> {
         self.stomach.close_group()
     }
     pub fn get_whatsit_group(&mut self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
-        log!("Pop: {}",tp);
         let ag = self.state.pop(tp)?;
         match ag {
             Some(v) => self.push_tokens(v),

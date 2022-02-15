@@ -630,10 +630,11 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "Hy@Message" {
-            println!("Here! {}",int.current_line());
+        /*if tk.cmdname().to_string() == "__codedoc_function_init:" {
+            println!("Here! {} {}",int.current_line(),int.preview());
+            println!("");
             //TeXErr!(tk => "temp");
-            //unsafe { crate::LOG = true }
+            unsafe { crate::LOG = true }
         }*/
         log!("{}",d);
         if unsafe{crate::LOG} {
