@@ -366,21 +366,6 @@ impl StringMouth {
                                     _ => {}
                                 }
                                 self.do_line(catcodes.endlinechar);
-                                /*loop {
-                                    match self.next_char(catcodes.endlinechar) {
-                                        None => break,
-                                        Some(n) => {
-                                            let cc = catcodes.get_code(n.0);
-                                            match cc {
-                                                CategoryCode::Space | CategoryCode::EOL => {}
-                                                _ => {
-                                                    self.charbuffer = Some(n);
-                                                    break
-                                                }
-                                            }
-                                        }
-                                    }
-                                } */
                             }
                             CategoryCode::Space if self.mouth_state == MouthState::N => {}
                             CategoryCode::Superscript => {
@@ -721,7 +706,7 @@ impl Mouths {
         self.mouths.clear()
     }
 }
-
+static mut COUNT : usize = 0;
 impl Interpreter<'_> {
     pub fn end(&mut self) { self.mouths.close() }
     pub fn preview(&self) -> TeXString {

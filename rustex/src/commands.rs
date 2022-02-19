@@ -482,6 +482,10 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + "count".into() + i.to_string().into()
             },
+            AV(AssignableValue::Toks(i)) => {
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + "toks".into() + i.to_string().into()
+            },
             AV(AssignableValue::PrimReg(p)) => {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + p.name.into()
@@ -630,7 +634,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "__codedoc_function_init:" {
+        /*if tk.cmdname().to_string() == "stex_ref_new_doc_target:n" /*tk.cmdname().to_string() == "@fifthoffive" */ {
             println!("Here! {} {}",int.current_line(),int.preview());
             println!("");
             //TeXErr!(tk => "temp");

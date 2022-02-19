@@ -4,6 +4,20 @@ use std::path::{Path, PathBuf};
 
 static mut KPATHSEA : Option<Kpathsea> = None;
 
+fn check(pb : &PathBuf) -> Option<PathBuf> {
+    match pb.parent() {
+        Some(p) if p.is_dir() => {
+            for f in p.read_dir().unwrap() {
+                if f.as_ref().unwrap().file_name().to_ascii_uppercase() == pb.file_name().unwrap().to_ascii_uppercase() { return Some( pb.clone() )}
+                if f.as_ref().unwrap().file_name().to_ascii_uppercase().to_str().unwrap() == pb.file_name().unwrap().to_ascii_uppercase().to_str().unwrap().to_string() + ".TEX" { return Some( p.join(pb.file_name().unwrap().to_str().unwrap().to_string() + ".tex") )}
+            }
+            None
+        }
+        _ => None
+    }
+}
+
+
 pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
     if s.starts_with("nul:") && cfg!(target_os = "windows") {
         return Some((PathBuf::from(s),true))
@@ -13,13 +27,9 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
         return None
     }
     let default = indir.to_path_buf().join(s);
-    if default.is_file() {
-        return Some((default,false))
-    } else {
-        let ndef = indir.to_path_buf().join(s.to_string() + ".tex");
-        if ndef.is_file() {
-            return Some((ndef,false))
-        }
+    match check(&default) {
+        Some(p) => return Some((p,false)),
+        _ => ()
     }
     let kpathsea = match unsafe { &KPATHSEA } {
         None => unsafe {

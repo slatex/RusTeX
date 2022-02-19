@@ -504,14 +504,6 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
             rf.2 = crate::interpreter::string_to_tokens(ret.into());
             Ok(())
         } else {
-           /* let log = unsafe{LOGSOON}.clone();
-            if filename.contains("stex.aux") {
-                if log > 0 {
-                    unsafe{crate::LOG = true}
-                } else {
-                    unsafe{LOGSOON +=1}
-                }
-            }*/
             let file = int.get_file(&filename)?;
             int.push_file(file);
             Ok(())
@@ -1057,7 +1049,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
     _apply:|tk,int| {
-        //TeXErr!(tk.0.clone() => "temp");
+        //TeXErr!(tk.0.clone() => "temp {}",int.preview());
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!(next => "Begin group token expected after \\errmessage")
@@ -3571,6 +3563,42 @@ pub static NONSCRIPT: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"beginL",
+    expandable:false,
+    _apply:|_tk,_int| {
+        //todo!() ?
+        Ok(())
+    }
+};
+
+pub static BEGINR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"beginR",
+    expandable:false,
+    _apply:|_tk,_int| {
+        //todo!() ?
+        Ok(())
+    }
+};
+
+pub static ENDL: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endL",
+    expandable:false,
+    _apply:|_tk,_int| {
+        //todo!() ?
+        Ok(())
+    }
+};
+
+pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"endR",
+    expandable:false,
+    _apply:|_tk,_int| {
+        //todo!() ?
+        Ok(())
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -4302,19 +4330,6 @@ pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-
-pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"beginL",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static BEGINR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"beginR",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmarks",
     expandable:true,
@@ -4341,18 +4356,6 @@ pub static CURRENTIFLEVEL: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static CURRENTIFTYPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiftype",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ENDL: PrimitiveExecutable = PrimitiveExecutable {
-    name:"endL",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
-    name:"endR",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
