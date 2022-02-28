@@ -523,6 +523,10 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + s.name.into()
             },
+            Whatsit(ProvidesWhatsit::Box(b)) => {
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + b.name.into()
+            }
             _ => todo!("{}",self)
         };
         ret

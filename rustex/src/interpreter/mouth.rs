@@ -2,6 +2,7 @@
 enum MouthState { N,S,M }
 
 use std::borrow::{Borrow, BorrowMut};
+use std::cmp::min;
 use std::str::from_utf8;
 use std::sync::Arc;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
@@ -710,7 +711,9 @@ static mut COUNT : usize = 0;
 impl Interpreter<'_> {
     pub fn end(&mut self) { self.mouths.close() }
     pub fn preview(&self) -> TeXString {
-        TeXString::from(self.mouths.borrow().preview().0[0..1000].to_vec())
+        let pv = self.mouths.preview().0;
+        let max = min(1000,pv.len());
+        TeXString::from(pv[0..max].to_vec())
     }
     pub fn push_file(&mut self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
