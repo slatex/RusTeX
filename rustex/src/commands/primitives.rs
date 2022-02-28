@@ -1045,6 +1045,12 @@ pub static ENDCSNAME: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static LATEX3ERROR: PrimitiveExecutable = PrimitiveExecutable {
+    name:"LaTeX3 error:",
+    expandable:false,
+    _apply:|tk,int| { (ERRMESSAGE._apply)(tk,int) }
+};
+
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
@@ -1404,9 +1410,9 @@ pub static FONT: FontAssValue = FontAssValue {
         let ff = int.state.get_font(int.jobinfo.in_file(),name.into())?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
-            Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f32) * match int.read_number_i(true)? {
+            Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f64) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
-                Numeric::Dim(i) => (i as f32) / 65536.0,
+                Numeric::Dim(i) => (i as f64) / 65536.0,
                 _ => todo!()
             })),
             _ => None
@@ -4873,6 +4879,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&DUMP),
     PrimitiveTeXCommand::Primitive(&ENDINPUT),
     PrimitiveTeXCommand::Primitive(&ERRMESSAGE),
+    PrimitiveTeXCommand::Primitive(&LATEX3ERROR),
     PrimitiveTeXCommand::Primitive(&ERRORSTOPMODE),
     PrimitiveTeXCommand::Primitive(&EXPANDED),
     PrimitiveTeXCommand::Primitive(&FONTNAME),

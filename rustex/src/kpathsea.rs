@@ -8,8 +8,9 @@ fn check(pb : &PathBuf) -> Option<PathBuf> {
     match pb.parent() {
         Some(p) if p.is_dir() => {
             for f in p.read_dir().unwrap() {
-                if f.as_ref().unwrap().file_name().to_ascii_uppercase() == pb.file_name().unwrap().to_ascii_uppercase() { return Some( pb.clone() )}
-                if f.as_ref().unwrap().file_name().to_ascii_uppercase().to_str().unwrap() == pb.file_name().unwrap().to_ascii_uppercase().to_str().unwrap().to_string() + ".TEX" { return Some( p.join(pb.file_name().unwrap().to_str().unwrap().to_string() + ".tex") )}
+                let f = f.as_ref().unwrap();
+                if f.path().is_file() && f.file_name().to_ascii_uppercase() == pb.file_name().unwrap().to_ascii_uppercase() { return Some( pb.clone() )}
+                if f.path().is_file() && f.file_name().to_ascii_uppercase().to_str().unwrap() == pb.file_name().unwrap().to_ascii_uppercase().to_str().unwrap().to_string() + ".TEX" { return Some( p.join(pb.file_name().unwrap().to_str().unwrap().to_string() + ".tex") )}
             }
             None
         }
@@ -26,6 +27,9 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
     } else if s.is_empty() {
         return None
     }
+    /*if s.contains("macros") {
+        println!("Here")
+    }*/
     let default = indir.to_path_buf().join(s);
     match check(&default) {
         Some(p) => return Some((p,false)),

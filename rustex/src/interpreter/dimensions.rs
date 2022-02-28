@@ -1,11 +1,11 @@
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div};
 
-pub fn pt(f:f32) -> f32 { f * 65536.0 }
-pub fn inch(f:f32) -> f32 { pt(f) * 72.27 }
-pub fn pc(f:f32) -> f32 { pt(f) * 12.0 }
-pub fn cm(f:f32) -> f32 { inch(f) / 2.54 }
-pub fn mm(f:f32) -> f32 { cm(f) / 10.0 }
+pub fn pt(f:f64) -> f64 { f * 65536.0 }
+pub fn inch(f:f64) -> f64 { pt(f) * 72.27 }
+pub fn pc(f:f64) -> f64 { pt(f) * 12.0 }
+pub fn cm(f:f64) -> f64 { inch(f) / 2.54 }
+pub fn mm(f:f64) -> f64 { cm(f) / 10.0 }
 
 #[derive(Copy,Clone)]
 pub enum SkipDim {
@@ -36,13 +36,13 @@ impl SkipDim {
         use SkipDim::*;
         match self {
             Pt(i) =>
-                ((*i as f32) / 65536.0).to_string() + "pt",
+                ((*i as f64) / 65536.0).to_string() + "pt",
             Fil(i) =>
-                ((*i as f32) / 65536.0).to_string() + "fil",
+                ((*i as f64) / 65536.0).to_string() + "fil",
             Fill(i) =>
-                ((*i as f32) / 65536.0).to_string() + "fill",
+                ((*i as f64) / 65536.0).to_string() + "fill",
             Filll(i) =>
-                ((*i as f32) / 65536.0).to_string() + "filll",
+                ((*i as f64) / 65536.0).to_string() + "filll",
         }
     }
 }
@@ -61,7 +61,7 @@ impl Div<i32> for Skip {
     type Output = Skip;
     fn div(self, rhs: i32) -> Self::Output {
         Skip {
-            base:round_f((self.base as f32) / (rhs as f32)),
+            base:round_f((self.base as f64) / (rhs as f64)),
             stretch:self.stretch,shrink:self.shrink
         }
     }
@@ -118,13 +118,13 @@ impl MuSkipDim {
         use MuSkipDim::*;
         match self {
             Mu(i) =>
-                ((*i as f32) / 65536.0).to_string() + "mu",
+                ((*i as f64) / 65536.0).to_string() + "mu",
             Fil(i) =>
-                ((*i as f32) / 65536.0).to_string() + "fil",
+                ((*i as f64) / 65536.0).to_string() + "fil",
             Fill(i) =>
-                ((*i as f32) / 65536.0).to_string() + "fill",
+                ((*i as f64) / 65536.0).to_string() + "fill",
             Filll(i) =>
-                ((*i as f32) / 65536.0).to_string() + "filll",
+                ((*i as f64) / 65536.0).to_string() + "filll",
         }
     }
 }
@@ -144,7 +144,7 @@ impl Div<i32> for MuSkip {
     type Output = MuSkip;
     fn div(self, rhs: i32) -> Self::Output {
         MuSkip {
-            base:round_f((self.base as f32) / (rhs as f32)),
+            base:round_f((self.base as f64) / (rhs as f64)),
             stretch:self.stretch,shrink:self.shrink
         }
     }
@@ -178,7 +178,7 @@ impl Add<MuSkip> for MuSkip {
 pub enum Numeric {
     Int(i32),
     Dim(i32),
-    Float(f32),
+    Float(f64),
     Skip(Skip),
     MuSkip(MuSkip)
 }
@@ -222,8 +222,8 @@ pub fn round(input : i32) -> f64 {
         }
     }
 }
-pub fn round_f(f:f32) -> i32 {
-    f.round() as i32//floor() as i32//if f < 1.0 {0} else {f.round() as i32 }
+pub fn round_f(f:f64) -> i32 {
+    f.round() as i32//f.floor() as i32//if f < 1.0 {0} else {f.round() as i32 }
 }
 impl Numeric {
     fn as_string(&self) -> String {
@@ -262,11 +262,11 @@ impl std::ops::Div for Numeric {
     fn div(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
-            (Int(i),Int(j)) => Int(((i as f32)/(j as f32)).round() as i32),
-            (Int(i),Float(f)) => Int(round_f((i as f32)/f)),
-            (Dim(i),Dim(f)) => Dim(round_f((i as f32)/((f as f32) / 65536.0))),
-            (Dim(i),Skip(f)) => Dim(round_f((i as f32)/(f.base as f32 / 65536.0))),
-            (Dim(i),Int(j)) => Dim(round_f((i as f32)/(j as f32))),
+            (Int(i),Int(j)) => Int(((i as f64)/(j as f64)).round() as i32),
+            (Int(i),Float(f)) => Int(round_f((i as f64)/f)),
+            (Dim(i),Dim(f)) => Dim(round_f((i as f64)/((f as f64) / 65536.0))),
+            (Dim(i),Skip(f)) => Dim(round_f((i as f64)/(f.base as f64 / 65536.0))),
+            (Dim(i),Int(j)) => Dim(round_f((i as f64)/(j as f64))),
             _ => todo!("{}/{}",self,rhs)
         }
     }
@@ -277,13 +277,13 @@ impl std::ops::Mul for Numeric {
         use Numeric::*;
         match (self,rhs) {
             (Int(i),Int(j)) => Int(i*j),
-            (Int(i),Float(j)) => Int(round_f((i as f32)*j)),
-            (Float(i),Int(j)) => Float(i*(j as f32)),
+            (Int(i),Float(j)) => Int(round_f((i as f64)*j)),
+            (Float(i),Int(j)) => Float(i*(j as f64)),
             (Float(i),Float(j)) => Float(i*j),
-            (Dim(i),Dim(f)) => Dim(round_f((i as f32) * (f as f32 / 65536.0))),
-            (Dim(i),Skip(f)) => Dim(round_f((i as f32) * (f.base as f32 / 65536.0))),
+            (Dim(i),Dim(f)) => Dim(round_f((i as f64) * (f as f64 / 65536.0))),
+            (Dim(i),Skip(f)) => Dim(round_f((i as f64) * (f.base as f64 / 65536.0))),
             (Dim(i),Int(f)) => Dim(i * f),
-            (Dim(i),Float(f)) => Dim(round_f((i as f32) * f)),
+            (Dim(i),Float(f)) => Dim(round_f((i as f64) * f)),
             _ => todo!("{}*{}",self,rhs)
         }
     }

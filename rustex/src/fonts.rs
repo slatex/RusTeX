@@ -33,13 +33,13 @@ impl FInfoEntry {
 pub struct FontFile {
     pub hyphenchar:u16,
     pub skewchar:u16,
-    pub dimen:HashMap<u16,f32>,
+    pub dimen:HashMap<u16,f64>,
     pub size : i32,
     pub typestr : TeXStr,
-    pub widths:HashMap<u16,f32>,
-    pub heights: HashMap<u16,f32>,
-    pub depths: HashMap<u16,f32>,
-    pub ics:HashMap<u16,f32>,
+    pub widths:HashMap<u16,f64>,
+    pub heights: HashMap<u16,f64>,
+    pub depths: HashMap<u16,f64>,
+    pub ics:HashMap<u16,f64>,
     pub lps:HashMap<u16,u8>,
     pub rps: HashMap<u16,u8>,
     pub ligs:HashMap<(u8,u8),u8>,
@@ -77,13 +77,13 @@ impl FontFile {
 
         let hyphenchar : u16 = 45;
         let skewchar : u16 = 255;
-        let mut dimen: HashMap<u16,f32> = HashMap::new();
+        let mut dimen: HashMap<u16,f64> = HashMap::new();
         let mut size: i32 = 65536;
         let mut typestr: TeXStr = TeXStr::new(&[]);
-        let mut widths:HashMap<u16,f32> = HashMap::new();
-        let mut heights: HashMap<u16,f32> = HashMap::new();
-        let mut depths: HashMap<u16,f32> = HashMap::new();
-        let mut ics:HashMap<u16,f32> = HashMap::new();
+        let mut widths:HashMap<u16,f64> = HashMap::new();
+        let mut heights: HashMap<u16,f64> = HashMap::new();
+        let mut depths: HashMap<u16,f64> = HashMap::new();
+        let mut ics:HashMap<u16,f64> = HashMap::new();
         let lps:HashMap<u16,u8> = HashMap::new();
         let rps: HashMap<u16,u8> = HashMap::new();
         let mut ligs:HashMap<(u8,u8),u8> = HashMap::new();
@@ -94,11 +94,11 @@ impl FontFile {
             let i2 = ((c as u16) << 8) | (d as u16);
             (i1,i2)
         }
-        fn read_float(s : &mut FontState) -> f32 {
+        fn read_float(s : &mut FontState) -> f64 {
             let (a,b,c,d) = s.pop();
             let int = ((a as i32) << 24) | ((b as i32) << 16) |
                 ((c as i32) << 8) | (d as i32);
-            let f = ((int & 0x7fffffff) as f32) / ((1 << 20) as f32);
+            let f = ((int & 0x7fffffff) as f64) / ((1 << 20) as f64);
             if int < 0 {-f} else {f}
         }
         fn skip(s : &mut FontState, len:u8) {
@@ -137,7 +137,7 @@ impl FontFile {
         assert_eq!(lf,6+lh+(ec-bc+1)+nw+nh+nd+ni+nk+nl+ne+np);
         skip(state.borrow_mut(),1);
 
-        size = round_f((size as f32) * read_float(state.borrow_mut())) ;
+        size = round_f((size as f64) * read_float(state.borrow_mut())) ;
 
         if lh >= 12 {
             let mut sv : Vec<u8> = vec!();
@@ -163,10 +163,10 @@ impl FontFile {
         let finfo_table : Vec<FInfoEntry> = (bc..(ec+1)).map(|i| read_fifo(state.borrow_mut(),i)).collect();
         assert_eq!(state.i as u16,lh + 6 + (ec-bc+1));
 
-        let widthls : Vec<f32> = (0..nw).map(|_| read_float(state.borrow_mut())).collect();
-        let heightls: Vec<f32> = (0..nh).map(|_| read_float(state.borrow_mut())).collect();
-        let depthls: Vec<f32> = (0..nd).map(|_| read_float(state.borrow_mut())).collect();
-        let italicls: Vec<f32> = (0..ni).map(|_| read_float(state.borrow_mut())).collect();
+        let widthls : Vec<f64> = (0..nw).map(|_| read_float(state.borrow_mut())).collect();
+        let heightls: Vec<f64> = (0..nh).map(|_| read_float(state.borrow_mut())).collect();
+        let depthls: Vec<f64> = (0..nd).map(|_| read_float(state.borrow_mut())).collect();
+        let italicls: Vec<f64> = (0..ni).map(|_| read_float(state.borrow_mut())).collect();
 
         let mut ligatures : Vec<(bool,u16,bool,u16)> = vec!();
         for _ in 0..nl {
@@ -190,7 +190,7 @@ impl FontFile {
         }
 
         let factor = match dimen.get(&6) {
-            Some(f) => *f as f32,
+            Some(f) => *f as f64,
             None => 1.0
         };
 
@@ -299,9 +299,9 @@ impl Font {
         match self.inner.read().unwrap().dimen.get(&i) {
             Some(r) => *r,
             None => match self.file.dimen.get(&i) {
-                Some(f) => round_f((*f as f32) * (match self.at {
-                    Some(a) => a as f32,
-                    None => self.file.size as f32
+                Some(f) => round_f((*f as f64) * (match self.at {
+                    Some(a) => a as f64,
+                    None => self.file.size as f64
                 })),
                 None => 0
             }
@@ -310,25 +310,25 @@ impl Font {
     pub fn get_width(&self,i:u16) -> i32 {
         match self.file.widths.get(&i) {
             None => 0,
-            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
+            Some(f) => round_f((self.get_at() as f64) * (*f as f64))
         }
     }
     pub fn get_height(&self,i:u16) -> i32 {
         match self.file.heights.get(&i) {
             None => 0,
-            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
+            Some(f) => round_f((self.get_at() as f64) * (*f as f64))
         }
     }
     pub fn get_depth(&self,i:u16) -> i32 {
         match self.file.depths.get(&i) {
             None => 0,
-            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
+            Some(f) => round_f((self.get_at() as f64) * (*f as f64))
         }
     }
     pub fn get_ic(&self,i:u16) -> i32 {
         match self.file.ics.get(&i) {
             None => 0,
-            Some(f) => round_f((self.get_at() as f32) * (*f as f32))
+            Some(f) => round_f((self.get_at() as f64) * (*f as f64))
         }
     }
     pub fn get_lp(&self,i:u16) -> i32 {

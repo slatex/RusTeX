@@ -710,7 +710,7 @@ static mut COUNT : usize = 0;
 impl Interpreter<'_> {
     pub fn end(&mut self) { self.mouths.close() }
     pub fn preview(&self) -> TeXString {
-        self.mouths.borrow().preview()
+        TeXString::from(self.mouths.borrow().preview().0[0..1000].to_vec())
     }
     pub fn push_file(&mut self,file:Arc<VFile>) {
         use crate::interpreter::files::VFileBase;
