@@ -58,7 +58,7 @@ impl WhatsitTrait for Paragraph {
                 }
                 _ => ()
             }
-            if crate::DO_BOX_SIZES {
+            if crate::INSERT_RUSTEX_ATTRS {
                 node.attr("rustex:width".into(),dimtohtml(self.width()));
                 node.attr("rustex:height".into(),dimtohtml(self.height()));
             }

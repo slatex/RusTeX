@@ -242,12 +242,14 @@ impl HTMLColon {
             ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
             ret += ";line-height:";
             ret += &(self.lineheight.base as f32 / fontsize as f32).to_string();
-            ret += ";\"";
-            ret += " rustex:font=\"";
-            match self.base.basefont.as_ref() {
-                Some(f) => ret += f.file.name.to_string().as_str(),
-                _ => ()
-            };
+            if crate::INSERT_RUSTEX_ATTRS {
+                ret += ";\"";
+                ret += " rustex:font=\"";
+                match self.base.basefont.as_ref() {
+                    Some(f) => ret += f.file.name.to_string().as_str(),
+                    _ => ()
+                };
+            }
             ret += "\">\n";
         }
         ret

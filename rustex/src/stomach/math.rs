@@ -123,7 +123,7 @@ impl WhatsitTrait for MathGroup {
             ColonMode::H if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
                 div.style("width".into(),"100%".into());
                 div.style("min-width".into(),"100%".into());
-                if crate::DO_BOX_SIZES {
+                if crate::INSERT_RUSTEX_ATTRS {
                     div.attr("rustex:width".into(),dimtohtml(self.width()));
                     div.attr("rustex:height".into(),dimtohtml(self.height()));
                 }
@@ -450,14 +450,14 @@ impl WhatsitTrait for MathChar {
             (_,0|7) => {
                 htmlnode!(colon,mi,self.sourceref,clsstr,node_top,a => {
                     a.fontinfo = Some(mimoinfo);
-                    a.attr("rustex:font".into(),(&self.font.file.name).into());
+                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }
             (_,_) => {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
                     a.fontinfo = Some(mimoinfo);
-                    a.attr("rustex:font".into(),(&self.font.file.name).into());
+                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }

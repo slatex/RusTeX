@@ -185,31 +185,8 @@ impl WhatsitTrait for FontChange {
         match &self.font.file.chartable {
             Some(_) => {
                 htmlannotate!(colon,span,self.sourceref,node_top,a => {
-                    a.attr("rustex:font".into(),self.font.file.name.clone().into());
+                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),self.font.file.name.clone().into()) }
                     a.fontinfo = Some(FontInfo::new(&self.font));
-                    /*for prop in &ft.params {
-                        match prop {
-                            FontTableParam::Text | FontTableParam::Math | FontTableParam::CapitalLetters => (),
-                            FontTableParam::SansSerif => a.style("font-family".into(),"sans-serif".into()),
-                            FontTableParam::Italic => a.style("font-style".into(),"italic".into()),
-                            FontTableParam::Bold => a.style("font-weight".into(),"bold".into()),
-                            FontTableParam::Script => a.style("font-family".into(),"eusb".into()),
-                            FontTableParam::Capital => a.style("font-variant".into(),"small-caps".into()),
-                            FontTableParam::Monospaced => a.style("font-family".into(),"monospace".into()),
-                            FontTableParam::Blackboard => a.style("font-family".into(),"msbm".into()),
-                                // ret ::= ("mathvariant","double-struck")
-                            FontTableParam::Fraktur => todo!()
-                        }
-                    }
-                    let _oldsize = colon.state.currsize;
-                    match self.font.at {
-                        Some(at) if at != colon.state.currsize => {
-                            let atstr = 100.0 * (at as f32) / (colon.state.currsize as f32);
-                            a.style("font-size".into(),(atstr.to_string() + "%").into());
-                            colon.state.currsize = at;
-                        }
-                        _ => ()
-                    }*/
                     for c in self.children {
                         c.as_html(mode,colon,htmlparent!(a))
                     }
