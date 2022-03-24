@@ -34,7 +34,7 @@ pub fn false_loop(int:&mut Interpreter,initifs:usize,allowelse : bool) -> Result
                     Some(p) => {
                         match *p.orig {
                             Primitive(x) if inifs == 0 && *x == FI => {
-                                int.state.conditions.pop();
+                                int.pop_condition();
                                 return Ok(())
                             }
                             Primitive(x) if allowelse && inifs == 0 && *x == ELSE => {
@@ -75,7 +75,7 @@ pub static FI : PrimitiveExecutable = PrimitiveExecutable {
                 Ok(())
             }
             Some(_) => {
-                int.state.conditions.pop();
+                int.pop_condition();
                 Ok(())
             }
         }
@@ -94,7 +94,7 @@ pub static UNLESS: PrimitiveExecutable = PrimitiveExecutable {
                 match *cmd.orig {
                     PrimitiveTeXCommand::Cond(c) => {
                         let i = int.state.conditions.len();
-                        int.state.conditions.push(None);
+                        int.push_condition(None);
                         (c._apply)(int,i,true)
                     }
                     _ => TeXErr!(cnd => "Expected conditional after \\unless")
@@ -389,7 +389,7 @@ pub static IFCASE : Conditional = Conditional {
                             Some(p) => {
                                 match *p.orig {
                                     Primitive(x) if inifs == 0 && *x == FI => {
-                                        int.state.conditions.pop();
+                                        int.pop_condition();
                                         return Ok(())
                                     }
                                     Primitive(x) if inifs == 0 && *x == ELSE => {

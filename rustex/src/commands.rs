@@ -31,7 +31,7 @@ pub struct Conditional {
 impl Conditional {
     pub fn expand(&self,int:&mut Interpreter) -> Result<(),TeXError> {
         let i = int.state.conditions.len();
-        int.state.conditions.push(None);
+        int.push_condition(None);
         (self._apply)(int,i,false)
     }
 }

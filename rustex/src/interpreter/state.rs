@@ -726,6 +726,14 @@ impl State {
 }
 
 impl Interpreter<'_> {
+    pub fn push_condition(&mut self,cond : Option<bool>) {
+        //println!("CONDITION: ({}",self.current_line());
+        self.state.conditions.push(cond)
+    }
+    pub fn pop_condition(&mut self) -> Option<bool> {
+        //println!("CONDITION: {})",self.current_line());
+        self.state.conditions.pop().unwrap()
+    }
     pub fn change_command(&mut self,cmdname:TeXStr,proc:Option<TeXCommand>,globally:bool) {
         let file = self.current_file();
         let line = self.mouths.current_line();
