@@ -3434,7 +3434,7 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
             TeXMode::Math | TeXMode::Displaymath => (),
             _ => TeXErr!(tk.0.clone() => "\\displaymode only allowed in math mode")
         }
-        int.state.mode = TeXMode::Displaymath;
+        int.state.displaymode.set((),true,false);
         Ok(())
     }
 };
