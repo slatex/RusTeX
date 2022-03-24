@@ -588,6 +588,11 @@ fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),T
             int.read_keyword(vec!("by"))?;
             (i as i32,Numeric::Int(int.state.registers.get(&(i as i32))),int.read_number_i(false)?)
         }
+        AV(AssignableValue::Int(c)) if *c == DIMEN => {
+            let i = int.read_number()? as u16;
+            int.read_keyword(vec!("by"))?;
+            (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+        }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
             (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
@@ -3060,17 +3065,19 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
         let num = int.read_number()?;
         int.expand_until(false)?;
         let fnt = int.state.currfont.get(&());
-        let next = int.next_token();
-        let pc = match next.catcode {
-            CategoryCode::Letter | CategoryCode::Other => {
-                let font = int.state.currfont.get(&());
-                let sourceref = int.update_reference(&next);
-                PrintChar {
-                    char:next.char,
-                    font,sourceref
+        let pc = loop {
+            let next = int.next_token();
+            match next.catcode {
+                CategoryCode::Letter | CategoryCode::Other => {
+                    let font = int.state.currfont.get(&());
+                    let sourceref = int.update_reference(&next);
+                    break PrintChar {
+                        char:next.char,
+                        font,sourceref
+                    }
                 }
-            }
-            _ => todo!()
+                _ => int.do_top(next,int.state.mode == TeXMode::RestrictedHorizontal)
+            };
         };
         Ok(Accent {
             sourceref: int.update_reference(tk),

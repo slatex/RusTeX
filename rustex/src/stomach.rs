@@ -474,6 +474,10 @@ pub trait Stomach : Send {
                 self.base_mut().buffer.push(wi);
                 Ok(())
             },
+            Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_) | SimpleWI::MSkip(_)) => {
+                self.base_mut().buffer.push(wi);
+                Ok(())
+            }
             _ => {
                 self.flush()?;
                 self.add_inner_actually(wi)
