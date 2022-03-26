@@ -2645,7 +2645,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             break 'prelude
                         },
                         Some(cmd) => {
-                            if cmd.expandable(true) { cmd.expand(next,int)?} else {
+                            if cmd.expandable(false) { cmd.expand(next,int)?} else {
                                 match &*cmd.orig {
                                     PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::EndGroup => break 'table,
                                     PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
@@ -2689,7 +2689,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                 break 'prelude
                             },
                             Some(cmd) => {
-                                if cmd.expandable(true) { cmd.expand(next,int)?} else {
+                                if cmd.expandable(false) { cmd.expand(next,int)?} else {
                                     match &*cmd.orig {
                                         PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                                         PrimitiveTeXCommand::Primitive(c) if **c == OMIT => {
