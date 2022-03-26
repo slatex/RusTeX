@@ -69,6 +69,7 @@ impl FontTableStore {
                 ("cmbxti",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::Italic),
                 ("rm-lmri",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("cmmib",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::Bold),
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
                 ("mathkerncmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
@@ -102,6 +103,7 @@ impl FontTableStore {
                 ("ec-lmtlc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
                 // math --------------------------------------------------------------------
                 ("cmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("cmbsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script,FontTableParam::Bold),
                 ("lmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("cmex",CMEX,FontTableParam::Math),
                 ("lmex",CMEX,FontTableParam::Math),
@@ -129,7 +131,8 @@ impl FontTableStore {
                 ("lcircle",LCIRCLE,FontTableParam::Math),
                 ("lcirclew",LCIRCLEW,FontTableParam::Math),
                 ("bbm",BBM,FontTableParam::Math,FontTableParam::Blackboard),
-                ("wasy",WASY,FontTableParam::Math)
+                ("wasy",WASY,FontTableParam::Math),
+                ("wasyb",WASY,FontTableParam::Math)
                 ;{
                     println!("Warning: No character table for font {}",name);
                     None
@@ -253,6 +256,7 @@ lazy_static! {
         (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
         (86,"⋀"),(87,"⋁"),
         (98,"^"),
+        (101,"~")
         (122," "),(123," "),(124," "),(125," ")
     ]);
 
