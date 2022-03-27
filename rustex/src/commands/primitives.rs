@@ -1060,7 +1060,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
     _apply:|tk,int| {
-        //TeXErr!(tk.0.clone() => "temp {}",int.preview());
+        TeXErr!(tk.0.clone() => "temp {}",int.preview());
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
             TeXErr!(next => "Begin group token expected after \\errmessage")
@@ -3076,6 +3076,16 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                         font,sourceref
                     }
                 }
+                CategoryCode::BeginGroup => {
+                    let sourceref = int.update_reference(&next);
+                    int.requeue(next);
+                    let ret = int.read_argument()?;
+                    // TODO do this properly!
+                    let font = int.state.currfont.get(&());
+                    break PrintChar {
+                        char:32,font,sourceref
+                    }
+                }
                 _ => int.do_top(next,int.state.mode == TeXMode::RestrictedHorizontal)
             };
         };
@@ -4268,7 +4278,11 @@ pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
 pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"special",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,int| {
+        let arg = int.read_string()?;
+        //println!("\n{}",arg);
+        Ok(())
+    }
 };
 
 pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {

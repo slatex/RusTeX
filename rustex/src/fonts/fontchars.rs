@@ -110,6 +110,7 @@ impl FontTableStore {
                 ("tcrm",MATH_TC,FontTableParam::Math),
                 ("tcss",MATH_TC,FontTableParam::Math,FontTableParam::SansSerif),
                 ("tcsl",MATH_TC,FontTableParam::Math,FontTableParam::Italic),
+                ("feymr",FEYMR,FontTableParam::Math),
                 ("MnSymbolA",MNSYMBOL_A,FontTableParam::Math),
                 ("MnSymbolB",MNSYMBOL_B,FontTableParam::Math),
                 ("MnSymbolC",MNSYMBOL_C,FontTableParam::Math),
@@ -381,9 +382,13 @@ lazy_static! {
         (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),
     ]);
     pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([
+        (13,"⊩"),
         (32,"⇝"),
         (72,"▼"),(73,"▶"),(74,"◀"),
         (78,"▲")
+    ]);
+    pub static ref FEYMR : HashMap<u8,&'static str> = HashMap::from([
+        (0,"€"),(32," "),(101,"€")
     ]);
     pub static ref MSBM : HashMap<u8,&'static str> = HashMap::from([
         (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
