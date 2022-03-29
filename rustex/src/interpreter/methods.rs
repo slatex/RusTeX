@@ -6,6 +6,7 @@ use std::str::FromStr;
 use crate::commands::{TokReference, PrimitiveTeXCommand};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
+use crate::commands::primitives::{HANGINDENT, PARSHAPE};
 use crate::interpreter::dimensions::{Skip, Numeric, SkipDim, MuSkipDim, MuSkip, round_f};
 use crate::interpreter::state::GroupType;
 use crate::stomach::whatsits::Whatsit;
@@ -449,6 +450,8 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
+                            PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(Some(Numeric::Int(self.state.parshape.get(&()).len() as i32))),
+                            PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get(&())))),
                             _ => TeXErr!(next.clone() => "Number expected; found {}",next)
                         }
                     }

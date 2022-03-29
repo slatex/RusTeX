@@ -709,6 +709,12 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 let font = (f._getvalue)(int)?;
                 vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),None,true))
             }
+            Primitive(p) if **p == PARSHAPE => {
+                stt(int.state.parshape.get(&()).len().to_string().into())
+            }
+            Primitive(p) if **p == HANGINDENT => {
+                stt(dimtostr(int.state.hangindent.get(&())).into())
+            }
             p => {
                 todo!("{}",p)
             }
@@ -1210,7 +1216,6 @@ pub static MUEXPR: NumericCommand = NumericCommand {
         Ok(ret)
     }
 };
-
 
 pub static UNEXPANDED: PrimitiveExecutable = PrimitiveExecutable {
     name:"unexpanded",
@@ -3952,6 +3957,11 @@ pub static TRACINGIFS : RegisterReference = RegisterReference {
     index:84
 };
 
+pub static PREVGRAF: RegisterReference = RegisterReference {
+    name: "prevgraf",
+    index:85
+};
+
 
 // Dimensions --------------------------------------------------------------------------------------
 
@@ -4325,12 +4335,6 @@ pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pausing",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
-pub static PREVGRAF: PrimitiveExecutable = PrimitiveExecutable {
-    name:"prevgraf",
     expandable:true,
     _apply:|_tk,_int| {todo!()}
 };
@@ -4834,6 +4838,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGASSIGNS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGGROUPS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGIFS)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PREVGRAF)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HFUZZ)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&VFUZZ)),
@@ -4932,7 +4937,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&NONSTOPMODE),
     PrimitiveTeXCommand::Primitive(&OMIT),
     PrimitiveTeXCommand::Primitive(&PAUSING),
-    PrimitiveTeXCommand::Primitive(&PREVGRAF),
     PrimitiveTeXCommand::Primitive(&SETLANGUAGE),
     PrimitiveTeXCommand::Primitive(&SHOW),
     PrimitiveTeXCommand::Primitive(&SHOWBOX),

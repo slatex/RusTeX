@@ -638,7 +638,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "stex_invoke_symbol:n" /*tk.cmdname().to_string() == "@fifthoffive" */ {
+        /*if tk.cmdname().to_string() == "WF@wr" /*tk.cmdname().to_string() == "@fifthoffive" */ {
             println!("Here! {} {}",int.current_line(),int.preview());
             println!("");
             //TeXErr!(tk => "temp");

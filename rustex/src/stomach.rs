@@ -11,6 +11,7 @@ use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::{Insert, PrintChar, WhatsitTrait};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
+use crate::commands::primitives::PREVGRAF;
 use crate::interpreter::params::InterpreterParams;
 use crate::stomach::boxes::{HBox, TeXBox};
 
@@ -235,6 +236,7 @@ pub trait Stomach : Send {
 
     fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
         self.flush()?;
+        state.dimensions.set(-(PREVGRAF.index as i32),0,true);
         let mut p = self.end_paragraph_loop()?;
         let hangindent = state.hangindent.get(&());
         let hangafter = state.hangafter.get(&());
