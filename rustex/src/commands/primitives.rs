@@ -2450,6 +2450,21 @@ pub static CURRENTGROUPLEVEL: NumericCommand = NumericCommand {
         Ok(Numeric::Int(int.state.stack_depth() as i32))
     }
 };
+// https://tex.stackexchange.com/questions/24530/what-combinations-of-mode-and-currentgrouptype-exist
+pub static CURRENTGROUPTYPE: NumericCommand = NumericCommand {
+    name:"currentgrouptype",
+    _getvalue:|int| {
+        Ok(Numeric::Int(match int.state.tp.get(&()) {
+            GroupType::Begingroup if int.state.stack_depth() == 0 => 0,
+            GroupType::Begingroup | GroupType::Token => 1,
+            GroupType::Box(BoxMode::H) => 2,
+            GroupType::Box(BoxMode::V) => 4,
+            GroupType::LeftRight => 16,
+            GroupType::Math | GroupType::Box(BoxMode::DM) | GroupType::Box(BoxMode::M) => 9,
+            GroupType::Box(BoxMode::Void) => unreachable!()
+        }))
+    }
+};
 
 pub static VADJUST: PrimitiveExecutable = PrimitiveExecutable {
     name:"vadjust",
@@ -4375,12 +4390,6 @@ pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {todo!()}
 };
 
-pub static CURRENTGROUPTYPE: PrimitiveExecutable = PrimitiveExecutable {
-    name:"currentgrouptype",
-    expandable:true,
-    _apply:|_tk,_int| {todo!()}
-};
-
 pub static CURRENTIFBRANCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentifbranch",
     expandable:true,
@@ -4727,6 +4736,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&LASTSKIP),
     PrimitiveTeXCommand::Num(&LASTKERN),
     PrimitiveTeXCommand::Num(&CURRENTGROUPLEVEL),
+    PrimitiveTeXCommand::Num(&CURRENTGROUPTYPE),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -4946,7 +4956,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BEGINL),
     PrimitiveTeXCommand::Primitive(&BEGINR),
     PrimitiveTeXCommand::Primitive(&BOTMARKS),
-    PrimitiveTeXCommand::Primitive(&CURRENTGROUPTYPE),
     PrimitiveTeXCommand::Primitive(&CURRENTIFBRANCH),
     PrimitiveTeXCommand::Primitive(&CURRENTIFLEVEL),
     PrimitiveTeXCommand::Primitive(&CURRENTIFTYPE),

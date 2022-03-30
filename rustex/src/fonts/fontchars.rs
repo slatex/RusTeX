@@ -133,6 +133,7 @@ impl FontTableStore {
                 ("lcirclew",LCIRCLEW,FontTableParam::Math),
                 ("bbm",BBM,FontTableParam::Math,FontTableParam::Blackboard),
                 ("wasy",WASY,FontTableParam::Math),
+                ("lasy",WASY,FontTableParam::Math),
                 ("wasyb",WASY,FontTableParam::Math)
                 ;{
                     println!("Warning: No character table for font {}",name);
@@ -406,7 +407,7 @@ lazy_static! {
         (136,"•")
     ]);
     pub static ref WASY : HashMap<u8,&'static str> = HashMap::from([
-        (3,"▷"),
+        (1,"◁"),(2,"⊴"),(3,"▷"),(4,"⊵"),
         (25,"♀"),(26,"♂"),
         (44,"🙂"),
         (47,"🙁"),
