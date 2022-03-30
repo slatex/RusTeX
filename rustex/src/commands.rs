@@ -13,6 +13,7 @@ use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
 use crate::{COPY_COMMANDS_FULL, log};
+use crate::commands::ProvidesWhatsit::Exec;
 
 pub struct PrimitiveExecutable {
     pub (in crate) _apply:fn(tk:&mut Expansion,itp:&mut Interpreter) -> Result<(),TeXError>,
@@ -527,6 +528,10 @@ impl PrimitiveTeXCommand {
                 let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
                 ret + b.name.into()
             }
+            Whatsit(Exec(e)) => {
+                let ret : TeXString = if catcodes.escapechar != 255 {catcodes.escapechar.into()} else {"".into()};
+                ret + e.name.into()
+            },
             _ => todo!("{}",self)
         };
         ret
