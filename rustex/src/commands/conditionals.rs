@@ -240,7 +240,7 @@ fn get_if_token(cond:usize,int:&mut Interpreter) -> Result<Option<Token>,TeXErro
                 match p {
                     Some(p) => match &*p.orig {
                         PrimitiveTeXCommand::Char(tk) => return Ok(Some(tk.clone())),
-                        PrimitiveTeXCommand::Primitive(e) if (**e == ELSE || **e == FI) && currcond => {
+                        PrimitiveTeXCommand::Primitive(e) if (**e == ELSE || **e == FI) && currcond && next.expand => {
                             return Ok(None)
                         }
                         _ if p.expandable(true) && next.expand => {p.expand(next, int)?;}

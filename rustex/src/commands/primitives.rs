@@ -4284,7 +4284,7 @@ pub static EVERYEOF : TokReference = TokReference {
 pub static BYE: PrimitiveExecutable = PrimitiveExecutable {
     name:"bye",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {Ok(())}
 };
 
 pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
