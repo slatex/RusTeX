@@ -1204,7 +1204,7 @@ impl WhatsitTrait for Leaders {
         if nret.is_empty() {} else if nret.len() == 1 {
             ret.push(Leaders { bx:Box::new(nret.pop().unwrap()), sourceref:self.sourceref }.as_whatsit())
         } else {
-            todo!()
+            ret.push(Leaders { bx:Box::new(nret.pop().unwrap()), sourceref:self.sourceref }.as_whatsit())
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
