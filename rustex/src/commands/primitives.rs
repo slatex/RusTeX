@@ -593,6 +593,11 @@ fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),T
             int.read_keyword(vec!("by"))?;
             (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
+        AV(AssignableValue::Int(c)) if *c == SKIP => {
+            let i = int.read_number()? as u16;
+            int.read_keyword(vec!("by"))?;
+            (i as i32,Numeric::Skip(int.state.skips.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+        }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
             (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})

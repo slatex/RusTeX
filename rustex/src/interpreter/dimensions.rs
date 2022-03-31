@@ -66,6 +66,15 @@ impl Div<i32> for Skip {
         }
     }
 }
+impl std::ops::Mul<i32> for Skip {
+    type Output = Skip;
+    fn mul(self, rhs: i32) -> Self::Output {
+        Skip {
+            base:self.base * rhs,
+            stretch:self.stretch,shrink:self.shrink
+        }
+    }
+}
 impl Skip {
     pub fn negate(self) -> Skip {
         Skip {
@@ -284,6 +293,7 @@ impl std::ops::Mul for Numeric {
             (Dim(i),Skip(f)) => Dim(round_f((i as f64) * (f.base as f64 / 65536.0))),
             (Dim(i),Int(f)) => Dim(i * f),
             (Dim(i),Float(f)) => Dim(round_f((i as f64) * f)),
+            (Skip(s),Int(j)) => Skip(s * j),
             _ => todo!("{}*{}",self,rhs)
         }
     }

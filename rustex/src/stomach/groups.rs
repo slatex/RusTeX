@@ -286,9 +286,26 @@ impl WhatsitTrait for ColorChange {
     fn as_whatsit(self) -> Whatsit {
         WIGroup::ColorChange(self).as_whatsit()
     }
-    fn width(&self) -> i32 { todo!() }
-    fn height(&self) -> i32 { todo!() }
-    fn depth(&self) -> i32 { todo!() }
+    fn width(&self) -> i32 {
+        let mut ret = 0;
+        for c in self.children.iter_wi() { ret += c.width() }
+        ret
+    }    fn height(&self) -> i32 {
+        let mut ret = 0;
+        for c in self.children.iter_wi() {
+            let w = c.height();
+            if w > ret { ret = w }
+        }
+        ret
+    }
+    fn depth(&self) -> i32 {
+        let mut ret = 0;
+        for c in self.children.iter_wi() {
+            let w = c.depth();
+            if w > ret { ret = w }
+        }
+        ret
+    }
 
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "\n".to_string() + &prefix + "<color color=\"" + self.color.to_string().as_str() + "\">";
