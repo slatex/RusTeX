@@ -60,6 +60,7 @@ impl FontTableStore {
                 ("cmr",STANDARD_TEXT_CM,FontTableParam::Text),
                 ("rm-lmr",STANDARD_TEXT_CM,FontTableParam::Text),
                 ("cmss",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif),
+                ("cmssbx",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
                 ("rm-lmss",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::SansSerif),
                 ("cmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),

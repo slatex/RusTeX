@@ -1727,7 +1727,7 @@
   % Compute box y translation  (x translation is correct).
   \pgf@y=-\ht#1\relax
   \csname rustex!pgf!literal\endcsname{<g transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
-    scale(0.5,0.5)">\Hnewline}% scaling work around (damn dumb browsers !)
+    scale(0.5,0.5)">}% scaling work around (damn dumb browsers !)
   % Compute box size (scaled 2 times)
   % this is necessary to make the browser scale the font down 50% (the STUPID browsers won't make font-size:50% happen,
   % so we have to work around this by making svg scale the things down 50%, doubling the size of the text node frame (i.e. no changement there)
@@ -1758,26 +1758,26 @@
     /pgf/tex4ht node/class/.get=\pgfsys@foreignobject@class,%
     /pgf/tex4ht node/id/.get=\pgfsys@foreignobject@id
   }%
-  \csname rustex!pgf!literal\endcsname{<head>\Hnewline
-    <link rel="stylesheet" type="text/css" href="\pgfsys@foreignobject@css.css" />\Hnewline
-    </head>\Hnewline
+  \csname rustex!pgf!literal\endcsname{<head>
+    <link rel="stylesheet" type="text/css" href="\pgfsys@foreignobject@css.css" />
+    </head>
     % I'll have to look into this, perhaps there are better
     % doctype....&nbsp; aren't recognised and produces invalid svg
     % pictures a workaround (not implemented yet) would be to make
     % them into entities of the svg picture.
-    <body id="\pgfsys@foreignobject@id" class="\pgfsys@foreignobject@class" xmlns="http://www.w3.org/1999/xhtml" >\Hnewline
-    <div>\Hnewline
+    <body id="\pgfsys@foreignobject@id" class="\pgfsys@foreignobject@class" xmlns="http://www.w3.org/1999/xhtml">
+    <div>
   }%
   \box#1%
   \csname rustex!pgf!literal\endcsname{%
-    </div>\Hnewline
-    </body>\Hnewline
-    </foreignObject>\Hnewline
+    </div>
+    </body>
+    </foreignObject>
   }%
   % debug positioning not needed but it would be nice to let it there to control things later on
   % \csname rustex!pgf!literal\endcsname{<rect x="0" y="0" width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}"
   %   style="fill:yellow;stroke:red; fill-opacity:0.5;stroke-opacity:0.5"/>}
-  \csname rustex!pgf!literal\endcsname{</g>\Hnewline}%
+  \csname rustex!pgf!literal\endcsname{</g>}%
   \global\advance\pgf@sys@svg@nodenum by 1\relax
 }%
 
@@ -1843,9 +1843,9 @@
   \pgf@process{\pgf@sys@svg@pos}
   \pgf@xa=-.5\pgf@x%
   \pgf@ya=-.5\pgf@y%
-  \pgfsysprotocol@literal{<g transform="translate(\pgf@sys@tonumber{\pgf@xa},\pgf@sys@tonumber{\pgf@ya})">\Hnewline}%
+  \pgfsysprotocol@literal{<g transform="translate(\pgf@sys@tonumber{\pgf@xa},\pgf@sys@tonumber{\pgf@ya})">}%
   \pgf@sys@svg@sh%
-  \pgfsysprotocol@literal{</g>\Hnewline}%
+  \pgfsysprotocol@literal{</g>}%
 }
 
 

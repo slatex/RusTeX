@@ -59,7 +59,7 @@ pub struct Interpreter<'a> {
     pub params:&'a dyn InterpreterParams
 }
 use crate::{TeXErr,FileEnd};
-use crate::commands::primitives::ENDTEMPLATE;
+use crate::commands::primitives::{ENDTEMPLATE, VFIL, VFILL};
 use crate::interpreter::params::InterpreterParams;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
@@ -327,6 +327,9 @@ impl Interpreter<'_> {
                         self.requeue(next);
                         self.end_paragraph(inner)
                     }
+                   /* (Whatsit(crate::commands::ProvidesWhatsit::Simple(p)), RestrictedHorizontal) if **p == VFIL || **p == VFILL => {
+                        Ok(())
+                    }*/
                     _ => TeXErr!(next.clone() => "TODO: {} in {}",next,self.current_line())
 
                 }
