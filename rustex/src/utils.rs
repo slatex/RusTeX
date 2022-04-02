@@ -77,6 +77,26 @@ fn is_ascii(u:&u8) -> bool {
     32 <= *u && *u <= 126
 }
 
+pub fn as_ascii(u:&u8) -> Vec<u8> {
+    let mut ret : Vec<u8> = vec!();
+    match *u {
+        0 => for x in "\\u0000".as_bytes() {
+            ret.push(*x)
+        }
+        13 => ret.push(10),
+        10 => ret.push(10),
+        _ if is_ascii(u) => {
+            ret.push(*u)
+        }
+        _ => {
+            for x in ("\\u00".to_string() + &format!("{:X}", u)).as_bytes() {
+                ret.push(*x)
+            }
+        }
+    }
+    ret
+}
+
 fn display(us:&[u8]) -> String {
     let mut ret : Vec<u8> = vec!();
     for u in us { match u {

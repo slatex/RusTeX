@@ -69,7 +69,7 @@ impl Interpreter<'_> {
                     }
                 },
                 _ => {
-                    let ret2 = ret.clone() + str::from_utf8(&[next.char]).unwrap();
+                    let ret2 = ret.clone() + str::from_utf8(crate::utils::as_ascii(&next.char).as_slice()).unwrap(); //str::from_utf8(&[next.char]).unwrap();
                     if kws.iter().any(|x| x.starts_with(&ret2)) {
                         kws = kws.iter().filter(|s| s.starts_with(&ret2)).map(|x| *x).collect();
                         ret = ret2;
