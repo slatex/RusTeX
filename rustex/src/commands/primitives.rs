@@ -4596,7 +4596,7 @@ pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
 pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
     name:"outer",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {Ok(())}
 };
 
 pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {

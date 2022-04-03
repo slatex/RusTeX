@@ -688,7 +688,17 @@ impl Interpreter<'_> {
                                         }
                                         self.stomach_add(w)?
                                     },
-                                    None => ()
+                                    None => {
+                                        let next = self.next_token();
+                                        match next.catcode {
+                                            CategoryCode::MathShift => {
+                                                return Ok(None)
+                                            }
+                                            _ => {
+                                                self.requeue(next)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
