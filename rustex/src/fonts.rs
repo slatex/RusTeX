@@ -242,7 +242,7 @@ impl FontFile {
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use crate::fonts::fontchars::{FONT_TABLES, FontTable};
+use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;
 
@@ -382,4 +382,42 @@ thread_local! {
                 skewchar:255,lps:HashMap::new(),rps:HashMap::new()
             }),name:"nullfont".into()
     });
+    pub static CUSTOM_BINDINGS_FONT_FILE : Arc<FontFile> = Arc::new(FontFile {
+        hyphenchar : 45,
+        skewchar : 255,
+        dimen : HashMap::new(),
+        size : 65536,
+        typestr : TeXStr::new(&[]),
+        widths : HashMap::from([
+            (0,0.9),(1,0.9)
+        ]),
+        heights : HashMap::from([
+            (0,0.9),(1,0.9)
+        ]),
+        depths : HashMap::new(),
+        ics : HashMap::new(),
+        lps : HashMap::new(),
+        rps : HashMap::new(),
+        ligs : HashMap::new(),
+        name : TeXStr::new("custom_bindings_font".as_bytes()),
+        chartable:Some(std::sync::Arc::new(FontTable {
+            name:"custom_bindings_font".into(),
+            params:vec!(FontTableParam::Math),
+            table:&CUSTOM_BINDINGS_MAP
+        }))
+    });
+    pub static CUSTOM_BINDINGS_FONT : std::sync::Arc<Font> = std::sync::Arc::new(Font {
+            file:CUSTOM_BINDINGS_FONT_FILE.try_with(|x| x.clone()).unwrap(),at:Some(0),
+            inner:RwLock::new(FontInner {
+                dimen:HashMap::new(),
+                hyphenchar:45,
+                skewchar:255,lps:HashMap::new(),rps:HashMap::new()
+            }),name:"custom_bindings_font".into()
+    });
+}
+
+lazy_static! {
+    pub static ref CUSTOM_BINDINGS_MAP : HashMap<u8,&'static str> = HashMap::from([
+        (0,"∉"),(1,"∌")
+    ]);
 }

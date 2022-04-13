@@ -246,6 +246,7 @@ pub enum MathKernel {
     Underline(Underline),
     Overline(Overline),
     MathAccent(MathAccent),
+    CustomMath(CustomMathChar)
 }
 
 macro_rules! pass_on_kernel {
@@ -265,7 +266,8 @@ macro_rules! pass_on_kernel {
         MathKernel::MathInner(g) => MathInner::$e(g $(,$tl)*),
         MathKernel::Underline(g) => Underline::$e(g $(,$tl)*),
         MathKernel::Overline(g) => Overline::$e(g $(,$tl)*),
-        MathKernel::MathAccent(g) => MathAccent::$e(g $(,$tl)*)
+        MathKernel::MathAccent(g) => MathAccent::$e(g $(,$tl)*),
+        MathKernel::CustomMath(g) => CustomMathChar::$e(g $(,$tl)*),
     })
 }
 impl MathKernel {
@@ -388,6 +390,54 @@ impl WhatsitTrait for MKern {
         htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
             a.attr("width".into(),numtostr((self.sk.base as f32 / 1179648.0).round() as i32,"em").into())
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct CustomMathChar {
+    pub str:String,
+    pub font:Arc<Font>,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for CustomMathChar {
+    fn as_whatsit(self) -> Whatsit {
+        MathKernel::CustomMath(self).as_whatsit()
+    }
+    fn width(&self) -> i32 { self.font.get_width(32) }
+    fn height(&self) -> i32 { self.font.get_height(32) }
+    fn depth(&self) -> i32 { self.font.get_depth(32) }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.str + "\"/>"
+    }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        let maybemimo = match match node_top {
+            Some(HTMLParent::N(n)) => n.children.last_mut(),
+            Some(HTMLParent::A(n)) => n.children.last_mut(),
+            _ => None
+        } {
+            Some(HTMLChild::Node(n)) => Some(n),
+            _ => None
+        };
+        let mut charstr : HTMLStr = self.str.into();
+        charstr = charstr.html_escape();
+        let mimoinfo = FontInfo::new(&self.font);
+        let clsstr : HTMLStr = "binop".into();
+        match maybemimo {
+            Some(n) if String::from(&n.name) == "mo" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
+                n.children.push(HTMLChild::Str(charstr))
+            },
+            _ => {
+                htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
+                    a.fontinfo = Some(mimoinfo);
+                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
+                    htmlliteral!(colon,htmlparent!(a),>charstr<)
+                })
+            }
+        }
     }
 }
 

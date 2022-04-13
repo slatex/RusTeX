@@ -9,9 +9,9 @@ pub enum FontTableParam {
 }
 
 pub struct FontTable {
-    name:TeXStr,
+    pub(crate) name:TeXStr,
     pub params:Vec<FontTableParam>,
-    table:&'static HashMap<u8,&'static str>
+    pub(crate) table:&'static HashMap<u8,&'static str>
 }
 impl FontTable {
     pub fn as_unicode(&self,_:u8) -> &str {

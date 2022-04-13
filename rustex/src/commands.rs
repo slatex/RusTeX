@@ -643,12 +643,12 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "end" /*tk.cmdname().to_string() == "@fifthoffive" */ {
+        if tk.cmdname().to_string() == "c@ncel" {
             println!("Here! {} {}",int.current_line(),int.preview());
             println!("");
             //TeXErr!(tk => "temp");
-            unsafe { crate::LOG = true }
-        }*/
+            //unsafe { crate::LOG = true }
+        }
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())

@@ -39,10 +39,7 @@ impl DefaultParams {
         }
     }
     pub fn default_listeners() -> Vec<Box<dyn CommandListener>> {
-        use crate::commands::latex_bindings::*;
-        vec!(
-            Box::new(UrlListener())
-        )
+        crate::commands::latex_bindings::all_listeners()
     }
 }
 
