@@ -74,7 +74,7 @@ pub static NOT: SimpleWhatsit = SimpleWhatsit {
 
 lazy_static! {
     pub static ref NOTS : HashMap<&'static str,&'static str> = HashMap::from([
-        ("∍","∌"),("∋","∌"),("∈","∉"),("∊","∉"),("∃","∄")
+        ("∍","∌"),("∋","∌"),("∈","∉"),("∊","∉"),("∃","∄"),("=","≠")
     ]);
 }
 pub struct NotListener();
