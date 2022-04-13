@@ -126,11 +126,49 @@ impl CommandListener for CancelListener {
     }
 }
 
+
+pub static MAPSTO: SimpleWhatsit = SimpleWhatsit {
+    name: "mapsto ",
+    modes: |m| {match m {
+        TeXMode::Math | TeXMode::Displaymath => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        Ok(CustomMathChar {
+            str: "↦".to_string(),
+            font:int.state.currfont.get(&()),
+            sourceref:int.update_reference(tk)
+        }.as_whatsit())
+    }
+};
+
+pub struct MapstoListener();
+impl CommandListener for MapstoListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+        match cmd {
+            Some(tc) => match *tc.orig {
+                PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
+                _ => {
+                    if name.to_string() == "mapsto " && file.to_string().ends_with("fontmath.ltx") {
+                        Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MAPSTO)).as_command()))
+                    } else if name.to_string() == "mapsto" && file.to_string().ends_with("amsmath.sty") {
+                        Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&MAPSTO)).as_command()))
+                    } else {
+                        None
+                    }
+                }
+            }
+            _ => None
+        }
+    }
+}
+
 pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
     vec!(
         Box::new(UrlListener()),
         Box::new(NotListener()),
         Box::new(CancelListener()),
+        Box::new(MapstoListener()),
     )
 }
 

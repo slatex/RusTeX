@@ -735,7 +735,7 @@ impl Interpreter<'_> {
         self.state.conditions.pop().unwrap()
     }
     pub fn change_command(&mut self,cmdname:TeXStr,proc:Option<TeXCommand>,globally:bool) {
-        /*if (cmdname.to_string() == "notin " || cmdname.to_string() == "not" || cmdname.to_string() == "c@ncel") {
+        /*if (cmdname.to_string() == "mapsto" || cmdname.to_string() == "mapsto ") {
             println!("Here! {}, {}, {}",cmdname,proc.as_ref().unwrap().meaning(&crate::catcodes::DEFAULT_SCHEME),self.current_line());
             println!("")
         }*/
