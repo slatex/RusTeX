@@ -381,7 +381,7 @@ impl TeXError {
     }
 }
 
-fn tex_stacktrace(int:&mut Interpreter,tk:Option<Token>) -> Vec<(String,String)> {
+pub(in crate) fn tex_stacktrace(int:&mut Interpreter,tk:Option<Token>) -> Vec<(String,String)> {
     match tk {
         None if int.has_next() => {
             let next = int.next_token();

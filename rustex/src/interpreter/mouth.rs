@@ -169,7 +169,7 @@ impl StringMouth {
         }
         ret
     }
-    pub fn new_from_file(catcodes:&CategoryCodeScheme, file:&Arc<VFile>) -> StringMouth {
+    pub fn new_from_file(file:&Arc<VFile>) -> StringMouth {
         use crate::interpreter::files::VFileBase;
         let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
             VFileBase::Real(p) => p.clone(),
@@ -179,10 +179,6 @@ impl StringMouth {
             Some(s) => Some(s.clone()),
             None => None
         };
-        /*if file.id.to_string().to_lowercase().contains("omdoc/mod/nutshell.en.tex") {
-            println!("Here");
-            unsafe{ crate::LOG = true}
-        }*/
         StringMouth::new_i(StringMouthSource::File(ltxf),string)
     }
     pub fn new<'a>(source:Expansion, string : TeXString) -> StringMouth {
@@ -416,7 +412,7 @@ impl StringMouth {
                                 return tk
                             }
                         }
-                        None => unreachable!()
+                        None => return Token::new(char,CategoryCode::Escape,Some("".into()),self.make_reference(l,p),true)
                     }
                     let mut buf : Vec<u8> = Vec::new();
                     let maybecomment = self.next_char(catcodes.endlinechar);
@@ -560,7 +556,7 @@ impl Mouths {
                                     }
                                     return Err(EOF {})
                                 }
-                                Mouth::File(f) => {
+                                Mouth::File(_) => {
                                     io.file_close();
                                     return Err(EOF {})
                                 }
@@ -607,14 +603,14 @@ impl Mouths {
             self.mouths.push(nm)
         }
     }
-    pub(in crate::interpreter::mouth) fn push_file(&mut self,catcodes:&CategoryCodeScheme,file:&Arc<VFile>) {
+    pub(in crate::interpreter::mouth) fn push_file(&mut self,file:&Arc<VFile>) {
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
         }
-        self.mouths.push(Mouth::File(StringMouth::new_from_file(catcodes,file)))
+        self.mouths.push(Mouth::File(StringMouth::new_from_file(file)))
     }
-    pub(in crate::interpreter::mouth) fn push_string(&mut self,catcodes:&CategoryCodeScheme,exp:Expansion,string : TeXString,filelike:bool) {
+    pub(in crate::interpreter::mouth) fn push_string(&mut self,exp:Expansion,string : TeXString,filelike:bool) {
         if self.buffer.is_some() {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
@@ -683,7 +679,7 @@ impl Mouths {
     pub fn end_input(&mut self,io:&dyn InterpreterParams) {
         loop {
             match self.mouths.last() {
-                Some(Mouth::File(f)) => {
+                Some(Mouth::File(_)) => {
                     self.mouths.pop();
                     io.file_close();
                     return ()
@@ -707,7 +703,7 @@ impl Mouths {
         self.mouths.clear()
     }
 }
-static mut COUNT : usize = 0;
+
 impl Interpreter<'_> {
     pub fn end(&mut self) { self.mouths.close() }
     pub fn preview(&self) -> TeXString {
@@ -723,11 +719,11 @@ impl Interpreter<'_> {
                 _ => "\n(".to_string() + &file.id.to_string()
             });
         }
-        self.mouths.push_file(self.state.catcodes.get_scheme(),&file);
+        self.mouths.push_file(&file);
         //self.filestore.borrow_mut().files.insert(file.id.clone(),file);
     }
     pub fn push_string(&mut self,exp:Expansion,str:TeXString,filelike:bool) {
-        self.mouths.push_string(self.state.catcodes.get_scheme(),exp,str,filelike)
+        self.mouths.push_string(exp,str,filelike)
     }
     pub fn push_expansion(&mut self,exp:Expansion) {
         self.mouths.push_expansion(exp)

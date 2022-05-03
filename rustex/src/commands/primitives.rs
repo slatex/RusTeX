@@ -631,7 +631,7 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
             Numeric::Dim(i) => int.state.dimensions.set(index, i / div.get_i32(),global),
             Numeric::Skip(i) => int.state.skips.set(index, i / div.get_i32(),global),
             Numeric::MuSkip(i) => int.state.muskips.set(index, i / div.get_i32(),global),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         };
         Ok(())
     }
@@ -644,21 +644,21 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
         match num {
             Numeric::Int(_) => int.state.registers.set(index,match num * fac.as_int() {
                 Numeric::Int(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             }, global),
             Numeric::Dim(_) => int.state.dimensions.set(index,match num * fac.as_int() {
                 Numeric::Dim(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },global),
             Numeric::Skip(_) => int.state.skips.set(index, match num * fac.as_int() {
                 Numeric::Skip(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },global),
-            Numeric::MuSkip(i) => int.state.muskips.set(index, match num * fac.as_int() {
+            Numeric::MuSkip(_) => int.state.muskips.set(index, match num * fac.as_int() {
                 Numeric::MuSkip(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },global),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         };
         Ok(())
     }
@@ -674,7 +674,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
             (Numeric::Dim(num),Numeric::Dim(sum)) => int.state.dimensions.set(index,num + sum,global),
             (Numeric::Skip(num),Numeric::Skip(sum)) => int.state.skips.set(index,num + sum,global),
             (Numeric::MuSkip(num),Numeric::MuSkip(sum)) => int.state.muskips.set(index,num + sum,global),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         };
         Ok(())
     }
@@ -744,7 +744,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
                 int.requeue(next);
                 Ok(())
             }
-            _ => todo!()
+            _ => TeXErr!("TODO")
         }
     }
 };
@@ -1036,11 +1036,13 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         let cmdname : TeXStr = csname(int)?.into();
-        let ret = Token::new(int.state.catcodes.get_scheme().escapechar,CategoryCode::Escape,Some(cmdname.clone()),None,true);
+        let mut erf = rf.get_ref();
+        let ret = Token::new(int.state.catcodes.get_scheme().escapechar,CategoryCode::Escape,Some(cmdname.clone()),None,true)
+            .copied(&mut erf);
         match int.state.commands.get(&cmdname) {
             Some(_) => (),
             None => {
-                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(rf.get_ref());
+                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(erf);
                 int.change_command(cmdname,Some(cmd),false)
             }
         }
@@ -1070,7 +1072,7 @@ pub static LATEX3ERROR: PrimitiveExecutable = PrimitiveExecutable {
 pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"errmessage",
     expandable:false,
-    _apply:|tk,int| {
+    _apply:|_,int| {
         //TeXErr!(tk.0.clone() => "temp {}",int.preview());
         let next = int.next_token();
         if next.catcode != CategoryCode::BeginGroup {
@@ -1113,11 +1115,11 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numer
         match int.read_keyword(vec!("+","-","*","/"))? {
             Some(s) if s == "+" => {
                 let mut second = expr_loop_inner(int,getnum)?;
-                'inner: loop {
+                'innera: loop {
                     match int.read_keyword(vec!("*","/"))? {
                         None => {
                             first = first + second;
-                            break 'inner
+                            break 'innera
                         }
                         Some(s) if s == "*" => {
                             let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
@@ -1132,11 +1134,11 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numer
             }
             Some(s) if s == "-" => {
                 let mut second = expr_loop_inner(int,getnum)?;
-                'inner: loop {
+                'innerb: loop {
                     match int.read_keyword(vec!("*","/"))? {
                         None => {
                             first = first - second;
-                            break 'inner
+                            break 'innerb
                         }
                         Some(s) if s == "*" => {
                             let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
@@ -1428,7 +1430,7 @@ pub static FONT: FontAssValue = FontAssValue {
             Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f64) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
                 Numeric::Dim(i) => (i as f64) / 65536.0,
-                _ => todo!()
+                _ => TeXErr!("TODO")
             })),
             _ => None
         };
@@ -1437,7 +1439,7 @@ pub static FONT: FontAssValue = FontAssValue {
         Ok(())
     },
     _getvalue: |_int| {
-        todo!()
+        TeXErr!("TODO")
     }
 };
 
@@ -1733,7 +1735,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
 };
@@ -1747,7 +1749,7 @@ pub static VCENTER: ProvidesBox = ProvidesBox {
                 vb.tp = VBoxType::Center;
                 Ok(TeXBox::V(vb))
             }
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
 };
@@ -2466,7 +2468,7 @@ pub static CURRENTGROUPTYPE: NumericCommand = NumericCommand {
             GroupType::Box(BoxMode::V) => 4,
             GroupType::LeftRight => 16,
             GroupType::Math | GroupType::Box(BoxMode::DM) | GroupType::Box(BoxMode::M) => 9,
-            GroupType::Box(BoxMode::Void) => unreachable!()
+            GroupType::Box(BoxMode::Void) => TeXErr!("Should be unreachable!")
         }))
     }
 };
@@ -2657,7 +2659,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     let mut inspan : bool = false;
 
     'table: loop {
-        'prelude: loop {
+        'preludea: loop {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::EndGroup => break 'table,
@@ -2667,7 +2669,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                     match cmd {
                         None => {
                             int.requeue(next);
-                            break 'prelude
+                            break 'preludea
                         },
                         Some(cmd) => {
                             if cmd.expandable(false) { cmd.expand(next,int)?} else {
@@ -2681,7 +2683,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                     }
                                     _ => {
                                         int.requeue(next);
-                                        break 'prelude
+                                        break 'preludea
                                     }
                                 }
                             }
@@ -2690,7 +2692,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 }
                 _ => {
                     int.requeue(next);
-                    break 'prelude
+                    break 'preludea
                 }
             }
         }
@@ -2702,7 +2704,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         'row: loop {
             let mut doheader = true;
             //inV = false;
-            'prelude: loop {
+            'preludeb: loop {
                 let next = int.next_token();
                 match next.catcode {
                     CategoryCode::Space => (),
@@ -2711,7 +2713,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                         match cmd {
                             None => {
                                 int.requeue(next);
-                                break 'prelude
+                                break 'preludeb
                             },
                             Some(cmd) => {
                                 if cmd.expandable(false) { cmd.expand(next,int)?} else {
@@ -2719,11 +2721,11 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                                         PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                                         PrimitiveTeXCommand::Primitive(c) if **c == OMIT => {
                                             doheader = false;
-                                            break 'prelude
+                                            break 'preludeb
                                         }
                                         _ => {
                                             int.requeue(next);
-                                            break 'prelude
+                                            break 'preludeb
                                         }
                                     }
                                 }
@@ -2732,7 +2734,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                     }
                     _ => {
                         int.requeue(next);
-                        break 'prelude
+                        break 'preludeb
                     }
                 }
             }
@@ -2749,7 +2751,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             int.state.mode = match tabmode {
                 BoxMode::H => TeXMode::RestrictedHorizontal,
                 BoxMode::V => TeXMode::InternalVertical,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             };
             if inspan { inspan = false }
             else {
@@ -2895,7 +2897,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
     modes: |_| { true },
     _get:|tk,int| {
         match int.read_keyword(vec!("Width","Height","Depth"))? {
-            Some(_) => todo!(),
+            Some(_) => TeXErr!("TODO"),
             None => {
                 let cmdtk = int.read_command_token()?;
                 let cmd = int.get_command(&cmdtk.cmdname())?;
@@ -3104,7 +3106,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                 CategoryCode::BeginGroup => {
                     let sourceref = int.update_reference(&next);
                     int.requeue(next);
-                    let ret = int.read_argument()?;
+                    let _ret = int.read_argument()?;
                     // TODO do this properly!
                     let font = int.state.currfont.get(&());
                     break PrintChar {
@@ -3120,7 +3122,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                     }
                 }
                 _ => int.do_top(next,int.state.mode == TeXMode::RestrictedHorizontal)
-            };
+            }?;
         };
         Ok(Accent {
             sourceref: int.update_reference(tk),
@@ -3209,31 +3211,31 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
 pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmark",
     expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static FIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"firstmark",
     expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static BOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmark",
     expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPLITFIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitfirstmark",
     expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitbotmark",
     expandable:false,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
@@ -3623,7 +3625,7 @@ pub static BEGINL: PrimitiveExecutable = PrimitiveExecutable {
     name:"beginL",
     expandable:false,
     _apply:|_tk,_int| {
-        //todo!() ?
+        //TeXErr!("TODO") ?
         Ok(())
     }
 };
@@ -3632,7 +3634,7 @@ pub static BEGINR: PrimitiveExecutable = PrimitiveExecutable {
     name:"beginR",
     expandable:false,
     _apply:|_tk,_int| {
-        //todo!() ?
+        //TeXErr!("TODO") ?
         Ok(())
     }
 };
@@ -3641,7 +3643,7 @@ pub static ENDL: PrimitiveExecutable = PrimitiveExecutable {
     name:"endL",
     expandable:false,
     _apply:|_tk,_int| {
-        //todo!() ?
+        //TeXErr!("TODO") ?
         Ok(())
     }
 };
@@ -3650,7 +3652,7 @@ pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
     name:"endR",
     expandable:false,
     _apply:|_tk,_int| {
-        //todo!() ?
+        //TeXErr!("TODO") ?
         Ok(())
     }
 };
@@ -4310,14 +4312,14 @@ pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
     name:"special",
     expandable:true,
     _apply:|_tk,int| {
-        let arg = int.read_string()?;
+        let _arg = int.read_string()?;
         //println!("\n{}",arg);
         Ok(())
     }
@@ -4326,271 +4328,271 @@ pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
 pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"holdinginserts",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static LOOSENESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"looseness",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static NOBOUNDARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"noboundary",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SCROLLMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scrollmode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"nonstopmode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pausing",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SETLANGUAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"setlanguage",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOW: PrimitiveExecutable = PrimitiveExecutable {
     name:"show",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"showbox",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWLISTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showlists",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
     name:"showthe",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmarks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static CURRENTIFBRANCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentifbranch",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static CURRENTIFLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiflevel",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static CURRENTIFTYPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiftype",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static FIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"firstmarks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static GLUESHRINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrink",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static GLUESHRINKORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrinkorder",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static GLUESTRETCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretch",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static GLUESTRETCHORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretchorder",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static GLUETOMU: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluetomu",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static INTERACTIONMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"interactionmode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static LASTLINEFIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastlinefit",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"marks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static MUTOGLUE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mutoglue",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PAGEDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pagediscards",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PARSHAPEDIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapedimen",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PARSHAPEINDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapeindent",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PARSHAPELENGTH: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapelength",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PREDISPLAYDIRECTION: PrimitiveExecutable = PrimitiveExecutable {
     name:"predisplaydirection",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWGROUPS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showgroups",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWIFS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showifs",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SHOWTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showtokens",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPLITBOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitbotmarks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPLITDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitdiscards",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SPLITFIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitfirstmarks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static TEXXETSTATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"TeXXeTstate",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static TOPMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmarks",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"efcode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static LEFTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"leftmarginkern",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static LETTERSPACEFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"letterspacefont",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static QUITVMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"quitvmode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static RIGHTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"rightmarginkern",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"tagcode",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"muskip",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
@@ -4602,32 +4604,32 @@ pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
 pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"bigskip",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"medskip",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"smallskip",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"vfilneg",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 // -------------------------------------------------------------------------------------------------

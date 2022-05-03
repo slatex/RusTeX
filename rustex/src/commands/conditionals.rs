@@ -13,7 +13,7 @@ pub fn dotrue(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXErro
     } else {
         match int.state.conditions.get_mut(cond) {
             Some(o@None) => *o = Some(false),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
         Ok(())
     }
@@ -59,7 +59,7 @@ pub fn dofalse(int: &mut Interpreter,cond:usize,unless:bool) -> Result<(),TeXErr
     } else {
         match int.state.conditions.get_mut(cond) {
             Some(o@None) => *o = Some(false),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
         let inifs = int.state.conditions.len() - (cond + 1);
         false_loop(int,inifs,true)
@@ -168,7 +168,8 @@ pub static IFX : Conditional = Conditional {
         let tka = get_char(int.next_token(), int);
         let tkb = get_char(int.next_token(), int);
         let istrue = match (tka.catcode,tkb.catcode) {
-            //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand => todo!(),
+            //(Active|Escape,Active|Escape) if !tka.expand || !tkb.expand =>
+            //         TeXErr!("TODO"),
             (Active|Escape,Active|Escape) => {
                 let cmd1 = int.state.commands.get(&tka.cmdname());
                 let cmd2 = int.state.commands.get(&tkb.cmdname());
@@ -375,7 +376,7 @@ pub static IFCASE : Conditional = Conditional {
             use PrimitiveTeXCommand::*;
             match int.state.conditions.last_mut() {
                 Some(o@None) => *o = Some(false),
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             }
             let mut inifs = 0 as u8;
             let mut currnum = 1 as u8;

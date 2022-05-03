@@ -208,7 +208,7 @@ impl WhatsitTrait for MathGroup {
                     if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
                 })
             }
-            _ => todo!()
+            _ => () //TeXErr!("TODO")
         }
     }
 }

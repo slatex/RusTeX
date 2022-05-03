@@ -27,7 +27,7 @@ macro_rules! pass_on {
         WIGroup::PDFLink(g) => PDFLink::$e(g $(,$tl)*),
         WIGroup::PDFMatrixSave(g) => PDFMatrixSave::$e(g $(,$tl)*),
         WIGroup::External($ext,$ch) => $exp,
-        WIGroup::GroupOpen(_) => unreachable!()
+        WIGroup::GroupOpen(_) => unreachable!()//TeXErr!("Should be unreachable!")
     })
 }
 
@@ -92,7 +92,7 @@ impl WIGroup {
             WIGroup::PDFLink(g) => WIGroup::PDFLink(g.new_from()),
             WIGroup::PDFMatrixSave(g) => WIGroup::PDFMatrixSave(g.new_from()),
             WIGroup::External(e,_) => WIGroup::External(e.clone(),vec!()),
-            WIGroup::GroupOpen(_) => unreachable!()
+            WIGroup::GroupOpen(_) => unreachable!()//TeXErr!("Should be unreachable!")
         }
     }
 }
@@ -165,9 +165,9 @@ impl WhatsitTrait for FontChange {
     fn as_whatsit(self) -> Whatsit {
         Whatsit::GroupOpen(WIGroup::FontChange(self))
     }
-    fn width(&self) -> i32 { todo!() }
-    fn height(&self) -> i32 { todo!() }
-    fn depth(&self) -> i32 { todo!() }
+    fn width(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn height(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn depth(&self) -> i32 { 0 } //TeXErr!("TODO") }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "\n".to_string() + &prefix + "<font TODO=\"\">";
         for c in &self.children {
@@ -406,9 +406,9 @@ impl WhatsitTrait for PDFLink {
     fn as_whatsit(self) -> Whatsit {
         WIGroup::PDFLink(self).as_whatsit()
     }
-    fn width(&self) -> i32 { todo!() }
-    fn height(&self) -> i32 { todo!() }
-    fn depth(&self) -> i32 { todo!() }
+    fn width(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn height(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn depth(&self) -> i32 { 0 }//TeXErr!("TODO") }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "\n".to_string() + &prefix + "<link rule=\"" +
             self.rule.to_string().as_str() + "\" attr=\"" +

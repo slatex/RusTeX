@@ -181,7 +181,7 @@ impl WhatsitTrait for HBox {
                         Some(o) => {
                             nch.push(o)
                         }
-                        _ => unreachable!()
+                        _ => TeXErr!("Should be unreachable!")
                     }
                 }*/
                 ret.push(HBox {
@@ -407,7 +407,7 @@ impl WhatsitTrait for VBox {
                         Some(o) => {
                             nch.push(o)
                         }
-                        _ => unreachable!()
+                        _ => TeXErr!("Should be unreachable!")
                     }
                 }*/
                 ret.push(VBox {

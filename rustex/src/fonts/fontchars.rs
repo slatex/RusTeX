@@ -14,9 +14,9 @@ pub struct FontTable {
     pub(crate) table:&'static HashMap<u8,&'static str>
 }
 impl FontTable {
-    pub fn as_unicode(&self,_:u8) -> &str {
-        todo!()
-    }
+    /*pub fn as_unicode(&self,_:u8) -> &str {
+        TeXErr!("TODO")
+    }*/
     pub fn get_char(&self,u:u8) -> &'static str {
         match self.table.get(&u) {
             Some(c) => c,

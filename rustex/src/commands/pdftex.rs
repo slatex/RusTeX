@@ -333,7 +333,7 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
                     sourceref: int.update_reference(&tk.0)
                 }.as_whatsit())?
             }
-            Some(s) if s == "current" => todo!(),
+            Some(s) if s == "current" => TeXErr!("TODO"),
             _ => TeXErr!("Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")
         }
         Ok(())
@@ -352,7 +352,7 @@ pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
                 let str = int.tokens_to_string(&tks);
                 int.state.pdfcolorstacks.last_mut().unwrap().push(str.into());
             }
-            Some(_) => todo!(),
+            Some(_) => TeXErr!("TODO"),
             None => TeXErr!("Expected \"page\" or \"direct\" after \\pdfcolorstackinit")
         }
         tk.2 = crate::interpreter::string_to_tokens(num.to_string().into());
@@ -377,7 +377,7 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
                 int.state.pdfobjs.insert(index as u16,str.into());
                 Ok(())
             }
-            Some(_) => todo!(),
+            Some(_) => TeXErr!("TODO"),
             _ => TeXErr!("Expected \"reserveobjnum\",\"useobjnum\" or \"stream\" after \\pdfobj")
         }
     }
@@ -585,12 +585,12 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
         let image = match match image::io::Reader::open(file.clone()) {
             Ok(x) => x,
             _ => TeXErr!("Error reading image {}",filename)
-        }.decode() {
+        }.with_guessed_format().unwrap().decode() {
             Ok(x) => Some(x),
-            _ => {
+            Err(e) => {
                 match file.extension() {
                     Some(s) if s == "pdf" => None,
-                    _ => TeXErr!("Error decoding image {}",filename)
+                    _ => TeXErr!("Error decoding image {} - {}",filename,e)
                 }
             }
         };
@@ -654,7 +654,7 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         match int.read_keyword(vec!("file"))? {
-            None => todo!(),
+            None => TeXErr!("TODO"),
             Some(_) => ()
         }
         let tks = int.read_balanced_argument(true,false,false,false)?;
@@ -862,81 +862,81 @@ pub static PDFPAGERESOURCES: TokReference = TokReference {
 pub static IFPDFABSDIM : Conditional = Conditional {
     name:"ifpdfabsdim",
     _apply: |_int,_cond,_unless| {
-        todo!()
+        TeXErr!("TODO")
     }
 };
 
 pub static IFPDFPRIMITIVE : Conditional = Conditional {
     name:"ifpdfprimitive",
     _apply: |_int,_cond,_unless| {
-        todo!()
+        TeXErr!("TODO")
     }
 };
 
 pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapename",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfannot",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapehex",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffiledump",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfunescapehex",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfpageattr",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFSAVEPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsavepos",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFLASTXPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastxpos",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastypos",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfelapsedtime",
     expandable:true,
-    _apply:|_tk,_int| {todo!()}
+    _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
 /*

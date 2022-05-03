@@ -42,7 +42,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                     Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
                     Some(StomachGroup::Other(wg)) => presplit.last_mut().unwrap().push(Whatsit::Grouped(wg)),
                     _ => {
-                        unreachable!()
+                        ()//TeXErr!("Should be unreachable!")
                     }
                 }
                 input.pop();
@@ -51,7 +51,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                 let next = sg.get_mut().remove(0);
                 match next {
                     Whatsit::Simple(SimpleWI::Mark(_)) => {
-                        todo!()
+                        ()//TeXErr!("TODO")
                     },
                     Whatsit::Grouped(wg) => {
                         presplit.push(StomachGroup::Other(wg.new_from()));
@@ -89,7 +89,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
             assert!(input.is_empty());
             match presplit.pop() {
                 Some(StomachGroup::Top(v)) => (v,vec!()),
-                _ => unreachable!()
+                _ => unreachable!()//TeXErr!("Should be unreachable!")
             }
         }
         Some(_) => {
@@ -97,11 +97,11 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                 Some(StomachGroup::Top(_)) => false,
                 _ => true
             } {
-                let last = match presplit.pop().unwrap() {
-                    StomachGroup::Other(wg) => wg,
-                    _ => unreachable!()
+                match presplit.pop().unwrap() {
+                    StomachGroup::Other(wg) =>
+                        presplit.last_mut().unwrap().push(Whatsit::Grouped(wg)),
+                    _ => ()//TeXErr!("Should be unreachable!")
                 };
-                presplit.last_mut().unwrap().push(Whatsit::Grouped(last))
             }
             let mut second : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
             for g in &input[1..] {
@@ -120,7 +120,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                             Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
                             Some(StomachGroup::Other(wg)) => second.last_mut().unwrap().push(Whatsit::Grouped(wg)),
                             _ => {
-                                unreachable!()
+                                ()//TeXErr!("Should be unreachable!")
                             }
                         }
                         input.pop();
@@ -129,7 +129,7 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                         let next = sg.get_mut().remove(0);
                         match next {
                             Whatsit::Simple(SimpleWI::Mark(_)) => {
-                                todo!()
+                                ()//TeXErr!("TODO")
                             },
                             next => {
                                 second.last_mut().unwrap().push(next)
@@ -140,11 +140,11 @@ pub fn split_vertical(vlist:Vec<Whatsit>,target:i32,int:&Interpreter) -> (Vec<Wh
                 }
             let sec = match second.pop() {
                 Some(StomachGroup::Top(v)) => v,
-                _ => unreachable!()
+                _ => unreachable!()//TeXErr!("Should be unreachable!")
             };
             match presplit.pop() {
                 Some(StomachGroup::Top(v)) => (v,sec),
-                _ => unreachable!()
+                _ => unreachable!()//TeXErr!("Should be unreachable!")
             }
         }
     }
@@ -160,7 +160,7 @@ impl StomachGroup {
     pub fn new_from(&self) -> StomachGroup {
         use StomachGroup::*;
         match self {
-            Top(_) => unreachable!(),
+            Top(_) => unreachable!(),//TeXErr!("Should be unreachable!"),
             TeXGroup(gt,_) => TeXGroup(gt.clone(),vec!()),
             Par(p) => Par(Paragraph::new(p.parskip)),
             Other(wig) => Other(wig.new_from())
@@ -271,7 +271,7 @@ pub trait Stomach : Send {
                     self.base_mut().stomachgroups.push(ng);
                     Ok(ret)
                 }
-                _ => todo!()
+                _ => TeXErr!("TODO")
             }
         }
     }
@@ -306,7 +306,7 @@ pub trait Stomach : Send {
                     self.end_paragraph(state)?;
                     self.pop_group(state)
                 }
-                _ => todo!()
+                _ => TeXErr!("TODO")
             }
         }
     }
@@ -370,7 +370,7 @@ pub trait Stomach : Send {
         if top.priority() == wi.priority() {
             let ng = match top {
                 StomachGroup::Other(g) => g,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             };
             /*let mut nv = top.get_d();
             let mut latter : Vec<Whatsit> = vec!();
@@ -748,7 +748,7 @@ pub trait Stomach : Send {
                 _ => return false,
             }
         }
-        unreachable!()
+        false//TeXErr!("Should be unreachable!")
     }
 }
 
@@ -842,7 +842,7 @@ impl NoShipoutRoutine {
                     self.floatcmd = Some(df.clone())
                 }
             }
-            _ => unreachable!()
+            _ => ()//TeXErr!("Should be unreachable!")
         }
         ret
     }

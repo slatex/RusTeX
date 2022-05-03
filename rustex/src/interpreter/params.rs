@@ -73,7 +73,6 @@ pub struct NoOutput {
 }
 impl NoOutput {
     pub fn new(listeners:Option<Vec<Box<dyn CommandListener>>>) -> NoOutput {
-        use crate::commands::latex_bindings::*;
         NoOutput {
             listeners: match listeners {
                 Some(v) => v,

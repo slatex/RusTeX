@@ -357,7 +357,7 @@ impl ProvidesWhatsit {
             Box(b) => Ok(Whatsit::Box((b._get)(tk,int)?)),
             Exec(e) => Ok(Whatsit::Exec(Arc::new((e._get)(tk,int)?))),
             Math(_) => {
-                unreachable!()
+                TeXErr!("Should be unreachable!")
             },//Ok(Whatsit::Math((m._get)(tk,int)?)),
             Simple(s) => Ok((s._get)(tk,int)?)
         }
@@ -633,7 +633,7 @@ impl PrimitiveTeXCommand {
                 Ok(Some(exp))
             },
             Def(d) => Ok(Some(self.do_def(tk, int, d,cmd)?)),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
     pub fn expand(&self,tk:Token,int:&mut Interpreter,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
@@ -643,12 +643,15 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        if tk.cmdname().to_string() == "c@ncel" {
+        /*if tk.cmdname().to_string() == "__hook_next para/before" {
             println!("Here! {} {}",int.current_line(),int.preview());
-            println!("");
+            for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
+                println!("{} - {}",p.0,p.1);
+            }
+            print!("")
             //TeXErr!(tk => "temp");
             //unsafe { crate::LOG = true }
-        }
+        }*/
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())
@@ -902,7 +905,7 @@ impl PrimitiveTeXCommand {
                 }
             },
             Ext(ext) => ext.assign(int, global),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }?;
         int.insert_afterassignment();
         Ok(())

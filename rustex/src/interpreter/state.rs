@@ -285,7 +285,7 @@ impl LinkedCatScheme {
             Some(ref scheme) => scheme,
             None => match self.parent {
                 Some(ref bx) => bx.get_scheme(),
-                None => unreachable!()
+                None => &STARTING_SCHEME
             }
         }
     }
@@ -640,7 +640,7 @@ impl State {
         }
     }
     pub fn file_openin(&mut self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
-        let mouth = StringMouth::new_from_file(self.catcodes.get_scheme(),&file);
+        let mouth = StringMouth::new_from_file(&file);
         self.infiles.insert(index,mouth);
         Ok(())
     }

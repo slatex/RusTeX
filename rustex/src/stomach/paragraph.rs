@@ -153,7 +153,7 @@ impl Paragraph {
                         Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
                         Some(StomachGroup::Other(wg)) => presplit.last_mut().unwrap().push(Whatsit::Grouped(wg)),
                         _ => {
-                            unreachable!()
+                            // TeXErr!("Should be unreachable!")
                         }
                     }
                     input.pop();
@@ -162,7 +162,7 @@ impl Paragraph {
                     let next = sg.get_mut().remove(0);
                     match next {
                         Whatsit::Simple(SimpleWI::Mark(_)) => {
-                            todo!()
+                            //TeXErr!("TODO")
                         },
                         Whatsit::Grouped(wg) => {
                             presplit.push(StomachGroup::Other(wg.new_from()));
@@ -225,7 +225,7 @@ impl Paragraph {
                 assert!(input.is_empty());
                 match presplit.pop() {
                     Some(StomachGroup::Top(v)) => p1.children = v,
-                    _ => unreachable!()
+                    _ => ()//TeXErr!("Should be unreachable!")
                 }
             }
             Some(_) => {
@@ -233,11 +233,11 @@ impl Paragraph {
                     Some(StomachGroup::Top(_)) => false,
                     _ => true
                 } {
-                    let last = match presplit.pop().unwrap() {
-                        StomachGroup::Other(wg) => wg,
-                        _ => unreachable!()
+                    match presplit.pop().unwrap() {
+                        StomachGroup::Other(wg) =>
+                            presplit.last_mut().unwrap().push(Whatsit::Grouped(wg)),
+                        _ => () //TeXErr!("Should be unreachable!")
                     };
-                    presplit.last_mut().unwrap().push(Whatsit::Grouped(last))
                 }
                 let mut second : Vec<StomachGroup> = vec!(StomachGroup::Top(vec!()));
                 for g in &input[1..] {
@@ -256,7 +256,7 @@ impl Paragraph {
                                 Some(StomachGroup::Other(wg)) if wg.children().is_empty() => (),
                                 Some(StomachGroup::Other(wg)) => second.last_mut().unwrap().push(Whatsit::Grouped(wg)),
                                 _ => {
-                                    unreachable!()
+                                    ()//TeXErr!("Should be unreachable!")
                                 }
                             }
                             input.pop();
@@ -265,7 +265,7 @@ impl Paragraph {
                             let next = sg.get_mut().remove(0);
                             match next {
                                 Whatsit::Simple(SimpleWI::Mark(_)) => {
-                                    todo!()
+                                    ()//TeXErr!("TODO")
                                 },
                                 next => {
                                     second.last_mut().unwrap().push(next)
@@ -276,12 +276,12 @@ impl Paragraph {
                 }
                 let sec = match second.pop() {
                     Some(StomachGroup::Top(v)) => v,
-                    _ => unreachable!()
+                    _ => unreachable!()//TeXErr!("Should be unreachable!")
                 };
                 p2.children = sec;
                 match presplit.pop() {
                     Some(StomachGroup::Top(v)) => p1.children = v,
-                    _ => unreachable!()
+                    _ => ()//TeXErr!("Should be unreachable!")
                 }
             }
         }
@@ -302,7 +302,8 @@ impl Paragraph {
             }
             ilsr
         } else if hangindent != 0 && hangafter != 0 {
-            todo!()
+            vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))
+            //TeXErr!("TODO")
         } else {
             vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))
         });

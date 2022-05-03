@@ -165,6 +165,7 @@ pub enum ActionSpec {
     Name(TeXStr),
     Page(i32)
 }
+
 impl ActionSpec {
     pub fn as_link(&self) -> String {
         use ActionSpec::*;
@@ -175,10 +176,12 @@ impl ActionSpec {
                     str.split("/URI(").last().unwrap().split(")").next().unwrap().to_string()
                 } else if str.contains("/F(") {
                     str.split("/F(").last().unwrap().split(")").next().unwrap().to_string()
-                } else { todo!() }
+                } else {
+                    "".to_string()//TeXErr!("TODO")
+                }
             }
             Name(str) => "#".to_string() + &str.to_string(),
-            _ => todo!()
+            _ => "".to_string()//TeXErr!("TODO")
         }
     }
     pub fn as_xml(&self) -> String {
@@ -316,9 +319,9 @@ impl WhatsitTrait for PrintChar {
 pub struct Insert(pub Vec<Vec<Whatsit>>);
 impl WhatsitTrait for Insert {
     fn as_whatsit(self) -> Whatsit { Whatsit::Inserts(self) }
-    fn width(&self) -> i32 { todo!() }
-    fn height(&self) -> i32 { todo!() }
-    fn depth(&self) -> i32 { todo!() }
+    fn width(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn height(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn depth(&self) -> i32 { 0 }//TeXErr!("TODO") }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "<inserts>".to_string();
         for v in &self.0 {

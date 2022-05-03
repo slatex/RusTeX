@@ -1,7 +1,8 @@
 use std::any::Any;
 use std::cmp::min;
+use std::io::Cursor;
 use std::path::PathBuf;
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
@@ -10,7 +11,7 @@ use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, H
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
-use crate::{htmlliteral, htmlnode, htmlparent, Token};
+use crate::{htmlliteral, htmlnode, htmlparent, Token };
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -232,9 +233,9 @@ impl WhatsitTrait for PDFXImage {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match self.image {
             Some(ref img) => {
-                let mut buf: Vec<u8> = vec!();
-                img.write_to(&mut buf, image::ImageOutputFormat::Png).unwrap();
-                let res_base64 = "data:image/png;base64,".to_string() + &base64::encode(&buf);
+                let mut buf = Cursor::new(vec!());//Vec<u8> = vec!();
+                img.write_to(&mut buf, image::ImageOutputFormat::Jpeg(255)).unwrap();
+                let res_base64 = "data:image/jpg;base64,".to_string() + &base64::encode(&buf.into_inner());
                 htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
                     i.attr("src".into(),res_base64.into());
                     i.attr("width".into(),dimtohtml(self.width()));
@@ -395,7 +396,7 @@ impl WhatsitTrait for HSkip {
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
                     a.attr("width".into(),dimtohtml(self.skip.base))
                 }),
-            _ => todo!()
+            _ => ()//TeXErr!("TODO")
         }
     }
 }
@@ -437,7 +438,7 @@ impl WhatsitTrait for MSkip {
                 htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),numtostr(self.skip.base / 12,"em").into());
                 }),
-            _ => todo!()
+            _ => ()//TeXErr!("TODO")
         }
     }
 }
@@ -533,7 +534,7 @@ impl WhatsitTrait for PDFXForm {
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, _: String) -> String {
-        todo!()
+        "<pdfxform/>".to_string()//TeXErr!("TODO")
     }
     fn has_ink(&self) -> bool { false }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
@@ -616,7 +617,7 @@ impl WhatsitTrait for Raise {
                 node.style("bottom".into(),dimtohtml(self.dim));
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
-            _ => todo!()
+            _ => ()//TeXErr!("TODO")
         }
     }
 }
@@ -968,7 +969,7 @@ impl WhatsitTrait for HAlign {
                                             } else {
                                                 match table.children.last_mut() {
                                                     Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
-                                                    _ => unreachable!()
+                                                    _ => ()//TeXErr!("Should be unreachable!")
                                                 }
                                             }
                                         }
@@ -1022,7 +1023,7 @@ impl WhatsitTrait for HAlign {
                     self.as_html(&ColonMode::H,colon,htmlparent!(span))
                 })
             }),
-            _ => todo!()
+            _ => ()//TeXErr!("TODO")
         }
     }
 }
@@ -1158,7 +1159,7 @@ impl WhatsitTrait for VAlign {
         }.as_whatsit())
     }
     fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {
-        todo!()
+        ()//TeXErr!("TODO")
     }
 }
 

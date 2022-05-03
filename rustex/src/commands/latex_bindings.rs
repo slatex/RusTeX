@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::commands::rustex_specials::HTMLLiteral;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
 use crate::stomach::whatsits::WhatsitTrait;
-use crate::{TeXErr, TeXString, Token};
+use crate::{TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::RELAX;
 use crate::interpreter::params::CommandListener;

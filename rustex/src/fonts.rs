@@ -16,18 +16,18 @@ impl FInfoEntry {
             _ => None
         }
     }
-    pub fn larger(&self) -> Option<u8> {
+    /*pub fn larger(&self) -> Option<u8> {
         match self.tag_field {
             2 => Some(self.remainder),
             _ => None
         }
-    }
-    pub fn ext(&self) -> Option<u8> {
+    }*/
+    /*pub fn ext(&self) -> Option<u8> {
         match self.tag_field {
             3 => Some(self.remainder),
             _ => None
         }
-    }
+    }*/
 }
 
 pub struct FontFile {

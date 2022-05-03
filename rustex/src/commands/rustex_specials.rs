@@ -171,7 +171,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
                     c.as_html(mode,colon,htmlparent!(a))
                 }
             }),
-            _ => todo!()
+            _ => () //TeXErr!("TODO")
         }
     }
 }

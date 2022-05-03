@@ -59,7 +59,7 @@ pub struct Interpreter<'a> {
     pub params:&'a dyn InterpreterParams
 }
 use crate::{TeXErr,FileEnd};
-use crate::commands::primitives::{ENDTEMPLATE, VFIL, VFILL};
+use crate::commands::primitives::ENDTEMPLATE;
 use crate::interpreter::params::InterpreterParams;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
@@ -283,6 +283,7 @@ impl Interpreter<'_> {
         /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/img/int-partial-biview.tex (14, 65)") {
             unsafe { crate::LOG = true }
             println!("Here!: {}",self.preview())
+
         }*/
         match (next.catcode,mode) {
             (EOL,_) if next.name() == "EOF" => Ok(()),
@@ -534,7 +535,7 @@ impl Interpreter<'_> {
                                             mi.set(first,second);
                                             ret = vec!(WI::Above(mi))
                                         },
-                                        _ => unreachable!()
+                                        _ => TeXErr!("Should be unreachable!")
                                     }
                                 }
                             }
@@ -645,7 +646,7 @@ impl Interpreter<'_> {
                                                 mi.set(first,second);
                                                 ret = vec!(WI::Above(mi))
                                             },
-                                            _ => unreachable!()
+                                            _ => TeXErr!("Should be unreachable!")
                                         }
                                     }
                                 }

@@ -62,7 +62,7 @@ impl CategoryCode {
             13 => Active,
             14 => Comment,
             15 => Invalid,
-            _ => unreachable!()
+            _ => unreachable!()//TeXErr!("Should be unreachable!")
         }
     }
     pub fn toint(&self) -> u8 {

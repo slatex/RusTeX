@@ -367,7 +367,7 @@ impl Interpreter<'_> {
             CategoryCode::Escape | CategoryCode::Active => {
                 let cmd = self.get_command(&next.cmdname())?;
                 if cmd.has_whatsit() {
-                    todo!()
+                    TeXErr!("TODO")
                 } else {
                     TeXErr!(next => "Expected Begin Group Token or Whatsit")
                 }
@@ -527,7 +527,7 @@ impl Interpreter<'_> {
         match self.read_number_i(false)? {
             Numeric::Int(i) => Ok(i),
             Numeric::Dim(i) => Ok(i),
-            Numeric::Float(_) => unreachable!(),
+            Numeric::Float(_) => TeXErr!("Should be unreachable!"),
             Numeric::Skip(sk) => Ok(sk.base),
             Numeric::MuSkip(sk) => Ok(sk.base),
         }
@@ -586,7 +586,7 @@ impl Interpreter<'_> {
             Numeric::MuSkip(_) => TeXErr!("Dimension expected; muskip found")
         } {
             SkipDim::Pt(i) => Ok(i),
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
 
@@ -595,11 +595,11 @@ impl Interpreter<'_> {
             Numeric::Dim(i) => (i,None,None),
             Numeric::Float(f) => (match self.point_to_int(f,false)? {
                 SkipDim::Pt(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },None,None),
             Numeric::Int(f) => (match self.point_to_int(f as f64,false)? {
                 SkipDim::Pt(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },None,None),
             Numeric::Skip(s) => (s.base,s.stretch,s.shrink),
             Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
@@ -612,11 +612,11 @@ impl Interpreter<'_> {
             Numeric::Dim(i) => (i,None,None),
             Numeric::Float(f) => (match self.point_to_muskip(f)? {
                 MuSkipDim::Mu(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },None,None),
             Numeric::Int(f) => (match self.point_to_muskip(f as f64)? {
                 MuSkipDim::Mu(i) => i,
-                _ => unreachable!()
+                _ => TeXErr!("Should be unreachable!")
             },None,None),
             Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),
             Numeric::MuSkip(s) =>  (s.base,s.stretch,s.shrink)
@@ -639,7 +639,7 @@ impl Interpreter<'_> {
                 let r = self.read_dimension()?;
                 Ok(MuSkipDim::Mu(((r as f64 * (f * 65536.0).floor()) / 65536.0).floor() as i32))
             }
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
             //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
     }
@@ -681,7 +681,7 @@ impl Interpreter<'_> {
                     })
                 }
             }
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
 
@@ -723,7 +723,7 @@ impl Interpreter<'_> {
                     })
                 }
             }
-            _ => unreachable!()
+            _ => TeXErr!("Should be unreachable!")
         }
     }
 
