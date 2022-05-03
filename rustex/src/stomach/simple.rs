@@ -2,6 +2,7 @@ use std::any::Any;
 use std::cmp::min;
 use std::io::Cursor;
 use std::path::PathBuf;
+use image::buffer::ConvertBuffer;
 use image::DynamicImage;
 use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, Skip};
 use crate::references::SourceFileReference;
@@ -233,14 +234,20 @@ impl WhatsitTrait for PDFXImage {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match self.image {
             Some(ref img) => {
+                let nimg = img.clone().into_rgba8();
                 let mut buf = Cursor::new(vec!());//Vec<u8> = vec!();
-                img.write_to(&mut buf, image::ImageOutputFormat::Jpeg(255)).unwrap();
-                let res_base64 = "data:image/jpg;base64,".to_string() + &base64::encode(&buf.into_inner());
-                htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
-                    i.attr("src".into(),res_base64.into());
-                    i.attr("width".into(),dimtohtml(self.width()));
-                    i.attr("height".into(),dimtohtml(self.height()));
-                })
+                match nimg.write_to(&mut buf, image::ImageOutputFormat::Jpeg(255)) {
+                    Ok(_) => {
+                        let res_base64 = "data:image/jpg;base64,".to_string() + &base64::encode(&buf.into_inner());
+                        htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
+                            i.attr("src".into(),res_base64.into());
+                            i.attr("width".into(),dimtohtml(self.width()));
+                            i.attr("height".into(),dimtohtml(self.height()));
+                        })
+                    }
+                    Err(e) =>
+                        println!("{}",e)
+                }
             }
             _ => ()
         }
