@@ -1108,6 +1108,13 @@ pub static ETEXVERSION : NumericCommand = NumericCommand {
 };
 
 fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
+    match expr_loop_main(int,getnum)? {
+        Numeric::BigInt(i) => Ok(Numeric::Int(i as i32)),
+        o => Ok(o)
+    }
+}
+
+fn expr_loop_main(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     int.skip_ws();
     log!("expr_loop: >{}",int.preview());
     let mut first = expr_loop_inner(int,getnum)?;
@@ -1122,11 +1129,11 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numer
                             break 'innera
                         }
                         Some(s) if s == "*" => {
-                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                             second = second * third
                         }
                         Some(_) => {
-                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                             second = second / third
                         }
                     }
@@ -1141,22 +1148,22 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numer
                             break 'innerb
                         }
                         Some(s) if s == "*" => {
-                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                             second = second * third
                         }
                         Some(_) => {
-                            let third = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                            let third = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                             second = second / third
                         }
                     }
                 }
             }
             Some(s) if s == "*" => {
-                let second = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                let second = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                 first = first * second
             }
             Some(_) => {
-                let second = expr_loop_inner(int,|int| Ok(Numeric::Int(int.read_number()?)))?;
+                let second = expr_loop_inner(int,|int| Ok(Numeric::BigInt(int.read_number()? as i64)))?;
                 first = first / second
             }
             None => {
@@ -1170,13 +1177,16 @@ fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numer
 fn expr_loop_inner(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     match int.read_keyword(vec!("("))? {
         Some(_) => {
-            let r = expr_loop(int,getnum)?;
+            let r = expr_loop_main(int,getnum)?;
             match int.read_keyword(vec!(")"))? {
                 Some(_) => Ok(r),
                 None => TeXErr!("Expected ')'")
             }
         }
-        None => (getnum)(int)
+        None => match (getnum)(int)? {
+            Numeric::Int(i) => Ok(Numeric::BigInt(i as i64)),
+            o => Ok(o)
+        }
     }
 }
 

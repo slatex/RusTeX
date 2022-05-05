@@ -525,6 +525,7 @@ impl Interpreter<'_> {
 
     pub fn read_number(&mut self) -> Result<i32,TeXError> {
         match self.read_number_i(false)? {
+            Numeric::BigInt(i) => Ok(i as i32),
             Numeric::Int(i) => Ok(i),
             Numeric::Dim(i) => Ok(i),
             Numeric::Float(_) => TeXErr!("Should be unreachable!"),
@@ -579,6 +580,7 @@ impl Interpreter<'_> {
 
     pub fn read_dimension(&mut self) -> Result<i32,TeXError> {
         match match self.read_number_i(true)? {
+            Numeric::BigInt(i) => return Ok(i as i32),
             Numeric::Dim(i) => return Ok(i),
             Numeric::Int(i) => self.point_to_int(i as f64,false)?,
             Numeric::Float(f) => self.point_to_int(f,false)?,
@@ -597,6 +599,10 @@ impl Interpreter<'_> {
                 SkipDim::Pt(i) => i,
                 _ => TeXErr!("Should be unreachable!")
             },None,None),
+            Numeric::BigInt(f) => (match self.point_to_int(f as f64,false)? {
+                SkipDim::Pt(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            },None,None),
             Numeric::Int(f) => (match self.point_to_int(f as f64,false)? {
                 SkipDim::Pt(i) => i,
                 _ => TeXErr!("Should be unreachable!")
@@ -611,6 +617,10 @@ impl Interpreter<'_> {
         let (a,b,c) = match self.read_number_i(true)? {
             Numeric::Dim(i) => (i,None,None),
             Numeric::Float(f) => (match self.point_to_muskip(f)? {
+                MuSkipDim::Mu(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            },None,None),
+            Numeric::BigInt(f) => (match self.point_to_muskip(f as f64)? {
                 MuSkipDim::Mu(i) => i,
                 _ => TeXErr!("Should be unreachable!")
             },None,None),
@@ -730,6 +740,7 @@ impl Interpreter<'_> {
     fn read_skipdim(&mut self) -> Result<SkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(SkipDim::Pt(i)),
+            Numeric::BigInt(i) => self.point_to_int(i as f64,true),
             Numeric::Int(i) => self.point_to_int(i as f64,true),
             Numeric::Float(f) => self.point_to_int(f,true),
             Numeric::Skip(sk) => Ok(SkipDim::Pt(sk.base)),
@@ -740,6 +751,7 @@ impl Interpreter<'_> {
     fn read_muskipdim(&mut self) -> Result<MuSkipDim,TeXError> {
         match self.read_number_i(true)? {
             Numeric::Dim(i) => Ok(MuSkipDim::Mu(i)),
+            Numeric::BigInt(i) => self.point_to_muskip(i as f64),
             Numeric::Int(i) => self.point_to_muskip(i as f64),
             Numeric::Float(f) => self.point_to_muskip(f),
             Numeric::Skip(_) => TeXErr!("MuSkip expected; skip found"),

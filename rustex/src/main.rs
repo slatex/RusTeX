@@ -47,7 +47,7 @@ fn main() {
                 None => println!("\n\nSuccess!\n{}",s),
                 Some(f) => {
                     let mut file = std::fs::File::create(&f).unwrap();
-                    file.write_all(s.as_bytes());
+                    file.write_all(s.as_bytes()).expect("");
                     println!("\n\nSuccess! \\o/\nResult written to {}",f)
                 }
             }

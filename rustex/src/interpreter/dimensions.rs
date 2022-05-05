@@ -189,12 +189,14 @@ pub enum Numeric {
     Dim(i32),
     Float(f64),
     Skip(Skip),
+    BigInt(i64),
     MuSkip(MuSkip)
 }
 impl Numeric {
     pub fn negate(self) -> Numeric {
         use Numeric::*;
         match self {
+            BigInt(i) => BigInt(-i),
             Int(i) => Int(-i),
             Dim(i) => Dim(-i),
             Float(f) => Float(-f),
@@ -238,6 +240,7 @@ impl Numeric {
     fn as_string(&self) -> String {
         use Numeric::*;
         match self {
+            BigInt(i) => i.to_string(),
             Int(i) => i.to_string(),
             Dim(i) => dimtostr(*i),
             Float(f) => f.to_string(),
@@ -248,6 +251,7 @@ impl Numeric {
     pub fn as_int(&self) -> Numeric {
         use Numeric::*;
         match self {
+            BigInt(i) => Int(*i as i32),
             Int(_) => self.clone(),
             Dim(i) => Int(*i),
             Float(f) => Int(round_f(*f)),
@@ -258,6 +262,7 @@ impl Numeric {
     pub fn get_i32(&self) -> i32 {
         use Numeric::*;
         match self {
+            BigInt(i) => *i as i32,
             Int(i) => *i,
             Dim(i) => *i,
             Float(f) => round_f(*f),
@@ -271,6 +276,9 @@ impl std::ops::Div for Numeric {
     fn div(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
+            (Int(i),BigInt(j)) => BigInt(((i as f64)/(j as f64)).round() as i64),
+            (BigInt(i),Int(j)) => BigInt(((i as f64)/(j as f64)).round() as i64),
+            (BigInt(i),BigInt(j)) => BigInt(((i as f64)/(j as f64)).round() as i64),
             (Int(i),Int(j)) => Int(((i as f64)/(j as f64)).round() as i32),
             (Int(i),Float(f)) => Int(round_f((i as f64)/f)),
             (Dim(i),Dim(f)) => Dim(round_f((i as f64)/((f as f64) / 65536.0))),
@@ -285,6 +293,9 @@ impl std::ops::Mul for Numeric {
     fn mul(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
+            (BigInt(i),Int(j)) => BigInt(i*(j as i64)),
+            (BigInt(i),BigInt(j)) => BigInt(i*j),
+            (Int(i),BigInt(j)) => BigInt((i as i64)*j),
             (Int(i),Int(j)) => Int(i*j),
             (Int(i),Float(j)) => Int(round_f((i as f64)*j)),
             (Float(i),Int(j)) => Float(i*(j as f64)),
@@ -292,6 +303,7 @@ impl std::ops::Mul for Numeric {
             (Dim(i),Dim(f)) => Dim(round_f((i as f64) * (f as f64 / 65536.0))),
             (Dim(i),Skip(f)) => Dim(round_f((i as f64) * (f.base as f64 / 65536.0))),
             (Dim(i),Int(f)) => Dim(i * f),
+            (Dim(i),BigInt(f)) => Dim(i * (f as i32)),
             (Dim(i),Float(f)) => Dim(round_f((i as f64) * f)),
             (Skip(s),Int(j)) => Skip(s * j),
             _ => todo!("{}*{}",self,rhs)
@@ -303,6 +315,9 @@ impl std::ops::Add for Numeric {
     fn add(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
+            (Int(i),BigInt(j)) => BigInt((i as i64)+j),
+            (BigInt(i),Int(j)) => BigInt((j as i64)+i),
+            (BigInt(i),BigInt(j)) => BigInt(i+j),
             (Int(i),Int(j)) => Int(i+j),
             (Dim(i),Int(j)) => Int(i+j),
             (Dim(i),Dim(j)) => Dim(i+j),
@@ -323,8 +338,12 @@ impl std::ops::Sub for Numeric {
     fn sub(self, rhs: Self) -> Self::Output {
         use Numeric::*;
         match (self,rhs) {
+            (BigInt(i),Int(j)) => BigInt(i-(j as i64)),
+            (BigInt(i),BigInt(j)) => BigInt(i-j),
+            (Int(i),BigInt(j)) => BigInt((i as i64)-j),
             (Int(i),Int(j)) => Int(i-j),
             (Dim(i),Int(j)) => Int(i-j),
+            (Dim(i),BigInt(j)) => BigInt((i as i64)-j),
             (Dim(i),Dim(j)) => Dim(i - j),
             (Skip(s),Skip(t)) => Skip(crate::interpreter::dimensions::Skip {
                 base:s.base + t.base,stretch:s.stretch,shrink:s.shrink

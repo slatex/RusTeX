@@ -2,7 +2,6 @@ use std::any::Any;
 use std::cmp::min;
 use std::io::Cursor;
 use std::path::PathBuf;
-use image::buffer::ConvertBuffer;
 use image::DynamicImage;
 use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, Skip};
 use crate::references::SourceFileReference;

@@ -374,11 +374,16 @@ pub static IFCASE : Conditional = Conditional {
         let num = int.read_number()? as u8;
         if num == 0 {dotrue(int,cond,unless)} else {
             use PrimitiveTeXCommand::*;
-            match int.state.conditions.last_mut() {
+
+            /*let mut cond = int.state.conditions.iter_mut().rev().find_position(|x| **x == None).unwrap();
+            *cond.1 = Some(false);*/
+
+            match int.state.conditions.get_mut(cond) {
                 Some(o@None) => *o = Some(false),
                 _ => TeXErr!("Should be unreachable!")
             }
-            let mut inifs = 0 as u8;
+            let mut inifs = int.state.conditions.len() - (cond + 1);
+            //let mut inifs = cond.0 as u8;
             let mut currnum = 1 as u8;
             //log!("false loop: {}",inifs);
             while int.has_next() {
