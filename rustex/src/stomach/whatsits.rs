@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
 use crate::fonts::Font;
@@ -270,8 +271,45 @@ impl WhatsitTrait for Accent {
     }
     fn has_ink(&self) -> bool { true }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        let ch = match &self.char.font.file.chartable {
+            Some(ct) => Some(ct.get_char(self.char.char)),
+            _ => None
+        };
+        let acc = match &self.font.file.chartable {
+            Some(ct) => Some(ct.get_char(self.acc as u8)),
+            _ => None
+        };
+        match (ch,acc) {
+            (Some(ch),Some(acc)) => match ACCENTS.get(&(ch,acc)) {
+                Some(s) =>
+                    {
+                        htmlliteral!(colon,node_top,>{*s}<);
+                        return ()
+                    }
+                _ => ()
+            }
+            _ => ()
+        }
         self.char.as_html(mode,colon,node_top) // TODO
     }
+}
+
+lazy_static! {
+    static ref ACCENTS : HashMap<(&'static str,&'static str),&'static str> = HashMap::from([
+        (("a"," ̈"),"ä"),(("o"," ̈"),"ö"),(("u"," ̈"),"ü"),(("a","^"),"â"),(("e","^"),"ê"),(("ı","^"),"î"),
+        (("o","^"),"ô"),(("u","^"),"û"),(("ȷ","^"),"ĵ"),(("c","^"),"ĉ"),(("y","^"),"ŷ"),(("w","^"),"ŵ"),
+        (("z","^"),"ẑ"),(("s","^"),"ŝ"),(("g","^"),"ĝ"),(("h","^"),"ĥ"),(("a"," ́"),"á"),(("e"," ́"),"é"),
+        (("ı"," ́"),"í"),(("o"," ́"),"ó"),(("u"," ́"),"ú"),(("r"," ́"),"ŕ"),(("z"," ́"),"ź"),(("s"," ́"),"ś"),
+        (("g"," ́"),"ǵ"),(("k"," ́"),"ḱ"),(("l"," ́"),"ĺ"),(("y"," ́"),"ý"),(("c"," ́"),"ć"),(("n"," ́"),"ń"),
+        (("a","`"),"à"),(("e","`"),"è"),(("ı","`"),"ì"),(("o","`"),"ò"),(("u","`"),"ù"),(("y","`"),"ỳ"),
+
+        (("A"," ̈"),"Ä"),(("O"," ̈"),"Ö"),(("U"," ̈"),"Ü"),(("A","^"),"Â"),(("E","^"),"Ê"),(("I","^"),"Î"),
+        (("O","^"),"Ô"),(("U","^"),"Û"),(("J","^"),"Ĵ"),(("C","^"),"Ĉ"),(("Y","^"),"Ŷ"),(("W","^"),"Ŵ"),
+        (("Z","^"),"Ẑ"),(("S","^"),"Ŝ"),(("G","^"),"Ĝ"),(("H","^"),"Ĥ"),(("A"," ́"),"Á"),(("E"," ́"),"É"),
+        (("I"," ́"),"Í"),(("O"," ́"),"Ó"),(("U"," ́"),"Ú"),(("R"," ́"),"Ŕ"),(("Z"," ́"),"Ź"),(("S"," ́"),"Ś"),
+        (("G"," ́"),"Ǵ"),(("K"," ́"),"Ḱ"),(("L"," ́"),"Ĺ"),(("Y"," ́"),"Ý"),(("C"," ́"),"Ć"),(("N"," ́"),"Ń"),
+        (("A","`"),"À"),(("E","`"),"È"),(("I","`"),"Ì"),(("O","`"),"Ò"),(("U","`"),"Ù"),(("Y","`"),"Ỳ"),
+    ]);
 }
 
 #[derive(Clone)]

@@ -322,7 +322,7 @@ impl WhatsitTrait for ColorChange {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V => htmlannotate!(colon,span,self.sourceref,node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.sourceref,node_top,a => {
                 let color : HTMLStr = ColorChange::color_to_html(self.color).into();
                 let hashcolor : HTMLStr = "#".into();
                 a.style("color".into(),hashcolor + &color);
@@ -426,7 +426,7 @@ impl WhatsitTrait for PDFLink {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V => htmlnode!(colon,a,self.sourceref,"pdflink",node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlnode!(colon,a,self.sourceref,"pdflink",node_top,a => {
                 a.attr("href".into(),self.action.as_link().into());
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
             }),

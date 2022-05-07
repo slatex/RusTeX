@@ -172,7 +172,7 @@ impl WhatsitTrait for HBox {
     }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         match mode {
-            ColonMode::V | ColonMode::External(_) => {
+            ColonMode::V | ColonMode::External(_) | ColonMode::P => {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::H,&mut nch,scale) }
                 if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) { return () }
@@ -235,7 +235,7 @@ impl WhatsitTrait for HBox {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V => {
+            ColonMode::H | ColonMode::V | ColonMode::P => {
                 htmlnode!(colon,div,None,"hbox",node_top,node => {
                     if crate::INSERT_RUSTEX_ATTRS {
                         node.attr("rustex:width".into(),dimtohtml(self.width()));
@@ -398,7 +398,7 @@ impl WhatsitTrait for VBox {
 
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         match mode {
-            ColonMode::H | ColonMode::External(_) => {
+            ColonMode::H | ColonMode::External(_) | ColonMode::P => {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
                 if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
@@ -470,7 +470,7 @@ impl WhatsitTrait for VBox {
 
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::V | ColonMode::H => htmlnode!(colon,div,None,"vbox",node_top,node => {
+            ColonMode::V | ColonMode::H | ColonMode::P => htmlnode!(colon,div,None,"vbox",node_top,node => {
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
                     node.attr("rustex:height".into(),dimtohtml(self.height()));

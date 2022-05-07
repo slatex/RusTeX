@@ -7,7 +7,7 @@ use crate::stomach::whatsits::WhatsitTrait;
 use crate::utils::TeXStr;
 
 #[derive(PartialEq,Clone)]
-pub enum ColonMode { V,H,M,External(TeXStr) }
+pub enum ColonMode { V,H,P,M,External(TeXStr) }
 
 pub struct ColonBase {
     pub basefont:Option<Arc<Font>>,

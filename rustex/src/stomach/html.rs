@@ -17,7 +17,7 @@ use crate::utils::TeXStr;
 
 
 pub fn dimtohtml(num:i32) -> HTMLStr {
-    numtostr(num,"px").into()
+    numtostr((1.5 * (num as f32)).round() as i32,"px").into()
 }
 
 pub static HTML_NS : &str = "http://www.w3.org/1999/xhtml";

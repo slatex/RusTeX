@@ -49,6 +49,11 @@ a {
 }
 .raise {
     position: relative;
+    display: inline-block;
+}
+.moveright {
+    position: relative;
+    display: inline-block;
 }
 .paragraph {
     hyphens: auto;

@@ -120,7 +120,7 @@ impl WhatsitTrait for MathGroup {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
+            ColonMode::H | ColonMode::P if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
                 div.style("width".into(),"100%".into());
                 div.style("min-width".into(),"100%".into());
                 if crate::INSERT_RUSTEX_ATTRS {
@@ -140,7 +140,7 @@ impl WhatsitTrait for MathGroup {
                     })
                 })
             }),
-            ColonMode::H => htmlnode!(colon,MATHML_NS:math,None,"",node_top,node=> {
+            ColonMode::H | ColonMode::P => htmlnode!(colon,MATHML_NS:math,None,"",node_top,node=> {
                 htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                     self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
                     /*if mrow.children.len() == 1 {

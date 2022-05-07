@@ -37,7 +37,7 @@ impl WhatsitTrait for Paragraph {
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let (mut np, ch) = self.destroy();
         let mut hret: Vec<Whatsit> = vec!();
-        for c in ch { c.normalize(&ColonMode::H, &mut hret, scale) }
+        for c in ch { c.normalize(&ColonMode::P, &mut hret, scale) }
         np.children = hret;
         ret.push(Whatsit::Par(np))
     }

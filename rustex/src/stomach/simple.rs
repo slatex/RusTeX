@@ -394,7 +394,7 @@ impl WhatsitTrait for HSkip {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H =>
+            ColonMode::H | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
@@ -440,7 +440,7 @@ impl WhatsitTrait for MSkip {
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
                     a.attr("width".into(),numtostr(self.skip.base / 12,"em").into()) // 1179648
                 }),
-            ColonMode::H =>
+            ColonMode::H | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
                     node.style("margin-left".into(),numtostr(self.skip.base / 12,"em").into());
                 }),
@@ -467,13 +467,13 @@ impl WhatsitTrait for Penalty {
     fn has_ink(&self) -> bool { false }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         match (self.penalty,mode) {
-            (p,ColonMode::H) if p <= -10000 => ret.push(self.as_whatsit()),
+            (p,ColonMode::H | ColonMode::P) if p <= -10000 => ret.push(self.as_whatsit()),
             _ => ()
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H if self.penalty <= -10000 =>
+            ColonMode::H | ColonMode::P if self.penalty <= -10000 =>
                 htmlliteral!(colon,node_top,"<br/>"),
             _ => ()
         }
@@ -613,8 +613,8 @@ impl WhatsitTrait for Raise {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V =>
-                htmlnode!(colon,span,self.sourceref,"raise",node_top,node => {
+            ColonMode::H | ColonMode::V | ColonMode::P =>
+                htmlnode!(colon,div,self.sourceref,"raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(self.dim));
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
@@ -691,7 +691,7 @@ impl WhatsitTrait for MoveRight {
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,span,self.sourceref,"moveright",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"moveright",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
             self.content.as_html(mode,colon,htmlparent!(node))
         })
@@ -959,7 +959,7 @@ impl WhatsitTrait for HAlign {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V => {
+            ColonMode::H | ColonMode::V | ColonMode::P => {
                 htmlnode!(colon,table,self.sourceref,"halign",node_top,table => {
                     if self.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
@@ -1341,7 +1341,7 @@ macro_rules! trivial {
             }
             fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
                 match mode {
-                    ColonMode::H | ColonMode::V => {
+                    ColonMode::H | ColonMode::V | ColonMode::P => {
                         htmlnode!(colon,div,self.0,(stringify!($e)),node_top)
                     }
                     _ => ()
