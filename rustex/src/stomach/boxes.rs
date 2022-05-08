@@ -241,7 +241,7 @@ impl WhatsitTrait for HBox {
                         node.attr("rustex:width".into(),dimtohtml(self.width()));
                         node.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
-                    htmlliteral!(colon,node_top,"\n");
+                    //htmlliteral!(colon,node_top,"\n");
                     match self._width {
                         Some(h) => {
                             node.style("width".into(),dimtohtml(h));
@@ -257,7 +257,7 @@ impl WhatsitTrait for HBox {
                         _ => ()
                     }
                     for c in self.children { c.as_html(&ColonMode::H,colon,htmlparent!(node)) }
-                    htmlliteral!(colon,node_top,"\n");
+                    //htmlliteral!(colon,node_top,"\n");
                 })
             }
             ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
@@ -495,7 +495,9 @@ impl WhatsitTrait for VBox {
                     _ => ()
                 }
                 for c in self.children {
-                    c.as_html(&ColonMode::V,colon,htmlparent!(node))
+                    htmlliteral!(colon,node_top,"\n");
+                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                    htmlliteral!(colon,node_top,"\n");
                 }
             }),
             ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
