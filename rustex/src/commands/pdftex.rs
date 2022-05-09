@@ -1,7 +1,8 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
-use crate::interpreter::tokenize;
-use crate::{Interpreter, VERSION_INFO};
+use crate::interpreter::{string_to_tokens, tokenize};
+use crate::{Interpreter, Token, VERSION_INFO};
 use crate::{log,TeXErr};
+use crate::catcodes::CategoryCode;
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
@@ -723,6 +724,37 @@ pub static PDFINFO: SimpleWhatsit = SimpleWhatsit {
     }
 };
 
+pub static PDFESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfescapehex",
+    expandable:true,
+    _apply:|tk,int| {
+        let tks = int.read_balanced_argument(true,false,false,false)?;
+        for t in tks {
+            for t in string_to_tokens(format!("{:x?}",t.char).into()) {
+                tk.2.push(t)
+            }
+        }
+        Ok(())
+    }
+};
+
+pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfunescapehex",
+    expandable:true,
+    _apply:|tk,int| {
+        let tks = int.read_balanced_argument(true,false,false,false)?;
+        let str = int.tokens_to_string(&tks).to_utf8();
+        for i in (0..str.len()).step_by(2) {
+            let u = match u8::from_str_radix(&str[i..i + 2], 16){
+                Ok(u) => u,
+                _ => TeXErr!(tk.0.clone() => "Hex value expected!")
+            };
+            tk.2.push(Token::new(u,CategoryCode::Other,None,None,true))
+        }
+        Ok(())
+    }
+};
+
 // -------------------------------------------------------------------------------------------------
 
 pub static PDFOUTPUT : RegisterReference = RegisterReference {
@@ -885,12 +917,6 @@ pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {TeXErr!("TODO")}
 };
 
-pub static PDFESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfescapehex",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
-};
-
 pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffiledump",
     expandable:true,
@@ -899,12 +925,6 @@ pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
-};
-
-pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
-    name:"pdfunescapehex",
     expandable:true,
     _apply:|_tk,_int| {TeXErr!("TODO")}
 };
