@@ -341,6 +341,9 @@ impl HTMLNode {
                         self.children = std::mem::take(&mut a.children)
                     }
                 }
+                Some(HTMLChild::Str(ref s)) if s.to_string() == " " => {
+                    self.children = vec!(HTMLChild::Str("&nbsp;".into()))
+                }
                 _ => ()
             }
         }

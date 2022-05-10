@@ -14,7 +14,7 @@ pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;
 static COPY_COMMANDS_FULL : bool = true;
-static INSERT_RUSTEX_ATTRS: bool = true;
+static INSERT_RUSTEX_ATTRS: bool = false;
 
 #[macro_export]
 macro_rules! log {
