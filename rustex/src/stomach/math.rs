@@ -423,7 +423,7 @@ impl WhatsitTrait for CustomMathChar {
             _ => None
         };
         let mut charstr : HTMLStr = self.str.into();
-        charstr = charstr.html_escape();
+        //charstr = charstr.html_escape();
         let mimoinfo = FontInfo::new(&self.font);
         let clsstr : HTMLStr = "binop".into();
         match maybemimo {
@@ -479,7 +479,7 @@ impl WhatsitTrait for MathChar {
                 "???".into()
             }
         };
-        charstr = charstr.html_escape();
+        //charstr = charstr.html_escape();
         let mimoinfo = FontInfo::new(&self.font);
         let clsstr : HTMLStr = (match self.class {
             1 => "largeop",
