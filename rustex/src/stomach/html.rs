@@ -408,10 +408,11 @@ impl HTMLNode {
                 mi
             }
             Some(ref mi) => {
-                self.style("font-family".into(),"STIXgeneral, Times, Symbol, cmr10, CMSY10, CMEX10, serif".into());
-                self.style("font-style".into(),"normal".into());
-                self.style("font-weight".into(),"normal".into());
-                self.style("font-variant".into(),"normal".into());
+                self.classes.push("resetfont".into());
+                //self.style("font-family".into(),"STIXgeneral, Times, Symbol, cmr10, CMSY10, CMEX10, serif".into());
+                //self.style("font-style".into(),"normal".into());
+                //self.style("font-weight".into(),"normal".into());
+                //self.style("font-variant".into(),"normal".into());
                 if mi.params.contains(&FontTableParam::Monospaced) {
                     self.style("font-family".into(),"monospace".into())
                 }

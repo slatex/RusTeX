@@ -106,7 +106,7 @@ impl WhatsitTrait for Paragraph {
             }
             node.style("width".into(),dimtohtml(self.width()));
             node.style("min-width".into(),dimtohtml(self.width()));
-            for c in self.children { c.as_html(&ColonMode::H,colon,htmlparent!(node)) }
+            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
         });
         htmlliteral!(colon,node_top,"\n");
     }

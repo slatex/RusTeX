@@ -149,7 +149,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     }
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V => htmlannotate!(colon,span,self.sourceref.clone(),node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.sourceref.clone(),node_top,a => {
                 for (k,v) in &self.attrs {
                     a.attr(k.into(),v.into())
                 }
