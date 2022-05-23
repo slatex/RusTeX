@@ -10,6 +10,22 @@ body {
     font-variant: normal;
 }
 
+.monospaced {
+    font-family: monospace;
+}
+
+.blackboard {
+    font-family: msbm;
+}
+
+.script {
+    font-family: URW Chancery L, cursive;
+}
+
+.sansserif {
+    font-family: sans-serif;
+}
+
 .body {
     position: relative;
 

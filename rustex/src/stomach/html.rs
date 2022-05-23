@@ -414,7 +414,8 @@ impl HTMLNode {
                 //self.style("font-weight".into(),"normal".into());
                 //self.style("font-variant".into(),"normal".into());
                 if mi.params.contains(&FontTableParam::Monospaced) {
-                    self.style("font-family".into(),"monospace".into())
+                    self.classes.push("monospaced".into())
+                    //self.style("font-family".into(),"monospace".into())
                 }
                 if mi.params.contains(&FontTableParam::Italic) {
                     self.style("font-style".into(),"italic".into())
@@ -423,16 +424,19 @@ impl HTMLNode {
                     self.style("font-weight".into(),"bold".into())
                 }
                 if mi.params.contains(&FontTableParam::Blackboard) {
-                    self.style("font-family".into(),"msbm".into())
+                    self.classes.push("blackboard".into())
+                    //self.style("font-family".into(),"msbm".into())
                 }
                 if mi.params.contains(&FontTableParam::Capital) {
                     self.style("font-variant".into(),"small-caps".into())
                 }
                 if mi.params.contains(&FontTableParam::SansSerif) {
-                    self.style("font-family".into(),"sans-serif".into())
+                    self.classes.push("sansserif".into())
+                    //self.style("font-family".into(),"sans-serif".into())
                 }
                 if mi.params.contains(&FontTableParam::Script) {
-                    self.style("font-family".into(),"URW Chancery L, cursive".into())
+                    self.classes.push("script".into())
+                    //self.style("font-family".into(),"URW Chancery L, cursive".into())
                 }
                 self.style("font-size".into(),((100.0 * (mi.at as f32) / (fi.at as f32)).round().to_string() + "%").into());
                 mi
