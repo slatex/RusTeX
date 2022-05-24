@@ -10,6 +10,7 @@
 
 \expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
 
+\def\pgfsyspdfmark#1#2#3{}
 
 % Copyright 2019 by Till Tantau
 %
