@@ -262,9 +262,9 @@ impl WhatsitTrait for HBox {
             }
             ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(span),"\n");
                 })
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
@@ -476,7 +476,7 @@ impl WhatsitTrait for VBox {
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
                 }
                 match self.tp {
-                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
+                    VBoxType::V => node.style("vertical-align".into(),"baseline".into()),
                     VBoxType::Center => node.style("vertical-align".into(),"middle".into()),
                     VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
                 }
@@ -495,16 +495,16 @@ impl WhatsitTrait for VBox {
                     _ => ()
                 }
                 for c in self.children {
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(node),"\n");
                     c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(node),"\n");
                 }
             }),
             ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
-                    htmlliteral!(colon,node_top,"\n");
+                    htmlliteral!(colon,htmlparent!(span),"\n");
                 })
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
