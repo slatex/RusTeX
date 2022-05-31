@@ -15,9 +15,10 @@ use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
 use crate::utils::TeXStr;
 
+pub static HTMLSCALE : f32 = 1.5;
 
 pub fn dimtohtml(num:i32) -> HTMLStr {
-    numtostr((1.5 * (num as f32)).round() as i32,"px").into()
+    numtostr((HTMLSCALE * (num as f32)).round() as i32,"px").into()
 }
 
 pub static HTML_NS : &str = "http://www.w3.org/1999/xhtml";

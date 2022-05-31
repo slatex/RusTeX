@@ -1448,8 +1448,8 @@ pub static FONT: FontAssValue = FontAssValue {
         int.change_command(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
         Ok(())
     },
-    _getvalue: |_int| {
-        TeXErr!("TODO")
+    _getvalue: |int| {
+        Ok(int.state.currfont.get(&()))
     }
 };
 
@@ -1520,9 +1520,10 @@ pub fn read_font<'a>(int : &mut Interpreter) -> Result<Arc<Font>,TeXError> {
     match &*cmd.orig {
         PrimitiveTeXCommand::AV(AssignableValue::FontRef(f)) =>
             Ok(f.clone()),
-        PrimitiveTeXCommand::AV(AssignableValue::Font(_)) => Ok(int.state.currfont.get(&())),
+        PrimitiveTeXCommand::AV(AssignableValue::Font(f)) =>
+            (f._getvalue)(int),
         PrimitiveTeXCommand::Ass(p) if **p == NULLFONT =>
-        Ok(NULL_FONT.try_with(|x| x.clone()).unwrap()),
+            Ok(NULL_FONT.try_with(|x| x.clone()).unwrap()),
         _ => TeXErr!(tk => "Font expected!")
     }
 }
@@ -2592,6 +2593,7 @@ pub static NOALIGN: PrimitiveExecutable = PrimitiveExecutable {
 fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         (Skip,Vec<(Vec<Token>,Vec<Token>,Skip)>,Vec<AlignBlock>),TeXError> {
     int.expand_until(false)?;
+    //unsafe {crate::LOG = true }
     let bg = int.next_token();
     match bg.catcode {
         CategoryCode::BeginGroup => (),

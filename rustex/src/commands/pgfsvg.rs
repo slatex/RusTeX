@@ -6,7 +6,7 @@ use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::WIGroupTrait;
-use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, SVG_NS};
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr, SVG_NS};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -72,7 +72,7 @@ impl WhatsitTrait for PGFEscape {
                     })
                 })
             }
-            _ => ()
+            _ => self.bx.as_html(mode,colon,node_top)
         }
     }
 }
@@ -166,13 +166,14 @@ impl WhatsitTrait for PGFBox {
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,SVG_NS:svg,self.sourceref,"",node_top,svg => {
-            let mut vb : HTMLStr = numtostr(self.minx,"").into();
+            let scale = |i : i32| -> HTMLStr {numtostr((HTMLSCALE * (i as f32)).round() as i32,"").into()};
+            let mut vb : HTMLStr = (scale)(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
             vb += " ";
-            vb += numtostr(self.miny,"");
+            vb += (scale)(self.miny);
             vb += " ";
-            vb += numtostr(self.maxx-self.minx,"");
+            vb += (scale)(self.maxx - self.minx);//numtostr(HTMLSCALE * (self.maxx-self.minx),"");
             vb += " ";
-            vb += numtostr(self.maxy-self.miny,"");
+            vb += (scale)(self.maxy - self.miny); //numtostr(HTMLSCALE * (self.maxy-self.miny),"");
             svg.attr("width".into(),dimtohtml(self.maxx-self.minx));
             svg.attr("height".into(),dimtohtml(self.maxy-self.miny));
             svg.attr("viewBox".into(),vb);

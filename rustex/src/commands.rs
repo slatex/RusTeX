@@ -643,7 +643,8 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "__hook_next para/before" {
+        /*if tk.cmdname().to_string() == "stex_invoke_variable:n"
+            {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
                 println!("{} - {}",p.0,p.1);
