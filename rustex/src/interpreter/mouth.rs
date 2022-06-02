@@ -7,6 +7,8 @@ use std::str::from_utf8;
 use std::sync::Arc;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
+use crate::commands::primitives::RELAX;
+use crate::commands::PrimitiveTeXCommand;
 use crate::references::{SourceFileReference, SourceReference};
 use crate::utils::{TeXStr, TeXString};
 
@@ -677,17 +679,36 @@ impl Mouths {
         }
     }
     pub fn end_input(&mut self,io:&dyn InterpreterParams) {
-        loop {
-            match self.mouths.last() {
-                Some(Mouth::File(_)) => {
-                    self.mouths.pop();
-                    io.file_close();
-                    return ()
+        let mut prevs : Vec<Mouth> = vec!();
+        while (!self.mouths.is_empty()) {
+            match self.mouths.pop().unwrap() {
+                Mouth::File(mut sm) => {
+                    match sm.peekbuffer {
+                        Some(p) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(p)))),
+                        _ => ()
+                    }
+                    match &mut sm.string {
+                        Some(s) => {
+                            let mut str = std::mem::take(s);
+                            str = TeXString(str.0.as_slice()[sm.pos..].to_vec());
+                            match sm.charbuffer {
+                                Some((a,_,_)) => {
+                                    let mut old = std::mem::take(&mut str.0);
+                                    str.0 = vec!(a);
+                                    str.0.append(&mut old)
+                                },
+                                _ => ()
+                            }
+                            self.mouths.push(Mouth::Str(StringMouth::new(Expansion::new(Token::dummy(),Arc::new(PrimitiveTeXCommand::Primitive(&RELAX))),str)));
+                        }
+                        _ => ()
+                    }
+                    break
                 }
-                Some(_) => {self.mouths.pop();}
-                _ => panic!("Mouth empty!")
+                m => prevs.push(m)
             }
         }
+        for m in prevs.drain(..).rev() { self.mouths.push(m) }
     }
     pub fn preview(&self) -> TeXString {
         let mut ret : TeXString = "".into();

@@ -136,6 +136,11 @@ impl TeXString {
         self.0.split(|x| *x == u).map(|x| x.into()).collect()
     }
 }
+impl Default for TeXString {
+    fn default() -> Self {
+        TeXString(vec!())
+    }
+}
 
 impl Display for TeXString {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

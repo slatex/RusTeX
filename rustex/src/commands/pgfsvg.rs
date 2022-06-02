@@ -179,9 +179,9 @@ impl WhatsitTrait for PGFBox {
             svg.attr("viewBox".into(),vb);
             htmlnode!(colon,g,None,"",htmlparent!(svg),g => {
                 let mut tr : HTMLStr = "translate(0,".into();
-                tr += numtostr(self.maxy,"");
+                tr += (scale)(self.maxy);
                 tr += ") scale(1,-1) translate(0,";
-                tr += numtostr(-self.miny,"");
+                tr += (scale)(-self.miny);
                 tr += ")";
                 g.attr("transform".into(),tr);
                 for c in self.content {
