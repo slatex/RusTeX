@@ -759,10 +759,15 @@ impl WhatsitTrait for HKern {
             _ => ret.push(self.as_whatsit())
         }
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref,"hkern",node_top,node => {
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::M => htmlnode!(colon,mspace,self.sourceref,"hkern",node_top,node => {
+            node.attr("width".into(),dimtohtml(self.dim));
+        }),
+            _ => htmlnode!(colon,div,self.sourceref,"hkern",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
         })
+        }
     }
 }
 
