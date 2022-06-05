@@ -29,7 +29,7 @@ impl VFile {
         use crate::LANGUAGE_DAT;
         let simplename : TeXStr = (if intexmf {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
-        } else if fp.to_str().unwrap().starts_with("nul:") {
+        } else if fp.to_str().unwrap().starts_with("<texmf>/NUL:") {
             fp.to_str().unwrap().into()
         } else {
             pathdiff::diff_paths(fp,in_file).unwrap().to_str().unwrap().to_string()//.to_ascii_uppercase()
@@ -74,7 +74,7 @@ impl VFile {
                         source:VFileBase::Real(fp.to_str().unwrap().into()),
                         string:Arc::new(RwLock::new(if fp.exists() {
                             fs::read(fp).ok().map(|x| x.into())
-                        } else if simplename.to_string() == "nul:" {
+                        } else if simplename.to_string() == "<texmf>/NUL:" {
                             Some("".into())
                         } else {None})),
                         id:simplename
