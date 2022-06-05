@@ -588,10 +588,6 @@ impl State {
             log:false,
             singlethreaded:true
         }; // */ NoOutput::new(None);
-        for c in rustex_special_commands() {
-            let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
-        }
 
         state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
         state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
