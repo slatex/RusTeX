@@ -494,10 +494,15 @@ pub static INPUT: PrimitiveExecutable = PrimitiveExecutable {
         if filename.starts_with("|kpsewhich ") {
             let pwd = int.jobinfo.in_file().display().to_string();
             let args = filename[11..].split(" ");
-            let out = Command::new("kpsewhich").current_dir(&pwd)
-                .env("PWD",&pwd).env("CD",&pwd)
-                .args(args.collect::<Vec<&str>>()).output().expect("kpsewhich not found!")
-                .stdout;
+            let out = if cfg!(target_os = "windows") {
+                Command::new("cmd").current_dir(&pwd).env("PWD",&pwd).env("CD",&pwd).args(&["/C",&filename[1..]])//args.collect::<Vec<&str>>())
+                    .output().expect("kpsewhich not found!")
+                    .stdout
+            } else {
+                Command::new("kpsewhich").current_dir(&pwd).env("PWD",&pwd).env("CD",&pwd).args(args.collect::<Vec<&str>>())
+                    .output().expect("kpsewhich not found!")
+                    .stdout
+            };
             let ret = std::str::from_utf8(out.as_slice()).unwrap().trim();
             int.requeue(int.eof_token());
             int.insert_every(&EVERYEOF);
