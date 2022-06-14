@@ -51,6 +51,7 @@ macro_rules! pass_on {
 }
 
 impl WhatsitTrait for TeXBox {
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,None,get_ref) }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Box(self)
     }
@@ -80,6 +81,9 @@ pub struct HBox {
 }
 
 impl WhatsitTrait for HBox {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
+    }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Box(TeXBox::H(self))
     }
@@ -236,7 +240,7 @@ impl WhatsitTrait for HBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
-                htmlnode!(colon,div,None,"hbox",node_top,node => {
+                htmlnode!(colon,div,self.get_ref(),"hbox",node_top,node => {
                     if crate::INSERT_RUSTEX_ATTRS {
                         node.attr("rustex:width".into(),dimtohtml(self.width()));
                         node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -260,7 +264,7 @@ impl WhatsitTrait for HBox {
                     //htmlliteral!(colon,node_top,"\n");
                 })
             }
-            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
+            ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
@@ -284,6 +288,9 @@ pub struct VBox {
 }
 
 impl WhatsitTrait for VBox {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
+    }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Box(TeXBox::V(self))
     }
@@ -470,7 +477,7 @@ impl WhatsitTrait for VBox {
 
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::V | ColonMode::H | ColonMode::P => htmlnode!(colon,div,None,"vbox",node_top,node => {
+            ColonMode::V | ColonMode::H | ColonMode::P => htmlnode!(colon,div,self.get_ref(),"vbox",node_top,node => {
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -500,7 +507,7 @@ impl WhatsitTrait for VBox {
                     htmlliteral!(colon,htmlparent!(node),"\n");
                 }
             }),
-            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
+            ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

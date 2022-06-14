@@ -50,6 +50,7 @@ pub trait ExternalWhatsitGroup : Send+Sync {
     fn name(&self) -> TeXStr;
     fn params(&self,name:&str) -> Option<TeXStr>;
     fn width(&self,ch:&Vec<Whatsit>) -> i32;
+    fn get_ref(&self,ch:&Vec<Whatsit>) -> Option<SourceFileReference>;
     fn height(&self,ch:&Vec<Whatsit>) -> i32;
     fn depth(&self,ch:&Vec<Whatsit>) -> i32;
     fn as_xml_internal(&self,ch:&Vec<Whatsit>, prefix: String) -> String;
@@ -63,6 +64,7 @@ pub trait ExternalWhatsitGroup : Send+Sync {
 }
 
 impl WhatsitTrait for WIGroup {
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,get_ref,(e,ch) => e.get_ref(ch))}
     fn as_whatsit(self) -> Whatsit {
         Whatsit::GroupOpen(self)
     }
@@ -128,6 +130,9 @@ pub struct FontChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for FontChange {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
+    }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut ng = self.new_from();
         let mut in_ink = false;
@@ -184,7 +189,7 @@ impl WhatsitTrait for FontChange {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match &self.font.file.chartable {
             Some(_) => {
-                htmlannotate!(colon,span,self.sourceref,node_top,a => {
+                htmlannotate!(colon,span,self.get_ref(),node_top,a => {
                     if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),self.font.file.name.clone().into()) }
                     a.fontinfo = Some(FontInfo::new(&self.font));
                     for c in self.children {
@@ -231,6 +236,9 @@ pub struct ColorChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for ColorChange {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
+    }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut ng = self.new_from();
         let mut in_ink = false;
@@ -322,7 +330,7 @@ impl WhatsitTrait for ColorChange {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.sourceref,node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.get_ref(),node_top,a => {
                 let color : HTMLStr = ColorChange::color_to_html(self.color).into();
                 let hashcolor : HTMLStr = "#".into();
                 a.style("color".into(),hashcolor + &color);
@@ -331,7 +339,7 @@ impl WhatsitTrait for ColorChange {
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
                 colon.state.currcolor = _oldcolor;
             }),
-            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref,node_top,a => {
+            ColonMode::M => htmlannotate!(colon,mrow,self.get_ref(),node_top,a => {
                 let color : HTMLStr = ColorChange::color_to_html(self.color).into();
                 let hashcolor : HTMLStr = "#".into();
                 a.style("color".into(),hashcolor + &color);
@@ -398,6 +406,9 @@ pub struct PDFLink {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFLink {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
+    }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut ng = self.new_from();
         for c in self.children { c.normalize(mode, ng.children_mut(), scale) }
@@ -426,11 +437,11 @@ impl WhatsitTrait for PDFLink {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V | ColonMode::P => htmlnode!(colon,a,self.sourceref,"pdflink",node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlnode!(colon,a,self.get_ref(),"pdflink",node_top,a => {
                 a.attr("href".into(),self.action.as_link().into());
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
             }),
-            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref,node_top,a => {
+            ColonMode::M => htmlannotate!(colon,mrow,self.get_ref(),node_top,a => {
                 a.attr("href".into(),self.action.as_link().into());
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
             }),
@@ -468,6 +479,9 @@ pub struct PDFMatrixSave {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFMatrixSave {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
+    }
     fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let matrix = match self.children.iter().filter(|x| match x {
             Whatsit::Simple(SimpleWI::PDFMatrix(_)) => true,
@@ -517,7 +531,7 @@ impl WhatsitTrait for PDFMatrixSave {
             _ => false
         }).next() {
             Some(Whatsit::Simple(SimpleWI::PDFMatrix(matrix))) => {
-                htmlnode!(colon,span,self.sourceref,"pdfmatrix",node_top,m => {
+                htmlnode!(colon,span,self.get_ref(),"pdfmatrix",node_top,m => {
                     m.style("transform-origin".into(),"top left".into());
                     let mut tf : HTMLStr = "matrix(".into();
                     tf += matrix.scale.to_string();
@@ -609,6 +623,7 @@ impl WIGroupCloseTrait for GroupClose {
     }
 }
 impl WhatsitTrait for GroupClose {
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on_close!(self,get_ref,e => e.sourceref().clone()) }
     fn as_whatsit(self) -> Whatsit {
         WIGroupCloseTrait::as_whatsit_i(self)
     }
@@ -634,6 +649,7 @@ macro_rules! groupclose {
             }
         }
         impl WhatsitTrait for $e {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
             fn as_whatsit(self) -> Whatsit {
                 WIGroupCloseTrait::as_whatsit_i(self)
             }

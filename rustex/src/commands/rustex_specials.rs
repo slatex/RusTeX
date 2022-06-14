@@ -18,6 +18,7 @@ pub struct HTMLLiteral {
     pub(crate) str : TeXStr
 }
 impl WhatsitTrait for HTMLLiteral {
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -52,6 +53,7 @@ pub struct HTMLNamespace {
     ns : TeXStr
 }
 impl WhatsitTrait for HTMLNamespace {
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -121,6 +123,9 @@ struct AnnotateBegin {
     styles:HashMap<String,String>
 }
 impl ExternalWhatsitGroup for AnnotateBegin {
+    fn get_ref(&self,ch : &Vec<Whatsit>) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(ch).or(self.sourceref.clone())
+    }
     fn name(&self) -> TeXStr { "HTMLannotate".into() }
     fn params(&self,s:&str) -> Option<TeXStr> { match self.attrs.get(s) {
         Some(x) => Some(x.clone().into()),
@@ -149,7 +154,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     }
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.sourceref.clone(),node_top,a => {
+            ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.get_ref(&ch),node_top,a => {
                 for (k,v) in &self.attrs {
                     a.attr(k.into(),v.into())
                 }
@@ -160,7 +165,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
                     c.as_html(mode,colon,htmlparent!(a))
                 }
             }),
-            ColonMode::M => htmlannotate!(colon,mrow,self.sourceref.clone(),node_top,a => {
+            ColonMode::M => htmlannotate!(colon,mrow,self.get_ref(&ch),node_top,a => {
                 for (k,v) in &self.attrs {
                     a.attr(k.into(),v.into())
                 }

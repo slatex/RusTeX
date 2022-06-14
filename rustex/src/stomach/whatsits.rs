@@ -79,6 +79,7 @@ pub trait WhatsitTrait {
     }
     fn normalize(self,mode:&ColonMode,ret:&mut Vec<Whatsit>,scale:Option<f32>);
     fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
+    fn get_ref(&self) -> Option<SourceFileReference>;
 }
 
 use crate::stomach::boxes::TeXBox;
@@ -132,6 +133,7 @@ macro_rules! pass_on {
 }
 
 impl WhatsitTrait for Whatsit {
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,get_ref) }
     /*fn test(&self) {
         match self {
             Whatsit::Exec(e) => {
@@ -211,6 +213,7 @@ impl ExecutableWhatsit {
     }
 }
 impl WhatsitTrait for Arc<ExecutableWhatsit> {
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -235,6 +238,7 @@ pub struct SpaceChar {
     pub font : Arc<Font>,
 }
 impl WhatsitTrait for SpaceChar {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -259,6 +263,7 @@ pub struct Accent {
     pub acc:i32
 }
 impl WhatsitTrait for Accent {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -319,6 +324,7 @@ pub struct PrintChar {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PrintChar {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
@@ -356,6 +362,9 @@ impl WhatsitTrait for PrintChar {
 #[derive(Clone)]
 pub struct Insert(pub Vec<Vec<Whatsit>>);
 impl WhatsitTrait for Insert {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_lists(&self.0)
+    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Inserts(self) }
     fn width(&self) -> i32 { 0 }//TeXErr!("TODO") }
     fn height(&self) -> i32 { 0 }//TeXErr!("TODO") }

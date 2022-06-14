@@ -27,6 +27,7 @@ pub struct PGFEscape {
     pub bx : TeXBox
 }
 impl WhatsitTrait for PGFEscape {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
     fn has_ink(&self) -> bool { true }
     fn depth(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
@@ -138,6 +139,7 @@ impl PGFBox {
     }
 }
 impl WhatsitTrait for PGFBox {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
     fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         let nc : Vec<Whatsit> = self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
         self.content = nc;
@@ -244,6 +246,7 @@ pub struct PGFLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for PGFLiteral {
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }

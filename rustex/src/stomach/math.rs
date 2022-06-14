@@ -26,6 +26,21 @@ impl MathGroup {
 }
 
 impl WhatsitTrait for MathGroup {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        let start = match self.kernel.get_ref() {
+            Some(s) => s,
+            _ => return None
+        };
+        match (self.superscript.as_ref().map(|x| x.get_ref()),self.subscript.as_ref().map(|x| x.get_ref())) {
+            (Some(Some(a)),Some(Some(b))) => {
+                if a < b { start.merge(&b) }
+                else {start.merge(&a)}
+            }
+            (Some(Some(a)),_) => start.merge(&a),
+            (_,Some(Some(b))) => start.merge(&b),
+            _ => Some(start)
+        }
+    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Math(self) }
     fn as_xml_internal(&self,prefix: String) -> String {
         let mut ret = "\n".to_string() + &prefix + "<math>\n  " + &prefix + "<kernel>";
@@ -127,7 +142,7 @@ impl WhatsitTrait for MathGroup {
                     div.attr("rustex:width".into(),dimtohtml(self.width()));
                     div.attr("rustex:height".into(),dimtohtml(self.height()));
                 }
-                htmlnode!(colon,MATHML_NS:math,None,"",htmlparent!(div),node=> {
+                htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",htmlparent!(div),node=> {
                     node.attr("displaystyle".into(),"true".into());
                     htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                         self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
@@ -140,7 +155,7 @@ impl WhatsitTrait for MathGroup {
                     })
                 })
             }),
-            ColonMode::H | ColonMode::P => htmlnode!(colon,MATHML_NS:math,None,"",node_top,node=> {
+            ColonMode::H | ColonMode::P => htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",node_top,node=> {
                 htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                     self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
                     /*if mrow.children.len() == 1 {
@@ -151,9 +166,11 @@ impl WhatsitTrait for MathGroup {
                     }*/
                 })
             }),
-            ColonMode::M => match (self.subscript,self.superscript) {
-                (None,None) => self.kernel.as_html(mode,colon,node_top),
-                (None,Some(ss)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,mover,None,"",node_top,msup => {
+            ColonMode::M => {
+                let rf = self.get_ref();
+                match (self.subscript,self.superscript) {
+                    (None,None) => self.kernel.as_html(mode,colon,node_top),
+                    (None,Some(ss)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,mover,rf,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -161,7 +178,7 @@ impl WhatsitTrait for MathGroup {
                     ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
-                (None,Some(ss)) => htmlnode!(colon,msup,None,"",node_top,msup => {
+                    (None,Some(ss)) => htmlnode!(colon,msup,rf,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -169,7 +186,7 @@ impl WhatsitTrait for MathGroup {
                     ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
-                (Some(ss),None) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munder,None,"",node_top,msup => {
+                    (Some(ss),None) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munder,rf,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -177,7 +194,7 @@ impl WhatsitTrait for MathGroup {
                     ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
-                (Some(ss),None) => htmlnode!(colon,msub,None,"",node_top,msup => {
+                    (Some(ss),None) => htmlnode!(colon,msub,rf,"",node_top,msup => {
                     msup.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -185,7 +202,7 @@ impl WhatsitTrait for MathGroup {
                     ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
-                (Some(subk),Some(supk)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munderover,None,"",node_top,msub => {
+                    (Some(subk),Some(supk)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munderover,rf,"",node_top,msub => {
                     msub.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
@@ -196,7 +213,7 @@ impl WhatsitTrait for MathGroup {
                     supk.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
                 }),
-                (Some(subk),Some(supk)) => htmlnode!(colon,msubsup,None,"",node_top,msub => {
+                    (Some(subk),Some(supk)) => htmlnode!(colon,msubsup,rf,"",node_top,msub => {
                     msub.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
@@ -207,6 +224,7 @@ impl WhatsitTrait for MathGroup {
                     supk.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
                 })
+                }
             }
             _ => () //TeXErr!("TODO")
         }
@@ -288,7 +306,7 @@ impl WhatsitTrait for MathKernel {
             limits: false
         })
     }
-
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on_kernel!(self,get_ref)}
     fn width(&self) -> i32 { pass_on_kernel!(self,width) }
     fn height(&self) -> i32 { pass_on_kernel!(self,height) }
     fn depth(&self) -> i32 { pass_on_kernel!(self,depth) }
@@ -309,6 +327,7 @@ impl WhatsitTrait for MathKernel {
 #[derive(Clone)]
 pub struct GroupedMath(pub Vec<Whatsit>);
 impl WhatsitTrait for GroupedMath {
+    fn get_ref(&self) -> Option<SourceFileReference> { SourceFileReference::from_wi_list(&self.0) }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::Group(self).as_whatsit()
     }
@@ -354,7 +373,7 @@ impl WhatsitTrait for GroupedMath {
             self.0.pop().unwrap().as_html(mode,colon,node_top)
         }
         else {
-            htmlannotate!(colon,mrow,None,node_top,node => {
+            htmlannotate!(colon,mrow,self.get_ref(),node_top,node => {
                 for w in self.0 { w.as_html(mode,colon,htmlparent!(node)) }
             })
         }
@@ -368,6 +387,7 @@ pub struct MKern {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MKern {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::MKern(self).as_whatsit()
     }
@@ -400,6 +420,7 @@ pub struct CustomMathChar {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for CustomMathChar {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::CustomMath(self).as_whatsit()
     }
@@ -450,6 +471,7 @@ pub struct MathChar {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MathChar {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::MathChar(self).as_whatsit()
     }
@@ -522,6 +544,7 @@ pub struct Delimiter {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Delimiter {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::Delimiter(self).as_whatsit()
     }
@@ -547,6 +570,7 @@ pub struct Radical {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Radical {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::Radical(self).as_whatsit()
     }
@@ -573,6 +597,7 @@ macro_rules! mathgroupkernel {
             pub sourceref:Option<SourceFileReference>
         }
         impl WhatsitTrait for $e {
+            fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
             fn as_whatsit(self) -> Whatsit {
                 MathKernel::$e(self).as_whatsit()
             }
@@ -622,6 +647,7 @@ pub struct MathAccent {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MathAccent {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         MathKernel::MathAccent(self).as_whatsit()
     }
@@ -672,6 +698,7 @@ impl Above {
     }
 }
 impl WhatsitTrait for Above {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Above(self)
     }

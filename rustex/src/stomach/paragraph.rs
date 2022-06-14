@@ -2,6 +2,7 @@ use std::cmp::max;
 use crate::{htmlliteral, htmlnode, htmlparent};
 use crate::interpreter::dimensions::{Skip, SkipDim};
 use crate::interpreter::state::State;
+use crate::references::SourceFileReference;
 use crate::stomach::{StomachGroup, Whatsit};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -24,6 +25,9 @@ pub struct Paragraph {
 }
 
 impl WhatsitTrait for Paragraph {
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(&self.children)
+    }
     fn as_xml_internal(&self,prefix: String) -> String {
         let mut ret = "\n".to_owned() + &prefix + "<paragraph>";
         for c in &self.children { ret += &c.as_xml_internal(prefix.clone() + "  ")}
@@ -43,7 +47,7 @@ impl WhatsitTrait for Paragraph {
     }
     fn as_html(mut self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,"\n");
-        htmlnode!(colon,div,None,"paragraph",node_top,node => {
+        htmlnode!(colon,div,self.get_ref(),"paragraph",node_top,node => {
             match self.lines.as_ref().unwrap().last() {
                 Some((a,b)) if *a != 0 => {
                     self.rightskip = Some(match self.rightskip {

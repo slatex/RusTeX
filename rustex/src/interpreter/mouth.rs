@@ -678,9 +678,9 @@ impl Mouths {
             _ => "".to_string()
         }
     }
-    pub fn end_input(&mut self,io:&dyn InterpreterParams) {
+    pub fn end_input(&mut self) {
         let mut prevs : Vec<Mouth> = vec!();
-        while (!self.mouths.is_empty()) {
+        while !self.mouths.is_empty() {
             match self.mouths.pop().unwrap() {
                 Mouth::File(mut sm) => {
                     match sm.peekbuffer {
@@ -784,7 +784,7 @@ impl Interpreter<'_> {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),None,true)
     }
     pub fn end_input(&mut self) {
-        self.mouths.end_input(self.params)
+        self.mouths.end_input()
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
         let mut rf = &tk.reference;
