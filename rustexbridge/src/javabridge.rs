@@ -14,8 +14,9 @@ use rustex::utils::TeXError;
 
 #[no_mangle]
 pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
-    _env: JNIEnv,
-    _class: JClass
+    env: JNIEnv,
+    _class: JClass,
+    path:JString
 ) -> jboolean {
     unsafe {
         match MAIN_STATE {
@@ -23,6 +24,7 @@ pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
             None => {
                 let state = State::pdf_latex();
                 MAIN_STATE = Some(state);
+                unsafe {rustex::PDFIUM_PATH = Some(env.get_string(path).expect("Couldn't get java string!").into())}
             }
         }
     }

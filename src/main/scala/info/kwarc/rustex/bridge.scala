@@ -1,5 +1,10 @@
 package info.kwarc.rustex
 
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+
+import java.io.{File, FileInputStream, FileOutputStream}
+import java.net.URI
 import java.util
 import scala.collection.mutable
 
@@ -12,7 +17,7 @@ object Implicits {
 }
 import Implicits._
 private class Bridge {
-  @native def initialize() : Boolean
+  @native def initialize(path:String) : Boolean
   @native def parse(file:String,p:Params,memories:util.ArrayList[String]) : String
 }
 abstract class Params {
@@ -50,13 +55,69 @@ abstract class JExecutable(val name : String) {
 
 
 object Bridge {
+  def download(uri:String,filestr:String) : Unit = {
+    val url = new URI(uri).toURL
+    val conn = url.openConnection()
+    val httpConn = conn.asInstanceOf[java.net.HttpURLConnection]
+    val resp = httpConn.getResponseCode
+    // setFollowRedirects does not actually follow redirects
+    if (resp.toString.startsWith("30")) {
+      val redirectURL = conn.getHeaderField("Location")
+      download(redirectURL,filestr)
+    }
+    else if (!resp.toString.startsWith("40")) {
+      val in = conn.getInputStream
+      val file = new File(filestr)
+      file.getParentFile.mkdirs()
+      val out = new FileOutputStream(file)
+      try {
+        val bytearray = LazyList.continually(in.read).takeWhile(_ != -1).map(_.toByte).toArray
+        out.write(bytearray)
+      } finally {
+        in.close()
+        out.close()
+      }
+    }
+  }
   //System.load("/home/jazzpirate/work/Software/RusTeX/rustexbridge/target/debug/librustex_java.so")
   private var bridge : Option[Bridge] = None
   def initialize(path : String): Unit = {
     val actualpath = path + "/" + library_filename()
+    val file = new File(actualpath)
+    if (!file.exists()) {
+      download("https://github.com/slatex/RusTeX/releases/download/latest/" + library_filename(),actualpath)
+    }
     System.load(actualpath)
+    val pdffile = new File(path + "/" + library_filename("pdfium"))
+    if (!pdffile.exists()) {
+      val tgzname = {
+        val syspath = System.getProperty("os.name").toUpperCase()
+        "pdfium-" + (if (syspath.startsWith("WINDOWS")) "win"
+        else if (syspath.startsWith("MAC")) "max"
+        else "linux") + "-x64.tgz"
+      }
+      val tgzpath = path + "/" + tgzname
+      download("https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F5145/" + tgzname,tgzpath)
+      val tgf = new File(tgzpath)
+      val filein = new FileInputStream(tgf)
+      val in = new TarArchiveInputStream(new GzipCompressorInputStream(filein))
+      var next = in.getNextEntry
+      var done = false
+      try { while (next != null && !done) {
+        if (next.getName.endsWith(library_filename("pdfium"))) {
+          val out = new FileOutputStream(pdffile)
+          val bytearray = LazyList.continually(in.read()).takeWhile(_ != -1).map(_.toByte).toArray
+          out.write(bytearray)
+          out.close()
+          done = true
+        } else next = in.getNextEntry
+      } } finally {
+        in.close()
+        tgf.delete()
+      }
+    }
     val b = new Bridge
-    b.initialize()
+    b.initialize(path + "/")
     bridge = Some(b)
     //println("TeX Engine Initialized")
   }
@@ -64,11 +125,11 @@ object Bridge {
     case Some(b) => b.parse(s,p,Implicits(memories))
     case None => ???
   }
-  def library_filename() = {
+  def library_filename(libname:String = "rustex_java") = {
     val syspath = System.getProperty("os.name").toUpperCase()
-    if (syspath.startsWith("WINDOWS")) "rustex_java.dll"
-    else if (syspath.startsWith("MAC")) "librustex_java.dylib"
-    else "librustex_java.so"
+    if (syspath.startsWith("WINDOWS")) libname + ".dll"
+    else if (syspath.startsWith("MAC")) "lib" + libname + ".dylib"
+    else "lib" + libname + ".so"
   }
   def initialized() = bridge.isDefined
   //System.load("/home/jazzpirate/work/Software/RusTeX/librustex.so")

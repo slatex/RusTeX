@@ -1,6 +1,6 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
 use crate::interpreter::{string_to_tokens, tokenize};
-use crate::{Interpreter, Token, VERSION_INFO};
+use crate::{Interpreter, pdf_to_img, Token, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::dimensions::{dimtostr, Numeric};
@@ -590,7 +590,7 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
             Ok(x) => Some(x),
             Err(e) => {
                 match file.extension() {
-                    Some(s) if s == "pdf" => None,
+                    Some(s) if s == "pdf" => pdf_to_img(file.to_str().unwrap()),
                     _ => TeXErr!("Error decoding image {} - {}",filename,e)
                 }
             }

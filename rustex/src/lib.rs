@@ -10,6 +10,12 @@ pub mod kpathsea;
 //pub mod new_state;
 //mod new_mouth;
 
+/*static IMAGEMAGICK : std::sync::Once = std::sync::Once::new();
+pub fn imagemagick() -> magick_rust::MagickWand {
+    IMAGEMAGICK.call_once(|| {magick_rust::magick_wand_genesis();});
+    return magick_rust::MagickWand::new();
+}*/
+
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;
@@ -85,8 +91,57 @@ pub struct VersionInfo {
     pub pdftexrevision: TeXString
 }
 
+use pdfium_render::prelude::*;
+
+pub static mut PDFIUM_PATH : Option<String> = None;
+static mut PDFIUM : Option<Pdfium> = None;
+pub fn pdfium() -> Option<&'static Pdfium> {
+    match unsafe{&PDFIUM} {
+        Some(pdf) => Some(pdf),
+        _ => unsafe {
+            let mut lib = Pdfium::bind_to_system_library();
+            match lib {
+                Err(_) => {
+                    let path = match &PDFIUM_PATH {
+                        Some(s) => Pdfium::pdfium_platform_library_name_at_path(s),
+                        _ => match std::env::current_exe() {
+                            Ok(p) => Pdfium::pdfium_platform_library_name_at_path(p.parent().unwrap().to_str().unwrap().to_string() + "/"),
+                            _ => Pdfium::pdfium_platform_library_name_at_path("./lib/")
+                        }
+                    };
+                    lib = Pdfium::bind_to_library(path);
+                }
+                _ => ()
+            }
+            let libbind = match lib {
+                Ok(ok) => ok,
+                _ => return None
+            };
+            //let libbind = Pdfium::bind_to_statically_linked_library().unwrap();
+            PDFIUM = Some(Pdfium::new(libbind));
+            PDFIUM.as_ref()
+        }
+    }
+}
+pub fn pdf_to_img(path:&str) -> Option<image::DynamicImage> {
+    match pdfium() {
+        Some(pdfium) => {
+            match pdfium.load_pdf_from_file(&path,None) {
+                Ok(doc) => {
+                    match doc.pages().iter().next().unwrap().get_bitmap_with_config(&PdfBitmapConfig::new()) {
+                        Ok(mut bmp) => Some(bmp.as_image()),
+                        _ => None
+                    }
+                }
+                _ => None
+            }
+        }
+        None => None
+    }
+}
 
 lazy_static! {
+
     pub static ref VERSION_INFO : VersionInfo = {
         use std::process::Command;
         use std::str;

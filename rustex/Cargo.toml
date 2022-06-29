@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib","lib"]
+crate-type = ["lib"]
 path = "src/lib.rs"
 
 [[bin]]
@@ -12,6 +12,10 @@ name = "rustex"
 path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+#[build-dependencies]
+#bindgen = "0.59"
+#pkg-config = "0.3"
 
 [dependencies]
 lazy_static = "1.4.0"
@@ -26,6 +30,9 @@ md5 = "0.7.0"
 image = "0.24.2"
 base64 =  "0.13.0"
 clap = { version = "3.0.7", features = ["derive"] }
+pdfium-render = { version = "0.7.5"}#, features = ["static"] }
+#magick_rust = { path = "../magick-rust" }
+
 #fixed = "1.11.0"
 #libc = "0.2.0"
 #kpathsea = "0.2.3"
