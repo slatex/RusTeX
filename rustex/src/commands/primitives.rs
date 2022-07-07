@@ -745,7 +745,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
                 (wi._apply)(&mut int.state,int.params)?;
                 Ok(())
             }
-            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM || *x==PDFOBJ => {
+            PrimitiveTeXCommand::Primitive(x) if *x == PDFXFORM || *x==PDFOBJ || *x == OPENIN || *x == CLOSEIN => {
                 int.requeue(next);
                 Ok(())
             }
