@@ -6,7 +6,7 @@ use crate::catcodes::CategoryCode;
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
-use crate::stomach::simple::{PDFDest, PDFInfo, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
+use crate::stomach::simple::{PDFDest, PDFImageRule, PDFInfo, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
 use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
@@ -23,12 +23,42 @@ fn read_attrspec(int:&mut Interpreter) -> Result<Option<TeXStr>,TeXError> {
     Ok(ret)
 }
 
-fn read_rule_spec(int:&mut Interpreter )-> Result<String,TeXError> {
+
+fn read_rule_spec(int:&mut Interpreter )-> Result<PDFImageRule,TeXError> {
     int.expand_until(true)?;
-    match int.read_keyword(vec!("width", "height", "depth"))? {
-        Some(s) => Ok((s + " " + &dimtostr(int.read_dimension()?) + " " + &read_rule_spec(int)?.to_string()).into()),
-        None => Ok("".into())
+    let mut ret = "".to_string();
+    let mut width : Option<i32> = None;
+    let mut height : Option<i32> = None;
+    let mut depth : Option<i32> = None;
+    loop {
+        match int.read_keyword(vec!("width", "height", "depth"))? {
+            Some(s) if s == "width" => {
+                let dim = int.read_dimension()?;
+                if ret == "" { ret = "width ".to_string() + &dimtostr(dim)} else {
+                    ret = ret + " width " + &dimtostr(dim)
+                }
+                width = Some(dim);
+            }
+            Some(s) if s == "height" => {
+                let dim = int.read_dimension()?;
+                if ret == "" { ret = "height ".to_string() + &dimtostr(dim)} else {
+                    ret = ret + " height " + &dimtostr(dim)
+                }
+                height = Some(dim);
+            }
+            Some(s) if s == "depth" => {
+                let dim = int.read_dimension()?;
+                if ret == "" { ret = "depth ".to_string() + &dimtostr(dim)} else {
+                    ret = ret + " depth " + &dimtostr(dim)
+                }
+                depth = Some(dim);
+            }
+            _ => break
+        }
     }
+    Ok(PDFImageRule {
+        string:ret.into(),width,height,depth
+    })
 }
 fn read_resource_spec(int:&mut Interpreter) -> Result<Option<TeXStr>,TeXError> {
     int.expand_until(true)?;
@@ -452,7 +482,7 @@ pub static PDFDEST: SimpleWhatsit = SimpleWhatsit {
                 }
             }
             Some(s) if s == "fitr" => {
-                "fitr ".to_string() + &read_rule_spec(int)?
+                "fitr ".to_string() + read_rule_spec(int)?.string.to_string().as_str()
             }
             Some(s) => s,
             None => TeXErr!("Expected \"xyz\", \"XYZ\", \"fitr\", \"fitbh\", \"fitbv\", \"fitb\", \"fith\", \"fitv\" or \"fit\" in \\pdfdest")
@@ -475,7 +505,7 @@ pub static PDFSTARTLINK: SimpleWhatsit = SimpleWhatsit {
         };
         let action = read_action_spec(int)?;
         Ok(PDFLink {
-            rule:rule.into(),
+            rule:rule.string.into(),
             attr,action,
             sourceref:int.update_reference(tk),
             children:vec!()
@@ -595,9 +625,24 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
                 }
             }
         };
+        let mut _width = rule.width.clone();
+        let mut _height = rule.height.clone();
+        match (_width,_height,&image) {
+            (Some(w),None,Some(img)) => {
+                let ow = img.width() as f32;
+                let oh = img.height() as f32;
+                _height = Some(((oh as f32) / (ow / (w as f32))).round() as i32);
+            }
+            (None,Some(h),Some(img)) => {
+                let ow = img.width() as f32;
+                let oh = img.height() as f32;
+                _width = Some(((ow as f32) / (oh / (h as f32))).round() as i32);
+            }
+            _ => {}
+        }
         int.state.pdfximages.push(
             PDFXImage {
-                rule:rule.into(),
+                rule,
                 attr,
                 pagespec,
                 colorspace,
@@ -605,7 +650,7 @@ pub static PDFXIMAGE: PrimitiveExecutable = PrimitiveExecutable {
                 filename: file,
                 image,
                 sourceref: int.update_reference(&tk.0),
-                _width:None,_height:None
+                _width,_height
             }
         );
         Ok(())

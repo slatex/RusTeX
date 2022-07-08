@@ -145,8 +145,16 @@ pub trait ExternalWhatsit:Any+WhatsitTrait+Send+Sync {
 }
 
 #[derive(Clone)]
+pub struct PDFImageRule {
+    pub string : TeXStr,
+    pub width : Option<i32>,
+    pub height: Option<i32>,
+    pub depth: Option<i32>
+}
+
+#[derive(Clone)]
 pub struct PDFXImage{
-    pub rule:TeXStr,
+    pub rule: PDFImageRule,
     pub attr:Option<TeXStr>,
     pub pagespec:Option<i32>,
     pub colorspace:Option<i32>,
@@ -183,7 +191,7 @@ impl WhatsitTrait for PDFXImage {
     fn depth(&self) -> i32 { 0 }
 
     fn as_xml_internal(&self, prefix: String) -> String {
-        let mut ret = "\n".to_string() + &prefix + "<pdfximage rule=\"" + &self.rule.to_string() + "\"";
+        let mut ret = "\n".to_string() + &prefix + "<pdfximage rule=\"" + &self.rule.string.to_string() + "\"";
         match &self.attr {
             None => (),
             Some(a) => {

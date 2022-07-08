@@ -643,15 +643,15 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "stex_invoke_variable:n"
+        /*if tk.cmdname().to_string() == "pgfdeclareimage"
             {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
                 println!("{} - {}",p.0,p.1);
             }
-            print!("")
+            print!("");
             //TeXErr!(tk => "temp");
-            //unsafe { crate::LOG = true }
+            unsafe { crate::LOG = true }
         }*/
         log!("{}",d);
         if unsafe{crate::LOG} {
