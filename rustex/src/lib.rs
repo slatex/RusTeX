@@ -10,12 +10,6 @@ pub mod kpathsea;
 //pub mod new_state;
 //mod new_mouth;
 
-/*static IMAGEMAGICK : std::sync::Once = std::sync::Once::new();
-pub fn imagemagick() -> magick_rust::MagickWand {
-    IMAGEMAGICK.call_once(|| {magick_rust::magick_wand_genesis();});
-    return magick_rust::MagickWand::new();
-}*/
-
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;
@@ -44,16 +38,6 @@ macro_rules! TeXErr {
     ($head:tt$(,$tl:expr)*) => (
         return Err(crate::utils::TeXError::new(std::format!($head$(,$tl)*),None))
     )
-    /*
-    (($int:tt,$tk:expr),$head:tt) => (return Err(crate::utils::TeXError::new(std::format!("{} in: {}:\n>>{}\n\n{}",$head,crate::interpreter::Interpreter::current_line($int),
-        crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk)))));
-    (($int:tt,$tk:expr),$head:tt,$($tl:expr),*) => ({
-        //println!($head,$($tl),*);
-        let retstr = std::format!("{} in: {}:\n>>{}\n\n{}",std::format_args!($head,$($tl),*),crate::interpreter::Interpreter::current_line($int),
-            crate::interpreter::Interpreter::preview($int),crate::tex_stacktrace($int,$tk));
-        return Err(crate::utils::TeXError::new(retstr))
-        //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
-    }) */
 }
 
 #[macro_export]
