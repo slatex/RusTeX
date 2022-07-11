@@ -68,6 +68,7 @@ impl FontTableStore {
                 ("cmitt",STANDARD_TEXT_CM2,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Italic),
                 ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("cmti",STANDARD_TEXT_CM,FontTableParam::Italic),
+                ("cmsl",STANDARD_TEXT_CM,FontTableParam::Italic),
                 ("eufm",STANDARD_TEXT_CM,FontTableParam::Fraktur),
                 ("cmbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold),
                 ("cmbxti",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::Italic),
