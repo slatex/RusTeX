@@ -639,9 +639,9 @@ impl WhatsitTrait for Raise {
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::M =>
-                htmlnode!(colon,mrow,self.sourceref,"raise",node_top,node => {
-                node.style("bottom".into(),dimtohtml(self.dim));
-                self.content.as_html(mode,colon,htmlparent!(node))
+                htmlnode!(colon,mpadded,self.sourceref,"raise",node_top,node => {
+                    node.attr("voffset".into(),dimtohtml(-self.dim));
+                    self.content.as_html(mode,colon,htmlparent!(node))
             }),
             _ => ()//TeXErr!("TODO")
         }

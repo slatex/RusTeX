@@ -172,4 +172,4 @@ pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
     )
 }
 
-// TODO mapsto, sout, tableofcontents?, underbrace, overbrace, sqrt,
+// TODO sout, tableofcontents?, underbrace, overbrace, sqrt,

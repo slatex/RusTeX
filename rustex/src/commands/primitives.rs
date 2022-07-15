@@ -2968,24 +2968,33 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
         let font = int.state.fontstyle.get(&());
         let ret = match (font,mode) {
             (FontStyle::Scriptscript,_) => {
-                int.read_argument()?;int.read_argument()?;int.read_argument()?;
-                int.read_math_whatsit(None)?
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_math_whatsit(None)?
             }
             (FontStyle::Script,_) => {
-                int.read_argument()?;int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();
                 let ret = int.read_math_whatsit(None)?;
-                int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
                 ret
             },
             (_,false) => {
-                int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();
                 let ret = int.read_math_whatsit(None)?;
-                int.read_argument()?;int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
                 ret
             },
             (_,_) => {
+                int.skip_ws();
                 let ret = int.read_math_whatsit(None)?;
-                int.read_argument()?;int.read_argument()?;int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
+                int.skip_ws();int.read_argument()?;
                 ret
             },
         };
@@ -3459,9 +3468,14 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
         let small = (num - large)/4096;
         let largemc = int.do_math_char(None,large as u32);
         let smallmc = int.do_math_char(None,small as u32);
+        let body = match int.read_math_whatsit(None)? {
+            None => TeXErr!(tk.clone() => "Expected Whatsit after \\radical"),
+            Some(wi) => wi
+        };
         let delim = Radical {
             small: smallmc,
             large: largemc,
+            body:Box::new(body),
             sourceref: int.update_reference(tk)
         };
         Ok(Some(MathKernel::Radical(delim)))
@@ -3537,7 +3551,7 @@ pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
 pub static LEFT: MathWhatsit = MathWhatsit {
     name:"left",
     _get: |tk,int,_| {
-        int.state.push(int.stomach,GroupType::LeftRight);
+        //int.state.push(int.stomach,GroupType::LeftRight);
         int.expand_until(true)?;
         let next = int.next_token();
         match next.char {
@@ -3607,7 +3621,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
                 })))?,
             _ => TeXErr!("Missing delimiter after \\right")
         }
-        int.pop_group(GroupType::LeftRight)?;
+        //int.pop_group(GroupType::LeftRight)?;
         Ok(None)
     }
 };

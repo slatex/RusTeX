@@ -567,6 +567,7 @@ impl WhatsitTrait for Delimiter {
 pub struct Radical {
     pub small:MathChar,
     pub large:MathChar,
+    pub body:Box<Whatsit>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Radical {
@@ -585,7 +586,20 @@ impl WhatsitTrait for Radical {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        self.small.as_html(mode,colon,node_top)
+        let charstr : HTMLStr = match &self.small.font.file.chartable {
+            Some(ct) => ct.get_char(self.small.position as u8).into(),
+            None => {
+                //println!("Here! {} in {}",mc.position,mc.font.name);
+                "???".into()
+            }
+        };
+        if charstr.to_string() == "√" {
+            htmlnode!(colon,msqrt,self.get_ref(),"",node_top,mt => {
+                self.body.as_html(mode,colon,htmlparent!(mt));
+            });
+        } else {
+            self.small.as_html(mode, colon, node_top)
+        }
     }
 }
 
