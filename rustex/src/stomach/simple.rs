@@ -245,7 +245,7 @@ impl WhatsitTrait for PDFXImage {
             Some(ref img) => {
                 let nimg = img.clone().into_rgba8();
                 let mut buf = Cursor::new(vec!());//Vec<u8> = vec!();
-                match nimg.write_to(&mut buf, image::ImageOutputFormat::Jpeg(255)) {
+                match nimg.write_to(&mut buf, image::ImageOutputFormat::Jpeg(254)) {
                     Ok(_) => {
                         let res_base64 = "data:image/jpg;base64,".to_string() + &base64::encode(&buf.into_inner());
                         htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {

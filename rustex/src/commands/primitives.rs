@@ -20,7 +20,8 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
             TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Space(
                 SpaceChar {
                     font: int.state.currfont.get(&()),
-                    sourceref: int.update_reference(tk)
+                    sourceref: int.update_reference(tk),
+                    nonbreaking:true
                 })),
             _ => Ok(MSkip {
                 skip: MuSkip {base:12 * 65536, stretch:None, shrink:None},
@@ -3604,7 +3605,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
         match next.char {
             46 => {
                 int.stomach_add(Right { bx:None, sourceref:int.update_reference(tk)}.as_whatsit())?;
-                int.pop_group(GroupType::LeftRight)?;
+                //int.pop_group(GroupType::LeftRight)?;
                 return Ok(None)
             }
             _ => int.requeue(next)

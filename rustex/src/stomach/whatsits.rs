@@ -236,6 +236,7 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
 pub struct SpaceChar {
     pub sourceref:Option<SourceFileReference>,
     pub font : Arc<Font>,
+    pub nonbreaking: bool
 }
 impl WhatsitTrait for SpaceChar {
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
@@ -251,7 +252,7 @@ impl WhatsitTrait for SpaceChar {
     }
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlliteral!(colon,node_top," ")
+        if self.nonbreaking {htmlliteral!(colon,node_top,"&nbsp;")} else {htmlliteral!(colon,node_top," ")}
     }
 }
 
@@ -350,12 +351,17 @@ impl WhatsitTrait for PrintChar {
     }
     fn has_ink(&self) -> bool { true }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlliteral!(colon,node_top,>{
+        htmlliteral!(colon,node_top,{
             match &self.font.file.chartable {
-                Some(ct) => ct.get_char(self.char).to_string(),
+                Some(ct) => {
+                    let ch = ct.get_char(self.char).to_string();
+                    if ch == " " {
+                        "&nbsp;".to_string()
+                    } else {HTMLStr::from(ch).html_escape().to_string()}
+                }
                 None => self.as_xml_internal("".to_string())
             }
-        }<)
+        })
     }
 }
 

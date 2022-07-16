@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::commands::{Conditional, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
+use crate::commands::{Conditional, DimenReference, NumericCommand, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
 use crate::{htmlannotate, htmlliteral, htmlparent, TeXErr};
+use crate::interpreter::dimensions::Numeric;
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup};
-use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLParent, HTMLStr};
+use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -270,8 +271,12 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
     name: "rustexBREAK"
 };
 
-
-
+pub static SCALE:NumericCommand = NumericCommand {
+    name: "rustex@scale",
+    _getvalue: |int| {
+        Ok(Numeric::Dim((HTMLSCALE * 65536.0) as i32))
+    }
+};
 
 pub fn rustex_special_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Cond(&IF_RUSTEX),
@@ -280,4 +285,5 @@ pub fn rustex_special_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&NAMESPACE)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ANNOTATE_BEGIN)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&ANNOTATE_END)),
+    PrimitiveTeXCommand::Num(&SCALE),
 ]}

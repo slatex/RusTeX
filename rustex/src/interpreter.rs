@@ -8,7 +8,7 @@ use std::borrow::BorrowMut;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use std::path::{Path, PathBuf};
-use crate::commands::{TeXCommand,PrimitiveTeXCommand};
+use crate::commands::{TeXCommand, PrimitiveTeXCommand, ProvidesWhatsit};
 use crate::interpreter::files::{VFile};
 use crate::interpreter::mouth::Mouths;
 use crate::interpreter::state::{GroupType, State};
@@ -342,7 +342,7 @@ impl Interpreter<'_> {
                 let font = self.state.currfont.get(&());
                 let sourceref = self.update_reference(&next);
                 self.stomach_add(crate::stomach::Whatsit::Space(SpaceChar {
-                    font,sourceref
+                    font,sourceref,nonbreaking:false
                 }))
             }
             (Letter | Other , Horizontal | RestrictedHorizontal) => {
@@ -556,6 +556,16 @@ impl Interpreter<'_> {
                 }
                 EndGroup => TeXErr!(next => "{}","Unexpected } in math environment"),
                 _ => {
+                    let p = self.get_command(&next.cmdname());
+                    match p {
+                        Ok(tc) => match &*tc.orig {
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
+                                TeXErr!(next => "{}","Unexpected \\right in math environment")
+                            }
+                            _ => ()
+                        }
+                        _ => ()
+                    }
                     self.requeue(next);
                     let ret = self.read_math_whatsit(match mathgroup.as_mut() {
                         Some(mg) => Some(mg),
@@ -607,6 +617,7 @@ impl Interpreter<'_> {
         use crate::commands::ProvidesWhatsit;
 
         let mut mathgroup: Option<MathGroup> = None;
+
         while self.has_next() {
             let next = self.next_token();
             if finish(&next,self)? {
@@ -617,6 +628,65 @@ impl Interpreter<'_> {
                 return Ok(Some(()))
             }
             match next.catcode {
+                EndGroup => TeXErr!(next => "{}","Unexpected } in math environment"),
+                Space | EOL=> (),
+                Active | Escape => {
+                    let p = self.get_command(&next.cmdname())?;
+                    if p.assignable() {
+                        p.assign(next,self,false)?
+                    } else if p.expandable(true) {
+                        p.expand(next,self)?
+                    } else {
+                        self.requeue(next);
+                        let ret = self.read_math_whatsit(match mathgroup.as_mut() {
+                            Some(mg) => Some(mg),
+                            _ => None
+                        })?;
+                        match ret {
+                            Some(WI::Ls(v)) if v.is_empty() => (),
+                            Some(WI::Ls(mut v)) => {
+                                for g in mathgroup.take() {
+                                    self.stomach_add(WI::Math(g))?
+                                }
+                                let last = v.pop();
+                                for w in v { self.stomach_add(w)? }
+                                match last {
+                                    Some(WI::Math(mg)) => {
+                                        match mathgroup.replace(mg) {
+                                            Some(m) => self.stomach_add(WI::Math(m))?,
+                                            _ => ()
+                                        }
+                                    },
+                                    Some(w) => self.stomach_add(w)?,
+                                    None => ()
+                                }
+                            }
+                            Some(WI::Math(mg)) => {
+                                match mathgroup.replace(mg) {
+                                    Some(m) => self.stomach_add(WI::Math(m))?,
+                                    _ => ()
+                                }
+                            },
+                            Some(w) => {
+                                for g in mathgroup.take() {
+                                    self.stomach_add(WI::Math(g))?
+                                }
+                                self.stomach_add(w)?
+                            },
+                            None => {
+                                let next = self.next_token();
+                                match next.catcode {
+                                    CategoryCode::MathShift => {
+                                        return Ok(None)
+                                    }
+                                    _ => {
+                                        self.requeue(next)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {
                     self.requeue(next);
                     let ret = self.read_math_whatsit(match mathgroup.as_mut() {
@@ -776,9 +846,13 @@ impl Interpreter<'_> {
                         p.expand(next,self)?
                     } else {
                         match &*p.orig {
+                            Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
+                                self.requeue(next);
+                                return Ok(None)
+                            }
                             Whatsit(ProvidesWhatsit::Math(mw)) if **mw == LEFT => {
                                 self.state.push(self.stomach,GroupType::LeftRight);
-                                (LEFT._get)(&next,self,None);
+                                (LEFT._get)(&next,self,None)?;
                                 match self.read_math_group(|t,i| Ok((t.catcode == Active || t.catcode == Escape) && {
                                     let p = i.get_command(&t.cmdname())?;
                                     match &*p.orig {
@@ -789,7 +863,8 @@ impl Interpreter<'_> {
                                     None => return Ok(None),
                                     _ => ()
                                 }
-                                (RIGHT._get)(&next,self,None);
+                                let next = self.next_token();
+                                (RIGHT._get)(&next,self,None)?;
 
                                 let mut ret = self.get_whatsit_group(GroupType::LeftRight)?;
                                 {
