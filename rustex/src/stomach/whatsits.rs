@@ -252,7 +252,7 @@ impl WhatsitTrait for SpaceChar {
     }
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        if self.nonbreaking {htmlliteral!(colon,node_top,"&nbsp;")} else {htmlliteral!(colon,node_top," ")}
+        if self.nonbreaking {htmlliteral!(colon,node_top,"&#160;")} else {htmlliteral!(colon,node_top," ")}
     }
 }
 
@@ -356,7 +356,7 @@ impl WhatsitTrait for PrintChar {
                 Some(ct) => {
                     let ch = ct.get_char(self.char).to_string();
                     if ch == " " {
-                        "&nbsp;".to_string()
+                        "&#160;".to_string()
                     } else {HTMLStr::from(ch).html_escape().to_string()}
                 }
                 None => self.as_xml_internal("".to_string())
