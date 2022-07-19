@@ -473,7 +473,9 @@ lazy_static! {
     pub static ref LINEW : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref LCIRCLE : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref LCIRCLEW : HashMap<u8,&'static str> = HashMap::from([]);
-    pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([
+        (32,"☇")
+    ]);
     pub static ref PZDR : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref PSYR : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref MANFNT : HashMap<u8,&'static str> = HashMap::from([]);
