@@ -470,22 +470,8 @@ pub struct MathChar {
     pub font:Arc<Font>,
     pub sourceref:Option<SourceFileReference>
 }
-impl WhatsitTrait for MathChar {
-    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn as_whatsit(self) -> Whatsit {
-        MathKernel::MathChar(self).as_whatsit()
-    }
-    fn width(&self) -> i32 { self.font.get_width(self.position as u16) }
-    fn height(&self) -> i32 { self.font.get_height(self.position as u16) }
-    fn depth(&self) -> i32 { self.font.get_depth(self.position as u16) }
-    fn as_xml_internal(&self, prefix: String) -> String {
-        "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.position.to_string() + "\"/>"
-    }
-    fn has_ink(&self) -> bool { true }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+impl MathChar {
+    pub fn as_html_inner(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, stretchy:bool) {
         let maybemimo = match match node_top {
             Some(HTMLParent::N(n)) => n.children.last_mut(),
             Some(HTMLParent::A(n)) => n.children.last_mut(),
@@ -522,6 +508,11 @@ impl WhatsitTrait for MathChar {
             (_,0|7) => {
                 htmlnode!(colon,mi,self.sourceref,clsstr,node_top,a => {
                     a.fontinfo = Some(mimoinfo);
+                    if stretchy {
+                        a.attr("stretchy".into(),"true".into());
+                    } else {
+                        a.attr("stretchy".into(),"false".into());
+                    }
                     if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
@@ -529,11 +520,35 @@ impl WhatsitTrait for MathChar {
             (_,_) => {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
                     a.fontinfo = Some(mimoinfo);
+                    if stretchy {
+                        a.attr("stretchy".into(),"true".into());
+                    } else {
+                        a.attr("stretchy".into(),"false".into());
+                    }
                     if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }
         }
+    }
+}
+impl WhatsitTrait for MathChar {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
+    fn as_whatsit(self) -> Whatsit {
+        MathKernel::MathChar(self).as_whatsit()
+    }
+    fn width(&self) -> i32 { self.font.get_width(self.position as u16) }
+    fn height(&self) -> i32 { self.font.get_height(self.position as u16) }
+    fn depth(&self) -> i32 { self.font.get_depth(self.position as u16) }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.position.to_string() + "\"/>"
+    }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        self.as_html_inner(mode,colon,node_top,false)
     }
 }
 

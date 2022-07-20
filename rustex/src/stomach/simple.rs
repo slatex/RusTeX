@@ -1305,7 +1305,7 @@ impl WhatsitTrait for Left {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html(mode,colon,node_top)}
+        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 
@@ -1330,7 +1330,7 @@ impl WhatsitTrait for Middle {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html(mode,colon,node_top)}
+        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 
@@ -1355,7 +1355,7 @@ impl WhatsitTrait for Right {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html(mode,colon,node_top)}
+        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 
