@@ -104,6 +104,8 @@ impl FontTableStore {
                 ("ec-lmri",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ecsl",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ecsx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
+                ("ecso",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold,FontTableParam::Italic),
+                ("ecxc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Capital),
                 ("ec-lmssbx",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
                 ("ecti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmtti",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
@@ -282,6 +284,7 @@ lazy_static! {
     ]);
 
     pub static ref CMEX : HashMap<u8,&'static str> = HashMap::from([
+        (76,"⊕"),(77,"⊕"),
         (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
         (86,"⋀"),(87,"⋁"),
         (98,"^"),
