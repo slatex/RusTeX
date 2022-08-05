@@ -284,6 +284,7 @@ impl std::ops::Div for Numeric {
             (Dim(i),Dim(f)) => Dim(round_f((i as f64)/((f as f64) / 65536.0))),
             (Dim(i),Skip(f)) => Dim(round_f((i as f64)/(f.base as f64 / 65536.0))),
             (Dim(i),Int(j)) => Dim(round_f((i as f64)/(j as f64))),
+            (Dim(i),BigInt(j)) => Dim(round_f((i as f64)/(j as f64))),
             _ => todo!("{}/{}",self,rhs)
         }
     }
