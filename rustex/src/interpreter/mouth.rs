@@ -195,6 +195,7 @@ impl StringMouth {
                     vec![string]
                 } */ else {
                     let mut ret : Vec<TeXString> = string.split(10);
+                    if ret.len() == 1 {ret = string.split(13)};
                     ret.reverse();
                     ret
                 };
