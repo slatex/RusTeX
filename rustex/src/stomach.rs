@@ -832,6 +832,7 @@ impl NoShipoutRoutine {
                             let p = &*state.commands.get(&o).unwrap().orig;
                             match p {
                                 PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
+                                PrimitiveTeXCommand::MathChar(tk) => {},
                                 _ => panic!("Weird float setup")
                             }
                         },
