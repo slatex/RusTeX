@@ -3689,6 +3689,15 @@ pub static ENDR: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
+    name:"marks",
+    expandable:true,
+    _apply:|_tk,int| {
+        int.read_argument();int.read_argument();
+        Ok(())
+    }
+};
+
 // REGISTERS ---------------------------------------------------------------------------------------
 
 pub static PRETOLERANCE : RegisterReference = RegisterReference {
@@ -4493,12 +4502,6 @@ pub static LASTLINEFIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastlinefit",
     expandable:true,
     _apply:|_tk,_int| {TeXErr!("TODO: \\lastlinefit")}
-};
-
-pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
-    name:"marks",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\marks")}
 };
 
 pub static MUTOGLUE: PrimitiveExecutable = PrimitiveExecutable {
