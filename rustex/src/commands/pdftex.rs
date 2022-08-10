@@ -959,7 +959,24 @@ pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfannot",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_,int| {
+        match int.read_keyword(vec!("reserveobjnum","useobjnum"))? {
+            Some(s) if s == "reserveobjnum" => {
+                Ok(())
+            }
+            Some(s) if s == "useobjnum" => {
+                let index = int.read_number()?;
+                read_rule_spec(int);
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                Ok(())
+            }
+            _ => {
+                read_rule_spec(int);
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                Ok(())
+            }
+        }
+    }
 };
 
 pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
