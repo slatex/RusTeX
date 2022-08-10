@@ -364,7 +364,7 @@ pub static PDFCOLORSTACK: PrimitiveExecutable = PrimitiveExecutable {
                     sourceref: int.update_reference(&tk.0)
                 }.as_whatsit())?
             }
-            Some(s) if s == "current" => TeXErr!("TODO"),
+            Some(s) if s == "current" => TeXErr!("TODO: current in \\pdfcolorstack"),
             _ => TeXErr!("Expected \"pop\", \"set\", \"push\" or \"current\" after \\pdfcolorstack")
         }
         Ok(())
@@ -383,7 +383,7 @@ pub static PDFCOLORSTACKINIT: PrimitiveExecutable = PrimitiveExecutable {
                 let str = int.tokens_to_string(&tks);
                 int.state.pdfcolorstacks.last_mut().unwrap().push(str.into());
             }
-            Some(_) => TeXErr!("TODO"),
+            Some(_) => TeXErr!("TODO: page in \\pdfcolorstackinit"),
             None => TeXErr!("Expected \"page\" or \"direct\" after \\pdfcolorstackinit")
         }
         tk.2 = crate::interpreter::string_to_tokens(num.to_string().into());
@@ -408,7 +408,7 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
                 int.state.pdfobjs.insert(index as u16,str.into());
                 Ok(())
             }
-            Some(_) => TeXErr!("TODO"),
+            Some(_) => TeXErr!("TODO: stream in \\pdfobj"),
             _ => TeXErr!("Expected \"reserveobjnum\",\"useobjnum\" or \"stream\" after \\pdfobj")
         }
     }
@@ -700,7 +700,7 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         match int.read_keyword(vec!("file"))? {
-            None => TeXErr!("TODO"),
+            None => TeXErr!("TODO: No file in \\pdfmdfivesum"),
             Some(_) => ()
         }
         let tks = int.read_balanced_argument(true,false,false,false)?;
@@ -939,21 +939,21 @@ pub static PDFPAGERESOURCES: TokReference = TokReference {
 pub static IFPDFABSDIM : Conditional = Conditional {
     name:"ifpdfabsdim",
     _apply: |_int,_cond,_unless| {
-        TeXErr!("TODO")
+        TeXErr!("TODO: \\ifpdfabsdim")
     }
 };
 
 pub static IFPDFPRIMITIVE : Conditional = Conditional {
     name:"ifpdfprimitive",
     _apply: |_int,_cond,_unless| {
-        TeXErr!("TODO")
+        TeXErr!("TODO: \\ifpdfprimitive")
     }
 };
 
 pub static PDFESCAPENAME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapename",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdfescapename")}
 };
 
 pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
@@ -982,43 +982,43 @@ pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFFILEDUMP: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffiledump",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdffiledump")}
 };
 
 pub static PDFFILEMODDATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdffilemoddate",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdffilemoddate")}
 };
 
 pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfpageattr",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdfpageattr")}
 };
 
 pub static PDFSAVEPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsavepos",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdfsavepos")}
 };
 
 pub static PDFLASTXPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastxpos",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdflastxpos")}
 };
 
 pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdflastypos",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdflastypos")}
 };
 
 pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfelapsedtime",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pdfelapsedtime")}
 };
 
 /*

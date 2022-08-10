@@ -271,7 +271,7 @@ pub trait Stomach : Send {
                     self.base_mut().stomachgroups.push(ng);
                     Ok(ret)
                 }
-                _ => TeXErr!("TODO")
+                _ => TeXErr!("TODO: end_paragraph_loop")
             }
         }
     }
@@ -306,7 +306,7 @@ pub trait Stomach : Send {
                     self.end_paragraph(state)?;
                     self.pop_group(state)
                 }
-                _ => TeXErr!("TODO")
+                _ => TeXErr!("TODO: pop_group")
             }
         }
     }

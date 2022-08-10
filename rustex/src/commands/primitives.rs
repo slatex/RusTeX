@@ -750,7 +750,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
                 int.requeue(next);
                 Ok(())
             }
-            _ => TeXErr!("TODO")
+            _ => TeXErr!("TODO: \\immediate ...")
         }
     }
 };
@@ -1446,7 +1446,7 @@ pub static FONT: FontAssValue = FontAssValue {
             Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f64) * match int.read_number_i(true)? {
                 Numeric::Float(f) => f,
                 Numeric::Dim(i) => (i as f64) / 65536.0,
-                _ => TeXErr!("TODO")
+                _ => TeXErr!("TODO: \\font")
             })),
             _ => None
         };
@@ -2915,7 +2915,7 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
     modes: |_| { true },
     _get:|tk,int| {
         match int.read_keyword(vec!("Width","Height","Depth"))? {
-            Some(_) => TeXErr!("TODO"),
+            Some(_) => TeXErr!("TODO: \\leaders with dimesion"),
             None => {
                 let cmdtk = int.read_command_token()?;
                 let cmd = int.get_command(&cmdtk.cmdname())?;
@@ -3238,31 +3238,31 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
 pub static TOPMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmark",
     expandable:false,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\topmark")}
 };
 
 pub static FIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"firstmark",
     expandable:false,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\firstmark")}
 };
 
 pub static BOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmark",
     expandable:false,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\botmark")}
 };
 
 pub static SPLITFIRSTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitfirstmark",
     expandable:false,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\splitfirstmark")}
 };
 
 pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitbotmark",
     expandable:false,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\splitbotmark")}
 };
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
@@ -4344,7 +4344,7 @@ pub static FONTNAME: PrimitiveExecutable = PrimitiveExecutable {
 pub static SHIPOUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"shipout",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\shipout")}
 };
 
 pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
@@ -4360,271 +4360,271 @@ pub static SPECIAL: PrimitiveExecutable = PrimitiveExecutable {
 pub static HOLDINGINSERTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"holdinginserts",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\holdinginserts")}
 };
 
 pub static LOOSENESS: PrimitiveExecutable = PrimitiveExecutable {
     name:"looseness",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\looseness")}
 };
 
 pub static NOBOUNDARY: PrimitiveExecutable = PrimitiveExecutable {
     name:"noboundary",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\noboundary")}
 };
 
 pub static SCROLLMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scrollmode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| { Ok(())}
 };
 
 pub static NONSTOPMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"nonstopmode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| { Ok(())}
 };
 
 pub static PAUSING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pausing",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| { Ok(())}
 };
 
 pub static SETLANGUAGE: PrimitiveExecutable = PrimitiveExecutable {
     name:"setlanguage",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\setlanguage")}
 };
 
 pub static SHOW: PrimitiveExecutable = PrimitiveExecutable {
     name:"show",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO:: \\show")}
 };
 
 pub static SHOWBOX: PrimitiveExecutable = PrimitiveExecutable {
     name:"showbox",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showbox")}
 };
 
 pub static SHOWLISTS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showlists",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showlists")}
 };
 
 pub static SHOWTHE: PrimitiveExecutable = PrimitiveExecutable {
     name:"showthe",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showthe")}
 };
 
 pub static BOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"botmarks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\botmarks")}
 };
 
 pub static CURRENTIFBRANCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentifbranch",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\currentifbranch")}
 };
 
 pub static CURRENTIFLEVEL: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiflevel",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\currentiflevel")}
 };
 
 pub static CURRENTIFTYPE: PrimitiveExecutable = PrimitiveExecutable {
     name:"currentiftype",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\currentiftype")}
 };
 
 pub static FIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"firstmarks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\firstmarks")}
 };
 
 pub static GLUESHRINK: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrink",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\glueshrink")}
 };
 
 pub static GLUESHRINKORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"glueshrinkorder",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\glueshrinkorder")}
 };
 
 pub static GLUESTRETCH: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretch",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\gluestretch")}
 };
 
 pub static GLUESTRETCHORDER: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluestretchorder",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\gluestretchorder")}
 };
 
 pub static GLUETOMU: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluetomu",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\gluetomu")}
 };
 
 pub static INTERACTIONMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"interactionmode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\interactionmode")}
 };
 
 pub static LASTLINEFIT: PrimitiveExecutable = PrimitiveExecutable {
     name:"lastlinefit",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\lastlinefit")}
 };
 
 pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"marks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\marks")}
 };
 
 pub static MUTOGLUE: PrimitiveExecutable = PrimitiveExecutable {
     name:"mutoglue",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\mutoglue")}
 };
 
 pub static PAGEDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pagediscards",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\pagediscards")}
 };
 
 pub static PARSHAPEDIMEN: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapedimen",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\parshapedimen")}
 };
 
 pub static PARSHAPEINDENT: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapeindent",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\parshapeindent")}
 };
 
 pub static PARSHAPELENGTH: PrimitiveExecutable = PrimitiveExecutable {
     name:"parshapelength",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\parshapelength")}
 };
 
 pub static PREDISPLAYDIRECTION: PrimitiveExecutable = PrimitiveExecutable {
     name:"predisplaydirection",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\predisplaydirection")}
 };
 
 pub static SHOWGROUPS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showgroups",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showgroups")}
 };
 
 pub static SHOWIFS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showifs",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showifs")}
 };
 
 pub static SHOWTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showtokens",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\showtokens")}
 };
 
 pub static SPLITBOTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitbotmarks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\splitbotmarks")}
 };
 
 pub static SPLITDISCARDS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitdiscards",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\splitdiscards")}
 };
 
 pub static SPLITFIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"splitfirstmarks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\splitfirstmarks")}
 };
 
 pub static TEXXETSTATE: PrimitiveExecutable = PrimitiveExecutable {
     name:"TeXXeTstate",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\TeXXeTstate")}
 };
 
 pub static TOPMARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"topmarks",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\topmarks")}
 };
 
 pub static EFCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"efcode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\efcode")}
 };
 
 pub static LEFTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"leftmarginkern",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\leftmarginkern")}
 };
 
 pub static LETTERSPACEFONT: PrimitiveExecutable = PrimitiveExecutable {
     name:"letterspacefont",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\letterspacefont")}
 };
 
 pub static QUITVMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"quitvmode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\quitvmode")}
 };
 
 pub static RIGHTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     name:"rightmarginkern",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\rightmarginkern")}
 };
 
 pub static TAGCODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"tagcode",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\tagcode")}
 };
 
 pub static MUSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"muskip",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\muskip")}
 };
 
 pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
@@ -4636,32 +4636,32 @@ pub static OUTER: PrimitiveExecutable = PrimitiveExecutable {
 pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"bigskip",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\bigskip")}
 };
 
 
 pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"hfilneg",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\hfilneg")}
 };
 
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"medskip",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\medskip")}
 };
 
 pub static SMALLSKIP: PrimitiveExecutable = PrimitiveExecutable {
     name:"smallskip",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\smallskip")}
 };
 
 pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
     name:"vfilneg",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO")}
+    _apply:|_tk,_int| {TeXErr!("TODO: \\vfilneg")}
 };
 
 // -------------------------------------------------------------------------------------------------
