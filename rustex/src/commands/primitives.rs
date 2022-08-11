@@ -3693,7 +3693,7 @@ pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
     name:"marks",
     expandable:true,
     _apply:|_tk,int| {
-        int.read_argument();int.read_argument();
+        int.read_number();int.read_argument();
         Ok(())
     }
 };
