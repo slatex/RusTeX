@@ -2902,7 +2902,7 @@ pub static MARK: SimpleWhatsit = SimpleWhatsit {
     name:"mark",
     modes: |_| { true },
     _get:|tk,int| {
-        let toks = int.read_balanced_argument(true,false,false,true)?;
+        let toks = int.read_balanced_argument(true,true,true,true)?;
         Ok(Whatsit::Simple(SimpleWI::Mark(Mark {
             toks,
             sourceref: int.update_reference(tk)
