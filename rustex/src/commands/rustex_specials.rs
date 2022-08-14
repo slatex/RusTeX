@@ -125,7 +125,10 @@ struct AnnotateBegin {
 }
 impl ExternalWhatsitGroup for AnnotateBegin {
     fn get_ref(&self,ch : &Vec<Whatsit>) -> Option<SourceFileReference> {
-        SourceFileReference::from_wi_list(ch).or(self.sourceref.clone())
+        match &self.sourceref {
+            Some(cnt) => Some(cnt.clone()),
+            None => SourceFileReference::from_wi_list(ch)
+        }//SourceFileReference::from_wi_list(ch).or(self.sourceref.clone())
     }
     fn name(&self) -> TeXStr { "HTMLannotate".into() }
     fn params(&self,s:&str) -> Option<TeXStr> { match self.attrs.get(s) {

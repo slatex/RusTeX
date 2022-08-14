@@ -287,12 +287,12 @@ impl Interpreter<'_> {
         }*/
         match (next.catcode,mode) {
             (EOL,_) if next.name() == "EOF" => Ok(()),
-            (Active | Escape,_) if next.expand => {
+            (Active | Escape,_) => {
                 let p = self.get_command(&next.cmdname())?;
                 if p.assignable() {
                     return p.assign(next,self,false)
                 } else if p.expandable(true) {
-                    return p.expand(next,self)
+                    return if next.expand {p.expand(next,self)} else {Ok(())}
                 }
                 match (&*p.orig,mode) {
                     (Primitive(p),Vertical | InternalVertical) if **p == primitives::PAR => {
@@ -335,7 +335,7 @@ impl Interpreter<'_> {
 
                 }
             },
-            (Active | Escape,_) => Ok(()),
+            //(Active | Escape,_) => Ok(()),
             (BeginGroup,_) => Ok(self.state.push(self.stomach,GroupType::Token)),
             (EndGroup,_) => self.pop_group(GroupType::Token),
             (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
