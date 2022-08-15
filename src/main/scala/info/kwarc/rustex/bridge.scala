@@ -93,7 +93,7 @@ object Bridge {
       val tgzname = {
         val syspath = System.getProperty("os.name").toUpperCase()
         "pdfium-" + (if (syspath.startsWith("WINDOWS")) "win"
-        else if (syspath.startsWith("MAC")) "max"
+        else if (syspath.startsWith("MAC")) "mac"
         else "linux") + "-x64.tgz"
       }
       val tgzpath = path + "/" + tgzname
