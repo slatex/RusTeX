@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::commands::{Conditional, DimenReference, NumericCommand, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
+use crate::commands::{Conditional, NumericCommand, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
 use crate::{htmlannotate, htmlliteral, htmlparent, TeXErr};
 use crate::interpreter::dimensions::Numeric;

@@ -19,6 +19,7 @@ import Implicits._
 private class Bridge {
   @native def initialize(path:String) : Boolean
   @native def parse(file:String,p:Params,memories:util.ArrayList[String]) : String
+  @native def parseString(file: String, text:String, p: Params, memories: util.ArrayList[String]): String
 }
 abstract class Params {
   var singlethreaded = false

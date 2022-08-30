@@ -163,9 +163,41 @@ impl Interpreter<'_> {
         Ok(false)
     }
 
+    pub fn do_string<A:'static,B:'static>(&mut self,p:&Path,text:&str,mut colon:A) -> B where A:Colon<B>,B: Send {
+        extern crate pathdiff;
+        use files::VFileBase;
+        use std::sync::RwLock;
+        self.jobinfo = Jobinfo::new(p.to_path_buf());
+        let simple:TeXStr = pathdiff::diff_paths(p,self.jobinfo.in_file()).unwrap().to_str().unwrap().into();
+        let vf = Arc::new(VFile {
+            source:VFileBase::Real(p.to_str().unwrap().into()),
+            string:Arc::new(RwLock::new(Some(text.into()))),
+            id:simple
+        });
+        self.state.borrow_mut().filestore.insert(vf.id.clone(),vf.clone());
+        self.do_vfile(vf,colon)
+    }
     pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> B where A:Colon<B>,B: Send {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:Arc<VFile>  = VFile::new(p,false,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
+        self.do_vfile(vf,colon)
+    }
+
+    pub fn do_string_with_state<A:'static,B:'static>(p : &Path, s : State,text:&str, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
+        let mut stomach = NoShipoutRoutine::new();
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
+        let ret = int.do_string(p,text,colon);
+        (int.state,ret)
+    }
+
+    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
+        let mut stomach = NoShipoutRoutine::new();
+        let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
+        let ret = int.do_file(p,colon);
+        (int.state,ret)
+    }
+
+    fn do_vfile<A:'static,B:'static>(&mut self,vf:Arc<VFile>,mut colon:A) -> B where A:Colon<B>,B: Send {
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         let cont = match self.predoc_toploop() {
@@ -213,16 +245,6 @@ impl Interpreter<'_> {
                     return colon.close() // sender dropped => TeXError somewhere
                 }))
             };
-            /*std::thread::spawn(move || {
-                for msg in receiver {
-                    match msg {
-                        StomachMessage::End => return colon.close(),
-                        StomachMessage::WI(w) => colon.ship_whatsit(w)
-                    }
-                }
-                return colon.close() // sender dropped => TeXError somewhere
-            });*/
-
             while self.has_next() {
                 colonthread.next();
                 let next = self.next_token();
@@ -248,12 +270,6 @@ impl Interpreter<'_> {
         } else {
             colon.close()
         }
-    }
-    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
-        let mut stomach = NoShipoutRoutine::new();
-        let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
-        let ret = int.do_file(p,colon);
-        (int.state,ret)
     }
 
     pub fn get_command(&self,s : &TeXStr) -> Result<TeXCommand,TeXError> {
@@ -613,9 +629,7 @@ impl Interpreter<'_> {
 
     fn read_math_group(&mut self,finish: fn(&Token,&mut Interpreter) -> Result<bool,TeXError>) -> Result<Option<()>,TeXError> {
         use crate::catcodes::CategoryCode::*;
-        use crate::commands::PrimitiveTeXCommand::*;
         use crate::stomach::Whatsit as WI;
-        use crate::commands::ProvidesWhatsit;
 
         let mut mathgroup: Option<MathGroup> = None;
 
@@ -748,7 +762,6 @@ impl Interpreter<'_> {
         use crate::catcodes::CategoryCode::*;
         use crate::commands::PrimitiveTeXCommand::*;
         use crate::stomach::Whatsit as WI;
-        use crate::commands::ProvidesWhatsit;
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {

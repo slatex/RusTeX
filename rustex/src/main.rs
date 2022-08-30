@@ -17,6 +17,10 @@ struct Parameters {
     #[clap(short, long)]
     input: Option<String>,
 
+    /// Input string (tex)
+    #[clap(short, long)]
+    text: Option<String>,
+
     /// Output file (xhtml)
     #[clap(short, long)]
     output: Option<String>,
@@ -34,37 +38,27 @@ fn main() {
 
     match params.input {
         None => {
-
-            /*
-            let wand = imagemagick();
-            match wand.read_image("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/csp/PIC/australia.pdf") {
-                Err(e) => panic!("{}",e),
-                _ => ()
-            }
-            match wand.write_image("/home/jazzpirate/work/MathHub/MiKoMH/AI/source/csp/PIC/test.jpg")  {
-                Err(e) => panic!("{}",e),
-                _ => ()
-            }
-             */
-
-
-
-
-
+            println!("No file given. Testing latex.ltx...");
             let state = State::pdf_latex();
             state.commands.get(&"eTeXversion".into()).expect("");
             println!("\n\nSuccess! \\o/")
         }
         Some(i) => {
             let path = Path::new(&i);
-            if !path.exists() {
-                println!("File {} not found",i)
-            }
             let mut stomach = NoShipoutRoutine::new();
             let p = DefaultParams::new(false,params.singlethreaded,None);
             let state = State::pdf_latex();
             let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
-            let s = int.do_file(path,HTMLColon::new(true));
+            let s = match params.text {
+                Some(s) =>
+                    int.do_string(path,s.as_str(),HTMLColon::new(true)),
+                None => {
+                    if !path.exists() {
+                        println!("File {} not found", i)
+                    }
+                    int.do_file(path, HTMLColon::new(true))
+                }
+            };
             match params.output {
                 None => println!("\n\nSuccess!\n{}",s),
                 Some(f) => {
