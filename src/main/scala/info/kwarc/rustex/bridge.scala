@@ -126,6 +126,11 @@ object Bridge {
     case Some(b) => b.parse(s,p,Implicits(memories))
     case None => ???
   }
+
+  def parseString(file:String,s: String, p: Params, memories: List[String] = Nil) = bridge match {
+    case Some(b) => b.parseString(file, s, p, Implicits(memories))
+    case None => ???
+  }
   def library_filename(libname:String = "rustex_java") = {
     val syspath = System.getProperty("os.name").toUpperCase()
     if (syspath.startsWith("WINDOWS")) libname + ".dll"
