@@ -413,7 +413,7 @@ impl Interpreter<'_> {
         let num = mc;
         let (mut cls,mut fam,pos) = {
             if num == 0 && tk.is_some() {
-                (0,1,tk.as_ref().unwrap().char as u32)
+                (0,0,tk.as_ref().unwrap().char as u32)
             } else {
                 let char = num % (16 * 16);
                 let rest = (num - char) / (16 * 16);
@@ -919,7 +919,17 @@ impl Interpreter<'_> {
                             Ext(exec) =>
                                 exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!"))?,
                             Char(tk) => {
-                                self.requeue(tk.clone())
+                                /*match self.state.commands.get(&next.cmdname()) {
+                                    Some(_) =>*/ self.requeue(tk.clone())//,
+                                 /*   None => return Ok(Some(crate::stomach::Whatsit::Math(MathGroup::new(
+                                            MathKernel::MathChar(crate::stomach::math::MathChar {
+                                                                     class:7,family:0,position:tk.char as u32,
+                                                                     font:self.state.textfonts.get(&0),
+                                                                     sourceref:self.update_reference(tk)
+                                                                 }),
+                                            self.state.displaymode.get(&())))
+                                    ))
+                                }*/
                             },
                             Whatsit(ProvidesWhatsit::Math(mw)) => {
                                 return match (mw._get)(&next,self,previous)? {

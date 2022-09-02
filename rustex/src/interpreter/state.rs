@@ -577,6 +577,23 @@ impl State {
         for i in 97..123 {
             state.uccodes.set_locally(i,i-32);
             state.lccodes.set_locally(i-32,i);
+            state.mathcodes.set_locally(i-32,
+                (i as i32-32) +
+                    (1 * 16 * 16) +
+                    (7 * 16 * 16 * 16)
+            );
+            state.mathcodes.set_locally(i,
+                                        (i as i32) +
+                                            (1 * 16 * 16) +
+                                            (7 * 16 * 16 * 16)
+            );
+        }
+        for i in 48..58 {
+            state.mathcodes.set_locally(i,
+                                        (i as i32) +
+                                            (0 * 16 * 16) +
+                                            (7 * 16 * 16 * 16)
+            );
         }
         state
     }
