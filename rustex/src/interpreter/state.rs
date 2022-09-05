@@ -598,16 +598,12 @@ impl State {
         state
     }
     pub fn pdf_latex() -> State {
+        use crate::interpreter::params::DefaultParams;
         let mut state = State::new();
         let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found").0;
         let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found").0;
-        let p = /* DefaultParams {
-            log:false,
-            singlethreaded:true
-        }; // */ NoOutput::new(None);
+        let p = /*  DefaultParams::new(false,false,None); // */ NoOutput::new(None);
 
-        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
-        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
         for c in pdftex_commands() {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))
@@ -616,6 +612,9 @@ impl State {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))
         }
+
+        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
+        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
         for c in pgf_commands() {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))
@@ -657,7 +656,7 @@ impl State {
         }
     }
     pub fn file_openin(&mut self,index:u8,file:Arc<VFile>) -> Result<(),TeXError> {
-        let mouth = StringMouth::new_from_file(&file);
+        let mouth = StringMouth::new_from_file(&file,true);
         self.infiles.insert(index,mouth);
         Ok(())
     }

@@ -128,9 +128,9 @@ impl StringMouth {
             Some(s) => {
                 let mut ret : Vec<Token> = vec!();
                 for c in s.0.iter() {
-                    match catcodes.get_code(*c) {
-                        CategoryCode::Space if ret.is_empty() => (),
-                        CategoryCode::Space => ret.push(Token::new(*c,CategoryCode::Space,None,None,true)),
+                    match c {
+                        32 if ret.is_empty() => (),
+                        32 => ret.push(Token::new(*c,CategoryCode::Space,None,None,true)),
                         _ => ret.push(Token::new(*c,CategoryCode::Other,None,None,true)),
                     }
                 }
@@ -164,20 +164,21 @@ impl StringMouth {
             }
         }
         match ret.last() {
-            Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
+            //Some(tk) if tk.catcode == CategoryCode::Space && tk.char == catcodes.endlinechar => {ret.pop();}
             Some(tk) if tk.char == 0 && match tk.name() {s if s == "EOF" => true,_ => false} && ret.len() == 1 => {ret.pop();self.iseof=true}
             None => self.iseof = true,
             _ => ()
         }
         ret
     }
-    pub fn new_from_file(file:&Arc<VFile>) -> StringMouth {
+    pub fn new_from_file(file:&Arc<VFile>, openin:bool) -> StringMouth {
         use crate::interpreter::files::VFileBase;
         let ltxf = LaTeXFile::new(file.id.clone(),match &file.source {
             VFileBase::Real(p) => p.clone(),
             VFileBase::Virtual => file.id.clone()
         });
         let string = match &*file.string.read().unwrap() {
+            Some(s) if openin => Some(s.clone() + "\n".into()),
             Some(s) => Some(s.clone()),
             None => None
         };
@@ -611,7 +612,7 @@ impl Mouths {
             let buf = self.buffer.take().unwrap();
             self.push_tokens(vec!(buf))
         }
-        self.mouths.push(Mouth::File(StringMouth::new_from_file(file)))
+        self.mouths.push(Mouth::File(StringMouth::new_from_file(file,false)))
     }
     pub(in crate::interpreter::mouth) fn push_string(&mut self,exp:Expansion,string : TeXString,filelike:bool) {
         if self.buffer.is_some() {
@@ -748,7 +749,7 @@ impl Interpreter<'_> {
         self.mouths.push_string(exp,str,filelike)
     }
     pub fn push_expansion(&mut self,exp:Expansion) {
-        self.mouths.push_expansion(exp)
+        self.mouths.push_expansion(exp);
     }
     pub fn push_tokens(&mut self,tks:Vec<Token>) {
         self.mouths.push_tokens(tks)

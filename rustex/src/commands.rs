@@ -638,12 +638,15 @@ impl PrimitiveTeXCommand {
     }
     pub fn expand(&self,tk:Token,int:&mut Interpreter,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
         match self.get_expansion(tk,int,cmd)? {
-            Some(exp) => Ok(int.push_expansion(exp)),
+            Some(exp) => {
+                int.push_expansion(exp);
+                Ok(())
+            }
             None => Ok(())
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "refstepcounter"
+        /* if tk.cmdname().to_string() == "__char_data_auxi:w"
             {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
@@ -652,7 +655,7 @@ impl PrimitiveTeXCommand {
             print!("");
             //TeXErr!(tk => "temp");
             unsafe { crate::LOG = true }
-        }*/
+        } */
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())

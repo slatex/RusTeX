@@ -137,6 +137,7 @@ impl Interpreter<'_> {
     }
 
     fn predoc_toploop(&mut self) -> Result<bool,TeXError> {
+        use crate::log;
         while self.has_next() {
             let next = self.next_token();
             let indoc = self.state.indocument;
@@ -294,7 +295,6 @@ impl Interpreter<'_> {
         use crate::catcodes::CategoryCode::*;
         use TeXMode::*;
         use PrimitiveTeXCommand::*;
-
         let mode = self.state.mode;
         /*if self.current_line().starts_with("/home/jazzpirate/work/LaTeX/Papers/19 - Thesis/img/int-partial-biview.tex (14, 65)") {
             unsafe { crate::LOG = true }

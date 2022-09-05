@@ -17,6 +17,17 @@ impl Expansion {
     pub fn get_ref(&mut self) -> ExpansionRef {
         ExpansionRef(self.0.clone(),Arc::clone(&self.1),None) }
 }
+impl Display for Expansion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for e in &self.2 {
+            match e.catcode {
+                CategoryCode::Escape => write!(f,"\\{}",e.name().to_string())?,
+                _ => write!(f,"{}",TeXString(vec!(e.char)).to_string())?
+            }
+        }
+        write!(f,"")
+    }
+}
 
 #[derive(Clone)]
 pub struct ExpansionRef(pub(crate) Token,pub(crate) Arc<PrimitiveTeXCommand>,pub(crate) Option<Arc<SourceReference>>);

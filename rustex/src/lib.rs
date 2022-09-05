@@ -19,13 +19,13 @@ static INSERT_RUSTEX_ATTRS: bool = false;
 #[macro_export]
 macro_rules! log {
     () => ();
-    ($arg:tt) => (unsafe{ if crate::LOG {println!($arg)} });
-    ($head:tt,$($tl:expr),*) => (unsafe { if crate::LOG {
+    ($arg:tt) => ( if unsafe{crate::LOG} {println!($arg);} );
+    ($head:tt,$($tl:expr),*) => ( if unsafe {crate::LOG} {
         //println!($head,$($tl),*);
         let retstr = std::format!("{}",std::format_args!($head,$($tl),*));
         println!("{} {}",ansi_term::Colour::Red.bold().paint("Log:"),retstr);
         //println!($head,$(ansi_term::Colour::Yellow.bold().paint($tl)),*);
-    }})
+    })
 }
 
 
