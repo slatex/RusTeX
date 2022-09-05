@@ -1,127 +1,9 @@
-use std::path::Path;
-use rustex::interpreter::state::State;
-
-pub static mut MAIN_STATE : Option<State> = None;
-
-use jni::JNIEnv;
-use jni::objects::{JClass, JList, JObject, JString, JValue};
-use jni::sys::{jarray, jboolean, jobjectArray, jsize, jstring};
-use rustex::interpreter::Interpreter;
 use rustex::interpreter::params::{CommandListener, DefaultParams, InterpreterParams};
-use rustex::stomach::html::HTMLColon;
+use jni::JNIEnv;
+use jni::objects::{JObject,JValue};
 use rustex::utils::TeXError;
 
-
-#[no_mangle]
-pub extern "system" fn Java_info_kwarc_rustex_Bridge_initialize(
-    env: JNIEnv,
-    _class: JClass,
-    path:JString
-) -> jboolean {
-    unsafe {
-        match MAIN_STATE {
-            Some(_) => (),
-            None => {
-                let state = State::pdf_latex();
-                MAIN_STATE = Some(state);
-                unsafe {rustex::PDFIUM_PATH = Some(env.get_string(path).expect("Couldn't get java string!").into())}
-            }
-        }
-    }
-    jboolean::from(true)
-}
-
-#[macro_export]
-macro_rules! javastring {
-    ($env:expr,$s:expr) => ($env.new_string($s).expect("Couldn't create java string!"))
-}
-#[macro_export]
-macro_rules! jobj {
-    ($s:expr) => (JValue::Object(JObject::from(($s))))
-}
-#[macro_export]
-macro_rules! jarray {
-    ($env:expr,$v:expr,$clsstr:expr,$init:expr,$sym:ident => $tdo:expr) => ({
-        let mut _i:u16 = 0;
-        let _ret = $env.new_object_array(jsize::from($v.len() as u16),$clsstr,$init).unwrap();
-        for $sym in $v {
-            $env.set_object_array_element(_ret,jsize::from(_i),$tdo);
-            _i += 1;
-        }
-        _ret
-    })
-}
-
-#[no_mangle]
-pub extern "system" fn Java_info_kwarc_rustex_Bridge_parse(
-    env: JNIEnv,
-    _class: JClass,
-    file:JString,params:JObject,memory_j:JObject
-) -> jstring {
-    let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
-    let filename : String = env
-        .get_string(file)
-        .expect("Couldn't get java string!")
-        .into();
-    let p = JavaParams::new(&env,params);
-    let mut memories : Vec<String> = vec!();
-    for m in JList::from_env(&env,memory_j).unwrap().iter().unwrap() {
-        memories.push(env.get_string(JString::from(m)).unwrap().into())
-    }
-    let (s,ret) = Interpreter::do_file_with_state(Path::new(&filename),state,HTMLColon::new(true),&p);
-    let mut topcommands = Box::new(s.commands);
-    loop {
-        match topcommands.parent {
-            Some(p) => topcommands = p,
-            _ => break
-        }
-    }
-    for (n,cmd) in topcommands.values.unwrap() {
-        if memories.iter().any(|x| n.to_string().starts_with(x) ) {
-            unsafe { MAIN_STATE.as_mut().unwrap().commands.set(n,cmd,true);}
-        }
-    }
-    javastring!(env,ret).into_inner()
-}
-
-
-#[no_mangle]
-pub extern "system" fn Java_info_kwarc_rustex_Bridge_parseString(
-    env: JNIEnv,
-    _class: JClass,
-    file:JString,text:JString,params:JObject,memory_j:JObject
-) -> jstring {
-    let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
-    let filename : String = env
-        .get_string(file)
-        .expect("Couldn't get java string!")
-        .into();
-    let parsetext : String =  env
-        .get_string(text)
-        .expect("Couldn't get java string!")
-        .into();
-    let p = JavaParams::new(&env,params);
-    let mut memories : Vec<String> = vec!();
-    for m in JList::from_env(&env,memory_j).unwrap().iter().unwrap() {
-        memories.push(env.get_string(JString::from(m)).unwrap().into())
-    }
-    let (s,ret) = Interpreter::do_string_with_state(Path::new(&filename),state,parsetext.as_str(),HTMLColon::new(true),&p);
-    let mut topcommands = Box::new(s.commands);
-    loop {
-        match topcommands.parent {
-            Some(p) => topcommands = p,
-            _ => break
-        }
-    }
-    for (n,cmd) in topcommands.values.unwrap() {
-        if memories.iter().any(|x| n.to_string().starts_with(x) ) {
-            unsafe { MAIN_STATE.as_mut().unwrap().commands.set(n,cmd,true);}
-        }
-    }
-    javastring!(env,ret).into_inner()
-}
-
-struct JavaParams<'borrow,'env> {
+pub (in crate) struct JavaParams<'borrow,'env> {
     env:&'borrow JNIEnv<'env>,
     params:JObject<'env>,
     singlethreaded:bool,
@@ -131,6 +13,7 @@ struct JavaParams<'borrow,'env> {
     copy_commands_full:bool,
     pub listeners: Vec<Box<dyn CommandListener>>
 }
+
 impl<'borrow,'env> JavaParams<'borrow,'env> {
     pub fn new(env:&'borrow JNIEnv<'env>,params:JObject<'env>) -> JavaParams<'borrow,'env> {
         JavaParams {
@@ -144,6 +27,9 @@ impl<'borrow,'env> JavaParams<'borrow,'env> {
         }
     }
 }
+
+use crate::{javastring,jobj,jarray};
+
 impl<'borrow,'env> InterpreterParams for JavaParams<'borrow,'env> {
     fn singlethreaded(&self) -> bool { self.singlethreaded }
     fn do_log(&self) -> bool { self.do_log }
