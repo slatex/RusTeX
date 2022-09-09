@@ -26,7 +26,7 @@ use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
 
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path,intexmf:bool, in_file: &Path, filestore:&mut HashMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {
-        use crate::LANGUAGE_DAT;
+        use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename : TeXStr = (if intexmf {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
         } else if fp.to_str().unwrap().starts_with("<texmf>/NUL:") {
@@ -50,14 +50,13 @@ impl VFile {
                         string:Arc::new(RwLock::new(Some(HYPHEN_CFG.into()))),
                         id:simplename
                     }
-                } /*else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
-                    unsafe {crate::LOG = true}
+                } else if simplename.to_string() == "<texmf>/UNICODEDATA.TXT" {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Arc::new(RwLock::new(Some(UNICODEDATA_TXT.into()))),
                         id:simplename
                     }
-                } */ else if simplename.to_string().contains("pgfsys-rust.def") {
+                } else if simplename.to_string().contains("pgfsys-rust.def") {
                     VFile {
                         source:VFileBase::Virtual,
                         string:Arc::new(RwLock::new(Some(PGFSYS_RUST.into()))),

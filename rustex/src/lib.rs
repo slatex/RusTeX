@@ -54,7 +54,7 @@ use crate::utils::TeXString;
 
 
 pub static LANGUAGE_DAT : &str = include_str!("resources/language.dat");
-//pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
+pub static UNICODEDATA_TXT : &str = include_str!("resources/UnicodeData.txt");
 pub static HYPHEN_CFG : &str = include_str!("resources/hyphen.cfg");
 pub static PGFSYS_RUST: &str = include_str!("resources/pgfsys-rust.def");
 

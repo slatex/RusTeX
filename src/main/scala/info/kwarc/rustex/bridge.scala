@@ -193,17 +193,19 @@ object Test {
       override def file_open(s: String): Unit = if (s.contains("smglom")) println(s.trim)
       override def file_close(): Unit = {}
       override def message(s: String): Unit = {}
-      override def error(msg: String, stacktrace: List[(String, String)], files: List[(String, Int, Int)]): Unit = {}
+      override def error(msg: String, stacktrace: List[(String, String)], files: List[(String, Int, Int)]): Unit = {
+        println("ERROR: " + msg)
+      }
 
     }
     RusTeXBridge.initialize("/home/jazzpirate/work/Software/sTeX/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
     //val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
     println("jupyterNB.en.tex")
-    RusTeXBridge.mainBridge.setParams(testparams)
+    RusTeXBridge.mainBridge.setParams(tp2)
     RusTeXBridge.mainBridge.setMemories(List("c_stex_module"))
     val ret1 = RusTeXBridge.mainBridge.parse("/home/jazzpirate/work/MathHub/smglom/IWGS/source/jupyterNB.en.tex")
     println("BBPformula")
-    val sb = new RusTeXBridge(testparams,List("c_stex_module")) //Sandbox.construct(testparams,List("c_stex_module"))
+    val sb = new RusTeXBridge(tp2,List("c_stex_module")) //Sandbox.construct(testparams,List("c_stex_module"))
     val ret2 = sb.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/BBPformula.en.tex")
     println("alternatingharmonic")
     sb.parse("/home/jazzpirate/work/MathHub/smglom/analysis/source/alternatingharmonicseries.en.tex")

@@ -749,7 +749,7 @@ impl Interpreter<'_> {
         self.mouths.push_string(exp,str,filelike)
     }
     pub fn push_expansion(&mut self,exp:Expansion) {
-        self.mouths.push_expansion(exp);
+        if !exp.2.is_empty() {self.mouths.push_expansion(exp)}
     }
     pub fn push_tokens(&mut self,tks:Vec<Token>) {
         self.mouths.push_tokens(tks)

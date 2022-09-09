@@ -602,7 +602,7 @@ impl State {
         let mut state = State::new();
         let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found").0;
         let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found").0;
-        let p = /*  DefaultParams::new(false,false,None); // */ NoOutput::new(None);
+        let p = /* DefaultParams::new(false,false,None); // */ NoOutput::new(None);
 
         for c in pdftex_commands() {
             let c = c.as_command();
