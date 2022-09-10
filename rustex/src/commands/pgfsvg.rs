@@ -227,7 +227,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
 
 pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
-    modes: |x| {x == TeXMode::Horizontal || x == TeXMode::RestrictedHorizontal},
+    modes: |x| {true},
     _get: |tk, int| {
         let num = int.read_number()?;
         Ok(PGFBox {

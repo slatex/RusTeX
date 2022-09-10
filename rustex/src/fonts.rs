@@ -227,7 +227,8 @@ impl FontFile {
         let chartable = FONT_TABLES.get(tablename.into());
         /*match chartable {
             None => {
-                println!("Here! {}",name)
+                println!("Here! {}",name);
+                print!("")
             }
             _ => ()
         }*/

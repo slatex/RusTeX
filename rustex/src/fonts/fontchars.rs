@@ -113,8 +113,24 @@ impl FontTableStore {
                 ("ec-lmtto",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Italic),
                 ("ec-lmro",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmtlc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
+                // -------------------------------------------------------------------------
+                ("jkpmnt",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("jkpbnt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
+                ("jkpmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
+                ("jkpmitt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("jkpbitt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic,FontTableParam::Bold),
+                ("jkpmsct",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
+                ("jkpex",CMEX,FontTableParam::Math),
+                ("jkpexa",JKPEXA,FontTableParam::Math),
+                ("jkpmia",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Fraktur),
+                ("jkpsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("jkpsya",MSAM,FontTableParam::Math),
+                ("jkpsyb",MSBM,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Blackboard),
+                ("jkpsyc",JKPSYC,FontTableParam::Math),
+                ("jkpsyd",CAPITALS,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("jkpmnc",TS1_LM,FontTableParam::Math),
                 // math --------------------------------------------------------------------
-                ("rsfs",Capitals,FontTableParam::Text,FontTableParam::CapitalLetters,FontTableParam::Script),
+                ("rsfs",CAPITALS,FontTableParam::Text,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("eurm",EURM,FontTableParam::Math),
                 ("cmsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script),
                 ("cmbsy",MATH_CMSY,FontTableParam::Math,FontTableParam::CapitalLetters,FontTableParam::Script,FontTableParam::Bold),
@@ -289,6 +305,7 @@ lazy_static! {
         (76,"⊕"),(77,"⊕"),
         (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
         (86,"⋀"),(87,"⋁"),
+        (96,"∐"),
         (98,"^"),
         (101,"~"),
         (122," "),(123," "),(124," "),(125," ")
@@ -415,8 +432,10 @@ lazy_static! {
         (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),
     ]);
     pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([
+        (3,"□"),
         (13,"⊩"),
         (20,"⇈"),(21,"⇊"),(22,"↾"),(23,"⇂"),(24,"↿"),(25,"⇃"),
+        (28,"⇆"),(29,"⇄"),
         (32,"⇝"),
         (66,"▷"),(67,"◁"),(68,"⊵"),(69,"⊴"),
         (72,"▼"),(73,"▶"),(74,"◀"),
@@ -427,13 +446,17 @@ lazy_static! {
         (0,"€"),(32," "),(101,"€")
     ]);
     pub static ref MSBM : HashMap<u8,&'static str> = HashMap::from([
+        (63,"∅"),
         (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
         (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
         (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),(91,"^"),
         (97,"ວ"),
         (108,"⋖"),(109,"⋗"),(110,"⋉"),(111,"⋊"),
         (117,"≊"),
-        (120,"↶"),(121,"↷")
+        (120,"↶"),(121,"↷"),
+        (128,"A"),(129,"B"),(130,"C"),(131,"D"),(132,"E"),(133,"F"),(134,"G"),(135,"H"),(136,"I"),(137,"J"),
+        (138,"K"),(139,"L"),(140,"M"),(141,"N"),(142,"O"),(143,"P"),(144,"Q"),(145,"R"),(146,"S"),(147,"T"),
+        (148,"U"),(149,"V"),(150,"W"),(151,"X"),(152,"Y"),(153,"Z"),
     ]);
     pub static ref TS1_LM : HashMap<u8,&'static str> = HashMap::from([
         (42,"*"),
@@ -492,12 +515,17 @@ lazy_static! {
         (113,"q"),(114,"r"),(115,"s"),(116,"t"),(117,"u"),(118,"v"),(119,"w"),(120,"x"),(121,"y"),
         (122,"z"),(123,"ı"),(124,"ȷ"),(125,"℘")
     ]);
-    pub static ref Capitals : HashMap<u8,&'static str> = HashMap::from([
+    pub static ref CAPITALS : HashMap<u8,&'static str> = HashMap::from([
         (65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),(70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),
         (75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),(80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),
         (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z")
     ]);
 
+    pub static ref JKPSYC : HashMap<u8,&'static str> = HashMap::from([
+        (27,"≅"),
+        (44,"≠")
+    ]);
+    pub static ref JKPEXA : HashMap<u8,&'static str> = HashMap::from([]);
 
     pub static ref LINE : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref LINEW : HashMap<u8,&'static str> = HashMap::from([]);
