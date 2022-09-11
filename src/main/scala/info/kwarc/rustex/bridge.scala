@@ -83,7 +83,7 @@ object RusTeXBridge {
     }
     val b = new RusTeXBridge() {
       override def parse(file: String): String = parseI(ptr, params, file, memories, true)
-      override def parseString(file: String, text: String): String = parseStringI(ptr, params, text, file, memories, true)
+      override def parseString(file: String, text: String): String = parseStringI(ptr, text, params, file, memories, true)
       override private[rustex] def initialize: Unit = {
         initializeMain(path + "/")
         super.initialize
@@ -143,13 +143,13 @@ class RusTeXBridge(private[rustex] var params: Params = RusTeXBridge.noParams, p
 
   @native private def newsb(): Unit
   @native private[rustex] def parseI(ptr: Long, p: Params, file: String, memories: util.ArrayList[String], use_main: Boolean): String
-  @native private[rustex] def parseStringI(ptr: Long, p: Params, text: String, file: String, memories: util.ArrayList[String], use_main: Boolean): String
+  @native private[rustex] def parseStringI(ptr: Long, text: String, p: Params, file: String, memories: util.ArrayList[String], use_main: Boolean): String
   @native private[rustex] def initializeMain(path: String): Boolean
 
   def setParams(p: Params) = params = p
   def setMemories(mems: List[String]) = memories = mems
   def parse(file: String) = parseI(ptr, params, file, memories, false)
-  def parseString(file: String, text: String) = parseStringI(ptr, params, text, file, memories, false)
+  def parseString(file: String, text: String) = parseStringI(ptr, text, params, file, memories, false)
 
   private[rustex] def initialize {
     newsb()
