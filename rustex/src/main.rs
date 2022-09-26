@@ -49,7 +49,7 @@ fn main() {
             let p = DefaultParams::new(false,params.singlethreaded,None);
             let state = State::pdf_latex();
             let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
-            let s = match params.text {
+            let (success,s) = match params.text {
                 Some(s) =>
                     int.do_string(path,s.as_str(),HTMLColon::new(true)),
                 None => {
@@ -60,11 +60,15 @@ fn main() {
                 }
             };
             match params.output {
-                None => println!("\n\nSuccess!\n{}",s),
+                None => if (success) {println!("\n\nSuccess!\n{}",s)} else {println!("\n\nFailed\n{}",s)},
                 Some(f) => {
                     let mut file = std::fs::File::create(&f).unwrap();
                     file.write_all(s.as_bytes()).expect("");
-                    println!("\n\nSuccess! \\o/\nResult written to {}",f)
+                    if (success) {
+                        println!("\n\nSuccess! \\o/\nResult written to {}", f)
+                    } else {
+                        println!("\n\nFailed\nPartial result written to {}",f)
+                    }
                 }
             }
 

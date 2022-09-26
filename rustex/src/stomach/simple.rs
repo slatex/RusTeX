@@ -286,14 +286,16 @@ impl WhatsitTrait for VRule {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+        if self.width() != 0 && (self.height.unwrap_or(10) != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,div,self.sourceref.clone(),"vrule",node_top,n => {
             n.style("width".into(),dimtohtml(self.width()));
             n.style("min-width".into(),dimtohtml(self.width()));
-            n.style("height".into(),dimtohtml(self.height() + self.depth()));
-            n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
+            let ht : HTMLStr = if (self.height() + self.depth()) == 0 {"100%".into()} else {
+                dimtohtml(self.height() + self.depth())};
+            n.style("height".into(),ht.clone());
+            n.style("min-height".into(),ht);
             n.style("background".into(),match &colon.state.currcolor {
                 Some(c) => HTMLStr::from("#") + c,
                 None => "#000000".into()
@@ -326,12 +328,14 @@ impl WhatsitTrait for HRule {
         self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        if self.width() != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+        if self.width.unwrap_or(10) != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref.clone(),"vrule",node_top,n => {
-            n.style("width".into(),dimtohtml(self.width()));
-            n.style("min-width".into(),dimtohtml(self.width()));
+        htmlnode!(colon,div,self.sourceref.clone(),"hrule",node_top,n => {
+            let wd : HTMLStr = if (self.width()) == 0 {"100%".into()} else {
+                dimtohtml(self.width())};
+            n.style("width".into(),wd.clone());
+            n.style("min-width".into(),wd);
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
             n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
             n.style("background".into(),match &colon.state.currcolor {

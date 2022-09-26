@@ -170,7 +170,7 @@ pub struct HTMLColon {
     pub namespaces : HashMap<String,String>,
     pagewidth:i32,textwidth:i32,lineheight:Skip
 }
-unsafe impl Send for HTMLColon {}
+//unsafe impl Send for HTMLColon {}
 
 impl Colon<String> for HTMLColon {
     fn base(&self) -> &ColonBase { &self.base }

@@ -15,7 +15,15 @@ use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jarray, jboolean, jlong, jstring};
 
-pub static mut MAIN_STATE : Option<State> = None;
+static mut MAIN_STATE : Option<State> = None;
+static mut ALL_STATES : Vec<Option<Sandbox>> = Vec::new();
+
+fn set_state(st : Sandbox) -> usize {
+    unsafe{ALL_STATES.push(Some(st));ALL_STATES.len() - 1}
+}
+fn get_state(i : usize) -> Sandbox {
+    unsafe{std::mem::replace(&mut ALL_STATES[i],None)}.unwrap()
+}
 
 #[no_mangle]
 pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_initializeMain(
@@ -40,14 +48,15 @@ struct Sandbox(State);
 
 impl Sandbox {
     pub(in crate) fn box_object(self) -> jlong {
-        let this  = Box::new(self);
+        /*let this  = Box::new(self);
         let this: *mut Sandbox = Box::into_raw(this);
-        this as jlong
+        this as jlong */
+        set_state(self) as i64
     }
     pub(in crate) fn from_pointer(pt : jlong) -> Sandbox {
-        let r = pt as *mut Sandbox;
-        let r = unsafe{ r.read() };
-        r
+        /*let ret = unsafe{ Box::from_raw(pt as *mut Sandbox) };
+        *ret*/
+        get_state(pt as usize)
     }
     pub(in crate) fn set_pointer(self,env: JNIEnv,cls: JClass) {
         let ptr = self.box_object();
@@ -78,11 +87,13 @@ pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseI(
         state.clone()
     };
     let memories = util::mems_from_java(&env,memory_j);
-    let (s,ret) = util::do_file(env, file, st, &JavaParams::new(&env, p));
-    if use_main == 1 {
-        util::do_memories(unsafe{MAIN_STATE.as_mut().unwrap()}, s, &memories)
-    } else {
-        util::do_memories(&mut state, s, &memories)
+    let (b,s,ret) = util::do_file(env, file, st, &JavaParams::new(&env, p));
+    if b {
+        if use_main == 1 {
+            util::do_memories(unsafe { MAIN_STATE.as_mut().unwrap() }, s, &memories)
+        } else {
+            util::do_memories(&mut state, s, &memories)
+        }
     };
     Sandbox(state).set_pointer(env,cls);
     ret
@@ -99,11 +110,13 @@ pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseStringI(
         state.clone()
     };
     let memories = util::mems_from_java(&env,memory_j);
-    let (s,ret) = util::do_string(env, file, text, st, &JavaParams::new(&env, p));
-    if use_main == 1 {
-        util::do_memories(unsafe{MAIN_STATE.as_mut().unwrap()}, s, &memories)
-    } else {
-        util::do_memories(&mut state, s, &memories)
+    let (b,s,ret) = util::do_string(env, file, text, st, &JavaParams::new(&env, p));
+    if b {
+        if use_main == 1 {
+            util::do_memories(unsafe { MAIN_STATE.as_mut().unwrap() }, s, &memories)
+        } else {
+            util::do_memories(&mut state, s, &memories)
+        }
     };
     Sandbox(state).set_pointer(env,cls);
     ret

@@ -53,7 +53,7 @@ impl NoColon {
         NoColon { base: ColonBase::new()}
     }
 }
-unsafe impl Send for NoColon {}
+//unsafe impl Send for NoColon {}
 
 impl Colon<()> for NoColon {
     fn base(&self) -> &ColonBase { &self.base }
@@ -74,7 +74,7 @@ impl XMLColon {
         ret:"<doc>\n".to_string()
     }}
 }
-unsafe impl Send for XMLColon {}
+//unsafe impl Send for XMLColon {}
 impl Colon<String> for XMLColon {
     fn base(&self) -> &ColonBase { &self.base }
     fn base_mut(&mut self) -> &mut ColonBase { &mut self.base }

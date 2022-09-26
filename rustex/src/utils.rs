@@ -114,7 +114,8 @@ fn display(us:&[u8]) -> String {
             }
         }
     }}
-    unsafe { from_utf8_unchecked(&ret).to_string() }
+    from_utf8(&ret).unwrap().to_string()
+    //unsafe { from_utf8_unchecked(&ret).to_string() }
 }
 
 #[derive(Clone,PartialEq,Eq,Hash)]
@@ -298,7 +299,7 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
  */
 
 // -------------------------------------------------------------------------------------------------
-
+/*
 pub fn with_encoded_pointer<'a,S,T>(obj:&'a T,f: fn(i:i64) -> S) -> S {
     let i = encode_pointer(obj);
     f(i)
@@ -331,6 +332,8 @@ pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
         *bx
     }
 }
+
+ */
 
 // -------------------------------------------------------------------------------------------------
 

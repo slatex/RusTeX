@@ -613,8 +613,8 @@ impl State {
             state.commands.set_locally(c.name().unwrap(),Some(c))
         }
 
-        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).0;
-        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).0;
+        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).1;
+        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).1;
         for c in pgf_commands() {
             let c = c.as_command();
             state.commands.set_locally(c.name().unwrap(),Some(c))

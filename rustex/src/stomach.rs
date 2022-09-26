@@ -849,7 +849,7 @@ impl NoShipoutRoutine {
     }
 }
 
-unsafe impl Send for NoShipoutRoutine {}
+//unsafe impl Send for NoShipoutRoutine {}
 
 impl Stomach for NoShipoutRoutine {
     fn base_mut(&mut self) -> &mut StomachBase {

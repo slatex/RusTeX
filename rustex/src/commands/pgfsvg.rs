@@ -77,8 +77,8 @@ impl WhatsitTrait for PGFEscape {
         }
     }
 }
-unsafe impl Send for PGFEscape {}
-unsafe impl Sync for PGFEscape {}
+//unsafe impl Send for PGFEscape {}
+//unsafe impl Sync for PGFEscape {}
 impl ExternalWhatsit for PGFEscape {
     fn name(&self) -> TeXStr { "pgfescape".into() }
     fn params(&self, name: &str) -> Option<ExternalParam> {
@@ -117,7 +117,7 @@ pub struct PGFBox {
     maxx:i32,
     maxy:i32
 }
-unsafe impl Send for PGFBox {}
+//unsafe impl Send for PGFBox {}
 impl PGFBox {
     fn normalize_i(wi : Whatsit) -> Vec<Whatsit> {
         match wi {

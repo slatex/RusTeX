@@ -31,19 +31,19 @@ use std::path::Path;
 use crate::javaparams::JavaParams;
 
 pub(in crate) fn do_file<'borrow,'env>(env:JNIEnv, file:JString, s:State, params:&JavaParams<'borrow,'env>)
-                                       -> (State,jstring) {
+                                       -> (bool,State,jstring) {
     let filename : String = env
         .get_string(file)
         .expect("Couldn't get java string!")
         .into();
-    let (s,ret) = Interpreter::do_file_with_state(
+    let (b,s,ret) = Interpreter::do_file_with_state(
         Path::new(&filename),
         s,HTMLColon::new(true),params);
-    (s,javastring!(env,ret).into_inner())
+    (b,s,javastring!(env,ret).into_inner())
 }
 
 pub(in crate) fn do_string<'borrow,'env>(env:JNIEnv, file:JString, text:JString, s:State, params:&JavaParams<'borrow,'env>)
-                                         -> (State,jstring) {
+                                         -> (bool,State,jstring) {
     let filename : String = env
         .get_string(file)
         .expect("Couldn't get java string!")
@@ -52,10 +52,10 @@ pub(in crate) fn do_string<'borrow,'env>(env:JNIEnv, file:JString, text:JString,
         .get_string(text)
         .expect("Couldn't get java string!")
         .into();
-    let (s,ret) = Interpreter::do_string_with_state(
+    let (b,s,ret) = Interpreter::do_string_with_state(
         Path::new(&filename), s,parsetext.as_str(),
         HTMLColon::new(true),params);
-    (s,javastring!(env,ret).into_inner())
+    (b,s,javastring!(env,ret).into_inner())
 }
 
 pub(in crate) fn do_memories(old:&mut State, new:State, memories:&Vec<String>) {

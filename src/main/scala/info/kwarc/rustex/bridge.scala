@@ -200,6 +200,13 @@ object Test {
     }
     RusTeXBridge.initialize("/home/jazzpirate/work/Software/sTeX/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
     //val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
+
+
+    RusTeXBridge.mainBridge.setParams(testparams)
+    RusTeXBridge.mainBridge.setMemories(List("c_stex_module"))
+    val ret0 = RusTeXBridge.mainBridge.parse("/home/jazzpirate/work/MathHub/sTeX/Algebra/General/source/ex/examples/semigroups/WordSemigroup.tex")
+
+
     println("jupyterNB.en.tex")
     RusTeXBridge.mainBridge.setParams(tp2)
     RusTeXBridge.mainBridge.setMemories(List("c_stex_module"))

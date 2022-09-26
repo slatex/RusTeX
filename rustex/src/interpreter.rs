@@ -164,7 +164,7 @@ impl Interpreter<'_> {
         Ok(false)
     }
 
-    pub fn do_string<A:'static,B:'static>(&mut self,p:&Path,text:&str,mut colon:A) -> B where A:Colon<B>,B: Send {
+    pub fn do_string<A:'static,B:'static>(&mut self,p:&Path,text:&str,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         extern crate pathdiff;
         use files::VFileBase;
         use std::sync::RwLock;
@@ -178,27 +178,27 @@ impl Interpreter<'_> {
         self.state.borrow_mut().filestore.insert(vf.id.clone(),vf.clone());
         self.do_vfile(vf,colon)
     }
-    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> B where A:Colon<B>,B: Send {
+    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:Arc<VFile>  = VFile::new(p,false,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.do_vfile(vf,colon)
     }
 
-    pub fn do_string_with_state<A:'static,B:'static>(p : &Path, s : State,text:&str, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
+    pub fn do_string_with_state<A:'static,B:'static>(p : &Path, s : State,text:&str, colon:A,params:&dyn InterpreterParams) -> (bool,State,B) where A:Colon<B>,B:Send {
         let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
         let ret = int.do_string(p,text,colon);
-        (int.state,ret)
+        (ret.0,int.state,ret.1)
     }
 
-    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A,params:&dyn InterpreterParams) -> (State,B) where A:Colon<B>,B:Send {
+    pub fn do_file_with_state<A:'static,B:'static>(p : &Path, s : State, colon:A,params:&dyn InterpreterParams) -> (bool,State,B) where A:Colon<B>,B:Send {
         let mut stomach = NoShipoutRoutine::new();
         let mut int = Interpreter::with_state(s,stomach.borrow_mut(),params);
         let ret = int.do_file(p,colon);
-        (int.state,ret)
+        (ret.0,int.state,ret.1)
     }
 
-    fn do_vfile<A:'static,B:'static>(&mut self,vf:Arc<VFile>,mut colon:A) -> B where A:Colon<B>,B: Send {
+    fn do_vfile<A:'static,B:'static>(&mut self,vf:Arc<VFile>,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         self.push_file(vf);
         self.insert_every(&crate::commands::primitives::EVERYJOB);
         let cont = match self.predoc_toploop() {
@@ -206,7 +206,7 @@ impl Interpreter<'_> {
             Err(mut e) => {
                 e.throw(self);
                 self.params.error(e);
-                return colon.close()
+                return (false,colon.close())
             }
         };
         if cont {
@@ -256,7 +256,7 @@ impl Interpreter<'_> {
                         self.params.error(e);
                         self.stomach.finish(&mut self.state);
                         return match colonthread.join() {
-                            Ok(r) => r,
+                            Ok(r) => (false,r),
                             _ => panic!("Error in colon thread")
                         }
                     }
@@ -265,11 +265,11 @@ impl Interpreter<'_> {
 
             self.stomach.borrow_mut().finish(&mut self.state);
             match colonthread.join() {
-                Ok(r) => return r,
+                Ok(r) => return (true,r),
                 Err(_) => panic!("Error in colon thread")
             }
         } else {
-            colon.close()
+            (true,colon.close())
         }
     }
 
