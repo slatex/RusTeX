@@ -646,7 +646,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /* if tk.cmdname().to_string() == "__char_data_auxi:w"
+        /*if tk.cmdname().to_string() == "scr@dte@chapter@init"
             {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
@@ -654,8 +654,8 @@ impl PrimitiveTeXCommand {
             }
             print!("");
             //TeXErr!(tk => "temp");
-            unsafe { crate::LOG = true }
-        } */
+            //unsafe { crate::LOG = true }
+        }*/
         log!("{}",d);
         if unsafe{crate::LOG} {
             log!("    >>{}",int.preview())

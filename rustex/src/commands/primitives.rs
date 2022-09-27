@@ -1335,6 +1335,10 @@ pub static DETOKENIZE: PrimitiveExecutable = PrimitiveExecutable {
         for t in tkl {
             match t.catcode {
                 CategoryCode::Space | CategoryCode::EOL => exp.2.push(space.clone()),
+                CategoryCode::Parameter => {
+                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,None,false));
+                    exp.2.push(Token::new(t.char,CategoryCode::Other,None,None,false))
+                },
                 CategoryCode::Escape => {
                     for tk in &escape { exp.2.push(tk.clone()) }
                     for t in t.name().iter() {
