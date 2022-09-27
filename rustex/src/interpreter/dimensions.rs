@@ -5,6 +5,8 @@ pub fn pt(f:f64) -> f64 { f * 65536.0 }
 pub fn inch(f:f64) -> f64 { pt(f) * 72.27 }
 pub fn pc(f:f64) -> f64 { pt(f) * 12.0 }
 pub fn cm(f:f64) -> f64 { inch(f) / 2.54 }
+pub fn dd(f:f64) -> f64 {pt(f) / 1157.0 * 1238.0 }
+pub fn cc(f:f64) -> f64 {dd(f) * 12.0 }
 pub fn mm(f:f64) -> f64 { cm(f) / 10.0 }
 
 #[derive(Copy,Clone)]

@@ -552,6 +552,8 @@ impl Interpreter<'_> {
             Some(s) if s == "pt" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
             Some(s) if s == "cm" => Ok(SkipDim::Pt(self.make_true(cm(f),istrue))),
             Some(s) if s == "bp" => Ok(SkipDim::Pt(self.make_true(pt(f),istrue))),
+            Some(s) if s == "dd" => Ok(SkipDim::Pt(self.make_true(dd(f),istrue))),
+            Some(s) if s == "cc" => Ok(SkipDim::Pt(self.make_true(cc(f),istrue))),
             Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
             Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(5) as f64 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(6) as f64 * f,istrue))),
