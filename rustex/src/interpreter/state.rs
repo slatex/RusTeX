@@ -598,28 +598,30 @@ impl State {
         state
     }
     pub fn pdf_latex() -> State {
-        use crate::interpreter::params::DefaultParams;
-        let mut state = State::new();
-        let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found").0;
-        let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx",&PWD).expect("No latex.ltx found").0;
-        let p = /* DefaultParams::new(false,false,None); // */ NoOutput::new(None);
+        crate::utils::with_stack_size(|| {
+            use crate::interpreter::params::DefaultParams;
+            let mut state = State::new();
+            let pdftex_cfg = crate::kpathsea::kpsewhich("pdftexconfig.tex", &PWD).expect("pdftexconfig.tex not found").0;
+            let latex_ltx = crate::kpathsea::kpsewhich("latex.ltx", &PWD).expect("No latex.ltx found").0;
+            let p = /* DefaultParams::new(false,false,None); // */ NoOutput::new(None);
 
-        for c in pdftex_commands() {
-            let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
-        }
-        for c in rustex_special_commands() {
-            let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
-        }
+            for c in pdftex_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(c.name().unwrap(), Some(c))
+            }
+            for c in rustex_special_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(c.name().unwrap(), Some(c))
+            }
 
-        state = Interpreter::do_file_with_state(&pdftex_cfg,state,NoColon::new(),&p).1;
-        state = Interpreter::do_file_with_state(&latex_ltx,state,NoColon::new(),&p).1;
-        for c in pgf_commands() {
-            let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
-        }
-        state
+            state = Interpreter::do_file_with_state(&pdftex_cfg, state, NoColon::new(), &p).1;
+            state = Interpreter::do_file_with_state(&latex_ltx, state, NoColon::new(), &p).1;
+            for c in pgf_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(c.name().unwrap(), Some(c))
+            }
+            state
+        })
     }
     pub fn file_read_line(&mut self,index:u8) -> Result<Vec<Token>,TeXError> {
         match self.infiles.get_mut(&index) {

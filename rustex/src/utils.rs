@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::str::{from_utf8, from_utf8_unchecked};
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
+use std::thread;
 use std::thread::JoinHandle;
 
 //pub fn u8toi16(i : u8) -> i16 { i16::from(i) }
@@ -237,6 +238,16 @@ impl AddAssign<String> for TeXString {
             self.0.push(*u)
         }
     }
+}
+
+pub fn with_stack_size<A : 'static,B : 'static>(f : B) -> A  where B: FnOnce() -> A + Send, A : Send {
+    let child = thread::Builder::new()
+        .stack_size(crate::STACK_SIZE)
+        .spawn(f)
+        .unwrap();
+
+    // Wait for thread to join
+    child.join().unwrap()
 }
 
 // -------------------------------------------------------------------------------------------------

@@ -19,18 +19,18 @@ path = "src/main.rs"
 
 [dependencies]
 lazy_static = "1.4.0"
-itertools = "0.10.1"
-pathdiff = "0.1.0"
-colored="2"
+itertools = "0.10.5"
+pathdiff = "0.2.1"
+colored="2.0.0"
 ansi_term = "0.12.1"
-backtrace = "0.3"
-chrono = "0.4"
-regex = "1.5.4"
+backtrace = "0.3.66"
+chrono = "0.4.22"
+regex = "1.6.0"
 md5 = "0.7.0"
-image = "0.24.2"
+image = "0.24.4"
 base64 =  "0.13.0"
-clap = { version = "3.0.7", features = ["derive"] }
-pdfium-render = { version = "0.7.5"}#, features = ["static"] }
+clap = { version = "3.2.22", features = ["derive"] }
+pdfium-render = "0.6" #, features = ["static"] }
 #magick_rust = { path = "../magick-rust" }
 
 #fixed = "1.11.0"

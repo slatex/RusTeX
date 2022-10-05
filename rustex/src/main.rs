@@ -1,6 +1,7 @@
 use std::borrow::BorrowMut;
 use std::io::Write;
 use std::path::Path;
+use std::thread;
 use rustex::interpreter::Interpreter;
 use rustex::interpreter::params::DefaultParams;
 use rustex::stomach::html::HTMLColon;
@@ -30,8 +31,10 @@ struct Parameters {
     singlethreaded:bool
 
 }
-
 fn main() {
+    rustex::utils::with_stack_size(run)
+}
+fn run() {
     let params : Parameters = Parameters::parse();
     use rustex::interpreter::state::State;
     //use magick_rust::{MagickWand, magick_wand_genesis};
