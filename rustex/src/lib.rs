@@ -10,6 +10,8 @@ pub mod kpathsea;
 //pub mod new_state;
 //mod new_mouth;
 
+pub const STACK_SIZE : usize = 8 * 1024 * 1024;
+
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;

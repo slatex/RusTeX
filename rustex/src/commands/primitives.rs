@@ -1087,11 +1087,12 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
         let mut eh = int.state.toks.get(&-(ERRHELP.index as i32));
-        let rethelp = if !eh.is_empty() {
-            eh.push(Token::new(0,CategoryCode::EndGroup,None,None,false));
+        let rethelp : TeXString = if !eh.is_empty() {
+           /* eh.push(Token::new(0,CategoryCode::EndGroup,None,None,false));
             int.push_tokens(eh);
+            unsafe {crate::LOG = true};
             let rethelp = int.read_token_list(true,false,false,true)?;
-            int.tokens_to_string(&rethelp)
+            int.tokens_to_string(&rethelp) */ "".into()
         } else {"".into()};
         TeXErr!("{}\n{}",string.to_string(),rethelp)
     }
