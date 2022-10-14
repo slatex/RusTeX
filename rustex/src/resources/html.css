@@ -2,21 +2,26 @@ body {
     font-family: STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
     margin:auto;
 }
+* {
+    position:relative
+}
 
 .resetfont {
     font-family: STIXgeneral, Times, Times New Roman, Symbol, cmr10, CMSY10, CMEX10, serif;
     font-style: normal;
-    font-weight: normal;
+    font-weight: 400;
     font-variant: normal;
 }
 
 .monospaced {
-    font-family: monospace;
+    font-family: FreeMono,Courier New,monospace;
 }
 
 .blackboard {
     font-family: msbm;
 }
+
+.mskip {}
 
 .script {
     font-family: URW Chancery L, cursive;
@@ -27,18 +32,16 @@ body {
 }
 
 .body {
-    position: relative;
-
-    color: hsl(0, 5%, 10%);
-    background-color: hsl(210, 20%, 98%);
-
-    text-rendering: optimizeLegibility;
-    align-content: inherit;
-    justify-content: start;
+    align-content:inherit;
+    background-color:#f9fafb;
+    color:#1b1818;
+    display:flex;
+    flex-direction:column;
     grid-auto-flow:row;
+    justify-content:flex-start;
+    margin:auto;
     text-align:justify;
-    display: flex;
-    flex-direction: column;
+    text-rendering:optimizeLegibility;
 }
 
 span {

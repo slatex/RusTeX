@@ -610,7 +610,7 @@ fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),T
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Dim(int.state.registers.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            (-(r.index as i32), Numeric::Dim(int.state.dimensions.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
         }
         AV(AssignableValue::Skip(i)) => {
             int.read_keyword(vec!("by"))?;
@@ -673,7 +673,7 @@ pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     name: "advance",
     _assign: |_,int,global| {
         let (index,num,sum) = get_inrv(int,false)?;
-        log!("\\advance sets {} to {}",index,num+sum);
+        log!("\\advance sets {} to {}",index,num + sum);
         match (num,sum) {
             (Numeric::Int(num),Numeric::Int(sum)) => int.state.registers.set(index,num + sum,global),
             (Numeric::Int(num),Numeric::Dim(sum)) => int.state.registers.set(index,num+sum,global),
