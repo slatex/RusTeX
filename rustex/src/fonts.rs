@@ -225,13 +225,13 @@ impl FontFile {
         }
         assert_eq!(state.i as u16,lf);
         let chartable = FONT_TABLES.get(tablename.into());
-        /*match chartable {
+        match chartable {
             None => {
-                println!("Here! {}",name);
+                println!("Missing Font Table: {}",name);
                 print!("")
             }
             _ => ()
-        }*/
+        }
 
         FontFile {
             hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name,

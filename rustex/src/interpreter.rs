@@ -985,6 +985,8 @@ impl Interpreter<'_> {
                         _ => TeXErr!(next => "Misplaced alignment tab")
                     }
                 }
+                Parameter =>
+                    TeXErr!(next.clone() => "Parameter Token {} not allowed in math mode",next),
                 _ => TeXErr!(next.clone() => "Urgh: {}",next),
             }
         }
