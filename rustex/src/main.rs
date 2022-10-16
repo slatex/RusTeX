@@ -36,7 +36,7 @@ struct Parameters {
 
 }
 static mut SKIP : bool = false;
-static SKIP_UNTIL : &str = "mod/nandnor.en.tex";
+static SKIP_UNTIL : &str = ".en.tex"; //integernumbers.en.tex
 
 fn main() {
     rustex::utils::with_stack_size(run)
@@ -74,7 +74,7 @@ fn run() {
                                         let p = DefaultParams::new(false, false, None);
                                         let mut int = Interpreter::with_state(st.clone(), stomach.borrow_mut(), &p);
                                         let (success, s) = int.do_file(&path, HTMLColon::new(true));
-                                        if (success) {
+                                        if success {
                                             let mut topcommands = Box::new(int.state.commands);
                                             loop {
                                                 match topcommands.parent {
@@ -89,11 +89,11 @@ fn run() {
                                             }
                                         }
                                         match out {
-                                            None => if (success) { println!("\n\nSuccess!\n{}", s) } else { println!("\n\nFailed\n{}", s) },
+                                            None => if success { println!("\n\nSuccess!\n{}", s) } else { println!("\n\nFailed\n{}", s) },
                                             Some(ref f) => {
                                                 let mut file = std::fs::File::create(&f).unwrap();
                                                 file.write_all(s.as_bytes()).expect("");
-                                                if (success) {
+                                                if success {
                                                     println!("\n\nSuccess! \\o/\nResult written to {}", f)
                                                 } else {
                                                     println!("\n\nFailed\nPartial result written to {}", f)
@@ -126,11 +126,11 @@ fn run() {
                 }
             };
             match params.output {
-                None => if (success) {println!("\n\nSuccess!\n{}",s)} else {println!("\n\nFailed\n{}",s)},
+                None => if success {println!("\n\nSuccess!\n{}",s)} else {println!("\n\nFailed\n{}",s)},
                 Some(f) => {
                     let mut file = std::fs::File::create(&f).unwrap();
                     file.write_all(s.as_bytes()).expect("");
-                    if (success) {
+                    if success {
                         println!("\n\nSuccess! \\o/\nResult written to {}", f)
                     } else {
                         println!("\n\nFailed\nPartial result written to {}",f)
