@@ -36,7 +36,7 @@ struct Parameters {
 
 }
 static mut SKIP : bool = false;
-static SKIP_UNTIL : &str = "mod/pl1.en.tex";
+static SKIP_UNTIL : &str = "mod/nandnor.en.tex";
 
 fn main() {
     rustex::utils::with_stack_size(run)
@@ -57,7 +57,7 @@ fn run() {
                 }
                 Some(d) => {
                     let state = State::pdf_latex();
-                    fn do_dir<P: AsRef<Path>>(s : P,st : State,out:Option<String>) {
+                    fn do_dir<P: AsRef<Path>>(s : P,mut st : State,out:Option<String>) {
                         for f in std::fs::read_dir(s).unwrap() {
                             let f = f.unwrap();
                             let path = f.path();
@@ -74,6 +74,20 @@ fn run() {
                                         let p = DefaultParams::new(false, false, None);
                                         let mut int = Interpreter::with_state(st.clone(), stomach.borrow_mut(), &p);
                                         let (success, s) = int.do_file(&path, HTMLColon::new(true));
+                                        if (success) {
+                                            let mut topcommands = Box::new(int.state.commands);
+                                            loop {
+                                                match topcommands.parent {
+                                                    Some(p) => topcommands = p,
+                                                    _ => break
+                                                }
+                                            }
+                                            for (n,cmd) in topcommands.values.unwrap() {
+                                                if n.to_string().starts_with("c_stex_module") {
+                                                    st.commands.set(n,cmd,true);
+                                                }
+                                            }
+                                        }
                                         match out {
                                             None => if (success) { println!("\n\nSuccess!\n{}", s) } else { println!("\n\nFailed\n{}", s) },
                                             Some(ref f) => {
