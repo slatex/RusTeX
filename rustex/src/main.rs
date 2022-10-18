@@ -36,7 +36,7 @@ struct Parameters {
 
 }
 static mut SKIP : bool = false;
-static SKIP_UNTIL : &str = "slides/finitary-unification.en.tex"; //integernumbers.en.tex
+static SKIP_UNTIL : &str = "slides/exploiting-ci.en.tex"; //integernumbers.en.tex
 
 fn main() {
     rustex::utils::with_stack_size(run)

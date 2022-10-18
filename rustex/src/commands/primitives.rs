@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
-use crate::interpreter::{Interpreter, TeXMode};
+use crate::interpreter::{Interpreter, string_to_tokens, TeXMode};
 use crate::ontology::{Token, ExpansionRef};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{FontStyle, GroupType, State};
@@ -2342,6 +2342,65 @@ pub static SCANTOKENS: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static GLUESHRINK: NumericCommand = NumericCommand {
+    name:"glueshrink",
+    _getvalue:|int| {
+        let sk = int.read_skip()?;
+        use crate::interpreter::dimensions::SkipDim;
+        match sk.shrink {
+            Some(SkipDim::Pt(i) | SkipDim::Fil(i) | SkipDim::Fill(i) | SkipDim::Filll(i)) => {
+                Ok(Numeric::Dim(i))
+            }
+            _ => Ok(Numeric::Dim(0))
+        }
+    }
+};
+
+pub static GLUESHRINKORDER: NumericCommand = NumericCommand {
+    name:"glueshrinkorder",
+    _getvalue:|int| {
+        let sk = int.read_skip()?;
+        use crate::interpreter::dimensions::SkipDim;
+        Ok(Numeric::Int(match sk.shrink {
+            Some(SkipDim::Pt(_)) => 0,
+            Some(SkipDim::Fil(i)) => 1,
+            Some(SkipDim::Fill(i)) => 2,
+            Some(SkipDim::Filll(i)) => 3,
+            _ => 0
+        }))
+    }
+};
+
+pub static GLUESTRETCH: NumericCommand = NumericCommand {
+    name:"gluestretch",
+    _getvalue:|int| {
+        let sk = int.read_skip()?;
+        use crate::interpreter::dimensions::SkipDim;
+        match sk.stretch {
+            Some(SkipDim::Pt(i) | SkipDim::Fil(i) | SkipDim::Fill(i) | SkipDim::Filll(i)) => {
+                Ok(Numeric::Dim(i))
+            }
+            _ => Ok(Numeric::Dim(0))
+        }
+    }
+};
+
+pub static GLUESTRETCHORDER: NumericCommand = NumericCommand {
+    name:"gluestretchorder",
+    _getvalue:|int| {
+        let sk = int.read_skip()?;
+        use crate::interpreter::dimensions::SkipDim;
+        Ok(Numeric::Int(match sk.stretch {
+            Some(SkipDim::Pt(_)) => 0,
+            Some(SkipDim::Fil(i)) => 1,
+            Some(SkipDim::Fill(i)) => 2,
+            Some(SkipDim::Filll(i)) => 3,
+            _ => 0
+        }))
+    }
+};
+
+
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
     _assign: |_,int,global| {
@@ -4467,30 +4526,6 @@ pub static FIRSTMARKS: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {TeXErr!("TODO: \\firstmarks")}
 };
 
-pub static GLUESHRINK: PrimitiveExecutable = PrimitiveExecutable {
-    name:"glueshrink",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\glueshrink")}
-};
-
-pub static GLUESHRINKORDER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"glueshrinkorder",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\glueshrinkorder")}
-};
-
-pub static GLUESTRETCH: PrimitiveExecutable = PrimitiveExecutable {
-    name:"gluestretch",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\gluestretch")}
-};
-
-pub static GLUESTRETCHORDER: PrimitiveExecutable = PrimitiveExecutable {
-    name:"gluestretchorder",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\gluestretchorder")}
-};
-
 pub static GLUETOMU: PrimitiveExecutable = PrimitiveExecutable {
     name:"gluetomu",
     expandable:true,
@@ -4784,6 +4819,10 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&LASTKERN),
     PrimitiveTeXCommand::Num(&CURRENTGROUPLEVEL),
     PrimitiveTeXCommand::Num(&CURRENTGROUPTYPE),
+    PrimitiveTeXCommand::Num(&GLUESHRINK),
+    PrimitiveTeXCommand::Num(&GLUESHRINKORDER),
+    PrimitiveTeXCommand::Num(&GLUESTRETCH),
+    PrimitiveTeXCommand::Num(&GLUESTRETCHORDER),
     PrimitiveTeXCommand::AV(AssignableValue::Int(&MATHCODE)),
     PrimitiveTeXCommand::Primitive(&ROMANNUMERAL),
     PrimitiveTeXCommand::Primitive(&NOEXPAND),
@@ -5009,10 +5048,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&ENDL),
     PrimitiveTeXCommand::Primitive(&ENDR),
     PrimitiveTeXCommand::Primitive(&FIRSTMARKS),
-    PrimitiveTeXCommand::Primitive(&GLUESHRINK),
-    PrimitiveTeXCommand::Primitive(&GLUESHRINKORDER),
-    PrimitiveTeXCommand::Primitive(&GLUESTRETCH),
-    PrimitiveTeXCommand::Primitive(&GLUESTRETCHORDER),
     PrimitiveTeXCommand::Primitive(&GLUETOMU),
     PrimitiveTeXCommand::Primitive(&INTERACTIONMODE),
     PrimitiveTeXCommand::Primitive(&LASTLINEFIT),
