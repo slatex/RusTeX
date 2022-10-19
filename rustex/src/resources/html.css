@@ -1,5 +1,5 @@
 body {
-    font-family: STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
+    font-family: Latin Modern, STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
     margin:auto;
 }
 * {
@@ -7,14 +7,14 @@ body {
 }
 
 .resetfont {
-    font-family: STIXgeneral, Times, Times New Roman, Symbol, cmr10, CMSY10, CMEX10, serif;
+    font-family: Latin Modern, STIXgeneral, Times, Times New Roman, Symbol, cmr10, CMSY10, CMEX10, serif;
     font-style: normal;
     font-weight: 400;
     font-variant: normal;
 }
 
 .monospaced {
-    font-family: FreeMono,Courier New,monospace;
+    font-family: Latin Modern Mono, FreeMono,Courier New,monospace;
 }
 
 .blackboard {
@@ -28,7 +28,7 @@ body {
 }
 
 .sansserif {
-    font-family: sans-serif;
+    font-family: Latin Modern Sans, sans-serif;
 }
 
 .body {

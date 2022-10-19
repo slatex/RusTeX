@@ -38,13 +38,13 @@ impl SkipDim {
         use SkipDim::*;
         match self {
             Pt(i) =>
-                ((*i as f64) / 65536.0).to_string() + "pt",
+                numtostr(*i,"pt"),
             Fil(i) =>
-                ((*i as f64) / 65536.0).to_string() + "fil",
+                numtostr(*i,"fil"),
             Fill(i) =>
-                ((*i as f64) / 65536.0).to_string() + "fill",
+                numtostr(*i,"fill"),
             Filll(i) =>
-                ((*i as f64) / 65536.0).to_string() + "filll",
+                numtostr(*i,"filll"),
         }
     }
 }

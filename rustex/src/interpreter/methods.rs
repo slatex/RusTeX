@@ -166,7 +166,6 @@ impl Interpreter<'_> {
         }
     }
 
-
     #[inline(always)]
     pub fn read_token_list(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
@@ -452,7 +451,7 @@ impl Interpreter<'_> {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
                             PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(Some(Numeric::Int(self.state.parshape.get(&()).len() as i32))),
                             PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get(&())))),
-                            _ => TeXErr!(next.clone() => "Number expected; found {}",next)
+                            _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
                         }
                     }
                 }
@@ -609,7 +608,7 @@ impl Interpreter<'_> {
                 SkipDim::Pt(i) => i,
                 _ => TeXErr!("Should be unreachable!")
             },None,None),
-            Numeric::Skip(s) => (s.base,s.stretch,s.shrink),
+            Numeric::Skip(s) => return Ok(s),//(s.base,s.stretch,s.shrink),
             Numeric::MuSkip(_) => TeXErr!("Skip expected; muskip found")
         };
         self.rest_skip(a,b,c)
