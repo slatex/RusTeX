@@ -1037,10 +1037,33 @@ impl WhatsitTrait for HAlign {
                                             }
                                             let mut incell : bool = false;
                                             htmlnode!(colon,div,None,"hbox",htmlparent!(cell),bx => {
+                                                let mut inspace = false;
                                                 for w in vs { match w {
                                                     Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
                                                     Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
+                                                    Whatsit::Space(sc) if !inspace => {
+                                                        incell = true;
+                                                        inspace = true;
+                                                        htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
+                                                    }
+                                                    Whatsit::Space(_) => {}
+                                                    Whatsit::Char(ref pc) => {
+                                                        match pc.font.file.chartable.as_ref().map(|ct| ct.table.get(&pc.char)) {
+                                                            Some(Some(s)) if *s == " " && !inspace => {
+                                                                incell = true;
+                                                                inspace = true;
+                                                                htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
+                                                            }
+                                                            Some(Some(s)) if *s == " " && inspace => {}
+                                                            _ => {
+                                                                incell = true;
+                                                                inspace = false;
+                                                                w.as_html(&ColonMode::H,colon,htmlparent!(bx))
+                                                            }
+                                                        }
+                                                    }
                                                     o => {
+                                                        inspace = false;
                                                         incell = true;
                                                         o.as_html(&ColonMode::H,colon,htmlparent!(bx))
                                                     }

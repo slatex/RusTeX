@@ -260,7 +260,7 @@ impl WhatsitTrait for HBox {
                         }
                         _ => ()
                     }
-                    for c in self.children { c.as_html(&ColonMode::H,colon,htmlparent!(node)) }
+                    HBox::ch_as_html(self.children,colon,&mut node);
                     //htmlliteral!(colon,node_top,"\n");
                 })
             }
@@ -272,6 +272,37 @@ impl WhatsitTrait for HBox {
                 })
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
+        }
+    }
+}
+impl HBox {
+    fn ch_as_html(children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
+        let mut inspace = false;
+        for c in children {
+            match c {
+                Whatsit::Space(sc) if !inspace => {
+                    inspace = true;
+                    htmlliteral!(colon,htmlparent!(node),"&nbsp;")
+                }
+                Whatsit::Space(_) => {}
+                Whatsit::Char(ref pc) => {
+                    match pc.font.file.chartable.as_ref().map(|ct| ct.table.get(&pc.char)) {
+                        Some(Some(s)) if *s == " " && !inspace => {
+                            inspace = true;
+                            htmlliteral!(colon,htmlparent!(node),"&nbsp;")
+                        }
+                        Some(Some(s)) if *s == " " && inspace => {}
+                        _ => {
+                            inspace = false;
+                            c.as_html(&ColonMode::H,colon,htmlparent!(node))
+                        }
+                    }
+                }
+                _ => {
+                    inspace = false;
+                    c.as_html(&ColonMode::H,colon,htmlparent!(node))
+                }
+            }
         }
     }
 }
