@@ -95,6 +95,7 @@ hr {
     width: 100%;
 }
 .vbox {
+    overflow-wrap:initial;
     display: inline-flex;
     flex-direction: column;
     flex-wrap: nowrap;
@@ -106,6 +107,7 @@ hr {
     align-self: center;
 }
 .hbox {
+    overflow-wrap:initial;
     display: inline-flex;
     flex-direction: row;
     justify-content: flex-start;
@@ -140,7 +142,6 @@ foreignObject {
     height:100%;
     align-items:center;
     justify-content:center;
-    transform: scale(1,-1);
 }
 table {
     border-spacing:0;

@@ -1,17 +1,7 @@
 \ProvidesFileRCS{pgfsys-rust.def}
 
-\def\rustex@register#1{\expandafter\let\csname pgfsys@#1\expandafter\endcsname\csname rustex!pgf!#1\endcsname}
-
-\let\pgfsys@beginpicture\relax\let\pgfsys@endpicture\relax
-%\rustex@register{beginpicture}
-%\rustex@register{endpicture}
-\rustex@register{hbox}
-\rustex@register{typesetpicturebox}
-
-\expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
-
-\def\pgfsyspdfmark#1#2#3{}
-
+% Adapted from pgfsys-common-svg.def
+%
 % Copyright 2019 by Till Tantau
 %
 % This file may be distributed and/or modified
@@ -22,11 +12,26 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-% Driver commands for svg
+\let\pgfsys@beginpicture\relax\let\pgfsys@endpicture\relax
+\expandafter\let\csname pgfsys@hbox\expandafter\endcsname\csname rustex!pgf!hbox\endcsname
+\expandafter\let\csname pgfsys@typesetpicturebox\expandafter\endcsname\csname rustex!pgf!typesetpicturebox\endcsname
 
+\expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
 
+\def\pgfsys@invoke#1{\pgf@sys@fail{svg code in preamble}}
+\def\pgfsys@body@invoke#1{\csname rustex!pgf!literal\endcsname{#1}}
 
-% Helping functions:
+\def\pgfsyspdfmark#1#2#3{}
+
+{\catcode`\%=12
+\gdef\pgf@sys@svg@percentchar{%}
+}
+{\catcode`\#=11
+\gdef\pgf@sys@svg@hash{#}
+}
+
+\newcount\pgf@sys@svg@objectcount
+
 \def\pgf@sys@svg@make@defs#1{\pgf@sys@fail{svg defs}}
 \def\pgf@sys@svg@ref@defs#1{\pgf@sys@fail{svg defs}}
 \let\pgf@sys@svgpath=\pgfutil@empty
@@ -38,22 +43,24 @@
     \xdef\pgf@sys@svgpath{\the\pgfutil@toks@}%
   }%
 }
-\def\pgf@sys@addtosvgpath#1{\pgfutil@g@addto@macro\pgf@sys@svgpath{#1\space}}
-\def\pgf@sys@flushsvgpath{\pgfsysprotocol@literal{\pgf@sys@svgpath}\global\let\pgf@sys@svgpath=\pgfutil@empty}
-\def\pgf@sys@svg@gs#1{%
-  {%
-    \pgfsysprotocol@literal{<g #1>\pgfsys@svg@newline}%
-  }%
-  \global\advance\pgf@sys@svg@scopecount by1\relax%
-}
-\newcount\pgf@sys@svg@objectcount
 
-{\catcode`\%=12
-\gdef\pgf@sys@svg@percentchar{%}
+\def\pgf@sys@addtosvgpath#1{\pgfutil@g@addto@macro\pgf@sys@svgpath{#1\space}}
+\protected\def\pgf@sys@flushsvgpath{\csname rustex!pgf!flushpath\endcsname}
+
+\def\pgf@sys@svg@node@begin#1#2{%
+    \csname rustex!pgf!gbegin\endcsname{#1}#2\relax%
 }
-{\catcode`\#=11
-\gdef\pgf@sys@svg@hash{#}
+\def\pgf@sys@svg@node@end#1{%
+    \csname rustex!pgf!gend\endcsname{#1}%
 }
+\def\pgf@sys@svg@node#1#2#3{%
+    \pgf@sys@svg@node@begin{#1}{#2}#3\pgf@sys@svg@node@end{#1}%
+}
+\def\pgf@sys@svg@node@beging#1{%
+    \csname rustex!pgf!gbegin\endcsname{g}#1\relax%
+    \global\advance\pgf@sys@svg@scopecount by1\relax%
+}
+
 
 % Path construction:
 \def\pgfsys@lineto#1#2{\pgf@sys@addtosvgpath{L}\pgf@sys@svgnum{#1}\pgf@sys@svgnum{#2}}
@@ -71,6 +78,7 @@
   \pgfsys@closepath}
 \def\pgfsys@closepath{\pgf@sys@addtosvgpath{Z}}
 
+
 % Path usage:
 \newif\ifpgf@sys@svg@clipnext
 \def\pgf@sys@svg@possiblyclippedpath#1{%
@@ -80,76 +88,88 @@
   \csname pgfsys@anim@ba@\pgf@sys@cacheref\endcsname%
   \ifpgf@sys@svg@clipnext%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgfsysprotocol@literal{%
-      <clipPath id="\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}clip">
-      <path id="\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}" d="}%
-    \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsysprotocol@literal{\pgfsys@anim@ba@d}\fi%
-    \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
-    \pgfsysprotocol@literal{<use xlink:href="\#\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}" %
-      \ifx\pgfsys@anim@ba@d\pgfutil@empty\else%
+
+    \pgf@sys@svg@node{clipPath}{%
+        id="\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}clip"%
+    }{%
+        \pgf@sys@svg@node{path}{%
+            id="\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}" d="%
+            \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsys@anim@ba@d\fi%
+        }{}%
+    }%
+    \pgf@sys@svg@node{use}{%
+        xlink:href="\#\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}"%
+        \ifx\pgfsys@anim@ba@d\pgfutil@empty\else%
         \ifx\pgfsys@anim@ba@markerstart\pgfutil@empty\else%
-          marker-start="url(\#\pgfsys@anim@ba@markerstart)" %
+            marker-start="url(\#\pgfsys@anim@ba@markerstart)"%
         \fi%
         \ifx\pgfsys@anim@ba@markerend\pgfutil@empty\else%
-          marker-end="url(\#\pgfsys@anim@ba@markerend)" %
+            marker-end="url(\#\pgfsys@anim@ba@markerend)"%
         \fi%
-      \fi%
-      #1/>\pgfsys@svg@newline }%
-    \pgf@sys@svg@gs{clip-path="url(\#\pgfsys@if@fresh@currentid{\pgfsys@id@refcurrent}{pgfcp\the\pgf@sys@svg@objectcount}clip)"}
+        \fi%
+        #1%
+    }{}%
+    \pgf@sys@svg@node@beging{%
+        clip-path="url(\#\pgfsys@if@fresh@currentid{\pgfsys@id@refcurrent}{pgfcp\the\pgf@sys@svg@objectcount}clip)"%
+    }%
     \pgf@sys@svg@clipnextfalse%
   \else%
-    \pgfsysprotocol@literal{<path\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}  d="}%
-    \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsysprotocol@literal{\pgfsys@anim@ba@d}\fi%
-    \pgfsysprotocol@literal{" %
-      \ifx\pgfsys@anim@ba@d\pgfutil@empty\else%
-        \ifx\pgfsys@anim@ba@markerstart\pgfutil@empty\else%
-          marker-start="url(\#\pgfsys@anim@ba@markerstart)" %
+    \pgf@sys@svg@node{path}{%
+        \pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent"}{}d="%
+        \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsys@anim@ba@d\fi" %
+        \ifx\pgfsys@anim@ba@d\pgfutil@empty\else%
+          \ifx\pgfsys@anim@ba@markerstart\pgfutil@empty\else%
+            marker-start="url(\#\pgfsys@anim@ba@markerstart)" %
+          \fi%
+          \ifx\pgfsys@anim@ba@markerend\pgfutil@empty\else%
+            marker-end="url(\#\pgfsys@anim@ba@markerend)" %
+          \fi%
         \fi%
-        \ifx\pgfsys@anim@ba@markerend\pgfutil@empty\else%
-          marker-end="url(\#\pgfsys@anim@ba@markerend)" %
-        \fi%
-      \fi%
-      #1/>\pgfsys@svg@newline }%
+        #1%
+    }{}%
   \fi%
   \pgfsys@invalidate@currentid%
 }
+
 \def\pgfsys@stroke{\pgf@sys@svg@possiblyclippedpath{fill="none"}}
 \def\pgfsys@fill{\pgf@sys@svg@possiblyclippedpath{stroke="none"}}
 \def\pgfsys@fillstroke{\pgf@sys@svg@possiblyclippedpath{}}
 \def\pgfsys@clipnext{\pgf@sys@svg@clipnexttrue}
+
 \def\pgfsys@discardpath{%
   \ifpgf@sys@svg@clipnext%
     \edef\pgf@sys@cacheref{\pgfsys@id@refcurrent}%
     \let\pgfsys@anim@ba@d\pgfutil@empty
     \csname pgfsys@anim@ba@\pgf@sys@cacheref\endcsname%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgfsysprotocol@literal{%
-      <clipPath id="pgfcp\the\pgf@sys@svg@objectcount">%
-      <path\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{} d="}%
-    \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsysprotocol@literal{\pgfsys@anim@ba@d}\fi%
-    \pgfsysprotocol@literal{"/> </clipPath>\pgfsys@svg@newline }
-    \pgf@sys@svg@gs{clip-path="url(\#pgfcp\the\pgf@sys@svg@objectcount)"}
+
+    \pgf@sys@svg@node{clipPath}{id="pgfcp\the\pgf@sys@svg@objectcount"}{%
+        \pgf@sys@svg@node{path}{\pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent"}{}d="%
+            \ifx\pgfsys@anim@ba@d\pgfutil@empty\pgf@sys@flushsvgpath\else\pgfsys@anim@ba@d\fi%
+        }{}%
+    }%
+    \pgf@sys@svg@node@beging{clip-path="url(\#pgfcp\the\pgf@sys@svg@objectcount)"}%
     \pgf@sys@svg@clipnextfalse%
   \else%
-    \global\let\pgf@sys@svgpath=\pgfutil@empty
+    \global\let\pgf@sys@svgpath=\pgfutil@empty%
   \fi%
   \pgfsys@invalidate@currentid%
 }
 
 % Fill rules:
-\def\pgfsys@eoruletrue{\pgf@sys@svg@gs{fill-rule="evenodd"}}
-\def\pgfsys@eorulefalse{\pgf@sys@svg@gs{fill-rule="nonzero"}}
+\def\pgfsys@eoruletrue{\pgf@sys@svg@node@beging{fill-rule="evenodd"}}
+\def\pgfsys@eorulefalse{\pgf@sys@svg@node@beging{fill-rule="nonzero"}}
 
 % Transparency:
-\def\pgfsys@opacity#1{\pgf@sys@svg@gs{opacity="#1"}}
-\def\pgfsys@stroke@opacity#1{\pgf@sys@svg@gs{stroke-opacity="#1"}}
-\def\pgfsys@fill@opacity#1{\pgf@sys@svg@gs{fill-opacity="#1"}\def\pgf@sys@svg@opacity{#1}}
+\def\pgfsys@opacity#1{\pgf@sys@svg@node@beging{opacity="#1"}}
+\def\pgfsys@stroke@opacity#1{\pgf@sys@svg@node@beging{stroke-opacity="#1"}}
+\def\pgfsys@fill@opacity#1{\pgf@sys@svg@node@beging{fill-opacity="#1"}\def\pgf@sys@svg@opacity{#1}}
 \def\pgf@sys@svg@opacity{1}
 \def\pgfsys@transparencygroupfrombox#1{%
   \setbox#1=\hbox{%
-  \pgfsys@invoke{<g opacity="\pgf@sys@svg@opacity" stroke-opacity="1" fill-opacity="1">\pgfsys@svg@newline }%
-  \unhbox#1%
-  \pgfsys@invoke{</g>\pgfsys@svg@newline }%
+    \pgf@sys@svg@node{g}{opacity="\pgf@sys@svg@opacity" stroke-opacity="1" fill-opacity="1"}{%
+        \unhbox#1%
+    }%
   }%
 }
 
@@ -161,29 +181,31 @@
       \ifdim\pgf@x=0pt\relax%
         \ifdim\pgf@y=0pt%
         \else%
-          \pgf@sys@svg@gs{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+          \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
         \fi%
       \else%
-        \pgf@sys@svg@gs{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+        \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \fi%
     \else%
-      \pgf@sys@svg@gs{transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \pgf@sys@svg@node@beging{transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
     \fi}}
 \def\pgfsys@transformshift#1#2{%
   {\pgf@x=#1\pgf@y=#2%
     \ifdim\pgf@x=0pt\relax%
       \ifdim\pgf@y=0pt%
       \else%
-        \pgf@sys@svg@gs{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+        \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \fi%
     \else%
-      \pgf@sys@svg@gs{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
     \fi}}
 \def\pgfsys@transformxyscale#1#2{%
   {\pgf@x=#1pt\pgf@y=#2pt%
-  \pgf@sys@svg@gs{transform="scale(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}}}
+  \pgf@sys@svg@node@beging{transform="scale(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}}}
+
 \def\pgfsys@viewboxmeet{\pgf@sys@svg@viewbox{meet}}
 \def\pgfsys@viewboxslice{\pgf@sys@svg@viewbox{slice}}
+
 \def\pgf@sys@svg@viewbox#1#2#3#4#5#6#7#8#9{%
   {%
     \edef\pgf@sys@cacheref{\pgfsys@id@refcurrent}%
@@ -200,26 +222,25 @@
     \pgf@yc#9%
     \advance\pgf@xc by-\pgf@xb%
     \advance\pgf@yc by-\pgf@yb%
-    \pgfsysprotocol@literal{<svg
-      overflow="visible"
-      preserveAspectRatio="xMidYMid #1"
-      \pgfsys@if@fresh@currentid{ id="\pgf@sys@cacheref"}{}
-      x="\pgf@sys@tonumber{\pgf@x}"
-      y="\pgf@sys@tonumber{\pgf@y}"
-      width="\pgf@sys@tonumber{\pgf@xa}"
-      height="\pgf@sys@tonumber{\pgf@ya}"
-      viewBox="%
-        \ifx\pgfsys@anim@ba@viewBox\pgfutil@empty%
-          \pgf@sys@tonumber{\pgf@xb} \pgf@sys@tonumber{\pgf@yb} \pgf@sys@tonumber{\pgf@xc} \pgf@sys@tonumber{\pgf@yc}%
-        \else%
-          \pgfsys@anim@ba@viewBox%
-        \fi%
-        ">}%
+    \csname rustex!pgf!begin\endcsname%
+        overflow="visible"%
+        preserveAspectRatio="xMidYMid #1"%
+        \pgfsys@if@fresh@currentid{id="\pgf@sys@cacheref"}{}%
+        x="\pgf@sys@tonumber{\pgf@x}"%
+        y="\pgf@sys@tonumber{\pgf@y}"%
+        width="\pgf@sys@tonumber{\pgf@xa}"%
+        height="\pgf@sys@tonumber{\pgf@ya}"%
+        viewBox="%
+            \ifx\pgfsys@anim@ba@viewBox\pgfutil@empty%
+            \pgf@sys@tonumber{\pgf@xb} \pgf@sys@tonumber{\pgf@yb} \pgf@sys@tonumber{\pgf@xc} \pgf@sys@tonumber{\pgf@yc}%
+            \else%
+            \pgfsys@anim@ba@viewBox%
+            \fi%
+            "\relax%
     \pgfsys@invalidate@currentid%
   }%
 }
-\def\pgfsys@endviewbox{\pgfsysprotocol@literal{</svg>}}
-
+\def\pgfsys@endviewbox{\csname rustex!pgf!end\endcsname}
 
 % Scopes
 \newcount\pgf@sys@svg@scopecount
@@ -237,12 +258,12 @@
   \edef\pgf@sys@svg@thescopecount{\the\pgf@sys@svg@scopecount}%
   \begingroup%
     \pgf@sys@svg@scopecount=1\relax%
-    \pgfsysprotocol@literal{<g#1>\pgfsys@svg@newline }%
+    \pgf@sys@svg@node@begin{g}{#1}%
 }
 \def\pgfsys@endscope{%
     \loop%
     \ifnum\pgf@sys@svg@scopecount>0\relax%
-      \pgfsysprotocol@literal{</g>\pgfsys@svg@newline }%
+      \pgf@sys@svg@node@end{g}%
       \advance\pgf@sys@svg@scopecount by-1\relax%
     \repeat%
   \endgroup%
@@ -271,14 +292,14 @@
     }%
     \expandafter\global\expandafter\let\csname pgf@sys@att@beg@\pgfsys@id@refcurrent\endcsname\relax%
     \expandafter\global\expandafter\let\csname pgf@sys@att@end@\pgfsys@id@refcurrent\endcsname\relax%
-    \ifpgfsys@svg@boxmode\pgfsysprotocol@literal{<g stroke="none">}\pgfsys@svg@close@strokenonetrue\fi%
+    \ifpgfsys@svg@boxmode\pgf@sys@svg@node@begin{g}{stroke="none"}\pgfsys@svg@close@strokenonetrue\fi%
     \pgfsys@invalidate@currentid%
       \begingroup%
         \global\let\pgfsys@svg@rdf\pgfutil@empty%
 }
 \def\pgfsys@end@idscope{%
       \endgroup%
-    \ifpgfsys@svg@close@strokenone\pgfsysprotocol@literal{</g>}\fi%
+    \ifpgfsys@svg@close@strokenone\pgf@sys@svg@node@end{g}\fi%
     \pgf@sys@svg@end@id@scope@code%
     \pgf@sys@svg@end@id@scope%
   \endgroup%
@@ -298,19 +319,17 @@
   \fi%
 }
 
-
-
 % Graphics state
 \def\pgfsys@setdash#1#2{%
   {%
     \pgf@xa#2\relax%
     \edef\pgf@test@dashpattern{#1}%
     \ifx\pgf@test@dashpattern\pgfutil@empty%
-      \pgf@sys@svg@gs{stroke-dasharray="none" stroke-dashoffset="\pgf@sys@tonumber\pgf@xa"}%
+        \pgf@sys@svg@node@beging{stroke-dasharray="none" stroke-dashoffset="\pgf@sys@tonumber\pgf@xa"}%
     \else%
       \let\pgf@sys@svg@parsed@dash\pgfutil@empty%
       \expandafter\pgf@sys@svg@parse@dash\pgf@test@dashpattern,\relax%
-      \pgf@sys@svg@gs{stroke-dasharray="\pgf@sys@svg@parsed@dash" stroke-dashoffset="\pgf@sys@tonumber\pgf@xa"}%
+      \pgf@sys@svg@node@beging{stroke-dasharray="\pgf@sys@svg@parsed@dash" stroke-dashoffset="\pgf@sys@tonumber\pgf@xa"}%
     \fi%
   }%
 }
@@ -323,19 +342,19 @@
     \pgf@sys@svg@parse@dash%
   }%
 }
-\def\pgfsys@setlinewidth#1{{\pgf@x=#1\pgf@sys@svg@gs{stroke-width="\pgf@sys@tonumber{\pgf@x}"}}}
-\def\pgfsys@setmiterlimit#1{\pgf@sys@svg@gs{stroke-miterlimit="#1"}}
-\def\pgfsys@buttcap{\pgf@sys@svg@gs{stroke-linecap="butt"}}
-\def\pgfsys@roundcap{\pgf@sys@svg@gs{stroke-linecap="round"}}
-\def\pgfsys@rectcap{\pgf@sys@svg@gs{stroke-linecap="square"}}
-\def\pgfsys@miterjoin{\pgf@sys@svg@gs{stroke-linejoin="miter"}}
-\def\pgfsys@roundjoin{\pgf@sys@svg@gs{stroke-linejoin="round"}}
-\def\pgfsys@beveljoin{\pgf@sys@svg@gs{stroke-linejoin="bevel"}}
+\def\pgfsys@setlinewidth#1{{\pgf@x=#1\pgf@sys@svg@node@beging{stroke-width="\pgf@sys@tonumber{\pgf@x}"}}}
+\def\pgfsys@setmiterlimit#1{\pgf@sys@svg@node@beging{stroke-miterlimit="#1"}}
+\def\pgfsys@buttcap{\pgf@sys@svg@node@beging{stroke-linecap="butt"}}
+\def\pgfsys@roundcap{\pgf@sys@svg@node@beging{stroke-linecap="round"}}
+\def\pgfsys@rectcap{\pgf@sys@svg@node@beging{stroke-linecap="square"}}
+\def\pgfsys@miterjoin{\pgf@sys@svg@node@beging{stroke-linejoin="miter"}}
+\def\pgfsys@roundjoin{\pgf@sys@svg@node@beging{stroke-linejoin="round"}}
+\def\pgfsys@beveljoin{\pgf@sys@svg@node@beging{stroke-linejoin="bevel"}}
 
 % Invisibility
-\def\pgfsys@begininvisible{\pgfsysprotocol@literal{<g visibility="hidden">\pgfsys@svg@newline }}
-\def\pgfsys@endinvisible{\pgfsysprotocol@literal{</g>}}
-\def\pgfsys@begininvisiblescope{\pgfsys@beginscope@{ visibility="hidden"}}
+\def\pgfsys@begininvisible{\pgf@sys@svg@node@begin{g}{visibility="hidden"}}
+\def\pgfsys@endinvisible{\pgf@sys@svg@node@end{g}}
+\def\pgfsys@begininvisiblescope{\pgfsys@beginscope@{visibility="hidden"}}
 \def\pgfsys@endinvisiblescope{\pgfsys@endscope}
 
 
@@ -447,10 +466,10 @@
 }
 
 \def\pgf@sys@svg@gs@color#1{%
-  \ifpgfpicture\pgf@sys@svg@gs{#1}\fi%
+  \ifpgfpicture\pgf@sys@svg@node@beging{#1}\fi%
 }
 
-\def\pgf@sys@svg@colorpop{\pdfcolorstack 0 pop }%\csname rustex!pgf!colorpop\endcsname}
+\def\pgf@sys@svg@colorpop{\pdfcolorstack 0 pop }
 
 
 % RGB
@@ -548,65 +567,66 @@
 
 % Shadings:
 \def\pgf@sys@svg@shading@stops{%
-  % Step 1: Compute 1/\pgf@sys@shading@end@pos
-  \pgf@x=\pgf@sys@shading@end@pos\relax%
-  \c@pgf@counta=\pgf@x\relax%
-  \divide\c@pgf@counta by4096\relax%
-  % Step 2: Insert stops.
-  \expandafter\pgf@sys@svg@shading@dostops\pgf@sys@shading@ranges%
-    % dummy for end:
-    {{\pgf@sys@shading@end@pos}{\pgf@sys@shading@end@pos}{\pgf@sys@shading@end@rgb}{\pgf@sys@shading@end@rgb}}%
-    {}% end
+% Step 1: Compute 1/\pgf@sys@shading@end@pos
+\pgf@x=\pgf@sys@shading@end@pos\relax%
+\c@pgf@counta=\pgf@x\relax%
+\divide\c@pgf@counta by4096\relax%
+% Step 2: Insert stops.
+\expandafter\pgf@sys@svg@shading@dostops\pgf@sys@shading@ranges%
+  % dummy for end:
+  {{\pgf@sys@shading@end@pos}{\pgf@sys@shading@end@pos}{\pgf@sys@shading@end@rgb}{\pgf@sys@shading@end@rgb}}%
+  {}% end
 }
 \def\pgf@sys@svg@shading@dostops#1{%
-  \edef\pgf@test{#1}%
-  \ifx\pgf@test\pgfutil@empty%
-  \else%
-    \expandafter\pgf@sys@svg@shading@dostop\pgf@test%
-    \expandafter\pgf@sys@svg@shading@dostops%
-  \fi%
+\edef\pgf@test{#1}%
+\ifx\pgf@test\pgfutil@empty%
+\else%
+  \expandafter\pgf@sys@svg@shading@dostop\pgf@test%
+  \expandafter\pgf@sys@svg@shading@dostops%
+\fi%
 }
 \def\pgf@sys@svg@shading@dostop#1#2#3#4{%
-  % #1 start pos
-  % #2 end pos
-  % #3 start rgb
-  % #4 end rgb
-  \pgf@x=#1%
-  \pgf@x=16\pgf@x%
-  \divide\pgf@x by \c@pgf@counta\relax%
-  \pgf@sys@svg@addtostops{<stop offset="\pgf@sys@tonumber\pgf@x" stop-color="}%
-  \pgf@sys@svg@shading@dorgb#3%
-  \pgf@sys@svg@addtostops{"/>\noexpand\pgfsys@svg@newline}%
+    % #1 start pos
+    % #2 end pos
+    % #3 start rgb
+    % #4 end rgb
+    \pgf@x=#1%
+    \pgf@x=16\pgf@x%
+    \divide\pgf@x by \c@pgf@counta\relax%
+    \pgf@sys@svg@addtostops{\csname rustex!pgf!gbegin\endcsname{stop} offset="\pgf@sys@tonumber\pgf@x" stop-color="}%
+    \pgf@sys@svg@shading@dorgb#3%
+    \pgf@sys@svg@addtostops{"\relax\pgf@sys@svg@node@end{stop}}%
 }
 \def\pgf@sys@svg@shading@dorgb#1#2#3{%
-  \pgf@sys@svg@color@rgb#1,#2,#3\relax%
-  \pgf@sys@svg@addtostops{\pgf@sys@svg@prepared}%
+\pgf@sys@svg@color@rgb#1,#2,#3\relax%
+\pgf@sys@svg@addtostops{\pgf@sys@svg@prepared}%
 }
 
 \let\pgf@sys@svg@thestops=\pgfutil@empty
 \def\pgf@sys@svg@addtostops#1{%
-  \edef\pgf@temp{#1}%
-  \expandafter\expandafter\expandafter\def
-  \expandafter\expandafter\expandafter\pgf@sys@svg@thestops
-  \expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@thestops\expandafter\space\pgf@temp}%
+    \edef\pgf@temp{#1}%
+    \expandafter\expandafter\expandafter\def
+    \expandafter\expandafter\expandafter\pgf@sys@svg@thestops
+    \expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@thestops\expandafter\space\pgf@temp}%
 }
 
+% -----------------------------------------------------------------------------
 
 \def\pgfsys@horishading#1#2#3{%
   {%
     \pgf@parsefunc{#3}%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgf@sys@svg@addtostops{<linearGradient id="pgfsh\the\pgf@sys@svg@objectcount">\noexpand\pgfsys@svg@newline}%
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@begin{linearGradient}{id="pgfsh\the\pgf@sys@svg@objectcount"}}%
     \pgf@sys@svg@shading@stops%
-    \pgf@sys@svg@addtostops{</linearGradient>\noexpand\pgfsys@svg@newline}%
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@end{linearGradient}}%
     \pgf@process{\pgfpoint{\pgf@sys@shading@end@pos}{#2}}%
     \xdef\pgfutil@tempa{%
-      \def\noexpand\pgf@sys@svg@sh@defs{\noexpand\pgfsysprotocol@literal{\pgf@sys@svg@thestops}}%
-      \def\noexpand\pgf@sys@svg@sh{\noexpand\pgfsysprotocol@literal{<rect
+      \def\noexpand\pgf@sys@svg@sh@defs{\pgf@sys@svg@thestops}%
+      \def\noexpand\pgf@sys@svg@sh{\pgf@sys@svg@node{rect}{%
         width="\pgf@sys@tonumber{\pgf@x}"
         height="\pgf@sys@tonumber{\pgf@y}"
         style="fill:url(\noexpand\#pgfsh\the\pgf@sys@svg@objectcount);
-          stroke:none"/>\noexpand\pgfsys@svg@newline}}%
+          stroke:none"}{}}%
       \def\noexpand\pgf@sys@svg@pos{\noexpand\pgfpoint{\the\pgf@x}{\the\pgf@y}}%
     }%
   }%
@@ -626,19 +646,19 @@
   {%
     \pgf@parsefunc{#3}%
     \global\advance\pgf@sys@svg@objectcount by1\relax%
-    \pgf@sys@svg@addtostops{<linearGradient
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@begin{linearGradient}{
       id="pgfsh\the\pgf@sys@svg@objectcount"
-      gradientTransform="rotate(90)">\noexpand\pgfsys@svg@newline}%
+      gradientTransform="rotate(90)"}}%
     \pgf@sys@svg@shading@stops%
-    \pgf@sys@svg@addtostops{</linearGradient>\noexpand\pgfsys@svg@newline}%
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@end{linearGradient}}%
     \pgf@process{\pgfpoint{\pgf@sys@shading@end@pos}{#2}}%
     \xdef\pgfutil@tempa{%
-      \def\noexpand\pgf@sys@svg@sh@defs{\noexpand\pgfsysprotocol@literal{\pgf@sys@svg@thestops}}%
-      \def\noexpand\pgf@sys@svg@sh{\noexpand\pgfsysprotocol@literal{<rect
+      \def\noexpand\pgf@sys@svg@sh@defs{\pgf@sys@svg@thestops}%
+      \def\noexpand\pgf@sys@svg@sh{\pgf@sys@svg@node{rect}{%
         width="\pgf@sys@tonumber{\pgf@y}"
         height="\pgf@sys@tonumber{\pgf@x}"
         style="fill:url(\noexpand\#pgfsh\the\pgf@sys@svg@objectcount);
-          stroke:none"/>\noexpand\pgfsys@svg@newline}}%
+          stroke:none"}{}}%
       \def\noexpand\pgf@sys@svg@pos{\noexpand\pgfpoint{\the\pgf@y}{\the\pgf@x}}%
     }%
   }%
@@ -660,23 +680,22 @@
     \divide\pgf@y by \c@pgf@counta\relax%
     \advance\pgf@x by.5pt%
     \advance\pgf@y by.5pt%
-    \pgf@sys@svg@addtostops{<radialGradient
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@begin{radialGradient}{
       id="pgfsh\the\pgf@sys@svg@objectcount"
       fx="\pgf@sys@tonumber\pgf@x"
-      fy="\pgf@sys@tonumber\pgf@y"
-      >\noexpand\pgfsys@svg@newline}%
+      fy="\pgf@sys@tonumber\pgf@y"}}%
     \pgf@sys@svg@shading@stops%
-    \pgf@sys@svg@addtostops{</radialGradient>\noexpand\pgfsys@svg@newline}%
+    \pgf@sys@svg@addtostops{\pgf@sys@svg@node@end{radialGradient}}%
     \pgf@xa=\pgf@sys@shading@end@pos%
     \pgf@xb=2\pgf@xa%
     \xdef\pgfutil@tempa{%
-      \def\noexpand\pgf@sys@svg@sh@defs{\noexpand\pgfsysprotocol@literal{\pgf@sys@svg@thestops}}%
-      \def\noexpand\pgf@sys@svg@sh{\noexpand\pgfsysprotocol@literal{<circle
+      \def\noexpand\pgf@sys@svg@sh@defs{\pgf@sys@svg@thestops}%
+      \def\noexpand\pgf@sys@svg@sh{\pgf@sys@svg@node{circle}{%
         cx="\pgf@sys@tonumber{\pgf@xa}"
         cy="\pgf@sys@tonumber{\pgf@xa}"
         r="\pgf@sys@tonumber{\pgf@xa}"
         style="fill:url(\noexpand\#pgfsh\the\pgf@sys@svg@objectcount);
-          stroke:none"/>\noexpand\pgfsys@svg@newline}}%
+          stroke:none"}{}}%
       \def\noexpand\pgf@sys@svg@pos{\noexpand\pgfpoint{\the\pgf@xb}{\the\pgf@xb}}%
     }%
   }%
@@ -702,37 +721,37 @@
   \pgfutil@tempdimb=#7\relax%
   \ifnum#9=1\relax%
     % Colored. That's easy:
-    \pgf@sys@svg@make@defs{#1}{
-      <pattern
-        id="pgfpat#1"
-        patternUnits="userSpaceOnUse"
-        width="\pgf@sys@tonumber\pgf@xc"
-        height="\pgf@sys@tonumber\pgf@yc"
-        patternTransform="matrix(#2\space#3\space#4\space#5\space\pgf@sys@tonumber\pgfutil@tempdima\space\pgf@sys@tonumber\pgfutil@tempdimb)">
-        #8
-      </pattern>}%
+    \pgf@sys@svg@make@defs{#1}{%
+        \pgf@sys@svg@node{pattern}{
+            id="pgfpat#1"
+            patternUnits="userSpaceOnUse"
+            width="\pgf@sys@tonumber\pgf@xc"
+            height="\pgf@sys@tonumber\pgf@yc"
+            patternTransform="matrix(#2\space#3\space#4\space#5\space\pgf@sys@tonumber\pgfutil@tempdima\space\pgf@sys@tonumber\pgfutil@tempdimb)"
+        }{#8}}%
   \else%
     % Uncolored. Yikes!
     \pgf@sys@svg@make@defs{#1}{
-      <pattern
-        id="pgfpat#1"
-        patternUnits="userSpaceOnUse"
-        width="\pgf@sys@tonumber\pgf@xc"
-        height="\pgf@sys@tonumber\pgf@yc"
-        patternTransform="matrix(#2\space#3\space#4\space#5\space\pgf@sys@tonumber\pgfutil@tempdima\space\pgf@sys@tonumber\pgfutil@tempdimb)"/>
-      <symbol id="pgfsym#1">
-        #8
-      </symbol>}%
+        \pgf@sys@svg@node{pattern}{
+            id="pgfpat#1"
+            patternUnits="userSpaceOnUse"
+            width="\pgf@sys@tonumber\pgf@xc"
+            height="\pgf@sys@tonumber\pgf@yc"
+            patternTransform="matrix(#2\space#3\space#4\space#5\space\pgf@sys@tonumber\pgfutil@tempdima\space\pgf@sys@tonumber\pgfutil@tempdimb)"
+        }{}%
+        \pgf@sys@svg@node{symbol}{id="pgfsym#1"}{#8}%
+    }%
   \fi%
 }
 
 \def\pgfsys@setpatternuncolored#1#2#3#4{%
   \global\advance\pgf@sys@svg@objectcount by1\relax%
   \pgf@sys@svg@color@rgb#2,#3,#4\relax%
-  \pgfsysprotocol@literal{
-    <pattern id="pgfupat\the\pgf@sys@svg@objectcount" xlink:href="\#pgfpat#1">
-    <g stroke="\pgf@sys@svg@prepared" fill="\pgf@sys@svg@prepared"> <use xlink:href="\#pgfsym#1"/> </g>
-    </pattern>}%
+  \pgf@sys@svg@node{pattern}{id="pgfupat\the\pgf@sys@svg@objectcount" xlink:href="\#pgfpat#1"}{
+    \pgf@sys@svg@node{g}{stroke="\pgf@sys@svg@prepared" fill="\pgf@sys@svg@prepared"}{
+        \pgf@sys@svg@node{use}{xlink:href="\#pgfsym#1"}{}
+    }
+  }
   \pgf@sys@svg@ref@defs{#1}%
   \pgf@sys@svg@gs@color{fill="url(\#pgfupat\the\pgf@sys@svg@objectcount)"}%
 }
@@ -741,10 +760,6 @@
   \pgf@sys@svg@ref@defs{#1}%
   \pgf@sys@svg@gs@color{fill="url(\#pgfpat#1)"}%
 }
-
-
-
-
 
 
 % Animation
@@ -878,15 +893,18 @@
             \pgfutil@tempswafalse%
           \fi%
         \fi%
-      \fi}
+      \fi}%
     \ifpgfutil@tempswa%
-      \edef\pgf@temp{{<animate #1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}}%
-      \expandafter\pgfsysprotocol@literal\pgf@temp%
+      \edef\pgf@temp{{%
+        \pgf@sys@svg@node{animate}{#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys}{}%
+      }}%
+      \pgf@temp%
     \fi%
     \pgfsys@invalidate@currentid%
   }%
   \fi%
 }
+
 
 \def\pgf@sys@svg@anim@path{%
   % animate a path...
@@ -906,8 +924,9 @@
       \edef\pgf@sys@svg@marker@id{pgf\the\pgf@sys@svg@objectcount m}%
       \edef\pgf@sys@svg@add@code{%
         \noexpand\pgf@sys@svg@ref@defs{pgfs\pgf@svg@anim@marker@start}%
-        \noexpand\pgfsysprotocol@literal{<marker id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible">
-          <use xlink:href="\#pgfs\pgf@svg@anim@marker@start" transform="scale(-1,-1)"/> </marker>\pgfsys@svg@newline}%
+        \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
+          \pgf@sys@svg@node{use}{xlink:href="\#pgfs\pgf@svg@anim@marker@start" transform="scale(-1,-1)"}{}%
+        }
       }%
       \let\pgf@sys@svg@marker@id@start\pgf@sys@svg@marker@id%
     \fi%
@@ -919,8 +938,9 @@
       \edef\pgf@sys@svg@marker@id{pgf\the\pgf@sys@svg@objectcount m}%
       \edef\pgf@sys@svg@add@code@{%
         \noexpand\pgf@sys@svg@ref@defs{pgfs\pgf@svg@anim@marker@end}%
-        \noexpand\pgfsysprotocol@literal{<marker id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible">
-          <use xlink:href="\#pgfs\pgf@svg@anim@marker@end"/> </marker>\pgfsys@svg@newline}%
+        \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
+          \pgf@sys@svg@node{use}{xlink:href="\#pgfs\pgf@svg@anim@marker@end"}{}
+        }
       }%
       \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@sys@svg@add@code\expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@add@code\pgf@sys@svg@add@code@}%
       \let\pgf@sys@svg@marker@id@end\pgf@sys@svg@marker@id%
@@ -953,13 +973,14 @@
             \pgfutil@tempswafalse%
           \fi%
         \fi%
-      \fi}
+      \fi}%
     \ifpgfutil@tempswa%
       % Ok, first, animate the path:
       \edef\pgf@temp{%
         {%
-          <animate attributeName="d"\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline
-          <animate attributeName="marker-start"\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent-ms"}{}%
+          \pgf@sys@svg@node{animate}{attributeName="d"\pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys}{}%
+          \pgf@sys@svg@node{animate}{%
+            attributeName="marker-start"\pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent-ms"}{}%
             \pgf@sys@svg@key{dur}%
             \pgf@sys@svg@key{restart}%
             \pgf@sys@svg@key{repeatCount}%
@@ -967,11 +988,12 @@
             \pgf@sys@svg@key{fill}%
             \pgf@sys@svg@key{begin}%
             \pgf@sys@svg@key{end}%
-            \pgf@sys@svg@key{xlink:href}
-            from="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"
-            to="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"
-          />\pgfsys@svg@newline%
-          <animate attributeName="marker-end"\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent-me"}{}%
+            \pgf@sys@svg@key{xlink:href}%
+            from="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"%
+            to="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"%
+          }{}%
+          \pgf@sys@svg@node{animate}{%
+            attributeName="marker-end"\pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent-me"}{}%
             \pgf@sys@svg@key{dur}%
             \pgf@sys@svg@key{restart}%
             \pgf@sys@svg@key{repeatCount}%
@@ -982,9 +1004,9 @@
             \pgf@sys@svg@key{xlink:href}
             from="\ifx\pgf@svg@anim@marker@end\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@end)\fi"
             to="\ifx\pgf@svg@anim@marker@end\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@end)\fi"
-          />\pgfsys@svg@newline%
+          }{}
         }}%
-      \expandafter\pgfsysprotocol@literal\pgf@temp%
+      \pgf@temp%
     \fi%
     \ifx\pgf@sys@svg@add@code\pgfutil@empty%
     \else%
@@ -1040,8 +1062,6 @@
   \ifx\pgfsys@anim@ba@strokedashoffset\pgfutil@empty\else stroke-dashoffset="\pgfsys@anim@ba@strokedashoffset" \fi%
 }
 
-
-
 \newcount\pgf@sys@svg@canvascount
 \def\pgf@sys@svg@anim@trans#1#2#3{%
  \ifx\pgfsys@anim@val@@id\pgfutil@empty%
@@ -1065,7 +1085,7 @@
     \else%
       \edef\pgf@sys@svg@base@trans{ transform="#3(\pgfsys@anim@val@base)"}%
     \fi%
-    \pgfsysprotocol@literal{<#1\pgfsys@if@fresh@currentid{ id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys/>\pgfsys@svg@newline}%
+    \pgf@sys@svg@node{#1}{\pgfsys@if@fresh@currentid{id="\pgfsys@id@refcurrent"}{}\pgf@svg@anim@keys}{}%
     \pgfsys@invalidate@currentid%
     \edef\pgf@temp{{\pgfsys@id@ref{\pgfsys@anim@val@@id
           canvas\the\pgf@sys@svg@canvascount}{\pgfsys@anim@val@@type}}}%
@@ -1082,17 +1102,17 @@
       \let\pgfsys@transformcm\pgfsys@anim@transformcm%
       \global\pgf@sys@svg@calledfalse%
       #2%
-      \ifpgf@sys@svg@called\else\pgfsysprotocol@literal{<g>}\fi%
-      \pgfsysprotocol@literal{<g id="#1"#4>}
+      \ifpgf@sys@svg@called\else\pgf@sys@svg@node@begin{g}{}\fi%
+      \pgf@sys@svg@node@begin{g}{id="#1"#4}
       {%
         \global\pgf@sys@svg@calledfalse%
         #3%
-        \ifpgf@sys@svg@called\else\pgfsysprotocol@literal{<g>}\fi%
+        \ifpgf@sys@svg@called\else\pgf@sys@svg@node@begin{g}{}\fi%
       }%
     }%
   }%
   \edef\pgf@sys@svg@beg{\the\toks0}%
-  \def\pgf@sys@svg@end{\pgfsysprotocol@literal{</g></g></g>\noexpand\pgfsys@svg@newline}}%
+  \def\pgf@sys@svg@end{\pgf@sys@svg@node@end{g}\pgf@sys@svg@node@end{g}\pgf@sys@svg@node@end{g}}%
   \expandafter\expandafter\expandafter\pgfsys@attach@to@id%
   \expandafter\expandafter\expandafter\pgfsys@anim@val@@id%
   \expandafter\expandafter\expandafter\pgfsys@anim@val@@type%
@@ -1110,14 +1130,14 @@
       \ifx\pgf@temp\pgf@sys@svg@idmat@stext%
         \let\pgf@temp\pgfutil@empty%
       \fi%
-      \pgfsysprotocol@literal{<g\pgf@temp>}%
+      \pgf@sys@svg@node@begin{g}{\pgf@temp}%
     }%
     \global\pgf@sys@svg@calledtrue%
   \fi%
 }
 \def\pgf@sys@svg@idtrans@text{1.0,0.0,0.0,1.0}
 \def\pgf@sys@svg@idmat@text{transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
-\def\pgf@sys@svg@idmat@stext{ transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
+\def\pgf@sys@svg@idmat@stext{transform="matrix(1.0,0.0,0.0,1.0,0.0,0.0)"}
 
 \def\pgf@sys@svg@replace#1#2{%
   \expandafter\edef\csname pgfsys@anim@val@#1\endcsname{#2}%
@@ -1196,14 +1216,15 @@
     \fi%
   }{}}
 
+
 % The keys
 \def\pgfsys@animation@whom#1#2{%
-  % Animations must "look forward"...
-  \pgfsys@if@fresh@id{#1}{#2}{}{\pgferror{Animations must precede the to-be-animated objects (``whom'')}}%
-  \pgf@sys@svg@replace{@id}{#1}%
-  \pgf@sys@svg@replace{@type}{#2}%
-  \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{#1}{#2}}%
-  \pgf@sys@svg@replace{idref}{\pgfsys@id@ref{#1}{#2}}%
+% Animations must "look forward"...
+\pgfsys@if@fresh@id{#1}{#2}{}{\pgferror{Animations must precede the to-be-animated objects (``whom'')}}%
+\pgf@sys@svg@replace{@id}{#1}%
+\pgf@sys@svg@replace{@type}{#2}%
+\pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{#1}{#2}}%
+\pgf@sys@svg@replace{idref}{\pgfsys@id@ref{#1}{#2}}%
 }
 \def\pgfsys@animation@restart@always{\pgf@sys@svg@replace{restart}{always}}
 \def\pgfsys@animation@restart@never{\pgf@sys@svg@replace{restart}{never}}
@@ -1216,7 +1237,7 @@
 \def\pgfsys@animation@canvas@transform#1#2{\def\pgfsys@anim@val@canvas@trans{{#1}{#2}}}
 \def\pgfsys@animation@offset#1#2{\pgfsys@animation@event{}{}{}{#1}{#2}}
 \def\pgfsys@animation@event#1#2#3#4#5{%
-  \expandafter\edef\csname pgf@sys@event@list@#5\endcsname{\csname pgf@sys@event@list@#5\endcsname{#1}{#2}{#3}{#4}}%
+\expandafter\edef\csname pgf@sys@event@list@#5\endcsname{\csname pgf@sys@event@list@#5\endcsname{#1}{#2}{#3}{#4}}%
 }%
 \def\pgf@sys@event@list@begin{}
 \def\pgf@sys@event@list@end{}
@@ -1231,26 +1252,25 @@
 \def\pgfsys@animation@rotatealong{\pgf@sys@svg@replace{rotate}{auto}}
 \def\pgfsys@animation@norotatealong{\pgf@sys@svg@replace{rotate}{}}
 \def\pgfsys@animation@movealong#1{%
-  {%
-    \let\pgf@sys@save@svgpath=\pgf@sys@svgpath%
-    \global\let\pgf@sys@svgpath=\pgfutil@empty%
-    \pgfsyssoftpath@getcurrentpath\pgf@sys@save@path%
-    \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
-    #1%
-    \pgfsyssoftpath@invokecurrentpath%
-    \pgfsyssoftpath@setcurrentpath\pgf@sys@save@path%
-    \global\let\pgf@svg@anim@temp\pgf@sys@svgpath%
-    \global\let\pgf@sys@svgpath\pgf@sys@save@svgpath%
-  }%
-  \pgf@sys@svg@replace{path}{\pgf@svg@anim@temp}%
+{%
+  \let\pgf@sys@save@svgpath=\pgf@sys@svgpath%
+  \global\let\pgf@sys@svgpath=\pgfutil@empty%
+  \pgfsyssoftpath@getcurrentpath\pgf@sys@save@path%
+  \pgfsyssoftpath@setcurrentpath\pgfutil@empty%
+  #1%
+  \pgfsyssoftpath@invokecurrentpath%
+  \pgfsyssoftpath@setcurrentpath\pgf@sys@save@path%
+  \global\let\pgf@svg@anim@temp\pgf@sys@svgpath%
+  \global\let\pgf@sys@svgpath\pgf@sys@save@svgpath%
+}%
+\pgf@sys@svg@replace{path}{\pgf@svg@anim@temp}%
 }
 \def\pgfsys@animation@tip@markers#1#2{%
-  \edef\pgf@svg@anim@marker@start{#1}%
-  \edef\pgf@svg@anim@marker@end{#2}%
+\edef\pgf@svg@anim@marker@start{#1}%
+\edef\pgf@svg@anim@marker@end{#2}%
 }
 \let\pgf@svg@anim@marker@start\pgfutil@empty
 \let\pgf@svg@anim@marker@end\pgfutil@empty
-
 
 
 % Timelines
@@ -1467,7 +1487,6 @@
 }
 
 
-
 \def\pgf@svg@anim@prep@dash#1#2#3{%
   \let\pgf@svg@anim@dash@array\pgfutil@empty%
   \let\pgf@svg@anim@dash@offset\pgfutil@empty%
@@ -1500,7 +1519,7 @@
 \def\pgfsys@marker@declare@{%
   \pgfsysprotocol@setcurrentprotocol\pgfutil@empty%
   \pgfsys@beginscope@{ id="pgfs\the\pgf@sys@id@count"}%
-  \pgfsysprotocol@literal{\csname pgf@sys@marker@prot@\the\pgf@sys@id@count\endcsname}%
+  \csname pgf@sys@marker@prot@\the\pgf@sys@id@count\endcsname%
   \pgfsys@endscope%
   \pgfsysprotocol@getcurrentprotocol\pgfsys@temp%
   \pgf@sys@svg@make@defs{pgfs\the\pgf@sys@id@count}{\pgfsys@temp}%
@@ -1508,7 +1527,7 @@
 
 \def\pgfsys@marker@use#1{%
   \pgf@sys@svg@ref@defs{pgfs#1}%
-  \pgfsysprotocol@literal{<use xlink:href="\#pgfs#1"/>}%
+  \pgf@sys@svg@node{use}{xlink:href="\#pgfs#1"}{}%
 }
 
 \def\pgfsys@marker@at@begin@usedpath#1{\def\pgf@sys@svg@marker@begin{#1}\let\pgf@sys@svg@marker@begin@use\pgfutil@empty}
@@ -1524,8 +1543,9 @@
   \pgf@sys@svg@ref@defs{pgfs#1}%
   \global\advance\pgf@sys@svg@objectcount by1\relax%
   \edef\pgf@sys@svg@marker@id{pgf\the\pgf@sys@svg@objectcount}%
-  \pgfsysprotocol@literal{<marker id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible">
-    <use xlink:href="\#pgfs#1"#2/> </marker>\pgfsys@svg@newline}%
+  \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
+    \pgf@sys@svg@node{use}{xlink:href="\#pgfs#1"#2}{}
+  }
   \edef#3{marker-#4="url(\#\pgf@sys@svg@marker@id)" }%
 }
 
@@ -1610,12 +1630,7 @@
 
 \def\pgfutil@color{\pgfsetcolor}
 
-
 % -----------------------------------------------------------------------------------------------------------------------------------------
-
-
-\def\pgfsys@invoke#1{\pgf@sys@fail{svg code in preamble}}
-\def\pgfsys@body@invoke#1{\csname rustex!pgf!literal\endcsname{#1}}
 
 \newcount\pgf@sys@svg@picnum
 
@@ -1623,75 +1638,14 @@
   \pgfsys@beginscope\pgflowlevelsynccm\box#1\pgfsys@endscope%
 }
 
-
-%%
-%% initial support of Mathml and xhtml inside svg through the svg:foreignelement tag
-%%
-%% it'll allow us to have complicated text nodes in the tex4ht driver
-%%
-
-
-%Example  (to improve the display, you have to use css)
-%
-%\tikzpicture[svg text only=false]
-%\draw (0,0) node[inner sep=0pt,draw] {tight}
-%(0cm,2em) node[inner sep=5pt,draw] {loose}
-%(0cm,4em) node[fill=red!20] {default};
-%\draw (3,0) node[inner sep=0pt,draw] {TIGHT}
-%(3cm,2em) node[inner sep=5pt,draw] {LOOSE}
-%(3cm,4em) node[fill=red!20] {DEFAULT};
-%\draw (6,0) node[inner sep=0pt,draw] {$tight$}
-%(6cm,2em) node[inner sep=5pt,draw] {$loose$}
-%(6cm,4em) node[fill=red!20] {$default$};
-%\draw (9,0) node[inner sep=0pt,draw] {$TIGHT$}
-%(9cm,2em) node[inner sep=5pt,draw] {$LOOSE$}
-%(9cm,4em) node[fill=red!20] {$Default$};
-%\endtikzpicture
-%
-% you can use the options "svg text css=filename", "svg text id=idname", "svg text class=classname" to customize the display through the use of css
-%
-
-
-
-
-
-
-
-%\def\pgfsys@beginpicture{%
-% % \Configure{[]}{$}{$}   these two lines aren't needed for tex4ht and moreother they produce errors with plain tex !
-% % \Configure{()}{$}{$}
-% \Configure{$$}{}{}{}%$$
-% \Configure{$}{}{}{}%$
-%  \Configure{SUB}{\csname rustex!pgf!literal\endcsname{<tspan baseline-shift="sub">}}{\csname rustex!pgf!literal\endcsname{</tspan>}}
-%  \Configure{SUP}{\csname rustex!pgf!literal\endcsname{<tspan baseline-shift="sub">}}{\csname rustex!pgf!literal\endcsname{</tspan>}}
-%  \Configure{SUBSUP}{}{}{}
-%  \Configure{htf}
-%    {0}{+}{<tspan font-family="}
-%    {\%s}{" font-size="\%s}{}{}
-%    {">}{</tspan>}
-%}
-
-
-
-%\def\pgfsys@endpicture{%
-%  % undo:
-%  \Configure{htf}{0}{+}{<span\Hnewline
-%     class="}{\%s}{-\%s}{x-x-\%d}{}{">}{</span>}
-%}
-
 \def\pgfsys@svg@newline{^^J}
-
-
 
 
 %% we save this definition
 \let\pgfsys@mtext@hbox\pgfsys@hbox
 
-
 % a counter to produce unique ids for each text node rendered with foreign element
 \newcount\pgf@sys@svg@nodenum
-
-
 % pgfutil@minipage
 %
 %  I had to change it to make it play nice with the way tex4ht puts <p> and <\p> tags
@@ -1724,11 +1678,12 @@
 \newdimen\pgf@t
 % this is the alternate hbox routine that renders text nodes through the foreignobject tag
 
+
 \def\pgfsys@foreignobject@hbox#1{%
   % Compute box y translation  (x translation is correct).
   \pgf@y=-\ht#1\relax
-  \csname rustex!pgf!literal\endcsname{<g transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
-    scale(0.5,0.5)">}% scaling work around (damn dumb browsers !)
+  \pgf@sys@svg@node@begin{g}{transform="scale(1,-1) translate(0,\pgf@sys@tonumber{\pgf@y}) % got to translate in y
+    scale(0.5,0.5)"}% scaling work around (damn dumb browsers !)
   % Compute box size (scaled 2 times)
   % this is necessary to make the browser scale the font down 50% (the STUPID browsers won't make font-size:50% happen,
   % so we have to work around this by making svg scale the things down 50%, doubling the size of the text node frame (i.e. no changement there)
@@ -1751,8 +1706,8 @@
     \pgf@t=2\pgf@t\relax
   \fi
   %
-  \csname rustex!pgf!literal\endcsname{<foreignObject x="0" y="\pgf@sys@tonumber{\pgf@t}"
-    width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}">}%
+  \pgf@sys@svg@node@begin{foreignObject}{x="0" y="\pgf@sys@tonumber{\pgf@t}"
+  width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}"}
   % this is to make use of the css, class and id options through which you can control the way things display
   \pgfkeys{%
     /pgf/tex4ht node/css/.get=\pgfsys@foreignobject@css,%
@@ -1773,16 +1728,14 @@
   \csname rustex!pgf!literal\endcsname{%
     </div>
     </body>
-    </foreignObject>
   }%
+  \pgf@sys@svg@node@end{foreignObject}
   % debug positioning not needed but it would be nice to let it there to control things later on
   % \csname rustex!pgf!literal\endcsname{<rect x="0" y="0" width="\pgf@sys@tonumber{\pgf@x}" height="\pgf@sys@tonumber{\pgf@y}"
   %   style="fill:yellow;stroke:red; fill-opacity:0.5;stroke-opacity:0.5"/>}
-  \csname rustex!pgf!literal\endcsname{</g>}%
+  \pgf@sys@svg@node@end{g}%
   \global\advance\pgf@sys@svg@nodenum by 1\relax
 }%
-
-% the options and the code that controls it all (switches between \pgfsys@mtext@hbox and \pgfsys@foreignelement@hbox)
 
 \pgfkeys{%
   /pgf/.cd,
@@ -1793,16 +1746,6 @@
   tex4ht node/class/.initial=foreignobject,
   tex4ht node/id/.initial=\jobname\the\pgf@sys@svg@picnum-\the\pgf@sys@svg@nodenum
 }%
-
-
-
-
-
-
-% this might be needed
-%\font\SvgText=cmr10\relax
-
-
 
 
 % There is something rellay wrong with the way "%" chars are used in here... you should code "}%" to avoid unnecessary spaces
@@ -1844,9 +1787,9 @@
   \pgf@process{\pgf@sys@svg@pos}
   \pgf@xa=-.5\pgf@x%
   \pgf@ya=-.5\pgf@y%
-  \pgfsysprotocol@literal{<g transform="translate(\pgf@sys@tonumber{\pgf@xa},\pgf@sys@tonumber{\pgf@ya})">}%
-  \pgf@sys@svg@sh%
-  \pgfsysprotocol@literal{</g>}%
+  \pgf@sys@svg@node{g}{transform="translate(\pgf@sys@tonumber{\pgf@xa},\pgf@sys@tonumber{\pgf@ya})"}{%
+    \pgf@sys@svg@sh%
+  }%
 }
 
 
