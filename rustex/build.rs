@@ -1,4 +1,6 @@
 fn main() {
+    //println!("cargo:rustc-env=RUSTFLAGS=\"-C link-args=-Wl,-zstack-size=16777216\"");
+    //println!("cargo:rustc-link-args=-Wl,-zstack-size=16777216");
     //println!("cargo:rustc-link-search=native=/home/jazzpirate/work/Software/RusTeX/rustex/lib");
     //println!("cargo:rustc-link-lib=static=pdfium");
 

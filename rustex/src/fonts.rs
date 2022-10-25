@@ -10,10 +10,31 @@ struct FInfoEntry {
     remainder: u8
 }
 impl FInfoEntry {
-    pub fn ligature(&self) -> Option<u8> {
+    pub fn ligature(&self,ligs:&Vec<(bool,u16,bool,u16)>) -> Vec<(u8,u8)> {
         match self.tag_field {
-            1 => Some(self.remainder),
-            _ => None
+            1 => {
+                let mut i = self.remainder as usize;
+                let mut ret : Vec<(u8,u8)> = vec!();
+                loop {
+                    let e = ligs.get(i);
+                    match e {
+                        Some((stop, nc, false, rep)) => {
+                            ret.push((*nc as u8,*rep as u8));
+                            if *stop {return ret} else {i += 1}
+                            //ligs.insert((t.char as u8, *nc as u8), *rep as u8);
+                        }//Some(self.remainder),
+                        Some((false,_,_,_)) => {
+                            i += 1
+                        },
+                        _ => return ret
+                    }
+                }
+            }
+            2 =>
+                vec!(),
+            3 =>
+                vec!(),
+            _ => vec!()
         }
     }
     /*pub fn larger(&self) -> Option<u8> {
@@ -63,6 +84,8 @@ impl FontState {
 }
 use std::fs;
 use std::borrow::BorrowMut;
+
+// https://www.tug.org/TUGboat/tb02-1/tb02fuchstfm.pdf
 
 impl FontFile {
     pub fn new(pb : PathBuf) -> FontFile {
@@ -215,13 +238,14 @@ impl FontFile {
                 None => (),
                 Some(f) => {ics.insert(t.char,factor * f);}
             }
-            match t.ligature() {
-                Some(i) => match ligatures.get(i as usize) {
-                    Some((_,nc ,false,rep)) => {ligs.insert((t.char as u8,*nc as u8),*rep as u8);}
-                    _ => ()
-                }
-                _ => ()
+            for (nc,rep) in t.ligature(&ligatures) {
+                ligs.insert((t.char as u8,nc),rep);
             }
+            /*match t.ligature(&ligatures) {
+                Some((nc,rep)) =>
+                    {ligs.insert((t.char as u8,nc),rep);}
+                _ => ()
+            }*/
         }
         assert_eq!(state.i as u16,lf);
         let chartable = FONT_TABLES.get(tablename.into());
@@ -229,6 +253,15 @@ impl FontFile {
             None => {
                 println!("Missing Font Table: {}",name);
                 print!("")
+            }
+            Some(ref x) if *x.table == *STANDARD_TEXT_EC => {
+                // Why aren't these part of the ligature table already??
+                ligs.insert((45,45),21);
+                ligs.insert((21,45),22);
+                ligs.insert((96,96),16);
+                ligs.insert((39,39),17);
+                ligs.insert((60,60),19);
+                ligs.insert((62,62),20);
             }
             _ => ()
         }
@@ -243,7 +276,7 @@ impl FontFile {
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam};
+use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam, STANDARD_TEXT_EC};
 use crate::interpreter::dimensions::round_f;
 use crate::utils::TeXStr;
 
