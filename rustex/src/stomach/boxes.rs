@@ -1,5 +1,5 @@
 use crate::interpreter::dimensions::dimtostr;
-use crate::{htmlliteral, htmlnode, htmlparent};
+use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
@@ -246,13 +246,13 @@ impl WhatsitTrait for HBox {
                         node.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
                     //htmlliteral!(colon,node_top,"\n");
-                    match self._width {
+                    /*match self._width {
                         Some(h) => {
                             node.style("width".into(),dimtohtml(h));
                             node.style("min-width".into(),dimtohtml(h))
                         }
                         _ => ()
-                    }
+                    }*/
                     match self._height {
                         Some(v) => {
                             node.style("height".into(),dimtohtml(v));
@@ -260,7 +260,17 @@ impl WhatsitTrait for HBox {
                         }
                         _ => ()
                     }
-                    HBox::ch_as_html(self.children,colon,&mut node);
+
+                    match self._width {
+                        Some(h) => {
+                            withwidth!(colon,h,node,{
+                                HBox::ch_as_html(self.children,colon,&mut node);
+                            })
+                        }
+                        _ =>
+                            HBox::ch_as_html(self.children,colon,&mut node)
+                    }
+
                     //htmlliteral!(colon,node_top,"\n");
                 })
             }
@@ -525,17 +535,28 @@ impl WhatsitTrait for VBox {
                     }
                     _ => ()
                 }
-                match self._width {
+                /* match self._width {
                     Some(v) => {
                         node.style("width".into(),dimtohtml(v));
                         node.style("min-width".into(),dimtohtml(v))
                     }
                     _ => ()
-                }
-                for c in self.children {
-                    htmlliteral!(colon,htmlparent!(node),"\n");
-                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                    htmlliteral!(colon,htmlparent!(node),"\n");
+                } */
+                match self._width {
+                    Some(h) => {
+                        withwidth!(colon,h,node,{
+                            for c in self.children {
+                                htmlliteral!(colon,htmlparent!(node),"\n");
+                                c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                                htmlliteral!(colon,htmlparent!(node),"\n");
+                            }
+                        })
+                    }
+                    _ => for c in self.children {
+                            htmlliteral!(colon,htmlparent!(node),"\n");
+                            c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                            htmlliteral!(colon,htmlparent!(node),"\n");
+                        }
                 }
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {

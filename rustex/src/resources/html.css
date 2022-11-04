@@ -200,3 +200,4 @@ math {
     justify-content:center;
     align-self:center;
 }
+.halign{display:table}.row{display: table-row}.cell{display: table-cell}

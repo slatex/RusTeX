@@ -1000,94 +1000,135 @@ impl WhatsitTrait for HAlign {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
                     }
                     for row in self.rows {
-                        match row {
-                            AlignBlock::Noalign(mut v) => {
-                                if v.len() == 1 {
-                                    match v.pop() {
-                                        Some(Whatsit::Simple(SimpleWI::HRule(hr))) => {
-                                            if table.children.is_empty() {
-                                                table.style("border-top".into(),dimtohtml(hr.height()) + " solid")
-                                            } else {
-                                                match table.children.last_mut() {
-                                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
-                                                    _ => ()//TeXErr!("Should be unreachable!")
-                                                }
-                                            }
-                                        }
-                                        _ => ()
-                                    }
-                                } else {
-                                    print!("")
-                                }
-                            }
-                            AlignBlock::Block(cells) => {
-                                htmlnode!(colon,tr,None,"row",htmlparent!(table),row => {
-                                    for (mut vs,skip,num) in cells {
-                                        htmlnode!(colon,td,None,"cell",htmlparent!(row),cell => {
-                                            cell.style("margin-right".into(),dimtohtml(skip.base));
-                                            if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
-                                            let mut alignment = (false,false);
-                                            loop {
-                                                match vs.pop() {
-                                                    Some(Whatsit::Simple(SimpleWI::VRule(v))) => cell.style("border-right".into(),dimtohtml(v.width()) + " solid"),
-                                                    Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_))) => alignment.1 = true,
-                                                    Some(o) => {vs.push(o);break}
-                                                    None => break
-                                                }
-                                            }
-                                            let mut incell : bool = false;
-                                            htmlnode!(colon,div,None,"hbox",htmlparent!(cell),bx => {
-                                                let mut inspace = false;
-                                                for w in vs { match w {
-                                                    Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
-                                                    Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
-                                                    Whatsit::Space(sc) if !inspace => {
-                                                        incell = true;
-                                                        inspace = true;
-                                                        htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
-                                                    }
-                                                    Whatsit::Space(_) => {}
-                                                    Whatsit::Char(ref pc) => {
-                                                        match pc.font.file.chartable.as_ref().map(|ct| ct.table.get(&pc.char)) {
-                                                            Some(Some(s)) if *s == " " && !inspace => {
-                                                                incell = true;
-                                                                inspace = true;
-                                                                htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
-                                                            }
-                                                            Some(Some(s)) if *s == " " && inspace => {}
-                                                            _ => {
-                                                                incell = true;
-                                                                inspace = false;
-                                                                w.as_html(&ColonMode::H,colon,htmlparent!(bx))
-                                                            }
-                                                        }
-                                                    }
-                                                    o => {
-                                                        inspace = false;
-                                                        incell = true;
-                                                        o.as_html(&ColonMode::H,colon,htmlparent!(bx))
-                                                    }
-                                                }}
-                                            });
-                                            match alignment {
-                                                (true,true) => cell.style("text-align".into(),"center".into()),
-                                                (true,false) => cell.style("text-align".into(),"right".into()),
-                                                _ => cell.style("text-align".into(),"left".into()),
-                                            }
-                                        })
-                                    }
-                                })
-                            }
-                        }
+                        HAlign::do_row(mode, colon, &mut table,row)
                     }
                 })
             }
-            ColonMode::M => htmlnode!(colon,mtext,None,"",node_top,mt => {
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                    self.as_html(&ColonMode::H,colon,htmlparent!(span))
-                })
-            }),
+            ColonMode::M =>
+                htmlnode!(colon,mtable,self.sourceref,"halign",node_top,table => {
+                    table.style("align".into(),"center".into());
+                    if self.skip.base != 0 {
+                        table.style("margin-top".into(),dimtohtml(self.skip.base))
+                    }
+                    for row in self.rows {
+                        HAlign::do_row(mode, colon, &mut table,row)
+                    }
+                }),
+            /*    htmlnode!(colon,mtext,None,"",node_top,mt => {
+                    htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                        self.as_html(&ColonMode::H,colon,htmlparent!(span))
+                    })
+                }),*/
             _ => ()//TeXErr!("TODO")
+        }
+    }
+}
+macro_rules! docell {
+    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
+        match $mode {
+            ColonMode::M => htmlnode!($sel,mtd,None,"cell",htmlparent!($node_parent),$nodename => $e),
+            _ => htmlnode!($sel,td,None,"cell",htmlparent!($node_parent),$nodename => $e)
+        }
+    })
+}
+macro_rules! dorow {
+    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
+        match $mode {
+            ColonMode::M => htmlnode!($sel,mtr,None,"row",htmlparent!($node_parent),$nodename => $e),
+            _ => htmlnode!($sel,tr,None,"row",htmlparent!($node_parent),$nodename => $e)
+        }
+    })
+}
+macro_rules! dobox {
+    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
+        match $mode {
+            ColonMode::M => htmlnode!($sel,mrow,None,"",htmlparent!($node_parent),$nodename => $e),
+            _ => htmlnode!($sel,div,None,"hbox",htmlparent!($node_parent),$nodename => $e)
+        }
+    })
+}
+impl HAlign {
+    fn do_cell(mode: &ColonMode, colon: &mut HTMLColon, row:&mut HTMLNode,mut vs:Vec<Whatsit>,skip:Skip,num:usize) {
+        docell!(mode,colon,row,cell => {
+            cell.style("margin-right".into(),dimtohtml(skip.base));
+            if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
+            let mut alignment = (false,false);
+            loop {
+                match vs.pop() {
+                    Some(Whatsit::Simple(SimpleWI::VRule(v))) => cell.style("border-right".into(),dimtohtml(v.width()) + " solid"),
+                    Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_))) => alignment.1 = true,
+                    Some(o) => {vs.push(o);break}
+                    None => break
+                }
+            }
+            let mut incell : bool = false;
+            dobox!(mode,colon,cell,bx => {
+                let mut inspace = false;
+                for w in vs { match w {
+                    Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
+                    Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
+                    Whatsit::Space(sc) if !inspace => {
+                        incell = true;
+                        inspace = true;
+                        htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
+                    }
+                    Whatsit::Space(_) => {}
+                    Whatsit::Char(ref pc) => {
+                        match pc.font.file.chartable.as_ref().map(|ct| ct.table.get(&pc.char)) {
+                            Some(Some(s)) if *s == " " && !inspace => {
+                                incell = true;
+                                inspace = true;
+                                htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
+                            }
+                            Some(Some(s)) if *s == " " && inspace => {}
+                            _ => {
+                                incell = true;
+                                inspace = false;
+                                w.as_html(mode,colon,htmlparent!(bx))
+                            }
+                        }
+                    }
+                    o => {
+                        inspace = false;
+                        incell = true;
+                        o.as_html(mode,colon,htmlparent!(bx))
+                    }
+                }}
+            });
+            match alignment {
+                (true,true) => cell.style("text-align".into(),"center".into()),
+                (true,false) => cell.style("text-align".into(),"right".into()),
+                _ => cell.style("text-align".into(),"left".into()),
+            }
+        })
+    }
+    fn do_row(mode: &ColonMode, colon: &mut HTMLColon, table:&mut HTMLNode,row:AlignBlock) {
+        match row {
+            AlignBlock::Noalign(mut v) => {
+                if v.len() == 1 {
+                    match v.pop() {
+                        Some(Whatsit::Simple(SimpleWI::HRule(hr))) => {
+                            if table.children.is_empty() {
+                                table.style("border-top".into(),dimtohtml(hr.height()) + " solid")
+                            } else {
+                                match table.children.last_mut() {
+                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
+                                    _ => ()//TeXErr!("Should be unreachable!")
+                                }
+                            }
+                        }
+                        _ => ()
+                    }
+                }
+            }
+            AlignBlock::Block(cells) => {
+                if cells.iter().any(|c| {c.0.iter().any(|e| e.has_ink())}) {
+                    dorow!(mode,colon,table,row => {
+                        for (mut vs,skip,num) in cells {
+                            HAlign::do_cell(mode,colon,&mut row,vs,skip,num)
+                        }
+                    })}
+            }
         }
     }
 }

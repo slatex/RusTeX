@@ -42,6 +42,23 @@ impl HTMLState {
         currsize:0,currcolor:None
     }}
 }
+
+#[macro_export]
+macro_rules! withwidth {
+ ($colon:ident,$wd:expr,$node:expr,$e:expr) => ({
+     let _withwidth_currsize = $colon.state.currsize;
+     $colon.state.currsize = $wd;
+    if _withwidth_currsize == 0 {
+        $node.style("width".into(),dimtohtml($wd));
+        $node.style("min-width".into(),dimtohtml($wd));
+    } else {
+        let _withwidth_pctg = (100.0 * (($wd as f32) / (_withwidth_currsize as f32))).to_string() + "%";
+        $node.style("width".into(),_withwidth_pctg.into());
+    }
+     { $e }
+    $colon.state.currsize = _withwidth_currsize;
+ });
+}
 #[macro_export]
 macro_rules! htmlnode {
     ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
@@ -190,7 +207,7 @@ impl Colon<String> for HTMLColon {
     } //}
     fn initialize(&mut self, basefont: Arc<Font>, basecolor: TeXStr, int: &Interpreter) {
         if self.doheader {
-            self.state.currsize = basefont.at.unwrap_or(655360);
+            self.state.currsize =  int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32));
             self.state.currcolor = match &basecolor {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
@@ -241,6 +258,8 @@ impl HTMLColon {
             };
             ret += &dimtohtml(fontsize).to_string();
             ret += ";width:";
+            ret += &dimtohtml(self.textwidth).to_string();
+            ret += ";max-width:";
             ret += &dimtohtml(self.textwidth).to_string();
             ret += ";padding-left:";
             ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();

@@ -1,5 +1,5 @@
 use std::cmp::max;
-use crate::{htmlliteral, htmlnode, htmlparent};
+use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
 use crate::interpreter::dimensions::{Skip, SkipDim};
 use crate::interpreter::state::State;
 use crate::references::SourceFileReference;
@@ -108,9 +108,14 @@ impl WhatsitTrait for Paragraph {
             if self.parskip != 0 {
                 node.style("margin-top".into(),dimtohtml(self.parskip))
             }
+
+            withwidth!(colon,self.width(),node,{
+                for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+            })
+            /*
             node.style("width".into(),dimtohtml(self.width()));
             node.style("min-width".into(),dimtohtml(self.width()));
-            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+             */
         });
         htmlliteral!(colon,node_top,"\n");
     }
