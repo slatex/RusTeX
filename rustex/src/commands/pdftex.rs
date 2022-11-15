@@ -699,28 +699,28 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfmdfivesum",
     expandable:true,
     _apply:|rf,int| {
-        match int.read_keyword(vec!("file"))? {
-            None => TeXErr!("TODO: No file in \\pdfmdfivesum"),
-            Some(_) => ()
-        }
-        let tks = int.read_balanced_argument(true,false,false,false)?;
-        let str = int.tokens_to_string(&tks);
-        //let file = int.get_file(&str.to_utf8())?;
-        //let file = int.get_file(&str.to_string())?;
-        match &*int.get_file(&str.to_utf8())?.string.read().unwrap() {
+        let md = match int.read_keyword(vec!("file"))? {
             None => {
-                let md = md5::compute("");
-                let str = format!("{:X}", md);
-                rf.2 = crate::interpreter::string_to_tokens(str.into());
-                Ok(())
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let str = int.tokens_to_string(&tks);
+                md5::compute(str.to_utf8())
             },
-            Some(s) => {
-                let md = md5::compute(s.to_utf8());
-                let str = format!("{:X}", md);
-                rf.2 = crate::interpreter::string_to_tokens(str.into());
-                Ok(())
+            Some(_) => {
+                let tks = int.read_balanced_argument(true,false,false,false)?;
+                let str = int.tokens_to_string(&tks);
+                match &*int.get_file(&str.to_utf8())?.string.read().unwrap() {
+                    None => {
+                        md5::compute("")
+                    },
+                    Some(s) => {
+                        md5::compute(s.to_utf8())
+                    }
+                }
             }
-        }
+        };
+        let str = format!("{:X}", md);
+        rf.2 = crate::interpreter::string_to_tokens(str.into());
+        Ok(())
     }
 };
 

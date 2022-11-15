@@ -757,7 +757,7 @@ impl Interpreter<'_> {
         self.state.conditions.pop().unwrap()
     }
     pub fn change_command(&mut self,cmdname:TeXStr,proc:Option<TeXCommand>,globally:bool) {
-        /*if (cmdname.to_string() == "scr@dte@chapter@init" || cmdname.to_string() == "scr@dte@tocline@init") {
+        /*if (cmdname == TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,95])) {//"scr@dte@chapter@init" || cmdname.to_string() == "scr@dte@tocline@init") {
             println!("Here! {}\n{}\n{}",cmdname,proc.as_ref().unwrap().meaning(&crate::catcodes::DEFAULT_SCHEME),self.current_line());
             println!("")
         }*/

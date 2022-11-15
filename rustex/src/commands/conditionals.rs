@@ -306,6 +306,7 @@ pub static IFDEFINED : Conditional = Conditional {
                 int.state.commands.get(&next.cmdname()).is_some(),
             _ => TeXErr!(next.clone() => "Expected command after \\ifdefined; got: {}",next)
         };
+        log!("\\ifdefined {}: {}",next,istrue);
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
@@ -316,6 +317,7 @@ pub static IFCSNAME : Conditional = Conditional {
         use crate::commands::primitives::csname;
         let cmdname = csname(int)?.into();
         let istrue = int.state.commands.get(&cmdname).is_some();
+        log!("\\ifcsname {}: {}",cmdname,istrue);
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
@@ -357,6 +359,7 @@ pub static IFCAT : Conditional = Conditional {
             }
             o => o.toint()
         };
+        log!("\\ifcat {}=={}: {}",cc1,cc2,cc1==cc2);
         if cc1 == cc2 { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
@@ -364,7 +367,10 @@ pub static IFCAT : Conditional = Conditional {
 pub static IFODD : Conditional = Conditional {
     name:"ifodd",
     _apply: |int,cond,unless| {
-        if int.read_number()? % 2 == 1 { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
+        let num = int.read_number()?;
+        let istrue = num % 2 != 0;
+        log!("\\ifodd {}: {}",num,istrue);
+        if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
 
@@ -425,12 +431,13 @@ pub static IFDIM : Conditional = Conditional {
         let dim1 = int.read_dimension()?;
         let rel = int.read_keyword(vec!("<","=",">"))?;
         let dim2 = int.read_dimension()?;
-        let istrue = match rel {
+        let istrue = match &rel {
             Some(s) if s == "<" => dim1 < dim2,
             Some(s) if s == "=" => dim1 == dim2,
             Some(s) if s == ">" => dim1 > dim2,
             _ => TeXErr!("Expected <,= or > after \\ifdim")
         };
+        log!("\\ifdim {}{}{}: {}",dim1,rel.unwrap(),dim2,istrue);
         if istrue { dotrue(int,cond,unless) } else { dofalse(int,cond,unless) }
     }
 };
