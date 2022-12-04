@@ -640,7 +640,8 @@ lazy_static! {
         (85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),(90,"Z"),
     ]);
     pub static ref MSAM : HashMap<u8,&'static str> = HashMap::from([
-        (3,"□"),
+        (3,"□"),(4,"■"),
+        (6,"◇"),(7,"◆"),
         (13,"⊩"),
         (20,"⇈"),(21,"⇊"),(22,"↾"),(23,"⇂"),(24,"↿"),(25,"⇃"),
         (28,"⇆"),(29,"⇄"),
@@ -742,7 +743,9 @@ lazy_static! {
     pub static ref STMARY : HashMap<u8,&'static str> = HashMap::from([
         (32,"☇")
     ]);
-    pub static ref PZDR : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref PZDR : HashMap<u8,&'static str> = HashMap::from([
+        (72,"★"),(73,"☆"),(74,"✪")
+    ]);
     pub static ref PSYR : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref MANFNT : HashMap<u8,&'static str> = HashMap::from([]);
 

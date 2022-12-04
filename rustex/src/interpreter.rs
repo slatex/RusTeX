@@ -286,7 +286,7 @@ impl Interpreter<'_> {
                 let tk = Token::new(char,CategoryCode::Other,None,None,true);
                 Ok(PrimitiveTeXCommand::Char(tk).as_command())
             }
-            None => TeXErr!("Unknown control sequence: \\{}",s)
+            None => TeXErr!("Unknown control sequence: \\{}: {}",s,self.preview())
         }
     }
 
