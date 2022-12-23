@@ -25,12 +25,12 @@ fn read_attrspec(int:&mut Interpreter) -> Result<Option<TeXStr>,TeXError> {
 
 
 fn read_rule_spec(int:&mut Interpreter )-> Result<PDFImageRule,TeXError> {
-    int.expand_until(true)?;
     let mut ret = "".to_string();
     let mut width : Option<i32> = None;
     let mut height : Option<i32> = None;
     let mut depth : Option<i32> = None;
     loop {
+        int.expand_until(true)?;
         match int.read_keyword(vec!("width", "height", "depth"))? {
             Some(s) if s == "width" => {
                 let dim = int.read_dimension()?;

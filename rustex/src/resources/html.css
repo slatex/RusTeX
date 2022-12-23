@@ -42,6 +42,7 @@ body {
     margin:auto;
     text-align:justify;
     text-rendering:optimizeLegibility;
+    overflow:hidden;
 }
 
 span {
@@ -90,6 +91,7 @@ a {
     max-width:100%;
     justify-content:inherit;
     align-content:inherit;
+    white-space:normal;
 }
 hr {
     width: 100%;
@@ -101,7 +103,7 @@ hr {
     flex-wrap: nowrap;
     align-content: center;
     justify-content: flex-end;
-    width:max-content;
+    width:fit-content;
     max-width:100%;
     text-align:justify;
     align-self: center;
@@ -113,8 +115,8 @@ hr {
     justify-content: flex-start;
     align-content: inherit;
     align-items: baseline;
-    width:max-content;
-    height:max-content;
+    width:fit-content;
+    height:fit-content;
     max-width:100%;
 }
 .matrix {
@@ -146,8 +148,8 @@ foreignObject {
 table {
     border-spacing:0;
     white-space:nowrap;
-    width:max-content;
-    height:max-content;
+    width:fit-content;
+    height:fit-content;
     display:initial;
 }
 td {
@@ -187,8 +189,8 @@ td {
     height:0;
 }
 math {
-    width:max-content;
-    height:max-content;
+    width:fit-content;
+    height:fit-content;
     font-size:85%;
 }
 .displaymath {

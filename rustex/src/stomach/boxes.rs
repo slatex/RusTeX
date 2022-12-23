@@ -267,8 +267,17 @@ impl WhatsitTrait for HBox {
                                 HBox::ch_as_html(self.children,colon,&mut node);
                             })
                         }
-                        _ =>
-                            HBox::ch_as_html(self.children,colon,&mut node)
+                        None if self.width() == 0 => {
+                            withwidth!(colon,0,node,{
+                                HBox::ch_as_html(self.children,colon,&mut node);
+                            })
+                        }
+                        _ => {
+                            //let currsquare = colon.state.squaresize;
+                            //colon.state.squaresize = true;
+                            HBox::ch_as_html(self.children,colon,&mut node);
+                            //colon.state.squaresize = currsquare;
+                        }
                     }
 
                     //htmlliteral!(colon,node_top,"\n");
@@ -552,11 +561,17 @@ impl WhatsitTrait for VBox {
                             }
                         })
                     }
-                    _ => for c in self.children {
+                    _ => {
+
+                        //let currsquare = colon.state.squaresize;
+                        //colon.state.squaresize = true;
+                        for c in self.children {
                             htmlliteral!(colon,htmlparent!(node),"\n");
                             c.as_html(&ColonMode::V,colon,htmlparent!(node));
                             htmlliteral!(colon,htmlparent!(node),"\n");
                         }
+                        //colon.state.squaresize = currsquare;
+                    }
                 }
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {

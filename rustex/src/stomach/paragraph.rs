@@ -47,6 +47,13 @@ impl WhatsitTrait for Paragraph {
     }
     fn as_html(mut self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,"\n");
+        if self.children.is_empty() {return ()};
+        if self.children.len() == 1 {
+            match self.children.first() {
+                Some(Whatsit::Simple(SimpleWI::Indent(_))) => return (),
+                _ => ()
+            }
+        }
         htmlnode!(colon,div,self.get_ref(),"paragraph",node_top,node => {
             match self.lines.as_ref().unwrap().last() {
                 Some((a,b)) if *a != 0 => {
@@ -97,25 +104,61 @@ impl WhatsitTrait for Paragraph {
                     _ => ()
                 }
             }
+            let mut negwd : i32 = 0;
             match self.leftskip {
-                Some(sk) if sk.base != 0 => node.style("margin-left".into(),dimtohtml(sk.base)),
+                Some(sk) if sk.base != 0 => {
+                    node.style("margin-left".into(),dimtohtml(sk.base));
+                    negwd += sk.base;
+                },
                 _ => ()
             }
             match self.rightskip {
-                Some(sk) if sk.base != 0 => node.style("margin-right".into(),dimtohtml(sk.base)),
+                Some(sk) if sk.base != 0 => {
+                    node.style("margin-right".into(),dimtohtml(sk.base));
+                    negwd += sk.base
+                },
                 _ => ()
             }
             if self.parskip != 0 {
                 node.style("margin-top".into(),dimtohtml(self.parskip))
             }
-
+            /*
             withwidth!(colon,self.width(),node,{
                 for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
             })
-            /*
-            node.style("width".into(),dimtohtml(self.width()));
-            node.style("min-width".into(),dimtohtml(self.width()));
              */
+            let wd = self.width();
+            let fullwidth = wd + negwd;
+            let currsize = colon.state.currsize;
+            //let currsquare = colon.state.squaresize;
+            colon.state.currsize = wd;
+            //colon.state.squaresize = false;
+            if currsize == 0 {
+                node.style("width".into(),dimtohtml(wd));
+                node.style("min-width".into(),dimtohtml(wd));
+            } else {
+                if negwd <= 0 {
+                    let mut pctgnum = (wd as f32) / (currsize as f32);
+                    /*if currsquare {
+                        pctgnum = pctgnum.sqrt();
+                    }*/
+                    let pctg = (100.0 * pctgnum).to_string() + "%";
+                    node.style("width".into(),pctg.clone().into());
+                    node.style("min-width".into(),pctg.into());
+                } else {
+                    let mut pctgnum = (fullwidth as f32) / (currsize as f32);
+                    /*if currsquare {
+                        pctgnum = pctgnum.sqrt();
+                    }*/
+                    let pctg = (100.0 * pctgnum).to_string() + "%";
+                    let str = "calc(".to_string() + &pctg + " - " + &dimtohtml(negwd).to_string() + ")";
+                    node.style("width".into(),str.clone().into());
+                    node.style("min-width".into(),str.into());
+                }
+            }
+            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+            colon.state.currsize = currsize;
+            //colon.state.squaresize = currsquare;
         });
         htmlliteral!(colon,node_top,"\n");
     }

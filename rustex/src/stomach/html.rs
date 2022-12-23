@@ -33,12 +33,13 @@ pub struct HTMLState {
     pub current_namespace:&'static str,
     pub top:Vec<HTMLChild>,
     pub currsize:i32,
+    //pub squaresize:bool,
     pub currcolor:Option<HTMLStr>
 }
 impl HTMLState {
     pub fn new() -> HTMLState { HTMLState {
         current_namespace:HTML_NS,
-        top:vec!(),
+        top:vec!(),//squaresize:false,
         currsize:0,currcolor:None
     }}
 }
@@ -47,6 +48,8 @@ impl HTMLState {
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$e:expr) => ({
      let _withwidth_currsize = $colon.state.currsize;
+     //let _withwidth_currsquare = $colon.state.squaresize;
+     //$colon.state.squaresize = false;
      $colon.state.currsize = $wd;
     if _withwidth_currsize == 0 {
         $node.style("width".into(),dimtohtml($wd));
@@ -57,6 +60,7 @@ macro_rules! withwidth {
     }
      { $e }
     $colon.state.currsize = _withwidth_currsize;
+    //$colon.state.squaresize = _withwidth_currsquare;
  });
 }
 #[macro_export]

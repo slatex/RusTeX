@@ -114,7 +114,8 @@ pub fn pdf_to_img(path:&str) -> Option<image::DynamicImage> {
         Some(pdfium) => {
             match pdfium.load_pdf_from_file(&path,None) {
                 Ok(doc) => {
-                    match doc.pages().iter().next().unwrap().get_bitmap_with_config(&PdfBitmapConfig::new()) {
+                    let cfg = PdfBitmapConfig::new().scale_page_by_factor(5.0);
+                    match doc.pages().iter().next().unwrap().get_bitmap_with_config(&cfg) {
                         Ok(mut bmp) => Some(bmp.as_image()),
                         _ => None
                     }

@@ -3,11 +3,12 @@ use std::cmp::min;
 use std::io::Cursor;
 use std::path::PathBuf;
 use image::DynamicImage;
-use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, Skip};
+use image::imageops::FilterType;
+use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, round, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -243,11 +244,23 @@ impl WhatsitTrait for PDFXImage {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match self.image {
             Some(ref img) => {
-                let nimg = img.clone().into_rgba8();
+                let target_width = 5 * ((HTMLSCALE as f64) * round(self.width())).round() as u32;
+                let target_height = 5 * ((HTMLSCALE as f64) * round(self.height())).round() as u32;
+                /*println!("Original width: {}\nOriginal height:{}\nthis.width:{}\nthis.height:{}\ntarget_width:{}\ntarget_height:{}",
+                    img.width(),img.height(),dimtohtml(self.width()),dimtohtml(self.height()),target_width,target_height
+                );*/
+                let nimg = if (img.width() > target_width || img.height() > target_height) {
+                    image::imageops::resize(
+                        &img.clone().into_rgba8(),
+                        target_width,
+                        target_height,
+                        FilterType::Gaussian
+                    )
+                } else { img.clone().into_rgba8() };
                 let mut buf = Cursor::new(vec!());//Vec<u8> = vec!();
-                match nimg.write_to(&mut buf, image::ImageOutputFormat::Jpeg(254)) {
+                match nimg.write_to(&mut buf, image::ImageOutputFormat::Png/*Jpeg(254)*/) {
                     Ok(_) => {
-                        let res_base64 = "data:image/jpg;base64,".to_string() + &base64::encode(&buf.into_inner());
+                        let res_base64 = "data:image/png;base64,".to_string() + &base64::encode(&buf.into_inner());
                         htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
                             i.attr("src".into(),res_base64.into());
                             i.attr("width".into(),dimtohtml(self.width()));
