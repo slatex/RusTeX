@@ -115,6 +115,7 @@ hr {
     justify-content: flex-start;
     align-content: inherit;
     align-items: baseline;
+    align-self: baseline;
     width:fit-content;
     height:fit-content;
     max-width:100%;

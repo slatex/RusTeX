@@ -3,8 +3,24 @@
 pub enum TeXMode {
     Vertical, InternalVertical, Horizontal, RestrictedHorizontal, Math, Displaymath
 }
+impl Display for TeXMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use TeXMode::*;
+        write!(f,"{}",
+            match self {
+                Vertical => "vertical",
+                InternalVertical => "internal vertical",
+                Horizontal => "horizontal",
+                RestrictedHorizontal => "restricted horizontal",
+                Math => "math",
+                Displaymath => "display math"
+            }
+        )
+    }
+}
 
 use std::borrow::BorrowMut;
+use std::fmt::{Display, Formatter};
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use std::path::{Path, PathBuf};
@@ -405,7 +421,7 @@ impl Interpreter<'_> {
                     _ => TeXErr!(next => "Misplaced alignment tab")
                 }
             }
-            _ => TeXErr!(next.clone() => "Urgh: {}",next),
+            _ => TeXErr!(next.clone() => "Not allowed in {} mode: {} of category code {}",mode,next,next.catcode),
         }
     }
 
@@ -825,9 +841,22 @@ impl Interpreter<'_> {
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
-                            mg.superscript = Some(ret);
-                            return Ok(Some(WI::Math(mg)))
+                            match self.stomach.get_last() {
+                                Some(WI::Math(mut mg)) if mg.superscript.is_none() => {
+                                    mg.superscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                                Some(o) => {
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get(&()));
+                                    mg.superscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                                _ => {
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
+                                    mg.superscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                            }
                         },
                     }
                 }
@@ -846,9 +875,22 @@ impl Interpreter<'_> {
                             return Ok(None)
                         },
                         _ => {
-                            let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
-                            mg.subscript = Some(ret);
-                            return Ok(Some(WI::Math(mg)))
+                            match self.stomach.get_last() {
+                                Some(WI::Math(mut mg)) if mg.subscript.is_none() => {
+                                    mg.subscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                                Some(o) => {
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get(&()));
+                                    mg.subscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                                _ => {
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
+                                    mg.subscript = Some(ret);
+                                    return Ok(Some(WI::Math(mg)))
+                                }
+                            }
                         },
                     }
                 }
@@ -953,7 +995,7 @@ impl Interpreter<'_> {
                                     return Ok(Some(ret))
                                 }
                             },
-                            _ => TeXErr!(next.clone() => "TODO: {} in {}",next,self.current_line())
+                            _ => TeXErr!(next.clone() => "TODO: {} in {}\n => {}",next,self.current_line(),self.preview())
                         }
                     }
                 },
@@ -987,7 +1029,7 @@ impl Interpreter<'_> {
                 }
                 Parameter =>
                     TeXErr!(next.clone() => "Parameter Token {} not allowed in math mode",next),
-                _ => TeXErr!(next.clone() => "Urgh: {}",next),
+                _ => TeXErr!(next.clone() => "Not allowed in {} mode: {} of category code {}",self.state.mode,next,next.catcode),
             }
         }
         FileEnd!()

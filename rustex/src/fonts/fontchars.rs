@@ -89,6 +89,7 @@ impl FontTableStore {
                 ("t-stixtext-italic",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("t-stixtext-bold",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
                 ("ts-stixgeneral",STIX_TS_GENERAL,FontTableParam::Text),
+                ("ts-stixtext",TS1_STIXTEXT,FontTableParam::Text),
                 ("t-stixgeneral-bold",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
                 ("stix-mathrm",STIX_MATH_RM,FontTableParam::Math),
                 ("stix-mathrm-bold",STIX_MATH_RM,FontTableParam::Math,FontTableParam::Bold),
@@ -260,6 +261,11 @@ lazy_static! {
         (246,"ö"),(247,"œ"),(248,"ø"),(249,"ù"),(250,"ú"),(251,"û"),(252,"ü"),(253,"ý"),(254,"þ"),
         (255,"ß")
     ]);
+    pub static ref TS1_STIXTEXT : HashMap<u8,&'static str> = HashMap::from([
+        (0,"`"),(1," ́"),(2,"^"),(3," ̃"),(4," ̈"),(5," ̋"),(6," ̊"),(7,"ˇ"),(8," ̆"),(9," ̄"),(10," ̇"),
+        (11," ̧"),(12," ̨"),(13,","),
+        (136,"•")
+    ]);
     pub static ref EUFM : HashMap<u8,&'static str> = HashMap::from([
         (0,"b"),(1,"d"),(2,"f"),(3,"f"),(4,"g"),(5,"t"),(6,"t"),(7,"u"),
         (18,"`"),(19," ́"),
@@ -329,7 +335,8 @@ lazy_static! {
         (223,"‖"),
         (225,"∧"),(226,"∨"),(227,"∩"),(228,"∪"),
         (231,"Ø"),
-        (237,"∼"),(238,"∽")
+        (237,"∼"),(238,"∽"),
+        (243,"≂"),(244,"≃"),(245,"≄"),(246,"≅"),(247,"≆"),(248,"≇"),(249,"≈"),(250,"≉")
     ]);
     pub static ref STIX_MATH_IT : HashMap<u8,&'static str> = HashMap::from([
         (0,"Γ"),(1,"∆"),(2,"Θ"),(3,"Λ"),(4,"Ξ"),(5,"Π"),(6,"Σ"),(7,"Υ"),(8,"Φ"),(9,"Ψ"),(10,"Ω"),
@@ -427,7 +434,8 @@ lazy_static! {
         (97,"⊊"),(98,"⊋"),
         (102,"≤"),(103,"≥"),(104,"≦"),(105,"≧"),
         (142,"≝"),
-        (144,"≟"),(145,"≠"),(146,"≡"),(147,"≢")
+        (144,"≟"),(145,"≠"),(146,"≡"),(147,"≢"),
+        (148,"∫"),(149,"∬"),(150,"∭"),(151,"∮"),(152,"∯"),(153,"∰")
     ]);
     pub static ref STIX_MATH_SF : HashMap<u8,&'static str> = HashMap::from([
         (44,"-"),

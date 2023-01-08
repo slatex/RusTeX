@@ -131,32 +131,32 @@ impl WhatsitTrait for Paragraph {
             let fullwidth = wd + negwd;
             let currsize = colon.state.currsize;
             //let currsquare = colon.state.squaresize;
-            colon.state.currsize = wd;
             //colon.state.squaresize = false;
-            if currsize == 0 {
-                node.style("width".into(),dimtohtml(wd));
-                node.style("min-width".into(),dimtohtml(wd));
+            if wd == 0 {
+                node.style("width".into(),"0px".into());
+                node.style("max-width".into(),"0px".into());
+                for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
             } else {
                 if negwd <= 0 {
-                    let mut pctgnum = (wd as f32) / (currsize as f32);
-                    /*if currsquare {
-                        pctgnum = pctgnum.sqrt();
-                    }*/
-                    let pctg = (100.0 * pctgnum).to_string() + "%";
-                    node.style("width".into(),pctg.clone().into());
-                    node.style("min-width".into(),pctg.into());
+                    withwidth!(colon,wd,node,inner,{
+                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
+                    });
                 } else {
-                    let mut pctgnum = (fullwidth as f32) / (currsize as f32);
+                    colon.state.currsize = wd;
+                    let pctg = ((fullwidth as f32) / (currsize as f32)).to_string();
                     /*if currsquare {
                         pctgnum = pctgnum.sqrt();
                     }*/
-                    let pctg = (100.0 * pctgnum).to_string() + "%";
-                    let str = "calc(".to_string() + &pctg + " - " + &dimtohtml(negwd).to_string() + ")";
-                    node.style("width".into(),str.clone().into());
-                    node.style("min-width".into(),str.into());
+                    let str = "calc((".to_string() + &pctg + " * var(--current-width)) - " + &dimtohtml(negwd).to_string() + ")";
+                    node.style("--this-width".into(),str.clone().into());
+                    node.style("width".into(),"var(--this-width)".into());
+                    node.style("min-width".into(),"var(--this-width)".into());
+                    htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
+                        inner.style("--current-width".into(),"var(--this-width)".into());
+                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
+                    })
                 }
             }
-            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
             colon.state.currsize = currsize;
             //colon.state.squaresize = currsquare;
         });

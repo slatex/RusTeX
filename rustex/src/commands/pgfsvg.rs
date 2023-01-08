@@ -203,7 +203,12 @@ impl WhatsitTrait for PGFBox {
         str + "\n" + &prefix + "</g></svg>"
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,SVG_NS:svg,self.sourceref,"",node_top,svg => {
+        htmlnode!(colon,HTML_NS:div,None,"",node_top,div => {
+            div.style("display".into(),"block".into());
+            let currsize = colon.state.currsize;
+            colon.state.currsize = self.maxx - self.minx;
+            div.style("--current-width".into(),dimtohtml(self.maxx-self.minx).into());
+        htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(div),svg => {
             let mut vb : HTMLStr = numtohtml(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
             vb += " ";
             vb += numtohtml(self.miny);
@@ -232,7 +237,9 @@ impl WhatsitTrait for PGFBox {
                     c.as_html(&ColonMode::External("svg".into()),colon,htmlparent!(g))
                 }
             })
-        })
+        });
+            colon.state.currsize = currsize;
+        });
     }
 }
 impl ExternalWhatsit for PGFBox {

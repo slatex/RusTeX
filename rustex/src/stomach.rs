@@ -1,6 +1,6 @@
 use std::borrow::BorrowMut;
 pub use crate::stomach::whatsits::Whatsit;
-use crate::{Interpreter, TeXErr};
+use crate::{Interpreter, log, TeXErr};
 use crate::commands::DefMacro;
 use crate::fonts::Font;
 use crate::interpreter::state::{GroupType, State};
@@ -421,6 +421,18 @@ pub trait Stomach : Send {
         }
     }
 
+    fn get_last(&mut self) -> Option<Whatsit> {
+        match self.base_mut().buffer.pop() {
+            Some(ws) =>
+                Some(ws),
+            _ => match self.base_mut().stomachgroups.last_mut() {
+                Some(gr) =>
+                    gr.get_mut().pop(),
+                _ => None
+            }
+        }
+    }
+
     fn add_inner(&mut self,state:&mut State,params:&dyn InterpreterParams, wi: Whatsit) -> Result<(),TeXError> {
         match wi {
             Whatsit::Ls(ls) => {
@@ -501,8 +513,8 @@ pub trait Stomach : Send {
                 self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(tp, vec!()));
                 Ok(())
             }
-            Whatsit::GroupOpen(ref g) => {
-                self.base_mut().stomachgroups.push(StomachGroup::Other(g.clone()));
+            Whatsit::GroupOpen(g) => {
+                self.base_mut().stomachgroups.push(StomachGroup::Other(g));
                 Ok(())
             }
             Whatsit::GroupClose(g) => {
@@ -859,6 +871,8 @@ impl Stomach for NoShipoutRoutine {
         &self.base
     }
     fn add(&mut self,state:&mut State,params:&dyn InterpreterParams, wi: Whatsit) -> Result<(),TeXError> {
+        /*log!("HERE: {} -- {}",self.base.stomachgroups.len(),self.base.buffer.len());
+        print!("");*/
         match wi {
             Whatsit::Simple(SimpleWI::Penalty(ref p)) if p.penalty <= -1000 && self.is_top() && self.base().indocument => {
                 self.add_inner(state,params,wi)?;

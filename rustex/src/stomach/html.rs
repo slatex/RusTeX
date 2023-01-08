@@ -46,19 +46,29 @@ impl HTMLState {
 
 #[macro_export]
 macro_rules! withwidth {
- ($colon:ident,$wd:expr,$node:expr,$e:expr) => ({
+ ($colon:ident,$wd:expr,$node:expr,$inner:ident,$e:expr) => ({
      let _withwidth_currsize = $colon.state.currsize;
      //let _withwidth_currsquare = $colon.state.squaresize;
      //$colon.state.squaresize = false;
-     $colon.state.currsize = $wd;
-    if _withwidth_currsize == 0 {
-        $node.style("width".into(),dimtohtml($wd));
-        $node.style("min-width".into(),dimtohtml($wd));
-    } else {
-        let _withwidth_pctg = (100.0 * (($wd as f32) / (_withwidth_currsize as f32))).to_string() + "%";
-        $node.style("width".into(),_withwidth_pctg.into());
+     if $wd == 0 {
+        $node.style("width".into(),"0px".into());
+        $node.style("max-width".into(),"0px".into());
+        {
+            let mut $inner = &mut $node;
+            $e
+        }
+     } else {
+        $colon.state.currsize = $wd;
+        let _withwidth_pctg_str = (($wd as f32) / (_withwidth_currsize as f32)).to_string();
+        let _withwidth_pctg = "calc(".to_string() + &_withwidth_pctg_str + " * var(--current-width))";
+        $node.style("--this-width".into(),_withwidth_pctg.into());
+        $node.style("width".into(),"var(--this-width)".into());
+        $node.style("min-width".into(),"var(--this-width)".into());
+        htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
+            $inner.style("--current-width".into(),"var(--this-width)".into());
+            $e
+        });
     }
-     { $e }
     $colon.state.currsize = _withwidth_currsize;
     //$colon.state.squaresize = _withwidth_currsquare;
  });
@@ -252,7 +262,7 @@ impl HTMLColon {
             //self.ret += "\n    <script type=\"text/javascript\" id=\"MathJax-script\" src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js\"></script>";
             ret += "\n  </head>\n  <body style=\"width:";
             ret += &dimtohtml(self.pagewidth).to_string();
-            ret += "\">\n    <div class=\"body\" style=\"font-size:";
+            ret += "\">\n    <div class=\"body\" id=\"rustexbody\" style=\"font-size:";
             let fontsize = match &self.base.basefont.as_ref() {
                 Some(f) => match f.at {
                     Some(i) => i,
@@ -261,9 +271,10 @@ impl HTMLColon {
                 None => 655360
             };
             ret += &dimtohtml(fontsize).to_string();
-            ret += ";width:";
-            ret += &dimtohtml(self.textwidth).to_string();
+            //ret += ";width:var(--current-width)";
             ret += ";max-width:";
+            ret += &dimtohtml(self.textwidth).to_string();
+            ret += ";--current-width:";
             ret += &dimtohtml(self.textwidth).to_string();
             ret += ";padding-left:";
             ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();

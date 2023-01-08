@@ -263,13 +263,13 @@ impl WhatsitTrait for HBox {
 
                     match self._width {
                         Some(h) => {
-                            withwidth!(colon,h,node,{
-                                HBox::ch_as_html(self.children,colon,&mut node);
+                            withwidth!(colon,h,node,inner,{
+                                HBox::ch_as_html(self.children,colon,&mut inner);
                             })
                         }
                         None if self.width() == 0 => {
-                            withwidth!(colon,0,node,{
-                                HBox::ch_as_html(self.children,colon,&mut node);
+                            withwidth!(colon,0,node,inner,{
+                                HBox::ch_as_html(self.children,colon,&mut inner);
                             })
                         }
                         _ => {
@@ -553,11 +553,11 @@ impl WhatsitTrait for VBox {
                 } */
                 match self._width {
                     Some(h) => {
-                        withwidth!(colon,h,node,{
+                        withwidth!(colon,h,node,inner,{
                             for c in self.children {
-                                htmlliteral!(colon,htmlparent!(node),"\n");
-                                c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                                htmlliteral!(colon,htmlparent!(node),"\n");
+                                htmlliteral!(colon,htmlparent!(inner),"\n");
+                                c.as_html(&ColonMode::V,colon,htmlparent!(inner));
+                                htmlliteral!(colon,htmlparent!(inner),"\n");
                             }
                         })
                     }
