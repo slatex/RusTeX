@@ -148,8 +148,26 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     fn priority(&self) -> i16 { 95 }
     fn closes_with_group(&self) -> bool { false }
     fn sourceref(&self) -> &Option<SourceFileReference> { &self.sourceref }
-    fn as_xml_internal(&self,_:&Vec<Whatsit>, _: String) -> String {
-        "".to_string()
+    fn as_xml_internal(&self,chs:&Vec<Whatsit>, prefix: String) -> String {
+        let mut ret = "\n".to_string() + &prefix + "<annotate ";
+        for (k,v) in &self.attrs {
+            ret += k;
+            ret += "=\"";
+            ret += v;
+            ret += "\" ";
+        }
+        for (k,v) in &self.styles {
+            ret += "style/";
+            ret += k;
+            ret += "=\"";
+            ret += v;
+            ret += "\" ";
+        }
+        ret += ">";
+        for c in chs {
+            ret += &c.as_xml_internal(prefix.clone() + "  ")
+        }
+        ret + "\n" + &prefix + "</annotate>"
     }
     fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut nret : Vec<Whatsit> = vec!();
@@ -157,6 +175,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
         ret.push(Whatsit::Grouped(WIGroup::External(Arc::new(self.clone()),nret)))
     }
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        //println!("-----------------------------------------------------------------------------\n\n{}",self.as_xml_internal(&ch,"".to_string()));
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.get_ref(&ch),node_top,a => {
                 for (k,v) in &self.attrs {
@@ -198,7 +217,7 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex@annotateHTML",
     modes: |_| { true },
     _get: |tk, int| {
-        let tks = int.read_balanced_argument(true,false,false,true)?;
+        let tks = int.read_balanced_argument(true,false,false,false)?;
         let str = int.tokens_to_string(&tks).to_string().trim().to_string();
         let mut annotate = AnnotateBegin {sourceref:int.update_reference(tk),attrs:HashMap::new(),styles:HashMap::new()};
         let mut index = 0;

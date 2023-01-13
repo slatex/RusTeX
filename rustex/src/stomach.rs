@@ -508,6 +508,13 @@ pub trait Stomach : Send {
     }
 
     fn add_inner_actually(&mut self, wi: Whatsit) -> Result<(),TeXError> {
+        /*match &wi {
+            Whatsit::Grouped(WIGroup::External(a,w)) => {
+                println!("{}",wi.as_xml_internal("".to_string()));
+                println!("----------------------------------------------");
+            }
+            _ => ()
+        }*/
         match wi {
             Whatsit::GroupOpen(WIGroup::GroupOpen(tp)) => {
                 self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(tp, vec!()));

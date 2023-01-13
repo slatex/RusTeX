@@ -866,6 +866,10 @@ impl Interpreter<'_> {
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
+                        Some(w@WI::GroupClose(_)) => {
+                            self.stomach_add(w)?;
+                            MathKernel::Group(GroupedMath(vec!()))
+                        },
                         _ => TeXErr!(next => "Expected Whatsit after _")
                     };
                     self.state.fontstyle.set((),oldmode,false);

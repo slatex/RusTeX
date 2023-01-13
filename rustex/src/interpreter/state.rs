@@ -463,7 +463,7 @@ static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
 
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
-        /*if self.stack_depth() > 100 {
+        /*if self.stack_depth() > 249 {
             unsafe {crate::LOG = true}
             log!("Here!")
         }*/

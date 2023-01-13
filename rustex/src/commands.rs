@@ -646,7 +646,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "scr@dte@chapter@init"
+        /*if tk.cmdname().to_string() == "vC"
             {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {
@@ -657,9 +657,9 @@ impl PrimitiveTeXCommand {
             //unsafe { crate::LOG = true }
         }*/
         log!("{}",d);
-        if unsafe{crate::LOG} {
-            log!("    >>{}",int.preview())
-        }
+        //if unsafe{crate::LOG} {
+            log!("    >>{}",int.preview());
+        //}
         let mut args : Vec<Vec<Token>> = Vec::new();
         let mut i = 0;
         while i < d.sig.elems.len() {
