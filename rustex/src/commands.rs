@@ -130,6 +130,20 @@ pub struct DefMacro {
     pub sig:Signature,
     pub ret:Vec<Token>
 }
+impl DefMacro {
+    fn clean(&self) -> DefMacro {
+        let mut nret : Vec<Token> = vec!();
+        for x in &self.ret {
+            nret.push(x.clean())
+        }
+        DefMacro {
+            protected:self.protected,
+            long:self.long,
+            sig:self.sig.clean(),
+            ret:nret
+        }
+    }
+}
 impl Display for DefMacro {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f,"{}->{}{}{}",self.sig,"{",TokenList(&self.ret),"}")
@@ -277,6 +291,22 @@ pub struct Signature {
     pub(in crate) elems:Vec<ParamToken>,
     pub(in crate) endswithbrace:bool,
     pub(in crate) arity:u8
+}
+impl Signature {
+    fn clean(&self) -> Signature {
+        let mut nelems : Vec<ParamToken> = vec!();
+        for x in &self.elems {
+            match x {
+                ParamToken::Param(u,t) => nelems.push(ParamToken::Param(u.clone(),t.clean())),
+                ParamToken::Token(t) => nelems.push(ParamToken::Token(t.clean()))
+            }
+        }
+        Signature {
+            elems:nelems,
+            endswithbrace:self.endswithbrace,
+            arity:self.arity.clone()
+        }
+    }
 }
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
@@ -920,6 +950,18 @@ impl PrimitiveTeXCommand {
 pub struct TeXCommand {
     pub orig:Arc<PrimitiveTeXCommand>,
     pub rf:Option<ExpansionRef>
+}
+
+impl TeXCommand {
+    pub fn clean(&self) -> TeXCommand {
+        TeXCommand {
+            rf:None,
+            orig:match *self.orig {
+                PrimitiveTeXCommand::Def(ref d) => Arc::new(PrimitiveTeXCommand::Def(d.clean())),
+                ref o => self.orig.clone()
+            }
+        }
+    }
 }
 
 impl PartialEq for TeXCommand {

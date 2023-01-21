@@ -68,7 +68,10 @@ pub(in crate) fn do_memories(old:&mut State, new:State, memories:&Vec<String>) {
     }
     for (n,cmd) in topcommands.values.unwrap() {
         if memories.iter().any(|x| n.to_string().starts_with(x) ) {
-            old.commands.set(n,cmd,true);
+            old.commands.set(n,match cmd {
+                None => None,
+                Some(c) => Some(c.clean())
+            },true);
         }
     }
 }

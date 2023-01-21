@@ -135,6 +135,16 @@ impl Token {
             expand:true
         }
     }
+    pub fn clean(&self) -> Token {
+        Token {
+            char:self.char,
+            catcode:self.catcode,
+            //cmdname:self.cmdname.clone(),
+            name_opt:self.name_opt.clone(),
+            reference:None,
+            expand:true
+        }
+    }
     pub fn copied(&self,er:&mut ExpansionRef) -> Token {
         if COPY_TOKENS_FULL {
             Token {
