@@ -422,14 +422,11 @@ pub trait Stomach : Send {
     }
 
     fn get_last(&mut self) -> Option<Whatsit> {
-        match self.base_mut().buffer.pop() {
-            Some(ws) =>
-                Some(ws),
-            _ => match self.base_mut().stomachgroups.last_mut() {
-                Some(gr) =>
-                    gr.get_mut().pop(),
-                _ => None
-            }
+        self.flush();
+        match self.base_mut().stomachgroups.last_mut() {
+            Some(gr) =>
+                gr.get_mut().pop(),
+            _ => None
         }
     }
 
