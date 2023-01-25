@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use ahash::{AHasher, RandomState};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -122,7 +123,7 @@ pub trait StateStore<K,V>:Sized where V:HasDefault {
     fn remove(&mut self,k:&K);
     fn new() -> Self;
 }
-impl<K:Hash+Eq,V:HasDefault> StateStore<K,V> for HashMap<K,V> {
+impl<K:Hash+Eq,V:HasDefault> StateStore<K,V> for HashMap<K,V,RandomState> {
     fn get(&self, k: &K) -> Option<&V> {
         HashMap::get(self,k)
     }
@@ -133,7 +134,7 @@ impl<K:Hash+Eq,V:HasDefault> StateStore<K,V> for HashMap<K,V> {
         HashMap::remove(self,k);
     }
     fn new() -> Self {
-        HashMap::new()
+        HashMap::default()
     }
 }
 
@@ -244,7 +245,7 @@ impl<K,V:HasDefault+Clone,A:StateStore<K,V>> LinkedStateValue<K,V,A> {
         *self = std::mem::take(self.parent.as_mut().unwrap())
     }
 }
-impl LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox>> {
+impl LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox,RandomState>> {
     pub fn take(&mut self,k:i32) -> TeXBox {
         match self.values {
             Some(ref mut v) => match v.remove(&k) {
@@ -379,18 +380,18 @@ impl LinkedCatScheme {
 pub struct State {
     pub tp: LinkedStateValue<(),GroupType,Var<GroupType>>,
     pub catcodes:LinkedCatScheme,
-    pub commands: LinkedStateValue<TeXStr,Option<TeXCommand>,HashMap<TeXStr,Option<TeXCommand>>>,
-    pub registers: LinkedStateValue<i32,i32,HashMap<i32,i32>>,
-    pub dimensions: LinkedStateValue<i32,i32,HashMap<i32,i32>>,
-    pub skips: LinkedStateValue<i32,Skip,HashMap<i32,Skip>>,
-    pub muskips: LinkedStateValue<i32,MuSkip,HashMap<i32,MuSkip>>,
-    pub toks: LinkedStateValue<i32,Vec<Token>,HashMap<i32,Vec<Token>>>,
-    pub sfcodes : LinkedStateValue<u8,i32,HashMap<u8,i32>>,
-    pub lccodes : LinkedStateValue<u8,u8,HashMap<u8,u8>>,
-    pub uccodes : LinkedStateValue<u8,u8,HashMap<u8,u8>>,
-    pub mathcodes : LinkedStateValue<u8,i32,HashMap<u8,i32>>,
-    pub delcodes : LinkedStateValue<u8,i32,HashMap<u8,i32>>,
-    pub boxes: LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox>>,
+    pub commands: LinkedStateValue<TeXStr,Option<TeXCommand>,HashMap<TeXStr,Option<TeXCommand>,RandomState>>,
+    pub registers: LinkedStateValue<i32,i32,HashMap<i32,i32,RandomState>>,
+    pub dimensions: LinkedStateValue<i32,i32,HashMap<i32,i32,RandomState>>,
+    pub skips: LinkedStateValue<i32,Skip,HashMap<i32,Skip,RandomState>>,
+    pub muskips: LinkedStateValue<i32,MuSkip,HashMap<i32,MuSkip,RandomState>>,
+    pub toks: LinkedStateValue<i32,Vec<Token>,HashMap<i32,Vec<Token>,RandomState>>,
+    pub sfcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
+    pub lccodes : LinkedStateValue<u8,u8,HashMap<u8,u8,RandomState>>,
+    pub uccodes : LinkedStateValue<u8,u8,HashMap<u8,u8,RandomState>>,
+    pub mathcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
+    pub delcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
+    pub boxes: LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox,RandomState>>,
     pub parshape : LinkedStateValue<(),Vec<(i32,i32)>,Var<Vec<(i32,i32)>>>,
     pub hangindent : LinkedStateValue<(),i32,Var<i32>>,
     pub hangafter : LinkedStateValue<(),usize,Var<usize>>,
@@ -404,20 +405,20 @@ pub struct State {
 
     // DIRECT ------------------------------------------
     pub(in crate) conditions:Vec<Option<bool>>,
-    pub(in crate) outfiles:HashMap<u8,Arc<VFile>>,
-    pub(in crate) infiles:HashMap<u8,StringMouth>,
+    pub(in crate) outfiles:HashMap<u8,Arc<VFile>,RandomState>,
+    pub(in crate) infiles:HashMap<u8,StringMouth,RandomState>,
     pub(in crate) incs : u8,
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
-    pub(in crate) pdfobjs: HashMap<u16,TeXStr>,
+    pub(in crate) pdfobjs: HashMap<u16,TeXStr,RandomState>,
     pub(in crate) pdfxforms: Vec<PDFXForm>,
     pub(in crate) indocument_line:Option<(TeXStr,usize)>,
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
-    pub (in crate) inserts:HashMap<u16,Vec<Whatsit>>,
+    pub (in crate) inserts:HashMap<u16,Vec<Whatsit>,RandomState>,
     pub(in crate) pagegoal:i32,
     pub(in crate) pdfximages:Vec<PDFXImage>,
     pub(in crate) aligns: Vec<Option<Vec<Token>>>,
@@ -427,7 +428,7 @@ pub struct State {
     pub(in crate) splitfirstmark : Vec<Token>,
     pub(in crate) splitbotmark : Vec<Token>,
     // TODO -----------------------------------------
-    pub (in crate) filestore:HashMap<TeXStr,Arc<VFile>>,
+    pub (in crate) filestore:HashMap<TeXStr,Arc<VFile>,RandomState>,
 }
 
 macro_rules! pass_on {
@@ -459,7 +460,7 @@ macro_rules! pass_on {
 
     }
 }
-static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>>> = None;
+static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>,RandomState>> = None;
 
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
@@ -501,20 +502,20 @@ impl State {
     pub fn new() -> State {
         let mut state = State {
             conditions:vec!(),
-            outfiles:HashMap::new(),
-            infiles:HashMap::new(),
+            outfiles:HashMap::default(),
+            infiles:HashMap::default(),
             incs:0,
             mode:TeXMode::Vertical,
             afterassignment:None,
             pdfmatches:vec!(),
             pdfcolorstacks:vec!(vec!()),
-            pdfobjs:HashMap::new(),
+            pdfobjs:HashMap::default(),
             pdfxforms:vec!(),
             indocument_line:None,
             indocument:false,
             insetbox:false,
             vadjust:vec!(),
-            inserts:HashMap::new(),
+            inserts:HashMap::default(),
             pagegoal:0,
             pdfximages:vec!(),
             aligns:vec!(),
@@ -720,7 +721,7 @@ impl State {
     pub fn get_font(&mut self,indir:&Path,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
         unsafe {
             match FONT_FILES {
-                None => FONT_FILES = Some(HashMap::new()),
+                None => FONT_FILES = Some(HashMap::default()),
                 _ => ()
             }
             match FONT_FILES.as_ref().unwrap().get(&name) {

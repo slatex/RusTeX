@@ -35,9 +35,13 @@ image = "0.24.4"
 base64 =  "0.13.0"
 clap = { version = "3.2.22", features = ["derive"] }
 pdfium-render = "0.6" #, features = ["static"] }
+ahash = "0.8.3"
 #magick_rust = { path = "../magick-rust" }
 
 #fixed = "1.11.0"
 #libc = "0.2.0"
 #kpathsea = "0.2.3"
 #kpathsea = { path = "../kpathsea" }
+
+
+# https://crates.io/crates/ahash
