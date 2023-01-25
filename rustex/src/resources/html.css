@@ -204,4 +204,7 @@ math {
     justify-content:center;
     align-self:center;
 }
-.halign{display:table}.row{display: table-row}.cell{display: table-cell}
+.halign{
+    display:table;
+    border-collapse:collapse;
+}.row{display: table-row}.cell{display: table-cell}

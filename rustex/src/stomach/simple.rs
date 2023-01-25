@@ -1118,19 +1118,30 @@ impl HAlign {
     fn do_row(mode: &ColonMode, colon: &mut HTMLColon, table:&mut HTMLNode,row:AlignBlock) {
         match row {
             AlignBlock::Noalign(mut v) => {
-                if v.len() == 1 {
-                    match v.pop() {
-                        Some(Whatsit::Simple(SimpleWI::HRule(hr))) => {
+                let mut aboveborder = true;
+                for c in v.into_iter() {
+                    match c {
+                        Whatsit::Simple(SimpleWI::HRule(hr)) => {
+                            aboveborder = false;
                             if table.children.is_empty() {
                                 table.style("border-top".into(),dimtohtml(hr.height()) + " solid")
                             } else {
                                 match table.children.last_mut() {
-                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
+                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(2*hr.height()) + " solid"),
                                     _ => ()//TeXErr!("Should be unreachable!")
                                 }
                             }
                         }
-                        _ => ()
+                        Whatsit::Simple(SimpleWI::VSkip(sk)) if aboveborder && !table.children.is_empty() => {
+                            match table.children.last_mut() {
+                                Some(HTMLChild::Node(row)) => row.style("margin-bottom".into(),dimtohtml(sk.height())),
+                                _ => ()//TeXErr!("Should be unreachable!")
+                            }
+                        }
+                        Whatsit::Simple(SimpleWI::VSkip(sk)) if aboveborder => {
+                            table.style("margin-top".into(),dimtohtml(sk.height()))
+                        }
+                        _ => {}
                     }
                 }
             }
