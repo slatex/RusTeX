@@ -690,20 +690,18 @@ impl PrimitiveTeXCommand {
             log!("    >>{}",int.preview());
         //}
         let mut args : Vec<Vec<Token>> = Vec::new();
-        let mut i = 0;
-        while i < d.sig.elems.len() {
-            match d.sig.elems.get(i).unwrap() {
-                ParamToken::Token(tk) => {
-                    //int.assert_has_next()?;
+        let mut iter = d.sig.elems.iter().peekable();
+        loop {
+            match iter.next() {
+                None => break,
+                Some(ParamToken::Token(tk)) => {
                     let next = int.next_token();
                     if *tk != next {
                         TeXErr!(next.clone() => "Expected >{}<; found >{}< (in {})\n{}  >>{}",tk,next,d,int.current_line(),int.preview())
                     }
-                    i += 1;
                 }
-                ParamToken::Param(_) => {
-                    i +=1;
-                    match d.sig.elems.get(i) {
+                Some(ParamToken::Param(_)) => {
+                    match iter.peek() {
                         None if d.sig.endswithbrace => {
                             let mut retarg : Vec<Token> = vec!();
                             loop {
@@ -725,14 +723,14 @@ impl PrimitiveTeXCommand {
                             args.push(next);
                         },
                         Some(ParamToken::Token(itk)) => {
+                            iter.next();
                             let mut delim : Vec<Token> = vec!(itk.clone());
-                            i +=1;
-                            while i < d.sig.elems.len() {
-                                match d.sig.elems.get(i) {
+                            loop {
+                                match iter.peek() {
                                     Some(ParamToken::Token(t)) => {
+                                        iter.next();
                                         delim.push(t.clone());
-                                        i += 1;
-                                    },
+                                    }
                                     _ => break
                                 }
                             }
@@ -769,6 +767,8 @@ impl PrimitiveTeXCommand {
                 }
             }
         }
+
+
         if unsafe{crate::LOG} {
             log!("    args:");
             for (i, a) in args.iter().enumerate() {
@@ -777,20 +777,15 @@ impl PrimitiveTeXCommand {
         }
         let mut exp = Expansion::new(tk,cmd.orig.clone());
         let mut rf = exp.get_ref();
-        let mut i = 0;
-        while i < d.ret.len() {
-            let tk = d.ret.get(i).unwrap();
-            match tk.catcode {
-                CategoryCode::Parameter => {
-                    i += 1;
-                    let next = d.ret.get(i).unwrap();
-                    match next.catcode {
-                        CategoryCode::Parameter => {
-                            i += 1;
-                            exp.2.push(tk.copied(&mut rf))
-                        }
-                        _ => {
-                            i += 1;
+        let mut iter = d.ret.iter();
+        loop {
+            match iter.next() {
+                None => break,
+                Some(tk) => match tk.catcode {
+                    CategoryCode::Parameter => match iter.next().unwrap() {
+                        tk if tk.catcode == CategoryCode::Parameter =>
+                            exp.2.push(tk.copied(&mut rf)),
+                        next => {
                             let arg = next.char - 49;
                             if arg >= d.sig.arity {
                                 TeXErr!(next.clone() => "Expected argument number; got:{}",next)
@@ -798,11 +793,8 @@ impl PrimitiveTeXCommand {
                             for tk in args.get(arg as usize).unwrap() { exp.2.push(tk.cloned()) }
                         }
                     }
+                    _ => exp.2.push(tk.copied(&mut rf))
                 }
-                _ => {
-                    i += 1;
-                    exp.2.push(tk.copied(&mut rf))
-                },
             }
         }
         Ok(exp)

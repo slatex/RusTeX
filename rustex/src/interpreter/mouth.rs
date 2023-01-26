@@ -5,6 +5,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::cmp::min;
 use std::str::from_utf8;
 use std::sync::Arc;
+use std::vec::IntoIter;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::commands::primitives::RELAX;
@@ -47,22 +48,38 @@ impl Mouth {
 }
 
 pub struct TokenMouth {
-    tokens : Vec<Token>
+    iter: IntoIter<Token>,
+    peek:Option<Token>
 }
 impl TokenMouth {
     fn new(tokens:Vec<Token>) -> TokenMouth {
-        let mut tm = TokenMouth { tokens };
-        tm.tokens.reverse();
+        let mut tm = TokenMouth { iter:tokens.into_iter(),peek:None };
+        //tm.tokens.reverse();
         tm
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {
-        !self.tokens.is_empty()
+        match self.peek {
+            Some(_) => true,
+            _ => match self.iter.next() {
+                None => false,
+                s => {
+                    self.peek = s;
+                    true
+                }
+            }
+        }
     }
     fn pop_next(&mut self, _nocomment: bool) -> Token {
-        self.tokens.pop().unwrap()
+        match &mut self.peek {
+            s@Some(_) => {
+                std::mem::take(s).unwrap()
+            }
+            None => self.iter.next().unwrap()
+        }
     }
     fn preview(&self) -> TeXString {
-        crate::interpreter::tokens_to_string_default(&self.tokens.iter().rev().map(|x| x.clone()).collect())
+        let tks : Vec<Token> = self.iter.clone().collect();
+        crate::interpreter::tokens_to_string_default(&tks)
     }
 }
 
