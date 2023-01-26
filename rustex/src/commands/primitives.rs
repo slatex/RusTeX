@@ -88,7 +88,7 @@ pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,None,true)).as_ref(rf);
+        let cmd = PrimitiveTeXCommand::Char(Token::new(num as u8,CategoryCode::Other,None,None,true)).as_command();
         int.change_command(c.cmdname(),Some(cmd),global);
         Ok(())
     }
@@ -155,7 +155,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()? as u16;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_ref(rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Register(num)).as_command();
 
         int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
@@ -169,7 +169,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()? as u16;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_ref(rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Dim(num)).as_command();
 
         int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
@@ -183,7 +183,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()? as u16;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_ref(rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Skip(num)).as_command();
         int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
     }
@@ -196,7 +196,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()? as u16;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_ref(rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::MuSkip(num)).as_command();
 
         int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
@@ -210,7 +210,7 @@ pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
         int.set_relax(&cmd);
         int.read_eq();
         let num = int.read_number()? as u16;
-        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_ref(rf);
+        let command = PrimitiveTeXCommand::AV(AssignableValue::Toks(num)).as_command();
 
         int.change_command(cmd.cmdname(),Some(command),global);
         Ok(())
@@ -326,7 +326,7 @@ fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
                         }
                         let arg = inext.char - 48;
                         if currarg == arg {
-                            retsig.push(ParamToken::Param(arg,next));
+                            retsig.push(ParamToken::Param(arg));
                             currarg += 1
                         } else {
                             TeXErr!(inext.clone() => "Expected argument #{}; got:#{}",currarg,inext)
@@ -334,7 +334,7 @@ fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
                     }
                 }
             }
-            _ => retsig.push(ParamToken::Token(next))
+            _ => retsig.push(ParamToken::Token(next.clean()))
         }
     }
     FileEnd!()
@@ -354,7 +354,7 @@ fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, lo
         long,
         sig,
         ret
-    }).as_ref(rf);
+    }).as_command();
     int.change_command(command.cmdname(),Some(dm),global);
     Ok(())
 }
@@ -412,9 +412,9 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
         log!("\\let {}={}",cmd,def);
         let ch = match def.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state.commands.get(&def.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&def.cmdname())//.map(|x| x)
             }
-            _ => Some(PrimitiveTeXCommand::Char(def).as_ref(rf))
+            _ => Some(PrimitiveTeXCommand::Char(def).as_command())
         };
         int.change_command(cmd.cmdname(),ch,global);
         Ok(())
@@ -433,7 +433,7 @@ pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
         let second = int.next_token();
         let p = match second.catcode {
             CategoryCode::Escape | CategoryCode::Active => {
-                int.state.commands.get(&second.cmdname()).map(|x| x.as_ref(rf.0))
+                int.state.commands.get(&second.cmdname())//.map(|x| x.as_command())
             }
             _ => Some(PrimitiveTeXCommand::Char(second.clone()).as_command())
         };
@@ -827,7 +827,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
                 arity: 0
             },
             ret: toks
-        }).as_ref(rf);
+        }).as_command();
         int.change_command(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
@@ -855,7 +855,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
                 arity: 0
             },
             ret: toks
-        }).as_ref(rf);
+        }).as_command();
         int.change_command(newcmd.cmdname(),Some(cmd),global);
         Ok(())
     }
@@ -959,7 +959,7 @@ pub static MEANING: PrimitiveExecutable = PrimitiveExecutable {
                     Some(p) => p.meaning(&int.state.catcodes.get_scheme())
                 }
             }
-            _ => PrimitiveTeXCommand::Char(next).as_ref(rf.get_ref()).meaning(&int.state.catcodes.get_scheme())
+            _ => PrimitiveTeXCommand::Char(next).as_command().meaning(&int.state.catcodes.get_scheme())
         };
         rf.2 = crate::interpreter::string_to_tokens(string);
         Ok(())
@@ -992,7 +992,7 @@ pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
         let chartok = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
-        let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_ref(rf);
+        let cmd = PrimitiveTeXCommand::MathChar(num as u32).as_command();
         int.change_command(chartok.cmdname(),Some(cmd),global);
         Ok(())
     }
@@ -1048,7 +1048,7 @@ pub static CSNAME: PrimitiveExecutable = PrimitiveExecutable {
         match int.state.commands.get(&cmdname) {
             Some(_) => (),
             None => {
-                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_ref(erf);
+                let cmd = PrimitiveTeXCommand::Primitive(&RELAX).as_command();
                 int.change_command(cmdname,Some(cmd),false)
             }
         }

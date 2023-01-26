@@ -1,4 +1,5 @@
 use std::borrow::BorrowMut;
+use std::fmt::Display;
 use std::io::Write;
 use std::path::Path;
 use std::thread;
@@ -36,7 +37,9 @@ struct Parameters {
 
 }
 static mut SKIP : bool = false;
-static SKIP_UNTIL : &str = "slides/exploiting-ci.en.tex"; //integernumbers.en.tex
+static SKIP_UNTIL : &str = "source/mmt.tex"; //integernumbers.en.tex
+static DOMAX: usize = 20;
+static mut DONE:usize = 0;
 
 fn main() {
     rustex::utils::with_stack_size(run)
@@ -56,19 +59,35 @@ fn run() {
                     println!("\n\nSuccess! \\o/")
                 }
                 Some(d) => {
-                    let state = State::pdf_latex();
-                    fn do_dir<P: AsRef<Path>>(s : P,mut st : State,out:Option<String>) {
+                    let max = 10;
+                    let mut done = 0;
+                    let mut state = State::pdf_latex();
+                    fn do_dir<P: AsRef<Path>,D:Display>(s : P,d:D,mut st : State,out:Option<String>) -> State {
+                        //println!("{}",d);
                         for f in std::fs::read_dir(s).unwrap() {
                             let f = f.unwrap();
                             let path = f.path();
                             if std::fs::metadata(&path).unwrap().is_dir() {
-                                do_dir(path,st.clone(),out.clone())
+                                let init = path.to_str().unwrap();
+                                if !init.ends_with(".git") &&
+                                    !init.ends_with("content") &&
+                                    !init.ends_with("errors") &&
+                                    !init.ends_with("narration") &&
+                                    !init.ends_with("relational") &&
+                                    !init.ends_with("buildresults") &&
+                                    !init.ends_with("xhtml") &&
+                                    !init.ends_with("export") &&
+                                    !init.ends_with("lib")
+                                    {
+                                    st = do_dir(path.clone(),path.display(),st.clone(),out.clone())
+                                }
                             } else {
-                                if path.to_str().unwrap().ends_with(".en.tex") {
+                                if path.to_str().unwrap().ends_with(".tex") {
                                     if unsafe{!SKIP} && path.to_str().unwrap().ends_with(SKIP_UNTIL) {
                                         unsafe {SKIP = true}
                                     };
-                                    if unsafe{SKIP} {
+                                    if unsafe{SKIP && (DONE < DOMAX)} {
+                                        unsafe {DONE += 1};
                                         println!("------------\n\nDoing {}\n\n---------------\n", path.to_str().unwrap());
                                         let mut stomach = NoShipoutRoutine::new();
                                         let p = DefaultParams::new(false, false, None);
@@ -78,7 +97,7 @@ fn run() {
                                             let mut topcommands = int.state.commands.ls.back_mut().unwrap();
                                             for (n,cmd) in topcommands.drain() {
                                                 if n.to_string().starts_with("c_stex_module") {
-                                                    st.commands.set(n,cmd,true);
+                                                    st.commands.set(n,cmd.map(|x| x.clean()),true);
                                                 }
                                             }
                                         }
@@ -98,8 +117,14 @@ fn run() {
                                 }
                             }
                         }
+                        st
                     }
-                    do_dir(d,state,params.output);
+                    state = do_dir(d.clone(),d,state,params.output.clone());
+                    let mut stomach = NoShipoutRoutine::new();
+                    let p = DefaultParams::new(false, false, None);
+                    let mut int = Interpreter::with_state(state, stomach.borrow_mut(), &p);
+                    let path = Path::new("/home/jazzpirate/work/MathHub/sTeX/DemoExamples/source/quickstart.tex");
+                    int.do_file(path, HTMLColon::new(true));
                 }
             }
         }

@@ -263,13 +263,13 @@ pub trait ExternalCommand : Send + Sync {
 
 #[derive(Clone)]
 pub enum ParamToken {
-    Param(u8,Token),
+    Param(u8),
     Token(Token)
 }
 impl PartialEq for ParamToken {
     fn eq(&self, other: &Self) -> bool {
         match (self,other) {
-            (ParamToken::Param(a1,_),ParamToken::Param(b1,_)) => a1 == b1,
+            (ParamToken::Param(a1),ParamToken::Param(b1)) => a1 == b1,
             (ParamToken::Token(a),ParamToken::Token(b)) => a == b,
             _ => false
         }
@@ -279,8 +279,8 @@ impl Display for ParamToken {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use ansi_term::Colour::*;
         match self {
-            ParamToken::Param(0,u) => write!(f,"{}",Yellow.paint(TeXString(vec!(u.char,u.char)).to_string())),
-            ParamToken::Param(i,u) => write!(f,"{}{}",Yellow.paint(TeXString(vec!(u.char)).to_string()),Yellow.paint(i.to_string())),
+            ParamToken::Param(0) => write!(f,"{}",Yellow.paint("##")),
+            ParamToken::Param(i) => write!(f,"{}{}",Yellow.paint("#"),Yellow.paint(i.to_string())),
             ParamToken::Token(t) => write!(f,"{}",t)
         }
     }
@@ -297,7 +297,7 @@ impl Signature {
         let mut nelems : Vec<ParamToken> = vec!();
         for x in &self.elems {
             match x {
-                ParamToken::Param(u,t) => nelems.push(ParamToken::Param(u.clone(),t.clean())),
+                p@ParamToken::Param(u) => nelems.push(p.clone()),
                 ParamToken::Token(t) => nelems.push(ParamToken::Token(t.clean()))
             }
         }
@@ -408,16 +408,16 @@ pub enum PrimitiveTeXCommand {
 }
 
 impl PrimitiveTeXCommand {
-    pub fn as_ref(self,rf:ExpansionRef) -> TeXCommand {
+    /*pub fn as_ref(self,rf:ExpansionRef) -> TeXCommand {
         TeXCommand {
             orig: Arc::new(self),
-            rf:Some(rf)
+            //rf:Some(rf)
         }
-    }
+    }*/
     pub fn as_command(self) -> TeXCommand {
         TeXCommand {
             orig: Arc::new(self),
-            rf: None
+            //rf: None
         }
     }
     pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
@@ -471,12 +471,11 @@ impl PrimitiveTeXCommand {
                         ParamToken::Token(tk) => {
                             meaning += crate::interpreter::tokens_to_string(&vec!(tk.clone()),catcodes)
                         },
-                        ParamToken::Param(0,u) => {
-                            meaning += u.char;
-                            meaning += u.char
+                        ParamToken::Param(0) => {
+                            meaning += "##"
                         },
-                        ParamToken::Param(i,u) => {
-                            meaning += u.char;
+                        ParamToken::Param(i) => {
+                            meaning += "#";
                             meaning += i.to_string();
                         }
                     }
@@ -702,7 +701,7 @@ impl PrimitiveTeXCommand {
                     }
                     i += 1;
                 }
-                ParamToken::Param(_,_) => {
+                ParamToken::Param(_) => {
                     i +=1;
                     match d.sig.elems.get(i) {
                         None if d.sig.endswithbrace => {
@@ -720,7 +719,7 @@ impl PrimitiveTeXCommand {
                             }
                             args.push(retarg)
                         },
-                        None | Some(ParamToken::Param(_,_)) => {
+                        None | Some(ParamToken::Param(_)) => {
                             int.skip_ws();
                             let next = int.read_argument()?;
                             args.push(next);
@@ -949,13 +948,13 @@ impl PrimitiveTeXCommand {
 #[derive(Clone)]
 pub struct TeXCommand {
     pub orig:Arc<PrimitiveTeXCommand>,
-    pub rf:Option<ExpansionRef>
+    //pub rf:Option<ExpansionRef>
 }
 
 impl TeXCommand {
     pub fn clean(&self) -> TeXCommand {
         TeXCommand {
-            rf:None,
+            //rf:None,
             orig:match *self.orig {
                 PrimitiveTeXCommand::Def(ref d) => Arc::new(PrimitiveTeXCommand::Def(d.clean())),
                 ref o => self.orig.clone()
@@ -1018,14 +1017,14 @@ impl fmt::Display for TeXCommand {
 }
 
 impl TeXCommand {
-    pub fn as_ref(self,tk:Token) -> TeXCommand {
+    /*pub fn as_ref(self,tk:Token) -> TeXCommand {
         if COPY_COMMANDS_FULL {
             TeXCommand {
                 orig:Arc::clone(&self.orig),
-                rf:Some(ExpansionRef(tk,self.orig.clone(),None))
+                //rf:Some(ExpansionRef(tk,self.orig.clone(),None))
             }
         } else { self }
-    }
+    }*/
     pub fn meaning(&self,catcodes:&CategoryCodeScheme) -> TeXString {
         self.orig.meaning(catcodes)
     }

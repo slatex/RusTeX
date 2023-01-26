@@ -49,6 +49,7 @@ macro_rules! FileEnd {
 
 #[macro_use]
 extern crate lazy_static;
+extern crate core;
 
 use crate::interpreter::Interpreter;
 use crate::ontology::Token;

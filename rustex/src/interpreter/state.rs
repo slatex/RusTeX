@@ -7,7 +7,6 @@ use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
-use lru::Iter;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::fonts::{Font, FontFile, NULL_FONT};
@@ -141,6 +140,25 @@ impl<K:Hash+Eq,V> StateStore<K,V> for RusTeXMap<K,V> {
         RusTeXMap::default()
     }
 }
+/*
+impl StateStore<TeXStr,Option<TeXCommand>> for qp_trie::Trie<Vec<u8>,Option<TeXCommand>> {
+    fn get(&self, k: &TeXStr) -> Option<&Option<TeXCommand>> {
+        self.get(k.0.as_slice())
+    }
+
+    fn set(&mut self, k: TeXStr, v: Option<TeXCommand>) {
+        self.insert(k.0.to_vec(),v);
+    }
+
+    fn remove(&mut self, k: &TeXStr) {
+        self.remove(k.0.as_slice());
+    }
+
+    fn new_store() -> Self {
+        qp_trie::Trie::new()
+    }
+}
+ */
 
 #[derive(Clone,PartialEq)]
 pub struct Var<V>(pub Option<V>) where V:HasDefault;
@@ -166,11 +184,6 @@ fn newfonts() -> [Option<Arc<Font>>;16] {
     [
         None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
     ]
-}
-
-pub struct CommandStore {
-    parent: Option<Box<CommandStore>>,
-    vals: lru::LruCache<TeXStr,Option<TeXCommand>,RandomState>
 }
 
 #[derive(Clone,PartialEq)]
@@ -249,115 +262,112 @@ impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
 
 #[derive(Clone,PartialEq)]
 pub struct LinkedCatScheme {
-    scheme:Option<CategoryCodeScheme>,
-    parent:Option<Box<LinkedCatScheme>>
+    ls : VecDeque<Option<CategoryCodeScheme>>
+    /*scheme:Option<CategoryCodeScheme>,
+    parent:Option<Box<LinkedCatScheme>>*/
 }
 impl std::default::Default for LinkedCatScheme {
     fn default() -> Self {
-        LinkedCatScheme {scheme:None,parent:None}
+        let mut ls : VecDeque<Option<CategoryCodeScheme>> = VecDeque::new();
+        ls.push_front(Some(STARTING_SCHEME.clone()));
+        LinkedCatScheme {ls}
     }
 }
 impl LinkedCatScheme {
     pub fn get_scheme(&self) -> &CategoryCodeScheme {
-        match self.scheme {
-            Some(ref scheme) => scheme,
-            None => match self.parent {
-                Some(ref bx) => bx.get_scheme(),
-                None => &STARTING_SCHEME
+        for cc in &self.ls {
+            match cc {
+                Some(cc) => return cc,
+                None => {}
             }
         }
+        unreachable!()
     }
     fn push(&mut self) {
-        *self = LinkedCatScheme {
-            parent : Some(Box::new(std::mem::take(self))),
-            scheme : None
+        self.ls.push_front(None)
+    }
+    fn get_mut(&mut self) -> &mut CategoryCodeScheme {
+        match &self.ls.front().unwrap() {
+            Some(_) => self.ls.front_mut().unwrap().as_mut().unwrap(),
+            _ => self.new_ls()
         }
     }
-    pub fn set_newline(&mut self,v:u8,globally:bool) {
-        match self.scheme {
-            Some(ref mut s) => {
-                s.newlinechar = v;
-            }
-            None => {
-                self.scheme = Some(self.get_scheme().clone());
-                self.scheme.as_mut().unwrap().newlinechar = v;
+    fn new_ls(&mut self) -> &mut CategoryCodeScheme {
+        let mut ret : Option<&CategoryCodeScheme> = None;
+        for x in &self.ls {
+            match x {
+                None => {}
+                Some(r) =>
+                    {ret = Some(r); break}
             }
         }
+        *(self.ls.front_mut().unwrap()) = Some(ret.unwrap().clone());
+        self.ls.front_mut().unwrap().as_mut().unwrap()
+    }
+    pub fn set_newline(&mut self,v:u8,globally:bool) {
         if globally {
-            for p in self.parent.as_mut() {
-                p.set_newline(v,globally)
+            for occ in self.ls.iter_mut() {
+                match occ {
+                    None => {},
+                    Some(cc) => cc.newlinechar = v
+                }
             }
+        } else {
+            self.get_mut().newlinechar = v;
         }
     }
     pub fn set_endline(&mut self,v:u8,globally:bool) {
-        match self.scheme {
-            Some(ref mut s) => {
-                s.endlinechar = v;
-            }
-            None => {
-                self.scheme = Some(self.get_scheme().clone());
-                self.scheme.as_mut().unwrap().endlinechar = v;
-            }
-        }
         if globally {
-            for p in self.parent.as_mut() {
-                p.set_endline(v,globally)
+            for occ in self.ls.iter_mut() {
+                match occ {
+                    None => {},
+                    Some(cc) => cc.endlinechar = v
+                }
             }
+        } else {
+            self.get_mut().endlinechar = v;
         }
     }
     pub fn set_escape(&mut self,v:u8,globally:bool) {
-        match self.scheme {
-            Some(ref mut s) => {
-                s.escapechar = v;
-            }
-            None => {
-                self.scheme = Some(self.get_scheme().clone());
-                self.scheme.as_mut().unwrap().escapechar = v;
-            }
-        }
         if globally {
-            for p in self.parent.as_mut() {
-                p.set_escape(v,globally)
+            for occ in self.ls.iter_mut() {
+                match occ {
+                    None => {},
+                    Some(cc) => cc.escapechar = v
+                }
             }
+        } else {
+            self.get_mut().escapechar = v;
         }
     }
     pub fn set(&mut self,k:u8,v: CategoryCode,globally:bool) {
         if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
     }
     fn set_locally(&mut self,k : u8,v : CategoryCode) {
-        match self.scheme {
-            Some(ref mut s) => {
-                s.catcodes[k as usize] = v;
-            }
-            None => {
-                self.scheme = Some(self.get_scheme().clone());
-                self.scheme.as_mut().unwrap().catcodes[k as usize] = v;
-            }
-        }
+        self.get_mut().catcodes[k as usize] = v;
     }
     fn set_globally(&mut self,k : u8,v : CategoryCode) {
-        match self.scheme {
-            Some(ref mut s) => {
-                s.catcodes[k as usize] = v;
+        for occ in self.ls.iter_mut() {
+            match occ {
+                None => {},
+                Some(cc) => cc.catcodes[k as usize] = v
             }
-            _ => ()
-        }
-        match self.parent {
-            None => (),
-            Some(ref mut p) => p.set_globally(k,v)
         }
     }
     fn pop(&mut self) {
-        assert!(self.parent.is_some());
-        *self = std::mem::take(self.parent.as_mut().unwrap())
+        self.ls.pop_front();
     }
 }
+
+type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>;
+//type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,qp_trie::Trie<Vec<u8>,Option<TeXCommand>>>;
+
 
 #[derive(Clone)]
 pub struct State {
     pub tp: LinkedStateValue<(),GroupType,Var<GroupType>>,
     pub catcodes:LinkedCatScheme,
-    pub commands: LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>,
+    pub commands: CommandStore,
     pub registers: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
     pub dimensions: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
     pub skips: LinkedStateValue<i32,Skip,RusTeXMap<i32,Skip>>,
@@ -497,10 +507,7 @@ impl State {
                 v: PhantomData,
                 ls : VecDeque::new()
             },
-            catcodes: LinkedCatScheme {
-                scheme: Some(STARTING_SCHEME.clone()),
-                parent: None
-            },
+            catcodes: LinkedCatScheme::default(),
             commands: Default::default(),
             registers: Default::default(),
             dimensions: Default::default(),
