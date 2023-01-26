@@ -1,6 +1,6 @@
 use std::borrow::{Borrow, BorrowMut};
 use ahash::{AHasher, RandomState};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -168,108 +168,80 @@ fn newfonts() -> [Option<Arc<Font>>;16] {
     ]
 }
 
+pub struct CommandStore {
+    parent: Option<Box<CommandStore>>,
+    vals: lru::LruCache<TeXStr,Option<TeXCommand>,RandomState>
+}
 
 #[derive(Clone,PartialEq)]
 pub struct LinkedStateValue<K,V:HasDefault,A:StateStore<K,V>> {
     k:PhantomData<K>,
     v:PhantomData<V>,
-    pub values:Option<A>,
-    pub parent:Option<Box<LinkedStateValue<K,V,A>>>
+    pub ls : VecDeque<A>
 }
 impl<K,V:HasDefault+Clone,A:StateStore<K,V>> std::default::Default for LinkedStateValue<K,V,A> {
     fn default() -> Self {
-        LinkedStateValue {
-            k:PhantomData,
-            v:PhantomData,
-            values:None,parent:None
-        }
+        let mut ret = LinkedStateValue {
+            k:PhantomData::default(),
+            v:PhantomData::default(),
+            ls:VecDeque::new()
+        };
+        ret.push();
+        ret
     }
 }
 
 impl<K,V:HasDefault+Clone,A:StateStore<K,V>> LinkedStateValue<K,V,A> {
     pub fn get_maybe(&self,k:&K) -> Option<&V> {
-        match &self.values {
-            Some(a) => match a.get(k) {
-                Some(v) => return Some(v),
-                _ => ()
+        for store in self.ls.iter() {
+            match store.get(k) {
+                s@Some(_) => return s,
+                _ => {}
             }
-            _ => ()
         }
-        match &self.parent {
-            None => None,
-            Some(p) => p.get_maybe(k)
-        }
+        return None
     }
     pub fn get(&self,k:&K) -> V {
-        match &self.values {
-            Some(a) => match a.get(k) {
-                Some(v) => return v.clone(),
-                _ => ()
-            }
-            _ => ()
-        }
-        match &self.parent {
-            None => HasDefault::default(),
-            Some(p) => p.get(k)
+        match self.get_maybe(k) {
+            Some(s) => s.clone(),
+            None => HasDefault::default()
         }
     }
     fn set_locally(&mut self, k : K, v : V) {
-        match self.values {
-            Some(ref mut s) => {
-                s.set(k,v);
-            }
-            ref mut o@None => {
-                *o = Some(StateStore::new_store());
-                o.as_mut().unwrap().set(k,v);
-            }
-        }
+        self.ls.front_mut().unwrap().set(k,v);
     }
     fn set_globally(&mut self,k:K,v:V) {
-        match self.parent {
-            Some(ref mut p) => {
-                for s in &mut self.values { s.remove(&k); }
-                p.set_globally(k,v)
-            }
-            None => {
-                self.set_locally(k, v)
-            }
+        for m in self.ls.iter_mut() {
+            m.remove(&k);
         }
+        self.ls.back_mut().unwrap().set(k,v);
     }
     pub fn set(&mut self,k:K,v:V,globally:bool) {
         if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
     }
     fn push(&mut self) {
-        *self = LinkedStateValue {
-            k:PhantomData,v:PhantomData,
-            parent : Some(Box::new(std::mem::take(self))),
-            values:None
-        }
+        self.ls.push_front(StateStore::new_store())
     }
     fn pop(&mut self) {
-        assert!(self.parent.is_some());
-        *self = std::mem::take(self.parent.as_mut().unwrap())
+        self.ls.pop_front();
     }
 }
 impl LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>> {
     pub fn take(&mut self,k:i32) -> TeXBox {
-        match self.values {
-            Some(ref mut v) => match v.remove(&k) {
+        for store in self.ls.iter_mut() {
+            match store.remove(&k) {
                 Some(b) => return b,
-                _ => ()
+                _ => {}
             }
-            _ => ()
         }
-        match self.parent {
-            None => TeXBox::Void,
-            Some(ref mut p) => p.take(k)
-        }
+        TeXBox::Void
     }
 }
 impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
     pub fn add(&mut self,b:B) {
-        match self.values {
-            Some(Var(Some(ref mut v))) => v.push(b),
-            _ => self.values = Some(Var(Some(vec!(b))))
+        match self.ls.front_mut().unwrap() {
+            Var(Some(ref mut v)) => v.push(b),
+            v => *v = Var(Some(vec!(b)))
         }
     }
 }
@@ -480,11 +452,11 @@ impl State {
     }
     pub fn pop(&mut self,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
         log!("Pop: {} -> {}",tp,self.stack_depth());
-        match self.tp.values.as_ref().unwrap().0.unwrap() {
+        match self.tp.ls.front().unwrap().0.unwrap() {
             t if t == tp => (),
             t => TeXErr!("Group opened by {} ended by {}",t,tp)
         }
-        let ag = match self.aftergroups.values {
+        let ag = match self.aftergroups.ls.front_mut() {
             Some(ref mut v) => std::mem::take(&mut v.0),
             _ => None
         };
@@ -493,16 +465,7 @@ impl State {
     }
     pub fn stack_depth(&self) -> usize {
         let mut curr = &self.tp;
-        let mut ret : usize = 0;
-        loop {
-            match &curr.parent {
-                None => return ret,
-                Some(p) => {
-                    ret += 1;
-                    curr = p.borrow()
-                }
-            }
-        }
+        curr.ls.len()
     }
     pub fn new() -> State {
         let mut state = State {
@@ -532,8 +495,7 @@ impl State {
             tp:LinkedStateValue {
                 k: PhantomData,
                 v: PhantomData,
-                values: Some(Var(Some(GroupType::Begingroup))),
-                parent: None
+                ls : VecDeque::new()
             },
             catcodes: LinkedCatScheme {
                 scheme: Some(STARTING_SCHEME.clone()),

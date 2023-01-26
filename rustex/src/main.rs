@@ -75,14 +75,8 @@ fn run() {
                                         let mut int = Interpreter::with_state(st.clone(), stomach.borrow_mut(), &p);
                                         let (success, s) = int.do_file(&path, HTMLColon::new(true));
                                         if success {
-                                            let mut topcommands = Box::new(int.state.commands);
-                                            loop {
-                                                match topcommands.parent {
-                                                    Some(p) => topcommands = p,
-                                                    _ => break
-                                                }
-                                            }
-                                            for (n,cmd) in topcommands.values.unwrap() {
+                                            let mut topcommands = int.state.commands.ls.back_mut().unwrap();
+                                            for (n,cmd) in topcommands.drain() {
                                                 if n.to_string().starts_with("c_stex_module") {
                                                     st.commands.set(n,cmd,true);
                                                 }
