@@ -58,15 +58,9 @@ pub(in crate) fn do_string<'borrow,'env>(env:JNIEnv, file:JString, text:JString,
     (b,s,javastring!(env,ret).into_inner())
 }
 
-pub(in crate) fn do_memories(old:&mut State, new:State, memories:&Vec<String>) {
-    let mut topcommands = Box::new(new.commands);
-    loop {
-        match topcommands.parent {
-            Some(p) => topcommands = p,
-            _ => break
-        }
-    }
-    for (n,cmd) in topcommands.values.unwrap().into_iter() {
+pub(in crate) fn do_memories(old:&mut State, mut new:State, memories:&Vec<String>) {
+    let mut topcommands = new.commands.ls.back_mut().unwrap();
+    for (n,cmd) in topcommands.drain() {
         if memories.iter().any(|x| n.to_string().starts_with(x) ) {
             old.commands.set(n,match cmd {
                 None => None,
