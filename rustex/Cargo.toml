@@ -36,6 +36,7 @@ base64 =  "0.13.0"
 clap = { version = "3.2.22", features = ["derive"] }
 pdfium-render = "0.6" #, features = ["static"] }
 ahash = "0.8.3"
+lru = "0.9.0"
 #magick_rust = { path = "../magick-rust" }
 
 #fixed = "1.11.0"

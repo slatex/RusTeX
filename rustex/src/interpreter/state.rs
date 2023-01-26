@@ -1,11 +1,13 @@
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use ahash::{AHasher, RandomState};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
+use lru::Iter;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::fonts::{Font, FontFile, NULL_FONT};
@@ -25,6 +27,8 @@ use crate::utils::{PWD, TeXError, TeXStr};
 use crate::interpreter::files::VFile;
 use crate::interpreter::params::{InterpreterParams, NoOutput};
 use crate::stomach::colon::NoColon;
+
+pub type RusTeXMap<A,B> = HashMap<A,B,RandomState>;
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum FontStyle {
@@ -117,24 +121,24 @@ impl HasDefault for FontStyle {
     }
 }
 
-pub trait StateStore<K,V>:Sized where V:HasDefault {
+pub trait StateStore<K,V>:Sized {
     fn get(&self,k:&K) -> Option<&V>;
     fn set(&mut self,k:K,v:V);
     fn remove(&mut self,k:&K);
-    fn new() -> Self;
+    fn new_store() -> Self;
 }
-impl<K:Hash+Eq,V:HasDefault> StateStore<K,V> for HashMap<K,V,RandomState> {
+impl<K:Hash+Eq,V> StateStore<K,V> for RusTeXMap<K,V> {
     fn get(&self, k: &K) -> Option<&V> {
-        HashMap::get(self,k)
+        RusTeXMap::get(self,k)
     }
     fn set(&mut self, k: K, v: V) {
         self.insert(k,v);
     }
     fn remove(&mut self, k: &K) {
-        HashMap::remove(self,k);
+        RusTeXMap::remove(self,k);
     }
-    fn new() -> Self {
-        HashMap::default()
+    fn new_store() -> Self {
+        RusTeXMap::default()
     }
 }
 
@@ -149,13 +153,13 @@ impl<V:HasDefault> StateStore<(),V> for Var<V> {
     }
     fn set(&mut self, _k: (), v: V) { self.0 = Some(v) }
     fn remove(&mut self, _k: &()) { self.0 = None }
-    fn new() -> Self { Var(None) }
+    fn new_store() -> Self { Var(None) }
 }
 impl StateStore<usize,Arc<Font>> for [Option<Arc<Font>>;16] {
     fn get(&self, k: &usize) -> Option<&Arc<Font>> { self[*k].as_ref() }
     fn set(&mut self, k: usize, v: Arc<Font>) { self[k] = Some(v) }
     fn remove(&mut self, k: &usize) { self[*k] = None }
-    fn new() -> Self { newfonts() }
+    fn new_store() -> Self { newfonts() }
 }
 
 fn newfonts() -> [Option<Arc<Font>>;16] {
@@ -163,6 +167,7 @@ fn newfonts() -> [Option<Arc<Font>>;16] {
         None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
     ]
 }
+
 
 #[derive(Clone,PartialEq)]
 pub struct LinkedStateValue<K,V:HasDefault,A:StateStore<K,V>> {
@@ -214,7 +219,7 @@ impl<K,V:HasDefault+Clone,A:StateStore<K,V>> LinkedStateValue<K,V,A> {
                 s.set(k,v);
             }
             ref mut o@None => {
-                *o = Some(StateStore::new());
+                *o = Some(StateStore::new_store());
                 o.as_mut().unwrap().set(k,v);
             }
         }
@@ -245,7 +250,7 @@ impl<K,V:HasDefault+Clone,A:StateStore<K,V>> LinkedStateValue<K,V,A> {
         *self = std::mem::take(self.parent.as_mut().unwrap())
     }
 }
-impl LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox,RandomState>> {
+impl LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>> {
     pub fn take(&mut self,k:i32) -> TeXBox {
         match self.values {
             Some(ref mut v) => match v.remove(&k) {
@@ -380,18 +385,18 @@ impl LinkedCatScheme {
 pub struct State {
     pub tp: LinkedStateValue<(),GroupType,Var<GroupType>>,
     pub catcodes:LinkedCatScheme,
-    pub commands: LinkedStateValue<TeXStr,Option<TeXCommand>,HashMap<TeXStr,Option<TeXCommand>,RandomState>>,
-    pub registers: LinkedStateValue<i32,i32,HashMap<i32,i32,RandomState>>,
-    pub dimensions: LinkedStateValue<i32,i32,HashMap<i32,i32,RandomState>>,
-    pub skips: LinkedStateValue<i32,Skip,HashMap<i32,Skip,RandomState>>,
-    pub muskips: LinkedStateValue<i32,MuSkip,HashMap<i32,MuSkip,RandomState>>,
-    pub toks: LinkedStateValue<i32,Vec<Token>,HashMap<i32,Vec<Token>,RandomState>>,
-    pub sfcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
-    pub lccodes : LinkedStateValue<u8,u8,HashMap<u8,u8,RandomState>>,
-    pub uccodes : LinkedStateValue<u8,u8,HashMap<u8,u8,RandomState>>,
-    pub mathcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
-    pub delcodes : LinkedStateValue<u8,i32,HashMap<u8,i32,RandomState>>,
-    pub boxes: LinkedStateValue<i32,TeXBox,HashMap<i32,TeXBox,RandomState>>,
+    pub commands: LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>,
+    pub registers: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
+    pub dimensions: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
+    pub skips: LinkedStateValue<i32,Skip,RusTeXMap<i32,Skip>>,
+    pub muskips: LinkedStateValue<i32,MuSkip,RusTeXMap<i32,MuSkip>>,
+    pub toks: LinkedStateValue<i32,Vec<Token>,RusTeXMap<i32,Vec<Token>>>,
+    pub sfcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
+    pub lccodes : LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
+    pub uccodes : LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
+    pub mathcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
+    pub delcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
+    pub boxes: LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>>,
     pub parshape : LinkedStateValue<(),Vec<(i32,i32)>,Var<Vec<(i32,i32)>>>,
     pub hangindent : LinkedStateValue<(),i32,Var<i32>>,
     pub hangafter : LinkedStateValue<(),usize,Var<usize>>,
@@ -405,20 +410,20 @@ pub struct State {
 
     // DIRECT ------------------------------------------
     pub(in crate) conditions:Vec<Option<bool>>,
-    pub(in crate) outfiles:HashMap<u8,Arc<VFile>,RandomState>,
-    pub(in crate) infiles:HashMap<u8,StringMouth,RandomState>,
+    pub(in crate) outfiles:RusTeXMap<u8,Arc<VFile>>,
+    pub(in crate) infiles:RusTeXMap<u8,StringMouth>,
     pub(in crate) incs : u8,
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
-    pub(in crate) pdfobjs: HashMap<u16,TeXStr,RandomState>,
+    pub(in crate) pdfobjs: RusTeXMap<u16,TeXStr>,
     pub(in crate) pdfxforms: Vec<PDFXForm>,
     pub(in crate) indocument_line:Option<(TeXStr,usize)>,
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
-    pub (in crate) inserts:HashMap<u16,Vec<Whatsit>,RandomState>,
+    pub (in crate) inserts:RusTeXMap<u16,Vec<Whatsit>>,
     pub(in crate) pagegoal:i32,
     pub(in crate) pdfximages:Vec<PDFXImage>,
     pub(in crate) aligns: Vec<Option<Vec<Token>>>,
@@ -428,7 +433,7 @@ pub struct State {
     pub(in crate) splitfirstmark : Vec<Token>,
     pub(in crate) splitbotmark : Vec<Token>,
     // TODO -----------------------------------------
-    pub (in crate) filestore:HashMap<TeXStr,Arc<VFile>,RandomState>,
+    pub (in crate) filestore:RusTeXMap<TeXStr,Arc<VFile>>,
 }
 
 macro_rules! pass_on {
@@ -460,7 +465,7 @@ macro_rules! pass_on {
 
     }
 }
-static mut FONT_FILES: Option<HashMap<TeXStr,Arc<FontFile>,RandomState>> = None;
+static mut FONT_FILES: Option<RusTeXMap<TeXStr,Arc<FontFile>>> = None;
 
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
@@ -502,20 +507,20 @@ impl State {
     pub fn new() -> State {
         let mut state = State {
             conditions:vec!(),
-            outfiles:HashMap::default(),
-            infiles:HashMap::default(),
+            outfiles:RusTeXMap::new_store(),
+            infiles:RusTeXMap::new_store(),
             incs:0,
             mode:TeXMode::Vertical,
             afterassignment:None,
             pdfmatches:vec!(),
             pdfcolorstacks:vec!(vec!()),
-            pdfobjs:HashMap::default(),
+            pdfobjs:RusTeXMap::new_store(),
             pdfxforms:vec!(),
             indocument_line:None,
             indocument:false,
             insetbox:false,
             vadjust:vec!(),
-            inserts:HashMap::default(),
+            inserts:RusTeXMap::new_store(),
             pagegoal:0,
             pdfximages:vec!(),
             aligns:vec!(),
@@ -721,7 +726,7 @@ impl State {
     pub fn get_font(&mut self,indir:&Path,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
         unsafe {
             match FONT_FILES {
-                None => FONT_FILES = Some(HashMap::default()),
+                None => FONT_FILES = Some(RusTeXMap::new_store()),
                 _ => ()
             }
             match FONT_FILES.as_ref().unwrap().get(&name) {

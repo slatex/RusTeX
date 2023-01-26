@@ -18,15 +18,13 @@ pub struct VFile {
 
 extern crate pathdiff;
 
-use ahash::{AHasher, RandomState};
-use std::collections::HashMap;
-
 
 use std::sync::{Arc, RwLock};
 use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
+use crate::interpreter::state::RusTeXMap;
 
 impl VFile {
-    pub(in crate::interpreter) fn new<'a>(fp : &Path,intexmf:bool, in_file: &Path, filestore:&mut HashMap<TeXStr,Arc<VFile>,RandomState>) -> Arc<VFile> {
+    pub(in crate::interpreter) fn new<'a>(fp : &Path,intexmf:bool, in_file: &Path, filestore:&mut RusTeXMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {
         use crate::{LANGUAGE_DAT,UNICODEDATA_TXT};
         let simplename : TeXStr = (if intexmf {
             "<texmf>/".to_owned() + fp.file_name().expect("wut").to_ascii_uppercase().to_str().unwrap()
