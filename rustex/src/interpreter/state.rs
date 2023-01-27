@@ -259,58 +259,53 @@ impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
     }
 }
 
+#[derive(Clone,PartialEq)]
+struct LinkedCat(u8,CategoryCodeScheme);
+impl LinkedCat {
+    fn new(scheme:CategoryCodeScheme) -> LinkedCat {
+        LinkedCat(0,scheme)
+    }
+    fn push(&mut self) {
+        self.0 = self.0 + 1;
+    }
+    fn pop(&mut self) {
+        self.0 = self.0 - 1;
+    }
+}
 
 #[derive(Clone,PartialEq)]
 pub struct LinkedCatScheme {
-    ls : VecDeque<Option<CategoryCodeScheme>>
+    ls : Vec<LinkedCat>
     /*scheme:Option<CategoryCodeScheme>,
     parent:Option<Box<LinkedCatScheme>>*/
 }
 impl std::default::Default for LinkedCatScheme {
     fn default() -> Self {
-        let mut ls : VecDeque<Option<CategoryCodeScheme>> = VecDeque::new();
-        ls.push_front(Some(STARTING_SCHEME.clone()));
-        LinkedCatScheme {ls}
+        LinkedCatScheme {ls:vec!(LinkedCat::new(STARTING_SCHEME.clone()))}
     }
 }
 impl LinkedCatScheme {
     pub fn get_scheme(&self) -> &CategoryCodeScheme {
-        for cc in &self.ls {
-            match cc {
-                Some(cc) => return cc,
-                None => {}
-            }
-        }
-        unreachable!()
+        &self.ls.last().unwrap().1
     }
     fn push(&mut self) {
-        self.ls.push_front(None)
+        self.ls.last_mut().unwrap().push()
     }
     fn get_mut(&mut self) -> &mut CategoryCodeScheme {
-        match &self.ls.front().unwrap() {
-            Some(_) => self.ls.front_mut().unwrap().as_mut().unwrap(),
-            _ => self.new_ls()
-        }
-    }
-    fn new_ls(&mut self) -> &mut CategoryCodeScheme {
-        let mut ret : Option<&CategoryCodeScheme> = None;
-        for x in &self.ls {
-            match x {
-                None => {}
-                Some(r) =>
-                    {ret = Some(r); break}
+        match self.ls.last().unwrap() {
+            LinkedCat(0,_) => (),
+            _ => {
+                self.ls.last_mut().unwrap().pop();
+                let last = &self.ls.last().unwrap().1;
+                self.ls.push(LinkedCat::new(last.clone()));
             }
         }
-        *(self.ls.front_mut().unwrap()) = Some(ret.unwrap().clone());
-        self.ls.front_mut().unwrap().as_mut().unwrap()
+        &mut self.ls.last_mut().unwrap().1
     }
     pub fn set_newline(&mut self,v:u8,globally:bool) {
         if globally {
-            for occ in self.ls.iter_mut() {
-                match occ {
-                    None => {},
-                    Some(cc) => cc.newlinechar = v
-                }
+            for cc in self.ls.iter_mut() {
+                cc.1.newlinechar = v
             }
         } else {
             self.get_mut().newlinechar = v;
@@ -318,11 +313,8 @@ impl LinkedCatScheme {
     }
     pub fn set_endline(&mut self,v:u8,globally:bool) {
         if globally {
-            for occ in self.ls.iter_mut() {
-                match occ {
-                    None => {},
-                    Some(cc) => cc.endlinechar = v
-                }
+            for cc in self.ls.iter_mut() {
+                cc.1.endlinechar = v
             }
         } else {
             self.get_mut().endlinechar = v;
@@ -330,11 +322,8 @@ impl LinkedCatScheme {
     }
     pub fn set_escape(&mut self,v:u8,globally:bool) {
         if globally {
-            for occ in self.ls.iter_mut() {
-                match occ {
-                    None => {},
-                    Some(cc) => cc.escapechar = v
-                }
+            for cc in self.ls.iter_mut() {
+                cc.1.escapechar = v
             }
         } else {
             self.get_mut().escapechar = v;
@@ -347,15 +336,15 @@ impl LinkedCatScheme {
         self.get_mut().catcodes[k as usize] = v;
     }
     fn set_globally(&mut self,k : u8,v : CategoryCode) {
-        for occ in self.ls.iter_mut() {
-            match occ {
-                None => {},
-                Some(cc) => cc.catcodes[k as usize] = v
-            }
+        for cc in self.ls.iter_mut() {
+            cc.1.catcodes[k as usize] = v
         }
     }
     fn pop(&mut self) {
-        self.ls.pop_front();
+        match self.ls.last().unwrap() {
+            LinkedCat(0,_) => {self.ls.pop();}
+            _ => self.ls.last_mut().unwrap().pop()
+        }
     }
 }
 
