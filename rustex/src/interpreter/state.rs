@@ -260,90 +260,97 @@ impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
 }
 
 #[derive(Clone,PartialEq)]
-struct LinkedCat(u8,CategoryCodeScheme);
-impl LinkedCat {
-    fn new(scheme:CategoryCodeScheme) -> LinkedCat {
-        LinkedCat(0,scheme)
-    }
-    fn push(&mut self) {
-        self.0 = self.0 + 1;
-    }
-    fn pop(&mut self) {
-        self.0 = self.0 - 1;
-    }
-}
-
-#[derive(Clone,PartialEq)]
 pub struct LinkedCatScheme {
-    ls : Vec<LinkedCat>
-    /*scheme:Option<CategoryCodeScheme>,
-    parent:Option<Box<LinkedCatScheme>>*/
+    ls : Vec<(RusTeXMap<u8,CategoryCode>,Option<u8>,Option<u8>,Option<u8>)>,
+    scheme:CategoryCodeScheme
 }
 impl std::default::Default for LinkedCatScheme {
     fn default() -> Self {
-        LinkedCatScheme {ls:vec!(LinkedCat::new(STARTING_SCHEME.clone()))}
+        LinkedCatScheme {ls:vec!(),scheme:STARTING_SCHEME.clone()}
     }
 }
 impl LinkedCatScheme {
     pub fn get_scheme(&self) -> &CategoryCodeScheme {
-        unsafe{&self.ls.last().unwrap_unchecked().1}
+        &self.scheme
     }
     fn push(&mut self) {
-        self.ls.last_mut().unwrap().push()
-    }
-    fn get_mut(&mut self) -> &mut CategoryCodeScheme {
-        match self.ls.last().unwrap() {
-            LinkedCat(0,_) => (),
-            _ => {
-                self.ls.last_mut().unwrap().pop();
-                let last = &self.ls.last().unwrap().1;
-                self.ls.push(LinkedCat::new(last.clone()));
-            }
-        }
-        &mut self.ls.last_mut().unwrap().1
+        self.ls.push((RusTeXMap::default(),None,None,None))
     }
     pub fn set_newline(&mut self,v:u8,globally:bool) {
         if globally {
             for cc in self.ls.iter_mut() {
-                cc.1.newlinechar = v
+                cc.1 = None
             }
         } else {
-            self.get_mut().newlinechar = v;
+            match self.ls.last_mut() {
+                Some((_,r@None,_,_)) => {std::mem::replace(r,Some(self.scheme.newlinechar));}
+                _ => {},
+            }
         }
+        self.scheme.newlinechar = v;
     }
     pub fn set_endline(&mut self,v:u8,globally:bool) {
         if globally {
             for cc in self.ls.iter_mut() {
-                cc.1.endlinechar = v
+                cc.2 = None
             }
         } else {
-            self.get_mut().endlinechar = v;
+            match self.ls.last_mut() {
+                Some((_,_,r@None,_)) => {std::mem::replace(r,Some(self.scheme.endlinechar));}
+                _ => {},
+            }
         }
+        self.scheme.endlinechar = v;
     }
     pub fn set_escape(&mut self,v:u8,globally:bool) {
         if globally {
             for cc in self.ls.iter_mut() {
-                cc.1.escapechar = v
+                cc.3 = None
             }
         } else {
-            self.get_mut().escapechar = v;
+            match self.ls.last_mut() {
+                Some((_,_,_,r@None)) => {std::mem::replace(r,Some(self.scheme.escapechar));}
+                _ => {},
+            }
         }
+        self.scheme.escapechar = v;
     }
     pub fn set(&mut self,k:u8,v: CategoryCode,globally:bool) {
         if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
     }
     fn set_locally(&mut self,k : u8,v : CategoryCode) {
-        self.get_mut().catcodes[k as usize] = v;
+        match self.ls.last_mut() {
+            Some((m,_,_,_)) if !m.contains_key(&k) => {m.insert(k,self.scheme.catcodes[k as usize]);}
+            _ => ()
+        }
+        self.scheme.catcodes[k as usize] = v;
     }
     fn set_globally(&mut self,k : u8,v : CategoryCode) {
         for cc in self.ls.iter_mut() {
-            cc.1.catcodes[k as usize] = v
+            cc.0.remove(&k);
         }
+        self.scheme.catcodes[k as usize] = v;
     }
     fn pop(&mut self) {
-        match self.ls.last().unwrap() {
-            LinkedCat(0,_) => {self.ls.pop();}
-            _ => self.ls.last_mut().unwrap().pop()
+        match self.ls.pop() {
+            Some((hm,nl,el,sc)) => {
+                for (k,v) in hm {
+                    self.scheme.catcodes[k as usize] = v;
+                };
+                match nl {
+                    None => {},
+                    Some(v) => self.scheme.newlinechar = v
+                }
+                match el {
+                    None => {},
+                    Some(v) => self.scheme.endlinechar = v
+                }
+                match sc {
+                    None => {},
+                    Some(v) => self.scheme.escapechar = v
+                }
+            }
+            _ => ()
         }
     }
 }

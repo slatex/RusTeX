@@ -59,7 +59,7 @@ pub(in crate) fn do_string<'borrow,'env>(env:JNIEnv, file:JString, text:JString,
 }
 
 pub(in crate) fn do_memories(old:&mut State, mut new:State, memories:&Vec<String>) {
-    let mut topcommands = new.commands.ls.back_mut().unwrap();
+    let mut topcommands = new.commands.destroy();
     for (n,cmd) in topcommands.drain() {
         if memories.iter().any(|x| n.to_string().starts_with(x) ) {
             old.commands.set(n,match cmd {
