@@ -38,7 +38,7 @@ struct Parameters {
 }
 static mut SKIP : bool = false;
 static SKIP_UNTIL : &str = "source/mmt.tex"; //integernumbers.en.tex
-static DOMAX: usize = 20;
+static DOMAX: usize = 50;
 static mut DONE:usize = 0;
 
 fn main() {

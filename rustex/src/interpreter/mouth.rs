@@ -6,7 +6,7 @@ use std::cmp::min;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::vec::IntoIter;
-use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject};
+use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, EMPTY_NAME, trivial_name};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::commands::primitives::RELAX;
 use crate::commands::PrimitiveTeXCommand;
@@ -439,10 +439,10 @@ impl StringMouth {
                     let maybecomment = self.next_char(catcodes.endlinechar);
                     match maybecomment {
                         Some((tk,_,_)) if catcodes.get_code(tk) == CategoryCode::Comment || catcodes.get_code(tk) == CategoryCode::Ignored => {
-                            Token::new(char,CategoryCode::Escape,Some(TeXStr::new(&[tk])),self.make_reference(l,p),true)
+                            Token::new(char,CategoryCode::Escape,Some(trivial_name(tk)),self.make_reference(l,p),true)
                         }
                         None => {
-                            Token::new(char,CategoryCode::Escape,Some(TeXStr::new(&[])),self.make_reference(l,p),true)
+                            Token::new(char,CategoryCode::Escape,Some(EMPTY_NAME.clone()),self.make_reference(l,p),true)
                         }
                         _ => {
                             self.charbuffer = maybecomment;

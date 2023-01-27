@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::references::SourceReference;
 use std::sync::Arc;
+use ahash::HashMap;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::commands::PrimitiveTeXCommand;
@@ -94,19 +95,11 @@ impl Token {
     pub fn new(char:u8,catcode:CategoryCode,name_opt: Option<TeXStr>,rf:Option<Arc<SourceReference>>,expand:bool) -> Token {
         let name = match name_opt {
             Some(uv) => uv,
-            None => TeXStr::new(&[char]) /*match catcode {
-                CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
-                _ => TeXStr::new(&[char])
-            } */
+            None => trivial_name(char)
         };
         Token {
             char,
             catcode,
-            /*cmdname: match catcode {
-                CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,char]),
-                CategoryCode::Escape => name.clone(),
-                _ => TeXStr::new(&[])
-            },*/
             name_opt: name,
             reference: rf,
             expand
@@ -117,7 +110,7 @@ impl Token {
     }
     pub fn cmdname(&self) -> TeXStr {
         match self.catcode {
-            CategoryCode::Active => TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,self.char]),
+            CategoryCode::Active => active_name(self.char),
             _ => self.name_opt.clone()
         }
     }
@@ -167,6 +160,23 @@ impl Token {
             }
         }
     }
+}
+
+pub fn active_name(u:u8) -> TeXStr {
+    ACTIVE_NAMES.get(u as usize).unwrap().clone()
+}
+pub fn trivial_name(u:u8) -> TeXStr {
+    SIMPLE_NAMES.get(u as usize).unwrap().clone()
+}
+
+lazy_static! {
+    pub static ref EMPTY_NAME: TeXStr = TeXStr::new(&[]);
+    pub static ref ACTIVE_NAMES: [TeXStr;256] = {
+        <[TeXStr;256]>::try_from((0..256).map(|i| TeXStr::new(&[0,1,2,3,4,255,254,253,252,251,i as u8])).collect::<Vec<TeXStr>>()).ok().unwrap()
+    };
+    pub static ref SIMPLE_NAMES: [TeXStr;256] = {
+        <[TeXStr;256]>::try_from((0..256).map(|i| TeXStr::new(&[i as u8])).collect::<Vec<TeXStr>>()).ok().unwrap()
+    };
 }
 
 #[derive(Clone)]

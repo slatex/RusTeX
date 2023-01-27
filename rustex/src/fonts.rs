@@ -102,7 +102,7 @@ impl FontFile {
         let skewchar : u16 = 255;
         let mut dimen: HashMap<u16,f64> = HashMap::new();
         let mut size: i32 = 65536;
-        let mut typestr: TeXStr = TeXStr::new(&[]);
+        let mut typestr: TeXStr = EMPTY_NAME.clone();
         let mut widths:HashMap<u16,f64> = HashMap::new();
         let mut heights: HashMap<u16,f64> = HashMap::new();
         let mut depths: HashMap<u16,f64> = HashMap::new();
@@ -278,6 +278,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam, STANDARD_TEXT_EC};
 use crate::interpreter::dimensions::round_f;
+use crate::ontology::EMPTY_NAME;
 use crate::utils::TeXStr;
 
 pub struct FontInner {
