@@ -352,75 +352,59 @@ impl LinkedCatScheme {
 //type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,qp_trie::Trie<Vec<u8>,Option<TeXCommand>>>;
 
 #[derive(Clone,PartialEq)]
-struct CommandLink(u8,RusTeXMap<TeXStr,Option<TeXCommand>>);
-impl CommandLink {
-    fn new() -> CommandLink {
-        CommandLink(0,RusTeXMap::default())
-    }
-    fn push(&mut self) {
-        self.0 = self.0 + 1;
-    }
-    fn pop(&mut self) {
-        self.0 = self.0 - 1;
-    }
-}
-
-#[derive(Clone,PartialEq)]
 pub struct CommandStore {
-    ls:Vec<CommandLink>
+    ls:Vec<RusTeXMap<TeXStr,Option<Option<TeXCommand>>>>,
+    map:RusTeXMap<TeXStr,Option<TeXCommand>>
 }
 impl Default for CommandStore {
     fn default() -> Self {
         CommandStore {
-            ls: vec!(CommandLink::new())
+            ls: vec!(),
+            map:RusTeXMap::default()
         }
     }
 }
 impl CommandStore {
     pub fn destroy(mut self) -> RusTeXMap<TeXStr,Option<TeXCommand>> {
-        self.ls.drain(0..1).next().unwrap().1
+        self.map
     }
     fn push(&mut self) {
-        self.ls.last_mut().unwrap().push()
-    }
-    fn get_mut(&mut self) -> &mut RusTeXMap<TeXStr,Option<TeXCommand>> {
-        match self.ls.last().unwrap() {
-            CommandLink(0,_) => (),
-            _ => {
-                self.ls.last_mut().unwrap().pop();
-                self.ls.push(CommandLink::new());
-            }
-        }
-        &mut self.ls.last_mut().unwrap().1
+        self.ls.push(RusTeXMap::default())
     }
     pub fn get(&self,k:&TeXStr) -> Option<TeXCommand> {
-        for x in self.ls.iter().rev() {
-            match x.1.get(k) {
-                Some(v) => return v.clone(),
-                _ => ()
-            }
+        match self.map.get(k) {
+            None => None,
+            Some(s) => s.clone()
         }
-        None
     }
     pub fn set(&mut self,k:TeXStr,v: Option<TeXCommand>,globally:bool) {
         if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
     }
     fn set_locally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
-        self.get_mut().set(k,v);
+        match self.ls.last_mut() {
+            None => {self.map.insert(k.clone(),v);}
+            Some(old) => {
+                if old.contains_key(&k) {
+                    self.map.insert(k.clone(),v);
+                } else {
+                    let old = self.map.insert(k.clone(),v);
+                    unsafe{self.ls.last_mut().unwrap_unchecked()}.insert(k,old);
+                }
+            }
+        };
     }
     fn set_globally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
         for cc in self.ls.iter_mut() {
-            cc.1.remove(&k);
+            cc.remove(&k);
         }
-        match v {
-            s@Some(_) => unsafe{self.ls.first_mut().unwrap_unchecked()}.1.set(k,s),
-            _ => ()
-        }
+        self.map.insert(k,v);
     }
     fn pop(&mut self) {
-        match self.ls.last().unwrap() {
-            CommandLink(0,_) => {self.ls.pop();}
-            _ => self.ls.last_mut().unwrap().pop()
+        for (k,v) in unsafe{self.ls.pop().unwrap_unchecked()} {
+            match v {
+                None => self.map.remove(&k),
+                Some(v) => self.map.insert(k,v)
+            };
         }
     }
 }
