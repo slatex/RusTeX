@@ -99,7 +99,7 @@ pub struct CategoryCodeScheme {
 }
 impl CategoryCodeScheme {
     pub fn get_code(&self,c : u8) -> CategoryCode {
-        *self.catcodes.get(c as usize).unwrap()
+        unsafe{*self.catcodes.get(c as usize).unwrap_unchecked()}
     }
 }
 

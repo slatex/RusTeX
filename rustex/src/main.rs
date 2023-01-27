@@ -94,7 +94,7 @@ fn run() {
                                         let mut int = Interpreter::with_state(st.clone(), stomach.borrow_mut(), &p);
                                         let (success, s) = int.do_file(&path, HTMLColon::new(true));
                                         if success {
-                                            let mut topcommands = int.state.commands.ls.back_mut().unwrap();
+                                            let mut topcommands = int.state.commands.destroy();
                                             for (n,cmd) in topcommands.drain() {
                                                 if n.to_string().starts_with("c_stex_module") {
                                                     st.commands.set(n,cmd.map(|x| x.clean()),true);

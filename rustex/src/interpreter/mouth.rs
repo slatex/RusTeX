@@ -72,9 +72,9 @@ impl TokenMouth {
     fn pop_next(&mut self, _nocomment: bool) -> Token {
         match &mut self.peek {
             s@Some(_) => {
-                std::mem::take(s).unwrap()
+                unsafe {std::mem::take(s).unwrap_unchecked() }
             }
-            None => self.iter.next().unwrap()
+            None => unsafe { self.iter.next().unwrap_unchecked() }
         }
     }
     fn preview(&self) -> TeXString {
@@ -133,13 +133,15 @@ impl StringMouth {
     pub(in crate::interpreter) fn read_line(&mut self, catcodes:&CategoryCodeScheme) -> Vec<Token> {
         match &self.string {
             None => {
-                if self.allstrings.is_empty() {
-                    self.iseof = true;
-                    vec!()
-                } else {
-                    let string = self.allstrings.pop().unwrap();
-                    self.string = Some(string);
-                    self.read_line(catcodes)
+                match self.allstrings.pop() {
+                    Some(s) => {
+                        self.string = Some(s);
+                        self.read_line(catcodes)
+                    }
+                    None => {
+                        self.iseof = true;
+                        vec!()
+                    }
                 }
             }
             Some(s) => {
@@ -247,31 +249,34 @@ impl StringMouth {
     }
     fn do_line(&mut self,endlinechar:u8) -> bool {
         self.atendofline =  None;
-        if self.allstrings.is_empty() {
-            self.string = None;
-            false
-        } else {
-            match endlinechar {
-                u8::MAX => {},
-                o => self.atendofline =  Some(o)
-            };
-            //self.allstrings.pop().unwrap().trim_end().as_bytes();
-            let mut string = self.allstrings.pop().unwrap();
-            match string.0.last() {
-                Some(13) => {string.0.pop();}
-                _ => ()
-            };
-            loop {
-                match string.0.last() {
-                    Some(32) => {string.0.pop();}
-                    _ => break
-                };
+        match self.allstrings.pop() {
+            None => {
+                self.string = None;
+                false
             }
-            self.string = Some(string);
-            self.line += 1;
-            self.pos = 0;
-            self.mouth_state = MouthState::N;
-            true
+            Some(mut string) => {
+                match endlinechar {
+                    u8::MAX => {},
+                    o => self.atendofline =  Some(o)
+                };
+                //self.allstrings.pop().unwrap().trim_end().as_bytes();
+                //let mut string = self.allstrings.pop().unwrap();
+                match string.0.last() {
+                    Some(13) => {string.0.pop();}
+                    _ => ()
+                };
+                loop {
+                    match string.0.last() {
+                        Some(32) => {string.0.pop();}
+                        _ => break
+                    };
+                }
+                self.string = Some(string);
+                self.line += 1;
+                self.pos = 0;
+                self.mouth_state = MouthState::N;
+                true
+            }
         }
     }
 
@@ -296,7 +301,7 @@ impl StringMouth {
                                 }
                             }
                         } else {
-                            let ret = str.0.get(self.pos).unwrap();
+                            let ret = unsafe{ str.0.get(self.pos).unwrap_unchecked() };
                             self.pos += 1;
                             return Some((*ret, self.line, self.pos))
                         }
@@ -308,7 +313,7 @@ impl StringMouth {
 
     fn do_s(&mut self,catcodes:&CategoryCodeScheme) {
         while self.has_next(catcodes,true,false) {
-            let next = self.next_char(catcodes.endlinechar).unwrap();
+            let next = unsafe {self.next_char(catcodes.endlinechar).unwrap_unchecked()};
             match catcodes.get_code(next.0) {
                 CategoryCode::Space => {}
                 CategoryCode::EOL => {
@@ -329,7 +334,7 @@ impl StringMouth {
         }
     }
     fn make_file_reference(&self,f : &LaTeXFile,line:usize,pos:usize) -> Arc<SourceReference> {
-        Arc::new(SourceReference::File(f.path.as_ref().unwrap().clone(),(line,pos),(self.line,self.pos)))
+        Arc::new(SourceReference::File(unsafe{f.path.as_ref().unwrap_unchecked().clone()},(line,pos),(self.line,self.pos)))
     }
 
     pub fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool,allowignore:bool) -> bool {
@@ -352,7 +357,7 @@ impl StringMouth {
                                 match file {
                                     Some(ltxf) => {
                                         let nrf = Some(Arc::new(SourceReference::File(
-                                            ltxf.path.as_ref().unwrap().clone(),
+                                            unsafe{ltxf.path.as_ref().unwrap_unchecked().clone()},
                                             (next.1, next.2),
                                             (self.line, self.pos)
                                         )));
@@ -387,19 +392,19 @@ impl StringMouth {
                             }
                             CategoryCode::Space if self.mouth_state == MouthState::N => {}
                             CategoryCode::Superscript => {
-                                let string = self.string.as_ref().unwrap();
+                                let string = unsafe{self.string.as_ref().unwrap_unchecked()};
                                 let len = string.0[self.pos..].len();
                                 let peek = string.0.get(self.pos);
-                                if len > 1 && peek.is_some() && *peek.unwrap() == next.0 {
+                                if len > 1 && peek.is_some() && unsafe{*peek.unwrap_unchecked()} == next.0 {
                                     let (startl, startpos) = (next.1, next.2);
                                     self.pos += 1;
-                                    let next = *string.0.get(self.pos).unwrap();
+                                    let next = unsafe{*string.0.get(self.pos).unwrap_unchecked()};
                                     self.pos += 1;
                                     let maybenext = string.0.get(self.pos);
                                     fn cond(i: u8) -> bool { (48 <= i && i <= 57) || (97 <= i && i <= 102) }
-                                    if (cond(next)) && maybenext.is_some() && cond(*maybenext.unwrap()) {
+                                    if (cond(next)) && maybenext.is_some() && cond(unsafe{*maybenext.unwrap_unchecked()}) {
                                         self.pos += 1;
-                                        self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next, *maybenext.unwrap()]).unwrap(), 16).unwrap(), startl, startpos))
+                                        self.charbuffer = Some((u8::from_str_radix(from_utf8(&[next, unsafe{*maybenext.unwrap_unchecked()}]).unwrap(), 16).unwrap(), startl, startpos))
                                     } else if next < 128 {
                                         self.charbuffer = Some(((((next as i16) - 64) as u8), startl, startpos))
                                     } else { panic!("Invalid character after ^^") }
@@ -421,7 +426,7 @@ impl StringMouth {
     pub fn pop_next(&mut self,catcodes:&CategoryCodeScheme, nocomment: bool) -> Token {
         if !self.has_next(catcodes,true,false) {panic!("Mouth is empty")}
         if let Some(tk) = self.peekbuffer.take() { tk } else {
-            let (char,l,p) = self.next_char(catcodes.endlinechar).unwrap();
+            let (char,l,p) = unsafe{self.next_char(catcodes.endlinechar).unwrap_unchecked()};
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
                     self.mouth_state = MouthState::M;
@@ -447,7 +452,7 @@ impl StringMouth {
                         _ => {
                             self.charbuffer = maybecomment;
                             if !self.has_next(catcodes,true,true) {panic!("Mouth is empty")}
-                            let mut nc = self.next_char(catcodes.endlinechar).unwrap();
+                            let mut nc = unsafe{self.next_char(catcodes.endlinechar).unwrap_unchecked()};
                             match catcodes.get_code(nc.0) {
                                 CategoryCode::Letter => {
                                     let line = self.line;
@@ -482,7 +487,7 @@ impl StringMouth {
                 }
                 CategoryCode::EOL if self.mouth_state == MouthState::N => {
                     while self.has_next(catcodes,nocomment,false) {
-                        let (n,l2,p2) = self.next_char(catcodes.endlinechar).unwrap();
+                        let (n,l2,p2) = unsafe{self.next_char(catcodes.endlinechar).unwrap_unchecked()};
                         if !matches!(catcodes.get_code(n),CategoryCode::EOL) {
                             self.charbuffer = Some((n,l2,p2));
                             break
@@ -594,47 +599,39 @@ impl Mouths {
     }
 
     pub(in crate::interpreter::mouth) fn next_token(&mut self,catcodes:&CategoryCodeScheme,io:&dyn InterpreterParams) -> Result<Token,EOF> {
-        match self.buffer {
-            Some(_) => Ok(self.buffer.take().unwrap()),
+        match self.buffer.take() {
+            Some(t) => Ok(t),
             _ => if self.has_next(catcodes,io)? {
-                Ok(self.mouths.last_mut().unwrap().get_next(catcodes))
+                Ok(unsafe{self.mouths.last_mut().unwrap_unchecked().get_next(catcodes)})
             } else {
                 panic!("Mouths empty!")
             }
         }
     }
     pub(in crate::interpreter) fn push_expansion(&mut self, exp : Expansion) {
-        if self.buffer.is_some() {
-            let buf = self.buffer.take().unwrap();
-            self.push_tokens(vec!(buf))
-        }
-        if !exp.2.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(exp.2));
-            self.mouths.push(nm)
-        }
+        self.push_tokens(exp.2)
     }
-    pub(in crate::interpreter) fn push_tokens(&mut self, tks : Vec<Token>) {
-        let mut ntks = tks;
-        match self.buffer.take() {
-            Some(t) => ntks.push(t),
-            _ => ()
-        }
-        if !ntks.is_empty() {
-            let nm = Mouth::Token(TokenMouth::new(ntks));
+    pub(in crate::interpreter) fn push_tokens(&mut self, mut tks : Vec<Token>) {
+        if !tks.is_empty() {
+            match self.buffer.take() {
+                Some(t) => tks.push(t),
+                _ => ()
+            }
+            let nm = Mouth::Token(TokenMouth::new(tks));
             self.mouths.push(nm)
         }
     }
     pub(in crate::interpreter::mouth) fn push_file(&mut self,file:&Arc<VFile>) {
-        if self.buffer.is_some() {
-            let buf = self.buffer.take().unwrap();
-            self.push_tokens(vec!(buf))
+        match self.buffer.take() {
+            Some(t) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(t)))),
+            _ => ()
         }
         self.mouths.push(Mouth::File(StringMouth::new_from_file(file,false)))
     }
     pub(in crate::interpreter::mouth) fn push_string(&mut self,exp:Expansion,string : TeXString,filelike:bool) {
-        if self.buffer.is_some() {
-            let buf = self.buffer.take().unwrap();
-            self.push_tokens(vec!(buf))
+        match self.buffer.take() {
+            Some(t) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(t)))),
+            _ => ()
         }
         if filelike {
             self.mouths.push(Mouth::FileLike(StringMouth::new(exp,string)))
@@ -700,7 +697,7 @@ impl Mouths {
     pub fn end_input(&mut self) {
         let mut prevs : Vec<Mouth> = vec!();
         while !self.mouths.is_empty() {
-            match self.mouths.pop().unwrap() {
+            match unsafe{self.mouths.pop().unwrap_unchecked()} {
                 Mouth::File(mut sm) => {
                     match sm.peekbuffer {
                         Some(p) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(p)))),

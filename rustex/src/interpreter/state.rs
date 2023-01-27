@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use ahash::{AHasher, RandomState};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
+use std::hash::{BuildHasher, Hash};
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -111,7 +111,7 @@ impl HasDefault for TeXBox {
 }
 impl HasDefault for Arc<Font> {
     fn default() -> Self {
-        NULL_FONT.try_with(|x| x.clone()).unwrap()
+        unsafe{NULL_FONT.try_with(|x| x.clone()).unwrap_unchecked()}
     }
 }
 impl HasDefault for FontStyle {
@@ -286,7 +286,7 @@ impl std::default::Default for LinkedCatScheme {
 }
 impl LinkedCatScheme {
     pub fn get_scheme(&self) -> &CategoryCodeScheme {
-        &self.ls.last().unwrap().1
+        unsafe{&self.ls.last().unwrap_unchecked().1}
     }
     fn push(&mut self) {
         self.ls.last_mut().unwrap().push()
@@ -348,9 +348,82 @@ impl LinkedCatScheme {
     }
 }
 
-type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>;
+//type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>;
 //type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,qp_trie::Trie<Vec<u8>,Option<TeXCommand>>>;
 
+#[derive(Clone,PartialEq)]
+struct CommandLink(u8,RusTeXMap<TeXStr,Option<TeXCommand>>);
+impl CommandLink {
+    fn new() -> CommandLink {
+        CommandLink(0,RusTeXMap::default())
+    }
+    fn push(&mut self) {
+        self.0 = self.0 + 1;
+    }
+    fn pop(&mut self) {
+        self.0 = self.0 - 1;
+    }
+}
+
+#[derive(Clone,PartialEq)]
+pub struct CommandStore {
+    ls:Vec<CommandLink>
+}
+impl Default for CommandStore {
+    fn default() -> Self {
+        CommandStore {
+            ls: vec!(CommandLink::new())
+        }
+    }
+}
+impl CommandStore {
+    pub fn destroy(mut self) -> RusTeXMap<TeXStr,Option<TeXCommand>> {
+        self.ls.drain(0..1).next().unwrap().1
+    }
+    fn push(&mut self) {
+        self.ls.last_mut().unwrap().push()
+    }
+    fn get_mut(&mut self) -> &mut RusTeXMap<TeXStr,Option<TeXCommand>> {
+        match self.ls.last().unwrap() {
+            CommandLink(0,_) => (),
+            _ => {
+                self.ls.last_mut().unwrap().pop();
+                self.ls.push(CommandLink::new());
+            }
+        }
+        &mut self.ls.last_mut().unwrap().1
+    }
+    pub fn get(&self,k:&TeXStr) -> Option<TeXCommand> {
+        for x in self.ls.iter().rev() {
+            match x.1.get(k) {
+                Some(v) => return v.clone(),
+                _ => ()
+            }
+        }
+        None
+    }
+    pub fn set(&mut self,k:TeXStr,v: Option<TeXCommand>,globally:bool) {
+        if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
+    }
+    fn set_locally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
+        self.get_mut().set(k,v);
+    }
+    fn set_globally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
+        for cc in self.ls.iter_mut() {
+            cc.1.remove(&k);
+        }
+        match v {
+            s@Some(_) => unsafe{self.ls.first_mut().unwrap_unchecked()}.1.set(k,s),
+            _ => ()
+        }
+    }
+    fn pop(&mut self) {
+        match self.ls.last().unwrap() {
+            CommandLink(0,_) => {self.ls.pop();}
+            _ => self.ls.last_mut().unwrap().pop()
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct State {
@@ -525,15 +598,15 @@ impl State {
         };
         for c in conditional_commands() {
             let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
+            state.commands.set_locally(unsafe {c.name().unwrap_unchecked()},Some(c))
         }
         for c in tex_commands() {
             let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
+            state.commands.set_locally(unsafe {c.name().unwrap_unchecked()},Some(c))
         }
         for c in pdftex_commands() {
             let c = c.as_command();
-            state.commands.set_locally(c.name().unwrap(),Some(c))
+            state.commands.set_locally(unsafe {c.name().unwrap_unchecked()},Some(c))
         }
         state.registers.set_locally(-(crate::commands::primitives::MAG.index as i32),1000);
         state.registers.set_locally(-(crate::commands::primitives::FAM.index as i32),-1);
@@ -575,18 +648,18 @@ impl State {
 
             for c in pdftex_commands() {
                 let c = c.as_command();
-                state.commands.set_locally(c.name().unwrap(), Some(c))
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
             }
             for c in rustex_special_commands() {
                 let c = c.as_command();
-                state.commands.set_locally(c.name().unwrap(), Some(c))
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
             }
 
             state = Interpreter::do_file_with_state(&pdftex_cfg, state, NoColon::new(), &p).1;
             state = Interpreter::do_file_with_state(&latex_ltx, state, NoColon::new(), &p).1;
             for c in pgf_commands() {
                 let c = c.as_command();
-                state.commands.set_locally(c.name().unwrap(), Some(c))
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
             }
             state
         })
