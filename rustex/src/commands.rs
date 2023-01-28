@@ -689,7 +689,7 @@ impl PrimitiveTeXCommand {
         //if unsafe{crate::LOG} {
             log!("    >>{}",int.preview());
         //}
-        let mut args : Vec<Vec<Token>> = Vec::new();
+        let mut args : Vec<Vec<Token>> = Vec::with_capacity(d.sig.arity as usize);
         let mut iter = d.sig.elems.iter().peekable();
         loop {
             match iter.next() {
@@ -703,7 +703,7 @@ impl PrimitiveTeXCommand {
                 Some(ParamToken::Param(_)) => {
                     match iter.peek() {
                         None if d.sig.endswithbrace => {
-                            let mut retarg : Vec<Token> = vec!();
+                            let mut retarg : Vec<Token> = Vec::with_capacity(50);
                             loop {
                                 //int.assert_has_next()?;
                                 let next = int.next_token();
@@ -734,7 +734,7 @@ impl PrimitiveTeXCommand {
                                     _ => break
                                 }
                             }
-                            let mut retarg : Vec<Token> = vec!();
+                            let mut retarg : Vec<Token> = Vec::with_capacity(50);
                             let mut groups = 0;
                             let mut totalgroups = 0;
                             while int.has_next() {
@@ -775,7 +775,7 @@ impl PrimitiveTeXCommand {
                 log!("    {}:{}",i+1,TokenList(a));
             }
         }
-        let mut exp = Expansion::new(tk,cmd.orig.clone());
+        let mut exp = Expansion::with_capacity(tk,cmd.orig.clone(),50);
         let mut rf = exp.get_ref();
         let mut iter = d.ret.iter();
         loop {

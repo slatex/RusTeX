@@ -15,6 +15,9 @@ impl Expansion {
     pub fn new(tk : Token,command:Arc<PrimitiveTeXCommand>) -> Expansion {
         Expansion(tk,command,vec!())
     }
+    pub fn with_capacity(tk : Token,command:Arc<PrimitiveTeXCommand>,cap:usize) -> Expansion {
+        Expansion(tk,command,Vec::with_capacity(cap))
+    }
     pub fn get_ref(&mut self) -> ExpansionRef {
         ExpansionRef(self.0.clone(),Arc::clone(&self.1),None) }
 }

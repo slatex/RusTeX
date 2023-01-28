@@ -170,7 +170,7 @@ impl Interpreter<'_> {
     pub fn read_token_list(&mut self,expand:bool,protect:bool,the:bool,allowunknowns:bool) -> Result<Vec<Token>,TeXError> {
         use crate::commands::primitives::{THE,UNEXPANDED};
         let mut ingroups : u8 = 0;
-        let mut ret : Vec<Token> = vec!();
+        let mut ret : Vec<Token> = Vec::with_capacity(50);
         while self.has_next() {
             let next = self.next_token();
             match next.catcode {
