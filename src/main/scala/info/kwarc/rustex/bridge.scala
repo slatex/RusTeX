@@ -148,8 +148,8 @@ class RusTeXBridge(private[rustex] var params: Params = RusTeXBridge.noParams, p
 
   def setParams(p: Params) = params = p
   def setMemories(mems: List[String]) = memories = mems
-  def parse(file: String) = parseI(ptr, params, file, memories, false)
-  def parseString(file: String, text: String) = parseStringI(ptr, text, params, file, memories, false)
+  def parse(file: String) = parseI(ptr, params, file, memories, true)
+  def parseString(file: String, text: String) = parseStringI(ptr, text, params, file, memories, true)
 
   private[rustex] def initialize {
     newsb()

@@ -10,13 +10,33 @@ mod tests {
     }
 }
 
+use std::borrow::BorrowMut;
+use std::sync::{Mutex, MutexGuard};
 use rustex::interpreter::state::State;
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jarray, jboolean, jlong, jstring};
 
-static mut MAIN_STATE : Option<State> = None;
+static mut MAIN_STATE : Mutex<Option<State>> = Mutex::new(None);
 static mut ALL_STATES : Vec<Option<Sandbox>> = Vec::new();
+
+#[macro_export]
+macro_rules! main_state {
+    ($sym:ident => $tdo:expr) => {
+        {
+            let mut __guard = unsafe{MAIN_STATE.lock()};
+            let $sym = &mut *__guard.unwrap();
+            $tdo
+        }
+    };
+    () => {
+        {
+            let mut __guard = unsafe{MAIN_STATE.lock()};
+            let __st = __guard.unwrap();
+            __st.as_ref().unwrap().clone()
+        }
+    };
+}
 
 fn set_state(st : Sandbox) -> usize {
     unsafe{ALL_STATES.push(Some(st));ALL_STATES.len() - 1}
@@ -31,16 +51,16 @@ pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_initializeMain(
     _class: JClass,
     path:JString
 ) -> jboolean {
-    unsafe {
-        match MAIN_STATE {
+    main_state!(st => {
+        match st {
             Some(_) => (),
             None => {
                 let state = State::pdf_latex();
-                MAIN_STATE = Some(state);
-                rustex::PDFIUM_PATH = Some(env.get_string(path).expect("Couldn't get java string!").into())
+                *st = Some(state);
+                unsafe{ rustex::PDFIUM_PATH = Some(env.get_string(path).expect("Couldn't get java string!").into()) }
             }
         }
-    }
+    });
     jboolean::from(true)
 }
 
@@ -70,7 +90,7 @@ pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_newsb(
     env: JNIEnv,
     cls: JClass
 ) {
-    let state = unsafe { MAIN_STATE.as_ref().unwrap().clone() };
+    let state = main_state!();
     Sandbox(state).set_pointer(env,cls)
 }
 
@@ -80,44 +100,52 @@ use crate::javaparams::JavaParams;
 pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseI(
     env: JNIEnv,
     cls: JClass,ptr:jlong,p:JObject,file:JString, memory_j:JObject,use_main:jboolean) -> jstring {
-    let Sandbox(mut state) = Sandbox::from_pointer(ptr);
-    let st = if use_main == 1 {
-        unsafe{MAIN_STATE.as_mut().unwrap()}.clone()
-    } else {
-        state.clone()
-    };
     let memories = util::mems_from_java(&env,memory_j);
-    let (b,s,ret) = util::do_file(env, file, st, &JavaParams::new(&env, p));
-    if b {
-        if use_main == 1 {
-            util::do_memories(unsafe { MAIN_STATE.as_mut().unwrap() }, s, &memories)
-        } else {
-            util::do_memories(&mut state, s, &memories)
+    if use_main == 1 {
+        let st = main_state!();
+        let (b,s,ret) = util::do_file(env, file, st, &JavaParams::new(&env, p));
+        if b {
+            main_state!(st => {
+                util::do_memories(st.as_mut().unwrap(), s, &memories)
+            })
         }
-    };
-    Sandbox(state).set_pointer(env,cls);
-    ret
+        ret
+    } else {
+        let Sandbox(mut state) = Sandbox::from_pointer(ptr);
+        let st = state.clone();
+        let (b,s,ret) = util::do_file(env, file, st, &JavaParams::new(&env, p));
+        if b {
+            main_state!(st => {
+                util::do_memories(st.as_mut().unwrap(), s, &memories)
+            })
+        }
+        Sandbox(state).set_pointer(env,cls);
+        ret
+    }
 }
 
 #[no_mangle]
 pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseStringI(
     env: JNIEnv,
     cls: JClass,ptr:jlong,text:JString,p:JObject,file:JString, memory_j:JObject,use_main:jboolean) -> jstring {
-    let Sandbox(mut state) = Sandbox::from_pointer(ptr);
-    let st = if use_main == 1 {
-        unsafe{MAIN_STATE.as_mut().unwrap()}.clone()
-    } else {
-        state.clone()
-    };
     let memories = util::mems_from_java(&env,memory_j);
-    let (b,s,ret) = util::do_string(env, file, text, st, &JavaParams::new(&env, p));
-    if b {
-        if use_main == 1 {
-            util::do_memories(unsafe { MAIN_STATE.as_mut().unwrap() }, s, &memories)
-        } else {
+    if use_main == 1 {
+        let st = main_state!();
+        let (b,s,ret) = util::do_string(env, file, text, st, &JavaParams::new(&env, p));
+        if b {
+            main_state!(st => {
+                util::do_memories(st.as_mut().unwrap(), s, &memories)
+            });
+        }
+        ret
+    } else {
+        let Sandbox(mut state) = Sandbox::from_pointer(ptr);
+        let st = state.clone();
+        let (b,s,ret) = util::do_string(env, file, text, st, &JavaParams::new(&env, p));
+        if b {
             util::do_memories(&mut state, s, &memories)
         }
-    };
-    Sandbox(state).set_pointer(env,cls);
-    ret
+        Sandbox(state).set_pointer(env,cls);
+        ret
+    }
 }
