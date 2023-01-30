@@ -99,7 +99,8 @@ use crate::javaparams::JavaParams;
 #[no_mangle]
 pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseI(
     env: JNIEnv,
-    cls: JClass,ptr:jlong,p:JObject,file:JString, memory_j:JObject,use_main:jboolean) -> jstring {
+    cls: JClass,ptr:jlong,p:JObject,file:JString, memory_j:JObject,envstrs_j:JObject,use_main:jboolean) -> jstring {
+    util::envs_from_java(&env,envstrs_j);
     let memories = util::mems_from_java(&env,memory_j);
     if use_main == 1 {
         let st = main_state!();
@@ -127,7 +128,8 @@ pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseI(
 #[no_mangle]
 pub extern "system" fn Java_info_kwarc_rustex_RusTeXBridge_parseStringI(
     env: JNIEnv,
-    cls: JClass,ptr:jlong,text:JString,p:JObject,file:JString, memory_j:JObject,use_main:jboolean) -> jstring {
+    cls: JClass,ptr:jlong,text:JString,p:JObject,file:JString, memory_j:JObject,envstrs_j:JObject,use_main:jboolean) -> jstring {
+    util::envs_from_java(&env,envstrs_j);
     let memories = util::mems_from_java(&env,memory_j);
     if use_main == 1 {
         let st = main_state!();

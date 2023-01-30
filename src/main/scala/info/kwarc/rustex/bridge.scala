@@ -13,6 +13,11 @@ object Implicits {
   implicit def apply[A](ls : util.List[A]) : List[A] = {
     ls.iterator().asScala.toList
   }
+  implicit def applyMap[K,V](ls : List[(K,V)]) : util.Map[K,V] = {
+    val m = new util.HashMap[K,V]()
+    ls.foreach(p => m.put(p._1,p._2))
+    m
+  }
 }
 import Implicits._
 
@@ -82,8 +87,8 @@ object RusTeXBridge {
       }
     }
     val b = new RusTeXBridge() {
-      override def parse(file: String): String = parseI(ptr, params, file, memories, true)
-      override def parseString(file: String, text: String): String = parseStringI(ptr, text, params, file, memories, true)
+      override def parse(file: String): String = parseI(ptr, params, file, memories,Implicits.applyMap(envs), true)
+      override def parseString(file: String, text: String): String = parseStringI(ptr, text, params, file, memories,Implicits.applyMap(envs), true)
       override private[rustex] def initialize: Unit = {
         initializeMain(path + "/")
         super.initialize
@@ -138,18 +143,19 @@ object RusTeXBridge {
   }
 }
 
-class RusTeXBridge(private[rustex] var params: Params = RusTeXBridge.noParams, protected var memories: List[String] = Nil) {
+class RusTeXBridge(private[rustex] var params: Params = RusTeXBridge.noParams, protected var memories: List[String] = Nil, protected var envs:List[(String,String)] = Nil) {
   private[rustex] var ptr: Long = 0
 
   @native private def newsb(): Unit
-  @native private[rustex] def parseI(ptr: Long, p: Params, file: String, memories: util.ArrayList[String], use_main: Boolean): String
-  @native private[rustex] def parseStringI(ptr: Long, text: String, p: Params, file: String, memories: util.ArrayList[String], use_main: Boolean): String
+  @native private[rustex] def parseI(ptr: Long, p: Params, file: String, memories: util.ArrayList[String], envs:util.Map[String,String] ,use_main: Boolean): String
+  @native private[rustex] def parseStringI(ptr: Long, text: String, p: Params, file: String, memories: util.ArrayList[String], envs:util.Map[String,String], use_main: Boolean): String
   @native private[rustex] def initializeMain(path: String): Boolean
 
+  def setEnvs(env:(String,String)*) = envs = env.toList
   def setParams(p: Params) = params = p
   def setMemories(mems: List[String]) = memories = mems
-  def parse(file: String) = parseI(ptr, params, file, memories, true)
-  def parseString(file: String, text: String) = parseStringI(ptr, text, params, file, memories, true)
+  def parse(file: String) = parseI(ptr, params, file, memories,Implicits.applyMap(envs), true)
+  def parseString(file: String, text: String) = parseStringI(ptr, text, params, file, memories,Implicits.applyMap(envs), true)
 
   private[rustex] def initialize {
     newsb()

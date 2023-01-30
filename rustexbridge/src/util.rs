@@ -20,7 +20,7 @@ macro_rules! jarray {
 }
 
 use jni::JNIEnv;
-use jni::objects::{JList, JObject, JString};
+use jni::objects::{JList, JMap, JObject, JString};
 use jni::sys::jstring;
 
 use rustex::interpreter::state::State;
@@ -76,4 +76,12 @@ pub(in crate) fn mems_from_java(env: &JNIEnv, memory_j:JObject) -> Vec<String> {
         memories.push(env.get_string(JString::from(m)).unwrap().into())
     }
     memories
+}
+
+pub(in crate) fn envs_from_java(env: &JNIEnv,envstrs_j:JObject) {
+    for (k,v) in JMap::from_env(env,envstrs_j).unwrap().iter().unwrap() {
+        let key : String = env.get_string(JString::from(k)).unwrap().into();
+        let value: String = env.get_string(JString::from(v)).unwrap().into();
+        std::env::set_var(key,value);
+    }
 }
