@@ -149,10 +149,11 @@ impl WhatsitTrait for Paragraph {
                     }*/
                     let str = "calc((".to_string() + &pctg + " * var(--current-width)) - " + &dimtohtml(negwd).to_string() + ")";
                     node.style("--this-width".into(),str.clone().into());
-                    node.style("width".into(),"var(--this-width)".into());
-                    node.style("min-width".into(),"var(--this-width)".into());
+                    node.classes.push("rustex-scaled".into());
+                    //node.style("width".into(),"var(--this-width)".into());
+                    //node.style("min-width".into(),"var(--this-width)".into());
                     htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
-                        inner.style("--current-width".into(),"var(--this-width)".into());
+                        //inner.style("--current-width".into(),"var(--this-width)".into());
                         for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
                     })
                 }

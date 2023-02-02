@@ -62,10 +62,11 @@ macro_rules! withwidth {
         let _withwidth_pctg_str = (($wd as f32) / (_withwidth_currsize as f32)).to_string();
         let _withwidth_pctg = "calc(".to_string() + &_withwidth_pctg_str + " * var(--current-width))";
         $node.style("--this-width".into(),_withwidth_pctg.into());
-        $node.style("width".into(),"var(--this-width)".into());
-        $node.style("min-width".into(),"var(--this-width)".into());
+        $node.classes.push("rustex-scaled".into());
+        //$node.style("width".into(),"var(--this-width)".into());
+        //$node.style("min-width".into(),"var(--this-width)".into());
         htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
-            $inner.style("--current-width".into(),"var(--this-width)".into());
+            //$inner.style("--current-width".into(),"var(--this-width)".into());
             $e
         });
     }
