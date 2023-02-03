@@ -666,8 +666,86 @@ mathgroupkernel!(MathOrd);
 mathgroupkernel!(MathPunct);
 mathgroupkernel!(MathRel);
 mathgroupkernel!(MathInner);
-mathgroupkernel!(Underline);
-mathgroupkernel!(Overline);
+
+#[derive(Clone)]
+pub struct Overline {
+    pub content:Box<Whatsit>,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for Overline {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
+    fn as_whatsit(self) -> Whatsit {
+        MathKernel::Overline(self).as_whatsit()
+    }
+    fn width(&self) -> i32 { self.content.width() }
+    fn height(&self) -> i32 { self.content.height() }
+    fn depth(&self) -> i32 { self.content.depth() }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "\n".to_owned() + &prefix + "<" + stringify!($e) + ">" + &self.content.as_xml_internal(prefix) + "</" + stringify!($e) + ">"
+    }
+    fn has_ink(&self) -> bool { self.content.has_ink() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        self.content.normalize(mode,&mut nret,scale);
+        let nw = match nret.len() {
+            1 => {
+                nret.pop().unwrap()
+            },
+            _ => GroupedMath(nret).as_whatsit()
+        };
+        ret.push(Overline { content:Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,mover,self.sourceref.clone(),"overline",node_top,node => {
+            node.classes.push(stringify!($e).into());
+            self.content.clone().as_html(mode,colon,htmlparent!(node));
+            htmlnode!(colon,mo,self.sourceref,"",htmlparent!(node),n => {
+                htmlliteral!(colon,htmlparent!(n),"―");
+                n.attr("accent".into(),"true".into())
+            })
+        })
+    }
+}
+
+#[derive(Clone)]
+pub struct Underline {
+    pub content:Box<Whatsit>,
+    pub sourceref:Option<SourceFileReference>
+}
+impl WhatsitTrait for Underline {
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
+    fn as_whatsit(self) -> Whatsit {
+        MathKernel::Underline(self).as_whatsit()
+    }
+    fn width(&self) -> i32 { self.content.width() }
+    fn height(&self) -> i32 { self.content.height() }
+    fn depth(&self) -> i32 { self.content.depth() }
+    fn as_xml_internal(&self, prefix: String) -> String {
+        "\n".to_owned() + &prefix + "<" + stringify!($e) + ">" + &self.content.as_xml_internal(prefix) + "</" + stringify!($e) + ">"
+    }
+    fn has_ink(&self) -> bool { self.content.has_ink() }
+    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
+        let mut nret : Vec<Whatsit> = vec!();
+        self.content.normalize(mode,&mut nret,scale);
+        let nw = match nret.len() {
+            1 => {
+                nret.pop().unwrap()
+            },
+            _ => GroupedMath(nret).as_whatsit()
+        };
+        ret.push(Underline { content:Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+    }
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        htmlnode!(colon,munder,self.sourceref.clone(),"underline",node_top,node => {
+            node.classes.push(stringify!($e).into());
+            self.content.clone().as_html(mode,colon,htmlparent!(node));
+            htmlnode!(colon,mo,self.sourceref,"",htmlparent!(node),n => {
+                htmlliteral!(colon,htmlparent!(n),"―");
+                n.attr("accent".into(),"true".into())
+            })
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct MathAccent {
