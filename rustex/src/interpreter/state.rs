@@ -1,10 +1,8 @@
-use std::borrow::{Borrow, BorrowMut};
-use ahash::{AHasher, RandomState};
+use ahash::RandomState;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
-use std::hash::{BuildHasher, Hash};
+use std::hash::Hash;
 use std::marker::PhantomData;
-use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Arc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
@@ -283,7 +281,7 @@ impl LinkedCatScheme {
             }
         } else {
             match self.ls.last_mut() {
-                Some((_,r@None,_,_)) => {std::mem::replace(r,Some(self.scheme.newlinechar));}
+                Some((_,r@None,_,_)) => {*r = Some(self.scheme.newlinechar);}
                 _ => {},
             }
         }
@@ -296,7 +294,7 @@ impl LinkedCatScheme {
             }
         } else {
             match self.ls.last_mut() {
-                Some((_,_,r@None,_)) => {std::mem::replace(r,Some(self.scheme.endlinechar));}
+                Some((_,_,r@None,_)) => {*r = Some(self.scheme.endlinechar);}
                 _ => {},
             }
         }
@@ -309,7 +307,7 @@ impl LinkedCatScheme {
             }
         } else {
             match self.ls.last_mut() {
-                Some((_,_,_,r@None)) => {std::mem::replace(r,Some(self.scheme.escapechar));}
+                Some((_,_,_,r@None)) => {*r = Some(self.scheme.escapechar);}
                 _ => {},
             }
         }
@@ -372,7 +370,7 @@ impl Default for CommandStore {
     }
 }
 impl CommandStore {
-    pub fn destroy(mut self) -> RusTeXMap<TeXStr,Option<TeXCommand>> {
+    pub fn destroy(self) -> RusTeXMap<TeXStr,Option<TeXCommand>> {
         self.map
     }
     fn push(&mut self) {

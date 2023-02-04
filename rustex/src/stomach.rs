@@ -296,7 +296,7 @@ pub trait Stomach : Send {
                         for c in g.children_prim() {buf.push(c)}
                     }*/
                     let ret = self.pop_group(state)?;
-                    for c in repushes {
+                    if let Some(c) = repushes {
                         self.base_mut().stomachgroups.push(StomachGroup::Other(c))
                     }
                     Ok(ret)
@@ -848,7 +848,7 @@ impl NoShipoutRoutine {
                             let p = &*state.commands.get(&o).unwrap().orig;
                             match p {
                                 PrimitiveTeXCommand::Char(tk) => ret.push((o.clone(),tk.char as i32)),
-                                PrimitiveTeXCommand::MathChar(tk) => {},
+                                PrimitiveTeXCommand::MathChar(_) => {},
                                 _ => panic!("Weird float setup")
                             }
                         },

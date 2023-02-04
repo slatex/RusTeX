@@ -2,13 +2,14 @@ use std::any::Any;
 use std::cmp::min;
 use std::io::Cursor;
 use std::path::PathBuf;
+use base64::Engine;
 use image::DynamicImage;
 use image::imageops::FilterType;
 use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, round, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
+use crate::stomach::html::{dimtohtml, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -249,7 +250,7 @@ impl WhatsitTrait for PDFXImage {
                 /*println!("Original width: {}\nOriginal height:{}\nthis.width:{}\nthis.height:{}\ntarget_width:{}\ntarget_height:{}",
                     img.width(),img.height(),dimtohtml(self.width()),dimtohtml(self.height()),target_width,target_height
                 );*/
-                let nimg = if (img.width() > target_width || img.height() > target_height) {
+                let nimg = if img.width() > target_width || img.height() > target_height {
                     image::imageops::resize(
                         &img.clone().into_rgba8(),
                         target_width,
@@ -260,7 +261,7 @@ impl WhatsitTrait for PDFXImage {
                 let mut buf = Cursor::new(vec!());//Vec<u8> = vec!();
                 match nimg.write_to(&mut buf, image::ImageOutputFormat::Png/*Jpeg(254)*/) {
                     Ok(_) => {
-                        let res_base64 = "data:image/png;base64,".to_string() + &base64::encode(&buf.into_inner());
+                        let res_base64 = "data:image/png;base64,".to_string() + &base64::engine::general_purpose::STANDARD.encode(&buf.into_inner());
                         htmlnode!(colon,img,self.sourceref.clone(),"",node_top,i => {
                             i.attr("src".into(),res_base64.into());
                             i.attr("width".into(),dimtohtml(self.width()));
@@ -1080,7 +1081,7 @@ impl HAlign {
                 for w in vs { match w {
                     Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
                     Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
-                    Whatsit::Space(sc) if !inspace => {
+                    Whatsit::Space(_) if !inspace => {
                         incell = true;
                         inspace = true;
                         htmlliteral!(colon,htmlparent!(bx),"&nbsp;")
@@ -1397,7 +1398,7 @@ impl WhatsitTrait for Left {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
+        if let Some(c) = self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 
@@ -1422,7 +1423,7 @@ impl WhatsitTrait for Middle {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
+        if let Some(c) = self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 
@@ -1447,7 +1448,7 @@ impl WhatsitTrait for Right {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        for c in self.bx { c.as_html_inner(mode,colon,node_top,true)}
+        if let Some(c) = self.bx { c.as_html_inner(mode,colon,node_top,true)}
     }
 }
 

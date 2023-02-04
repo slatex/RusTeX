@@ -299,7 +299,7 @@ impl HBox {
         let mut inspace = false;
         for c in children {
             match c {
-                Whatsit::Space(sc) if !inspace => {
+                Whatsit::Space(_) if !inspace => {
                     inspace = true;
                     htmlliteral!(colon,htmlparent!(node),"&nbsp;")
                 }

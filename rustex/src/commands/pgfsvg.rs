@@ -1,12 +1,11 @@
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
-use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, Token};
+use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent};
 use crate::interpreter::dimensions::numtostr;
-use crate::interpreter::TeXMode;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, WIGroup, WIGroupTrait};
-use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr, numtohtml, SVG_NS};
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, numtohtml, SVG_NS};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -276,7 +275,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
 
 pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
-    modes: |x| {true},
+    modes: |_| {true},
     _get: |tk, int| {
         let num = int.read_number()?;
         Ok(PGFBox {
@@ -371,7 +370,6 @@ pub static PGF_FLUSH : PrimitiveExecutable = PrimitiveExecutable {
 // <use xlink:href="" marker-start="url(...)" marker-end="url(...)"/>
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::catcodes::CategoryCode;
 use crate::commands::pgfsvg::parsesvg::{parse_path, parse_transform, strtonum};
 use crate::stomach::groups::GroupClose;
 
@@ -497,7 +495,7 @@ mod parsesvg {
         parse_one(ts.to_string().trim()).into()
     }
 
-    fn parse_get_num<'A>(s:&'A str) -> (f32,&'A str) {
+    fn parse_get_num<'a>(s:&'a str) -> (f32,&'a str) {
         match s.find(|x| x == ' ' || x == ')' || x == ',') {
             Some(i) =>
                 (s[..i].parse::<f32>().unwrap(),&s[i+1..]),
@@ -591,7 +589,7 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
     modes: |_| { true },
     _get: |tk, int| {
         let mut attrs : HashMap<TeXStr,TeXStr> = HashMap::new();
-        let mut key = int.read_argument()?;
+        let key = int.read_argument()?;
         let keystr = int.tokens_to_string(&key);
         'attr: loop {
             match int.read_keyword(vec!(
@@ -637,8 +635,8 @@ pub static PGF_G_END: SimpleWhatsit = SimpleWhatsit {
     name: "rustex!pgf!gend",
     modes: |_| { true },
     _get: |_, int| {
-        let mut key = int.read_argument()?;
-        let keystr = int.tokens_to_string(&key);
+        let key = int.read_argument()?;
+        let _keystr = int.tokens_to_string(&key);
         Ok(Whatsit::GroupClose(GroupClose::External(Arc::new(PGFGEnd {}))))
     },
 };
@@ -715,7 +713,7 @@ pub static PGF_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex!pgf!begin",
     modes: |_| { true },
     _get: |tk, int| {
-        let mut attrs : HashMap<&'static str,TeXStr> = HashMap::new();
+        //let _attrs : HashMap<&'static str,TeXStr> = HashMap::new();
         'attr: loop {
             match int.read_keyword(vec!("overflow","preserveAspectRatio","id","x","y","width","height","viewBox"))? {
                 None => break 'attr,

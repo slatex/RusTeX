@@ -209,7 +209,7 @@ impl Interpreter<'_> {
                 }
                 CategoryCode::EndGroup if ingroups == 0 => return Ok(ret),
                 CategoryCode::BeginGroup => {
-                    if (ingroups > 245) {
+                    if ingroups > 245 {
                         TeXErr!(next => "Group overflow")
                     }
                     ingroups += 1;

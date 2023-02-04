@@ -965,14 +965,14 @@ pub static PDFANNOT: PrimitiveExecutable = PrimitiveExecutable {
                 Ok(())
             }
             Some(s) if s == "useobjnum" => {
-                let index = int.read_number()?;
+                int.read_number()?;
                 read_rule_spec(int);
-                let tks = int.read_balanced_argument(true,false,false,false)?;
+                int.read_balanced_argument(true,false,false,false)?;
                 Ok(())
             }
             _ => {
                 read_rule_spec(int);
-                let tks = int.read_balanced_argument(true,false,false,false)?;
+                int.read_balanced_argument(true,false,false,false)?;
                 Ok(())
             }
         }

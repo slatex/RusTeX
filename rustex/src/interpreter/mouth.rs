@@ -53,8 +53,7 @@ pub struct TokenMouth {
 }
 impl TokenMouth {
     fn new(tokens:Vec<Token>) -> TokenMouth {
-        let mut tm = TokenMouth { iter:tokens.into_iter(),peek:None };
-        //tm.tokens.reverse();
+        let tm = TokenMouth { iter:tokens.into_iter(),peek:None };
         tm
     }
     fn has_next(&mut self, _nocomment: bool) -> bool {

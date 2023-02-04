@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
-use crate::interpreter::{Interpreter, string_to_tokens, TeXMode};
+use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, ExpansionRef};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::state::{FontStyle, GroupType, State};
@@ -84,7 +84,7 @@ use crate::fonts::{Font, NULL_FONT};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let c = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
@@ -150,7 +150,7 @@ pub static SKIP : NumAssValue = NumAssValue {
 
 pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"countdef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
@@ -164,7 +164,7 @@ pub static COUNTDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"dimendef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
@@ -178,7 +178,7 @@ pub static DIMENDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"skipdef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
@@ -191,7 +191,7 @@ pub static SKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"muskipdef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
@@ -205,7 +205,7 @@ pub static MUSKIPDEF: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static TOKSDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"toksdef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.read_command_token()?;
         int.set_relax(&cmd);
         int.read_eq();
@@ -229,16 +229,16 @@ pub static PROTECTED : PrimitiveAssignment = PrimitiveAssignment {
                 CategoryCode::Escape | CategoryCode::Active => {
                     match *int.get_command(&next.cmdname())?.orig {
                         PrimitiveTeXCommand::Ass(a) if *a == DEF => {
-                            return do_def(rf,int,global,true,long,false)
+                            return do_def(int,global,true,long,false)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
-                            return do_def(rf,int,global,true,long,true)
+                            return do_def(int,global,true,long,true)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == GDEF => {
-                            return do_def(rf,int,true,true,long,false)
+                            return do_def(int,true,true,long,false)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == XDEF => {
-                            return do_def(rf,int,true,true,long,true)
+                            return do_def(int,true,true,long,true)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == LONG => {
                             long = true;
@@ -268,16 +268,16 @@ pub static LONG: PrimitiveAssignment = PrimitiveAssignment {
                 CategoryCode::Escape | CategoryCode::Active => {
                     match *int.get_command(&next.cmdname())?.orig {
                         PrimitiveTeXCommand::Ass(a) if *a == DEF => {
-                            return do_def(rf,int,global,protected,true,false)
+                            return do_def(int,global,protected,true,false)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == EDEF => {
-                            return do_def(rf,int,global,protected,true,true)
+                            return do_def(int,global,protected,true,true)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == GDEF => {
-                            return do_def(rf,int,true,protected,true,false)
+                            return do_def(int,true,protected,true,false)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == XDEF => {
-                            return do_def(rf,int,true,protected,true,true)
+                            return do_def(int,true,protected,true,true)
                         }
                         PrimitiveTeXCommand::Ass(a) if *a == PROTECTED => {
                             protected = true;
@@ -340,7 +340,7 @@ fn read_sig(int:&mut Interpreter) -> Result<Signature,TeXError> {
     FileEnd!()
 }
 
-fn do_def(rf:ExpansionRef, int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
+fn do_def(int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool) -> Result<(),TeXError> {
     let command = int.next_token();
     match command.catcode {
         CategoryCode::Escape | CategoryCode::Active => {}
@@ -382,27 +382,27 @@ pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
 
 pub static DEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"def",
-    _assign: |rf,int,global| do_def(rf,int, global, false, false,false)
+    _assign: |_,int,global| do_def(int, global, false, false,false)
 };
 
 pub static GDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"gdef",
-    _assign: |rf,int,_global| do_def(rf,int, true, false, false,false)
+    _assign: |_,int,_global| do_def(int, true, false, false,false)
 };
 
 pub static XDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"xdef",
-    _assign: |rf,int,_global| do_def(rf,int, true, false, false,true)
+    _assign: |_,int,_global| do_def(int, true, false, false,true)
 };
 
 pub static EDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"edef",
-    _assign: |rf,int,global| do_def(rf,int,global,false,false,true)
+    _assign: |_,int,global| do_def(int,global,false,false,true)
 };
 
 pub static LET: PrimitiveAssignment = PrimitiveAssignment {
     name:"let",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let cmd = int.next_token();
         if cmd.catcode != CategoryCode::Escape && cmd.catcode != CategoryCode::Active {
             TeXErr!(cmd.clone() => "Control sequence or active character expected; found {} of catcode {}",cmd,cmd.catcode)
@@ -423,7 +423,7 @@ pub static LET: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static FUTURELET: PrimitiveAssignment = PrimitiveAssignment {
     name:"futurelet",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let newcmd = int.next_token();
         match newcmd.catcode {
             CategoryCode::Escape | CategoryCode::Active => {}
@@ -810,7 +810,7 @@ pub static CLOSEIN: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static READ: PrimitiveAssignment = PrimitiveAssignment {
     name:"read",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
@@ -835,7 +835,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
 
 pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
     name:"readline",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let index = int.read_number()? as u8;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
@@ -988,7 +988,7 @@ pub static STRING: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static MATHCHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name:"mathchardef",
-    _assign: |rf,int,global| {
+    _assign: |_,int,global| {
         let chartok = int.read_command_token()?;
         int.read_eq();
         let num = int.read_number()?;
@@ -1086,14 +1086,14 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
-        let mut eh = int.state.toks.get(&-(ERRHELP.index as i32));
-        let rethelp : TeXString = if !eh.is_empty() {
+        let eh = int.state.toks.get(&-(ERRHELP.index as i32));
+        let rethelp : TeXString = /*if !eh.is_empty() {
            /* eh.push(Token::new(0,CategoryCode::EndGroup,None,None,false));
             int.push_tokens(eh);
             unsafe {crate::LOG = true};
             let rethelp = int.read_token_list(true,false,false,true)?;
             int.tokens_to_string(&rethelp) */ "".into()
-        } else {"".into()};
+        } else */{"".into()};
         TeXErr!("{}\n{}",string.to_string(),rethelp)
     }
 };
@@ -2363,9 +2363,9 @@ pub static GLUESHRINKORDER: NumericCommand = NumericCommand {
         use crate::interpreter::dimensions::SkipDim;
         Ok(Numeric::Int(match sk.shrink {
             Some(SkipDim::Pt(_)) => 0,
-            Some(SkipDim::Fil(i)) => 1,
-            Some(SkipDim::Fill(i)) => 2,
-            Some(SkipDim::Filll(i)) => 3,
+            Some(SkipDim::Fil(_)) => 1,
+            Some(SkipDim::Fill(_)) => 2,
+            Some(SkipDim::Filll(_)) => 3,
             _ => 0
         }))
     }
@@ -2392,9 +2392,9 @@ pub static GLUESTRETCHORDER: NumericCommand = NumericCommand {
         use crate::interpreter::dimensions::SkipDim;
         Ok(Numeric::Int(match sk.stretch {
             Some(SkipDim::Pt(_)) => 0,
-            Some(SkipDim::Fil(i)) => 1,
-            Some(SkipDim::Fill(i)) => 2,
-            Some(SkipDim::Filll(i)) => 3,
+            Some(SkipDim::Fil(_)) => 1,
+            Some(SkipDim::Fill(_)) => 2,
+            Some(SkipDim::Filll(_)) => 3,
             _ => 0
         }))
     }

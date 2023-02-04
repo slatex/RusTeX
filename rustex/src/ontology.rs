@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::references::SourceReference;
 use std::sync::Arc;
-use ahash::HashMap;
 use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::commands::PrimitiveTeXCommand;

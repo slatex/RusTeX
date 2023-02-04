@@ -2,15 +2,12 @@ use std::borrow::BorrowMut;
 use std::fmt::Display;
 use std::io::Write;
 use std::path::Path;
-use std::thread;
 use rustex::interpreter::Interpreter;
 use rustex::interpreter::params::DefaultParams;
 use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 
 use clap::Parser;
-use pdfium_render::prelude::PdfBitmapConfig;
-//use rustex::imagemagick;
 
 #[derive(Parser,Debug)]
 #[clap(author, version, about, long_about = None)]

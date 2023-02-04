@@ -443,7 +443,7 @@ impl WhatsitTrait for CustomMathChar {
             Some(HTMLChild::Node(n)) => Some(n),
             _ => None
         };
-        let mut charstr : HTMLStr = self.str.into();
+        let charstr : HTMLStr = self.str.into();
         //charstr = charstr.html_escape();
         let mimoinfo = FontInfo::new(&self.font);
         let clsstr : HTMLStr = "binop".into();
@@ -480,7 +480,7 @@ impl MathChar {
             Some(HTMLChild::Node(n)) => Some(n),
             _ => None
         };
-        let mut charstr : HTMLStr = match &self.font.file.chartable {
+        let charstr : HTMLStr = match &self.font.file.chartable {
             Some(ct) => ct.get_char(self.position as u8).into(),
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);

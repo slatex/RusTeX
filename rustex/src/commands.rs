@@ -297,7 +297,7 @@ impl Signature {
         let mut nelems : Vec<ParamToken> = vec!();
         for x in &self.elems {
             match x {
-                p@ParamToken::Param(u) => nelems.push(p.clone()),
+                p@ParamToken::Param(_) => nelems.push(p.clone()),
                 ParamToken::Token(t) => nelems.push(ParamToken::Token(t.clean()))
             }
         }
@@ -949,7 +949,7 @@ impl TeXCommand {
             //rf:None,
             orig:match *self.orig {
                 PrimitiveTeXCommand::Def(ref d) => Arc::new(PrimitiveTeXCommand::Def(d.clean())),
-                ref o => self.orig.clone()
+                _ => self.orig.clone()
             }
         }
     }

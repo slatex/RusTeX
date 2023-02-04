@@ -297,7 +297,7 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static SCALE:NumericCommand = NumericCommand {
     name: "rustex@scale",
-    _getvalue: |int| {
+    _getvalue: |_| {
         Ok(Numeric::Dim((HTMLSCALE * 65536.0) as i32))
     }
 };

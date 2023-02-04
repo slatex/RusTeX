@@ -180,7 +180,7 @@ impl Interpreter<'_> {
         Ok(false)
     }
 
-    pub fn do_string<A:'static,B:'static>(&mut self,p:&Path,text:&str,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
+    pub fn do_string<A:'static,B:'static>(&mut self,p:&Path,text:&str,colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         extern crate pathdiff;
         use files::VFileBase;
         use std::sync::RwLock;
@@ -194,7 +194,7 @@ impl Interpreter<'_> {
         self.state.borrow_mut().filestore.insert(vf.id.clone(),vf.clone());
         self.do_vfile(vf,colon)
     }
-    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
+    pub fn do_file<A:'static,B:'static>(&mut self,p:&Path,colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         self.jobinfo = Jobinfo::new(p.to_path_buf());
         let vf:Arc<VFile>  = VFile::new(p,false,self.jobinfo.in_file(),&mut self.state.borrow_mut().filestore);
         self.do_vfile(vf,colon)
@@ -542,7 +542,7 @@ impl Interpreter<'_> {
                     match nnext.catcode {
                         MathShift => {
                             self.state.mode = _oldmode;
-                            for g in mathgroup.take() {
+                            if let Some(g) = mathgroup.take() {
                                 self.stomach_add(WI::Math(g))?
                             }
                             let mut ret = self.get_whatsit_group(GroupType::Math)?;
@@ -580,7 +580,7 @@ impl Interpreter<'_> {
                 },
                 MathShift => {
                     self.state.mode = _oldmode;
-                    for g in mathgroup.take() {
+                    if let Some(g) = mathgroup.take() {
                         self.stomach_add(WI::Math(g))?
                     }
                     let ret = self.get_whatsit_group(GroupType::Math)?;
@@ -607,7 +607,7 @@ impl Interpreter<'_> {
                     match ret {
                         Some(WI::Ls(v)) if v.is_empty() => (),
                         Some(WI::Ls(mut v)) => {
-                            for g in mathgroup.take() {
+                            if let Some(g) = mathgroup.take() {
                                 self.stomach_add(WI::Math(g))?
                             }
                             let last = v.pop();
@@ -630,7 +630,7 @@ impl Interpreter<'_> {
                             }
                         },
                         Some(w) => {
-                            for g in mathgroup.take() {
+                            if let Some(g) = mathgroup.take() {
                                 self.stomach_add(WI::Math(g))?
                             }
                             self.stomach_add(w)?
@@ -653,7 +653,7 @@ impl Interpreter<'_> {
             let next = self.next_token();
             if finish(&next,self)? {
                 self.requeue(next);
-                for g in mathgroup.take() {
+                if let Some(g) = mathgroup.take() {
                     self.stomach_add(WI::Math(g))?
                 }
                 return Ok(Some(()))
@@ -676,7 +676,7 @@ impl Interpreter<'_> {
                         match ret {
                             Some(WI::Ls(v)) if v.is_empty() => (),
                             Some(WI::Ls(mut v)) => {
-                                for g in mathgroup.take() {
+                                if let Some(g) = mathgroup.take() {
                                     self.stomach_add(WI::Math(g))?
                                 }
                                 let last = v.pop();
@@ -699,7 +699,7 @@ impl Interpreter<'_> {
                                 }
                             },
                             Some(w) => {
-                                for g in mathgroup.take() {
+                                if let Some(g) = mathgroup.take() {
                                     self.stomach_add(WI::Math(g))?
                                 }
                                 self.stomach_add(w)?
@@ -727,7 +727,7 @@ impl Interpreter<'_> {
                     match ret {
                         Some(WI::Ls(v)) if v.is_empty() => (),
                         Some(WI::Ls(mut v)) => {
-                            for g in mathgroup.take() {
+                            if let Some(g) = mathgroup.take() {
                                 self.stomach_add(WI::Math(g))?
                             }
                             let last = v.pop();
@@ -750,7 +750,7 @@ impl Interpreter<'_> {
                             }
                         },
                         Some(w) => {
-                            for g in mathgroup.take() {
+                            if let Some(g) = mathgroup.take() {
                                 self.stomach_add(WI::Math(g))?
                             }
                             self.stomach_add(w)?
