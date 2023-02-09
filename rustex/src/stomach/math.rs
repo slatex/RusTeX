@@ -481,7 +481,7 @@ impl MathChar {
             _ => None
         };
         let charstr : HTMLStr = match &self.font.file.chartable {
-            Some(ct) => ct.get_char(self.position as u8).into(),
+            Some(ct) => HTMLStr::from(ct.get_char(self.position as u8)).html_escape(),
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
                 "???".into()
