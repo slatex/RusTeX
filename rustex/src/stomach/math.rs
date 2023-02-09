@@ -481,7 +481,7 @@ impl MathChar {
             _ => None
         };
         let charstr : HTMLStr = match &self.font.file.chartable {
-            Some(ct) => HTMLStr::from(ct.get_char(self.position as u8)).html_escape(),
+            Some(ct) => HTMLStr::from(ct.get_char(self.position as u8)),
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
                 "???".into()
@@ -500,10 +500,10 @@ impl MathChar {
         }).into();
         match (maybemimo,self.class) {
             (Some(n),0|7) if String::from(&n.name) == "mi" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
-                n.children.push(HTMLChild::Str(charstr))
+                n.children.push(HTMLChild::Str(charstr.html_escape()))
             }
             (Some(n),i) if 0<i && i<7 && String::from(&n.name) == "mo" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
-                n.children.push(HTMLChild::Str(charstr))
+                n.children.push(HTMLChild::Str(charstr.html_escape()))
             }
             (_,0|7) => {
                 htmlnode!(colon,mi,self.sourceref,clsstr,node_top,a => {
