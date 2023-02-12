@@ -34,14 +34,18 @@ pub struct HTMLState {
     pub top:Vec<HTMLChild>,
     pub currsize:i32,
     //pub squaresize:bool,
-    pub currcolor:Option<HTMLStr>
+    pub currcolor:Option<HTMLStr>,
+    kern:i32
 }
 impl HTMLState {
     pub fn new() -> HTMLState { HTMLState {
         current_namespace:HTML_NS,
         top:vec!(),//squaresize:false,
-        currsize:0,currcolor:None
+        currsize:0,currcolor:None,kern:0
     }}
+    pub fn add_kern(&mut self,v : i32) {
+        self.kern = self.kern + v;
+    }
 }
 
 #[macro_export]
@@ -77,6 +81,7 @@ macro_rules! withwidth {
 #[macro_export]
 macro_rules! htmlnode {
     ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
+        $sel.do_kern($node_parent);
         let mut _node_newnode = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
@@ -89,6 +94,7 @@ macro_rules! htmlnode {
         }
     });
     ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
+        $sel.do_kern($node_parent);
         let mut _node_newnode = HTMLNode::new($ns,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
@@ -102,6 +108,7 @@ macro_rules! htmlnode {
     });
     ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
+            $sel.do_kern($node_parent);
             let mut $nodename = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             $e
@@ -117,6 +124,7 @@ macro_rules! htmlnode {
     );
     ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
+            $sel.do_kern($node_parent);
             let mut $nodename = HTMLNode::new($ns,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             let _node_oldns = $sel.state.current_namespace;
@@ -137,6 +145,7 @@ macro_rules! htmlnode {
 #[macro_export]
 macro_rules! htmlliteral {
     ($sel:ident,$node_parent:expr,$e:expr) => ({
+        $sel.do_kern($node_parent);
         let _ret : HTMLStr = $e.into();
         match $node_parent {
             Some(e) => {
@@ -148,6 +157,7 @@ macro_rules! htmlliteral {
         }
     });
     ($sel:ident,$node_parent:expr,>$e:tt<) => ({
+        $sel.do_kern($node_parent);
         let _ret : HTMLStr = $e.into();
         match $node_parent {
             Some(e) => {
@@ -243,6 +253,20 @@ impl Colon<String> for HTMLColon {
     }
 }
 impl HTMLColon {
+    pub fn do_kern(&mut self,parent: &mut Option<HTMLParent>) {
+        match std::mem::take(&mut self.state.kern) {
+            0 => {}
+            v => if self.state.current_namespace == HTML_NS {
+                htmlnode!(self,div,None,"hkern",parent,node => {
+                    node.style("margin-left".into(),dimtohtml(v));
+                });
+            } else if self.state.current_namespace == MATHML_NS {
+                htmlnode!(self,mspace,None,"hkern",parent,node => {
+                    node.attr("width".into(),dimtohtml(v));
+                });
+            }
+        }
+    }
     fn header(&self) -> String {
         let mut ret : String = "".to_string();
         if self.doheader {
@@ -357,7 +381,7 @@ impl HTMLNode {
         fontinfo:None,sourceref
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
-        self.attributes.borrow_mut().insert(name,value);
+        self.attributes.borrow_mut().insert(name, value);
     }
     pub fn style(&mut self,name:HTMLStr,value:HTMLStr) {
         self.styles.borrow_mut().insert(name,value);
@@ -392,6 +416,10 @@ impl HTMLNode {
         let nfi = match &fi_o {
             None => fi,
             Some(ref mi) if self.namespace == MATHML_NS => {
+                if !mi.params.contains(&FontTableParam::Italic) {
+                    self.attr("mathvariant".into(),"normal".into())
+                };
+                /*
                 if mi.params.contains(&FontTableParam::SansSerif) &&
                     mi.params.contains(&FontTableParam::Bold) &&
                     mi.params.contains(&FontTableParam::Italic) {
@@ -441,6 +469,7 @@ impl HTMLNode {
                 else {
                     self.attr("mathvariant".into(),"normal".into())
                 }
+                 */
                 let ratio = (mi.at as f32) / (fi.at as f32);
                 if ratio != 1.0 {
                     self.attr("mathsize".into(), ((ratio * 100.0).round().to_string() + "%").into())

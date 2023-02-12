@@ -10,7 +10,6 @@ use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 
 use clap::Parser;
-use rustex::fonts::convert::SCRIPT;
 
 #[derive(Parser,Debug)]
 #[clap(author, version, about, long_about = None)]

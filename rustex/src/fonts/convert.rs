@@ -2,9 +2,6 @@ use std::collections::HashMap;
 use ahash::RandomState;
 use crate::fonts::fontchars::FontTableParam;
 
-static all : &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,;.:-_#'+*~'`ß\\?=}])[({/&%$§\"!^°äöüÄÖÜ€@<>|ĂA̧ĆČĎĚȨĞĹL̛ŁŃŇŐŔŘŚŠŞŤŢŰŮŸŹŽŻİđăa̧ćčd̛ĕȩğĺl̛łńňőŕřśšşt̛ţűůÿźžż¡¿£ÀÁÂÃÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕŒØÙÚÛÝÞàáâãäåæçèéêëìíîïðñòóôõœøùúûýþΓ∆ΘΛΞΠΣΥΦΨΩαβγδϵζηθικλμνξπρστυɸχψωεϑϖϱςφ";
-static script: &'static str = "𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵0123456789,;.:-_#'+*~'`ß\\?=}])[({/&%$§\"!^°𝒶̈ℴ̈𝓊̈𝒜̈𝒪̈𝒰̈€@<>|𝒜̆𝒜̧𝒞́𝒞̌𝒟̌ℰ̌ℰ̧𝒢̆ℒ́ℒ̛Ł𝒩́𝒩̌𝒪̋ℛ́ℛ̌𝒮́𝒮̌𝒮̧𝒯̌𝒯̧𝒰̋𝒰̊𝒴̈𝒵́𝒵̌𝒵̇ℐ̇đ𝒶̆𝒶̧𝒸́𝒸̌𝒹̛ℯ̆ℯ̧ℊ̆𝓁́𝓁̛ł𝓃́𝓃̌ℴ̋𝓇́𝓇̌𝓈́𝓈̌𝓈̧𝓉̛𝓉̧𝓊̋𝓊̊𝓎̈𝓏́𝓏̌𝓏̇¡¿£𝒜̀𝒜́𝒜̂𝒜̃𝒜̊Æ𝒞̧ℰ̀ℰ́ℰ̂ℰ̈ℐ̀ℐ́ℐ̂ℐ̈Ð𝒩̃𝒪̀𝒪́𝒪̂𝒪̃ŒØ𝒰̀𝒰́𝒰̂𝒴́Þ𝒶̀𝒶́𝒶̂𝒶̃𝒶̈𝒶̊æ𝒸̧ℯ̀ℯ́ℯ̂ℯ̈𝒾̀𝒾́𝒾̂𝒾̈ð𝓃̃ℴ̀ℴ́ℴ̂ℴ̃œø𝓊̀𝓊́𝓊̂𝓎́þΓ∆ΘΛΞΠΣΥΦΨΩαβγδϵζηθικλμνξπρστυɸχψωεϑϖϱςφ";
-
 fn str_to_map(s:&str,tg:&str,map:&mut HashMap<char,char/*,RandomState*/>) {
     let mut tgv = tg.chars();
     for c in s.chars() {

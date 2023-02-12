@@ -267,7 +267,8 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
             if isstyle {
                 annotate.styles.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(),std::str::from_utf8(value.as_slice()).unwrap().to_string());
             } else {
-                annotate.attrs.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(),std::str::from_utf8(value.as_slice()).unwrap().to_string());
+                let key = std::str::from_utf8(attr.as_slice()).unwrap().to_string();
+                annotate.attrs.insert(key,std::str::from_utf8(value.as_slice()).unwrap().to_string());
             }
         }
         Ok(Whatsit::GroupOpen(WIGroup::External(Arc::new(annotate),vec!())))

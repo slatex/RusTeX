@@ -801,6 +801,8 @@ impl WhatsitTrait for HKern {
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        colon.state.add_kern(self.dim);
+        /*
         match mode {
             ColonMode::M => htmlnode!(colon,mspace,self.sourceref,"hkern",node_top,node => {
             node.attr("width".into(),dimtohtml(self.dim));
@@ -809,6 +811,7 @@ impl WhatsitTrait for HKern {
             node.style("margin-left".into(),dimtohtml(self.dim));
         })
         }
+         */
     }
 }
 

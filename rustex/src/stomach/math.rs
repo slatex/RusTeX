@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::sync::Arc;
 use crate::fonts::Font;
 use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
+use crate::fonts::convert::convert;
 use crate::interpreter::dimensions::{MuSkip, numtostr};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
@@ -407,9 +408,10 @@ impl WhatsitTrait for MKern {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
+        colon.state.add_kern(self.sk.base);
+        /*htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
             a.attr("width".into(),numtostr((self.sk.base as f32 / 1179648.0).round() as i32,"em").into())
-        })
+        })*/
     }
 }
 
@@ -481,7 +483,10 @@ impl MathChar {
             _ => None
         };
         let charstr : HTMLStr = match &self.font.file.chartable {
-            Some(ct) => HTMLStr::from(ct.get_char(self.position as u8)),
+            Some(ct) => {
+                let str = ct.get_char(self.position as u8);
+                HTMLStr::from(convert(str,&ct.params))
+            }
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
                 "???".into()
@@ -681,7 +686,7 @@ impl WhatsitTrait for Overline {
     fn height(&self) -> i32 { self.content.height() }
     fn depth(&self) -> i32 { self.content.depth() }
     fn as_xml_internal(&self, prefix: String) -> String {
-        "\n".to_owned() + &prefix + "<" + stringify!($e) + ">" + &self.content.as_xml_internal(prefix) + "</" + stringify!($e) + ">"
+        "\n".to_owned() + &prefix + "<overline>" + &self.content.as_xml_internal(prefix) + "</overline>"
     }
     fn has_ink(&self) -> bool { self.content.has_ink() }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
@@ -697,7 +702,6 @@ impl WhatsitTrait for Overline {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,mover,self.sourceref.clone(),"overline",node_top,node => {
-            node.classes.push(stringify!($e).into());
             self.content.clone().as_html(mode,colon,htmlparent!(node));
             htmlnode!(colon,mo,self.sourceref,"",htmlparent!(node),n => {
                 htmlliteral!(colon,htmlparent!(n),"―");
@@ -721,7 +725,7 @@ impl WhatsitTrait for Underline {
     fn height(&self) -> i32 { self.content.height() }
     fn depth(&self) -> i32 { self.content.depth() }
     fn as_xml_internal(&self, prefix: String) -> String {
-        "\n".to_owned() + &prefix + "<" + stringify!($e) + ">" + &self.content.as_xml_internal(prefix) + "</" + stringify!($e) + ">"
+        "\n".to_owned() + &prefix + "<underline>" + &self.content.as_xml_internal(prefix) + "</underline>"
     }
     fn has_ink(&self) -> bool { self.content.has_ink() }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
@@ -737,7 +741,6 @@ impl WhatsitTrait for Underline {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,munder,self.sourceref.clone(),"underline",node_top,node => {
-            node.classes.push(stringify!($e).into());
             self.content.clone().as_html(mode,colon,htmlparent!(node));
             htmlnode!(colon,mo,self.sourceref,"",htmlparent!(node),n => {
                 htmlliteral!(colon,htmlparent!(n),"―");
