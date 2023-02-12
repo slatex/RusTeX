@@ -1,4 +1,5 @@
 pub mod fontchars;
+pub mod convert;
 
 struct FInfoEntry {
     char: u16,

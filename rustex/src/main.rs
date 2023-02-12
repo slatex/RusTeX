@@ -1,6 +1,8 @@
 use std::borrow::BorrowMut;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
+use std::ops::Deref;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
 use rustex::interpreter::params::DefaultParams;
@@ -8,6 +10,7 @@ use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 
 use clap::Parser;
+use rustex::fonts::convert::SCRIPT;
 
 #[derive(Parser,Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -45,7 +48,25 @@ fn run() {
     let params : Parameters = Parameters::parse();
     use rustex::interpreter::state::State;
     //use magick_rust::{MagickWand, magick_wand_genesis};
-
+    use rustex::fonts::convert::*;
+/*
+    let teststr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789Γ∆ΘΛΞΠϴΣΥΦΨΩαβγδϵζηθικλμνξπρστυɸχψωεϑϖϱςφ∂ϵϑϰϕϱϖ";
+    let vec: Vec<&HashMap<char,char>> = vec!(SCRIPT.deref(),BOLD_SCRIPT.deref(),ITALIC.deref(),BOLD.deref(),BOLD_ITALIC.deref(),
+        BOLD_SANS.deref(),BOLD_ITALIC_SANS.deref(),ITALIC_SANS.deref(),SANS.deref(),
+        CAPITAL.deref(),FRAKTUR.deref(),BOLD_FRAKTUR.deref(),MONOSPACED.deref(),
+        BLACKBOARD.deref()
+    );
+    for c in teststr.chars() {
+        let mut ret = c.to_string() + ": ";
+        for v in &vec {
+            match v.get(&c) {
+                Some(v) => ret += (v.to_string() + "    | ").as_str(),
+                _ => ret += "None | "
+            }
+        }
+        println!("{}",ret);
+    }
+*/
     match params.input {
         None => {
             match params.dir {
