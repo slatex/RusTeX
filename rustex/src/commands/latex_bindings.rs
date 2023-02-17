@@ -2,14 +2,15 @@ use std::collections::HashMap;
 use crate::commands::rustex_specials::HTMLLiteral;
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
 use crate::stomach::whatsits::WhatsitTrait;
-use crate::{TeXString, Token};
+use crate::{TeXErr, TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::RELAX;
 use crate::interpreter::params::CommandListener;
 use crate::interpreter::TeXMode;
 use crate::stomach::html::HTMLStr;
-use crate::stomach::math::{CustomMathChar, GroupedMath, MathGroup, MathKernel};
+use crate::stomach::math::{CustomMathChar, GroupedMath, MathGroup, MathKernel, MathOp};
 use crate::stomach::Whatsit;
+use crate::stomach::Whatsit::Math;
 use crate::utils::TeXStr;
 
 pub static URL: SimpleWhatsit = SimpleWhatsit {
@@ -163,12 +164,123 @@ impl CommandListener for MapstoListener {
     }
 }
 
+
+pub static UNDERBRACE: SimpleWhatsit = SimpleWhatsit {
+    name: "underbrace",
+    modes: |m| {match m {
+        TeXMode::Math | TeXMode::Displaymath => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let first = match int.read_math_whatsit(None)? {
+            None => GroupedMath(vec!()).as_whatsit(),
+            Some(s) => s
+        };
+        let kernel = MathKernel::MathOp(MathOp {
+            sourceref:None,
+            content:Box::new(
+                MathGroup {
+                    kernel:MathKernel::MathOp(MathOp {
+                        content:Box::new(first),
+                        sourceref: None,
+                    }),
+                    superscript: None,
+                    subscript: Some(MathKernel::CustomMath(CustomMathChar {
+                        str: "⏟".to_string(),
+                        font:int.state.currfont.get(&()),
+                        sourceref: None,
+                    })),
+                    limits: true,
+                }.as_whatsit()
+            )
+        });
+        Ok(MathGroup {
+            kernel,superscript:None,subscript:None,limits:true
+        }.as_whatsit())
+    }
+};
+
+pub struct UnderbraceListener();
+impl CommandListener for UnderbraceListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+        match cmd {
+            Some(tc) => match *tc.orig {
+                PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
+                _ => {
+                    if name.to_string() == "underbrace" {
+                        Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&UNDERBRACE)).as_command()))
+                    } else {
+                        None
+                    }
+                }
+            }
+            _ => None
+        }
+    }
+}
+
+pub static OVERBRACE: SimpleWhatsit = SimpleWhatsit {
+    name: "overbrace",
+    modes: |m| {match m {
+        TeXMode::Math | TeXMode::Displaymath => true,
+        _ => false
+    }},
+    _get: |tk,int| {
+        let first = match int.read_math_whatsit(None)? {
+            None => GroupedMath(vec!()).as_whatsit(),
+            Some(s) => s
+        };
+        let kernel = MathKernel::MathOp(MathOp {
+            sourceref:None,
+            content:Box::new(
+                MathGroup {
+                    kernel:MathKernel::MathOp(MathOp {
+                        content:Box::new(first),
+                        sourceref: None,
+                    }),
+                    subscript: None,
+                    superscript: Some(MathKernel::CustomMath(CustomMathChar {
+                        str: "⏞".to_string(),
+                        font:int.state.currfont.get(&()),
+                        sourceref: None,
+                    })),
+                    limits: true,
+                }.as_whatsit()
+            )
+        });
+        Ok(MathGroup {
+            kernel,superscript:None,subscript:None,limits:true
+        }.as_whatsit())
+    }
+};
+
+pub struct OverbraceListener();
+impl CommandListener for OverbraceListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+        match cmd {
+            Some(tc) => match *tc.orig {
+                PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
+                _ => {
+                    if name.to_string() == "overbrace" {
+                        Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&OVERBRACE)).as_command()))
+                    } else {
+                        None
+                    }
+                }
+            }
+            _ => None
+        }
+    }
+}
+
 pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
     vec!(
         Box::new(UrlListener()),
         Box::new(NotListener()),
         Box::new(CancelListener()),
         Box::new(MapstoListener()),
+        Box::new(UnderbraceListener()),
+        Box::new(OverbraceListener()),
     )
 }
 
