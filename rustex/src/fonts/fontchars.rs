@@ -83,7 +83,7 @@ impl FontTableStore {
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
                 ("jkpbmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::Italic),
-                ("jkpttmnt",STANDARD_TEXT_CM2,FontTableParam::Math,FontTableParam:Bold,FontTableParam::Monospaced),
+                ("jkpttmnt",STANDARD_TEXT_CM2,FontTableParam::Math,FontTableParam::Bold,FontTableParam::Monospaced),
                 ("mathkerncmssi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::SansSerif),
                 // stix -------------------------------------------------------------------
                 ("t-stixgeneral",STANDARD_TEXT_EC,FontTableParam::Text),
