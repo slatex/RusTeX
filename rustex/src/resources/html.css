@@ -193,6 +193,7 @@ math {
     width:fit-content;
     height:fit-content;
     font-size:85%;
+    align-self: baseline;
 }
 .displaymath {
     align-self: center;

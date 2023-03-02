@@ -5,7 +5,10 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.net.URI
+import java.nio.file.attribute.BasicFileAttributes
+import java.time.Instant
 import java.util
+import scala.util.Try
 
 object Implicits {
   import scala.jdk.CollectionConverters._
@@ -49,15 +52,38 @@ object RusTeXBridge {
 
   def mainBridge = main_bridge.get
 
-  def initialize(path: String) = {
+  private def onlineCheck(file : File,repo: String)(download: => Unit) = {
+    if (file.exists()) try {
+      Try(downloadString(s"https://api.github.com/repos/$repo/releases")).toOption.flatten match {
+        case Some(s) =>
+          s.indexOf("\"published_at\": \"") match {
+            case -1 =>
+            case o =>
+              val date = s.drop(o + 17).takeWhile(_ != '\"')
+              val online = Instant.parse(date)
+              val local = java.nio.file.Files.readAttributes(file.toPath, classOf[BasicFileAttributes]).creationTime().toInstant
+              if (online.compareTo(local) > 0) {
+                file.delete()
+                download
+              }
+          }
+        case _ =>
+      }
+    } catch { case _ => }
+    else {
+      download
+    }
+  }
+
+  def initialize(path: String) = synchronized {
     val actualpath = path + "/" + library_filename()
     val file = new File(actualpath)
-    if (!file.exists()) {
+    onlineCheck(file,"slatex/RusTeX"){
       download("https://github.com/slatex/RusTeX/releases/download/latest/" + library_filename(), actualpath)
     }
     System.load(actualpath)
     val pdffile = new File(path + "/" + library_filename("pdfium"))
-    if (!pdffile.exists()) {
+    onlineCheck(pdffile,"bblanchon/pdfium-binaries"){
       val tgzname = {
         val syspath = System.getProperty("os.name").toUpperCase()
         "pdfium-" + (if (syspath.startsWith("WINDOWS")) "win"
@@ -102,6 +128,27 @@ object RusTeXBridge {
     if (syspath.startsWith("WINDOWS")) libname + ".dll"
     else if (syspath.startsWith("MAC")) "lib" + libname + ".dylib"
     else "lib" + libname + ".so"
+  }
+
+  private def downloadString(uri:String): Option[String] = {
+    val url = new URI(uri).toURL
+    val conn = url.openConnection()
+    val httpConn = conn.asInstanceOf[java.net.HttpURLConnection]
+    val resp = httpConn.getResponseCode
+    // setFollowRedirects does not actually follow redirects
+    if (resp.toString.startsWith("30")) {
+      val redirectURL = conn.getHeaderField("Location")
+      return downloadString(redirectURL)
+    }
+    else if (!resp.toString.startsWith("40")) {
+      val in = conn.getInputStream
+      try {
+        return Some(new String(in.readAllBytes(),"UTF-8"))
+      } finally {
+        in.close()
+      }
+    }
+    None
   }
 
   private def download(uri: String, filestr: String): Unit = {
