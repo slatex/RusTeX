@@ -500,6 +500,15 @@ macro_rules! pass_on {
 }
 static mut FONT_FILES: Option<RusTeXMap<TeXStr,Arc<FontFile>>> = None;
 
+macro_rules! unwrap {
+    ($e:expr) => {
+        match $e {
+            Some(x) => x,
+            None => TeXErr!("No group here to end")
+        }
+    }
+}
+
 impl State {
     pub fn push(&mut self,stomach:&mut dyn Stomach,gt:GroupType) {
         /*if self.stack_depth() > 249 {
@@ -513,7 +522,7 @@ impl State {
     }
     pub fn pop(&mut self,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
         log!("Pop: {} -> {}",tp,self.stack_depth());
-        match self.tp.ls.front().unwrap().0.unwrap() {
+        match unwrap!(unwrap!(self.tp.ls.front()).0) {
             t if t == tp => (),
             t => TeXErr!("Group opened by {} ended by {}",t,tp)
         }
