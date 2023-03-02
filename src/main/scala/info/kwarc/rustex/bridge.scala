@@ -56,10 +56,10 @@ object RusTeXBridge {
     if (file.exists()) try {
       Try(downloadString(s"https://api.github.com/repos/$repo/releases")).toOption.flatten match {
         case Some(s) =>
-          s.indexOf("\"published_at\": \"") match {
+          s.indexOf("\"published_at\":\"") match {
             case -1 =>
             case o =>
-              val date = s.drop(o + 17).takeWhile(_ != '\"')
+              val date = s.drop(o + 16).takeWhile(_ != '\"')
               val online = Instant.parse(date)
               val local = java.nio.file.Files.readAttributes(file.toPath, classOf[BasicFileAttributes]).creationTime().toInstant
               if (online.compareTo(local) > 0) {
@@ -251,7 +251,7 @@ object Test {
       }
 
     }
-    RusTeXBridge.initialize("/home/jazzpirate/work/Software/sTeX/RusTeX/rustexbridge/target/x86_64-unknown-linux-gnu/release")
+    RusTeXBridge.initialize("/home/jazzpirate/work/MathHub/.rustex")
     //val ret = Bridge.parse("/home/jazzpirate/work/LaTeX/Others/test.tex",testparams)
 
 
