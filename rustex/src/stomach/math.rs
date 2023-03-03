@@ -407,8 +407,8 @@ impl WhatsitTrait for MKern {
             _ => ret.push(self.as_whatsit())
         }
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        colon.state.add_kern(self.sk.base);
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, _: &mut Option<HTMLParent>) {
+        colon.state.add_kern(((self.sk.base as f32) / 98304.0).round() as i32);
         /*htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
             a.attr("width".into(),numtostr((self.sk.base as f32 / 1179648.0).round() as i32,"em").into())
         })*/

@@ -261,8 +261,10 @@ impl HTMLColon {
                     node.style("margin-left".into(),dimtohtml(v));
                 });
             } else if self.state.current_namespace == MATHML_NS {
-                htmlnode!(self,mspace,None,"hkern",parent,node => {
-                    node.attr("width".into(),dimtohtml(v));
+                htmlnode!(self,mspace,None,"mkern",parent,node => {
+                    node.attr("width".into(),
+                        numtostr((v as f32 / 12.0).round() as i32,"em").into()
+                    );
                 });
             }
         }

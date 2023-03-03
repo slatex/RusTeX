@@ -821,16 +821,21 @@ impl NoShipoutRoutine {
             }
             _ => vec!()
         };
+        use crate::stomach::simple::*;
+        use crate::interpreter::dimensions::*;
         if !inserts.is_empty() {
-            self.add(state,params,Whatsit::Inserts(Insert(inserts)))?
+            self.add(state,params,Whatsit::Inserts(Insert(inserts)))?;
+            self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
         }
         if !floatregs.is_empty() {
             state.commands.set("@freelist".into(),
-                                             Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true)
-        }
-        for fnm in floatregs {
-            let bx = state.boxes.take(fnm);
-            self.add(state,params,Whatsit::Float(bx))?
+                               Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true);
+            self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
+            for fnm in floatregs {
+                let bx = state.boxes.take(fnm);
+                self.add(state,params,Whatsit::Float(bx))?;
+                self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
+            }
         }
         Ok(())
     }

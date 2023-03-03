@@ -1,5 +1,5 @@
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
-use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent};
+use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth};
 use crate::interpreter::dimensions::numtostr;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
@@ -203,41 +203,43 @@ impl WhatsitTrait for PGFBox {
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,HTML_NS:div,None,"",node_top,div => {
-            div.style("display".into(),"block".into());
+            div.style("display".into(),"inline-block".into());
+            div.style("vertical-align".into(),"middle".into());
             let currsize = colon.state.currsize;
-            colon.state.currsize = self.maxx - self.minx;
-            div.style("--current-width".into(),dimtohtml(self.maxx-self.minx).into());
-        htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(div),svg => {
-            let mut vb : HTMLStr = numtohtml(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
-            vb += " ";
-            vb += numtohtml(self.miny);
-            vb += " ";
-            vb += numtohtml(self.maxx - self.minx);//numtostr(HTMLSCALE * (self.maxx-self.minx),"");
-            vb += " ";
-            vb += numtohtml(self.maxy - self.miny); //numtostr(HTMLSCALE * (self.maxy-self.miny),"");
-            svg.attr("width".into(),dimtohtml(self.maxx-self.minx));
-            svg.attr("height".into(),dimtohtml(self.maxy-self.miny));
-            svg.attr("viewBox".into(),vb);
-            htmlnode!(colon,g,None,"",htmlparent!(svg),g => {
-                if FIX {
-                    let mut tr : HTMLStr = "translate(0,".into();
-                    tr += numtohtml(self.maxy + self.miny);
-                    tr += ")";
-                    g.attr("transform".into(),tr);
-                } else {
-                    let mut tr : HTMLStr = "translate(0,".into();
-                    tr += numtohtml(self.maxy);
-                    tr += ") scale(1,-1) translate(0,";
-                    tr += numtohtml(-self.miny);
-                    tr += ")";
-                    g.attr("transform".into(),tr);
-                }
-                for c in self.content {
-                    c.as_html(&ColonMode::External("svg".into()),colon,htmlparent!(g))
-                }
-            })
-        });
-            colon.state.currsize = currsize;
+            //colon.state.currsize = self.maxx - self.minx;
+            withwidth!(colon,self.maxx-self.minx,div,inner,{
+                htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(div),svg => {
+                    let mut vb : HTMLStr = numtohtml(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
+                    vb += " ";
+                    vb += numtohtml(self.miny);
+                    vb += " ";
+                    vb += numtohtml(self.maxx - self.minx);//numtostr(HTMLSCALE * (self.maxx-self.minx),"");
+                    vb += " ";
+                    vb += numtohtml(self.maxy - self.miny); //numtostr(HTMLSCALE * (self.maxy-self.miny),"");
+                    svg.attr("width".into(),dimtohtml(self.maxx-self.minx));
+                    svg.attr("height".into(),dimtohtml(self.maxy-self.miny));
+                    svg.attr("viewBox".into(),vb);
+                    htmlnode!(colon,g,None,"",htmlparent!(svg),g => {
+                        if FIX {
+                            let mut tr : HTMLStr = "translate(0,".into();
+                            tr += numtohtml(self.maxy + self.miny);
+                            tr += ")";
+                            g.attr("transform".into(),tr);
+                        } else {
+                            let mut tr : HTMLStr = "translate(0,".into();
+                            tr += numtohtml(self.maxy);
+                            tr += ") scale(1,-1) translate(0,";
+                            tr += numtohtml(-self.miny);
+                            tr += ")";
+                            g.attr("transform".into(),tr);
+                        }
+                        for c in self.content {
+                            c.as_html(&ColonMode::External("svg".into()),colon,htmlparent!(g))
+                        }
+                    })
+                });
+            });
+            //div.style("--current-width".into(),dimtohtml(self.maxx-self.minx).into());
         });
     }
 }
