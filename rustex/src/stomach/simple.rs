@@ -1131,7 +1131,7 @@ impl HAlign {
                                 table.style("border-top".into(),dimtohtml(hr.height()) + " solid")
                             } else {
                                 match table.children.last_mut() {
-                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(2*hr.height()) + " solid"),
+                                    Some(HTMLChild::Node(row)) => row.style("border-bottom".into(),dimtohtml(hr.height()) + " solid"),
                                     _ => ()//TeXErr!("Should be unreachable!")
                                 }
                             }
