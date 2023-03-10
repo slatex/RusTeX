@@ -452,6 +452,14 @@ impl PrimitiveTeXCommand {
                     let s : TeXString = "alignment tab character ".into();
                     s + c.char.into()
                 }
+                CategoryCode::Subscript => {
+                    let s : TeXString = "subscript character ".into();
+                    s + c.char.into()
+                }
+                CategoryCode::Superscript => {
+                    let s : TeXString = "superscript character ".into();
+                    s + c.char.into()
+                }
                 _ => todo!("{}",self)
             }
             Def(d) => {
