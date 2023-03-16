@@ -314,7 +314,7 @@ impl WhatsitTrait for VRule {
                 Some(c) => HTMLStr::from("#") + c,
                 None => "#000000".into()
             });
-            if self.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-self.depth())) }
+            if self.depth() != 0 { n.style("top".into(),dimtohtml(-self.depth())) }
         })
     }
 }
@@ -356,7 +356,7 @@ impl WhatsitTrait for HRule {
                 Some(c) => HTMLStr::from("#") + c,
                 None => "#000000".into()
             });
-            if self.depth() != 0 { n.style("margin-bottom".into(),dimtohtml(-self.depth())) }
+            if self.depth() != 0 { n.style("top".into(),dimtohtml(-self.depth())) }
         })
     }
 }

@@ -204,7 +204,7 @@ impl WhatsitTrait for PGFBox {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,HTML_NS:div,None,"",node_top,div => {
             div.style("display".into(),"inline-block".into());
-            div.style("vertical-align".into(),"middle".into());
+            //div.style("vertical-align".into(),"middle".into());
             let currsize = colon.state.currsize;
             //colon.state.currsize = self.maxx - self.minx;
             withwidth!(colon,self.maxx-self.minx,div,inner,{
