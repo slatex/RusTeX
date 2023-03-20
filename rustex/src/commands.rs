@@ -86,31 +86,31 @@ pub struct NumericCommand {
 
 #[derive(PartialEq)]
 pub struct RegisterReference {
-    pub index: u8,
+    pub index: usize,
     pub name: &'static str
 }
 
 #[derive(PartialEq)]
 pub struct DimenReference {
-    pub index: u8,
+    pub index: usize,
     pub name: &'static str
 }
 
 #[derive(PartialEq)]
 pub struct SkipReference {
-    pub index: u8,
+    pub index: usize,
     pub name: &'static str
 }
 
 #[derive(PartialEq)]
 pub struct MuSkipReference {
-    pub index: u8,
+    pub index: usize,
     pub name: &'static str
 }
 
 #[derive(PartialEq)]
 pub struct TokReference {
-    pub index: u8,
+    pub index: usize,
     pub name: &'static str
 }
 
@@ -639,16 +639,16 @@ impl PrimitiveTeXCommand {
         use PrimitiveTeXCommand::*;
         use AssignableValue::*;
         match self {
-            AV(Dim(i)) => Ok(Numeric::Dim(int.state.dimensions.get(&(*i as i32)))),
-            AV(Register(i)) => Ok(Numeric::Int(int.state.registers.get(&(*i as i32)))),
-            AV(Skip(i)) => Ok(Numeric::Skip(int.state.skips.get(&(*i as i32)))),
-            AV(MuSkip(i)) => Ok(Numeric::MuSkip(int.state.muskips.get(&(*i as i32)))),
+            AV(Dim(i)) => Ok(Numeric::Dim(int.state.dimensions.get(i))),
+            AV(Register(i)) => Ok(Numeric::Int(int.state.registers.get(i))),
+            AV(Skip(i)) => Ok(Numeric::Skip(int.state.skips.get(i))),
+            AV(MuSkip(i)) => Ok(Numeric::MuSkip(int.state.muskips.get(i))),
             AV(AssignableValue::Int(i)) => Ok((i._getvalue)(int)?),
             PrimitiveTeXCommand::Num(i) => Ok((i._getvalue)(int)?),
-            AV(PrimReg(r)) => Ok(Numeric::Int(int.state.registers.get(&-(r.index as i32)))),
-            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state.dimensions.get(&-(r.index as i32)))),
-            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state.skips.get(&-(r.index as i32)))),
-            AV(PrimMuSkip(r)) => Ok(Numeric::MuSkip(int.state.muskips.get(&-(r.index as i32)))),
+            AV(PrimReg(r)) => Ok(Numeric::Int(int.state.registers_prim.get(&(r.index - 1)))),
+            AV(PrimDim(r)) => Ok(Numeric::Dim(int.state.dimensions_prim.get(&(r.index - 1)))),
+            AV(PrimSkip(r)) => Ok(Numeric::Skip(int.state.skips_prim.get(&(r.index - 1)))),
+            AV(PrimMuSkip(r)) => Ok(Numeric::MuSkip(int.state.muskips_prim.get(&(r.index - 1)))),
             Ext(r) => r.get_num(int),
             Char(u) => Ok(Numeric::Int(u.char as i32)),
             MathChar(u) => Ok(Numeric::Int(*u as i32)),
@@ -812,7 +812,7 @@ impl PrimitiveTeXCommand {
         use crate::commands::registers::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 
-        let globals = int.state.registers.get(&-(GLOBALDEFS.index as i32));
+        let globals = int.state.registers_prim.get(&(GLOBALDEFS.index - 1));
         let global = !(globals < 0) && ( globally || globals > 0 );
         let rf = ExpansionRef(tk,cmd.orig.clone(),None);
         match self {
@@ -826,7 +826,7 @@ impl PrimitiveTeXCommand {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign register {} to {}",i,num);
-                    int.state.registers.set(*i as i32, num, global);
+                    int.state.registers.set(*i, num, global);
                     Ok(())
                 }
                 AssignableValue::Font(f) => {
@@ -848,35 +848,35 @@ impl PrimitiveTeXCommand {
                     log!("Assigning dimen {}",i);
                     let num = int.read_dimension()?;
                     log!("Assign dimen register {} to {}",i,dimtostr(num));
-                    int.state.dimensions.set(*i as i32, num, global);
+                    int.state.dimensions.set(*i, num, global);
                     Ok(())
                 }
                 AssignableValue::Skip(i) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign skip register {} to {}",i,num);
-                    int.state.skips.set(*i as i32, num, global);
+                    int.state.skips.set(*i, num, global);
                     Ok(())
                 }
                 AssignableValue::MuSkip(i) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign muskip register {} to {}",i,num);
-                    int.state.muskips.set(*i as i32, num, global);
+                    int.state.muskips.set(*i, num, global);
                     Ok(())
                 },
                 AssignableValue::PrimSkip(r) => {
                     int.read_eq();
                     let num = int.read_skip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.state.skips.set(-(r.index as i32), num, global);
+                    int.state.skips_prim.set(r.index - 1, num, global);
                     Ok(())
                 },
                 AssignableValue::PrimMuSkip(r) => {
                     int.read_eq();
                     let num = int.read_muskip()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.state.muskips.set(-(r.index as i32), num, global);
+                    int.state.muskips_prim.set(r.index - 1, num, global);
                     Ok(())
                 },
                 AssignableValue::Toks(i) => {
@@ -891,14 +891,14 @@ impl PrimitiveTeXCommand {
                         CategoryCode::Escape | CategoryCode::Active => {
                             let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
-                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
-                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(j),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks_prim.get(&(j.index - 1)),
                                 _ => TeXErr!("Expected balanced argument or token register in token assignment")
                             }
                         }
                         _ => TeXErr!("Expected balanced argument or token register in token assignment")
                     };
-                    int.state.toks.set(*i as i32, toks.iter().map(|x| x.cloned()).collect(), global);
+                    int.state.toks.set(*i, toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
                 },
                 AssignableValue::PrimToks(r) => {
@@ -913,28 +913,28 @@ impl PrimitiveTeXCommand {
                         CategoryCode::Escape | CategoryCode::Active => {
                             let cmd = int.get_command(&next.cmdname())?;
                             match &*cmd.orig {
-                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(&(*j as i32)),
-                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks.get(&-(j.index as i32)),
+                                PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(j),
+                                PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks_prim.get(&(j.index - 1)),
                                 _ => TeXErr!("Expected balanced argument or token register in token assignment")
                             }
                         }
                         _ => TeXErr!("Expected balanced argument or token register in token assignment")
                     };
-                    int.state.toks.set(-(r.index as i32), toks.iter().map(|x| x.cloned()).collect(), global);
+                    int.state.toks_prim.set(r.index - 1, toks.iter().map(|x| x.cloned()).collect(), global);
                     Ok(())
                 },
                 AssignableValue::PrimReg(r) => {
                     int.read_eq();
                     let num = int.read_number()?;
                     log!("Assign {} to {}",r.name,num);
-                    int.state.registers.set(-(r.index as i32), num, global);
+                    int.state.registers_prim.set(r.index - 1, num, global);
                     Ok(())
                 },
                 AssignableValue::PrimDim(r) => {
                     int.read_eq();
                     let num = int.read_dimension()?;
                     log!("Assign {} to {}",r.name,dimtostr(num));
-                    int.state.dimensions.set(-(r.index as i32), num, global);
+                    int.state.dimensions_prim.set(r.index - 1, num, global);
                     Ok(())
                 }
             },

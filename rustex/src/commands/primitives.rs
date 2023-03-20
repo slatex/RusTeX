@@ -101,11 +101,11 @@ pub static COUNT : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_number()?;
         log!("\\count sets {} to {}",index,val);
-        int.state.registers.set(index as i32,val,global);
+        int.state.registers.set(index as u16,val,global);
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()? as i32;
+        let index = int.read_number()? as u16;
         let num = int.state.registers.get(&index);
         log!("\\count {} = {}",index,num);
         Ok(Numeric::Int(num))
@@ -119,12 +119,12 @@ pub static DIMEN : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_dimension()?;
         log!("\\dimen sets {} to {}",index,val);
-        int.state.dimensions.set(index as i32,val,global);
+        int.state.dimensions.set(index,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state.dimensions.get(&(index as i32));
+        let dim = int.state.dimensions.get(&index);
         log!("\\dimen {} = {}",index,dim);
         Ok(Numeric::Dim(dim))
     }
@@ -137,12 +137,12 @@ pub static SKIP : NumAssValue = NumAssValue {
         int.read_eq();
         let val = int.read_skip()?;
         log!("\\skip sets {} to {}",index,val);
-        int.state.skips.set(index as i32,val,global);
+        int.state.skips.set(index,val,global);
         Ok(())
     },
     _getvalue: |int| {
         let index = int.read_number()? as u16;
-        let dim = int.state.skips.get(&(index as i32));
+        let dim = int.state.skips.get(&index);
         log!("\\skip {} = {}",index,dim);
         Ok(Numeric::Skip(dim))
     }
@@ -576,63 +576,67 @@ pub static NUMBER : PrimitiveExecutable = PrimitiveExecutable {
     name: "number"
 };
 
-fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(i32,Numeric,Numeric),TeXError> {
+fn get_inrv(int:&mut Interpreter,withint:bool) -> Result<(u16,Numeric,Numeric,bool),TeXError> {
     use crate::commands::PrimitiveTeXCommand::*;
     int.expand_until(true)?;
     let cmd = int.read_command_token()?;
-    let (index,num,val) : (i32,Numeric,Numeric) = match *int.get_command(&cmd.cmdname())?.orig {
+    let (index,num,val,prim) = match *int.get_command(&cmd.cmdname())?.orig {
         AV(AssignableValue::Register(i)) => {
             int.read_keyword(vec!("by"))?;
-            ((i as i32),Numeric::Int(int.state.registers.get(&(i as i32))),int.read_number_i(false)?)
+            (i as u16,Numeric::Int(int.state.registers.get(&(i as u16))),int.read_number_i(false)?,false)
         }
         AV(AssignableValue::PrimReg(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Int(int.state.registers.get(&-(r.index as i32))), int.read_number_i(false)?)
+            ((r.index -1) as u16, Numeric::Int(int.state.registers_prim.get(&((r.index -1) as usize))), int.read_number_i(false)?,true)
         }
         AV(AssignableValue::Int(c)) if *c == COUNT => {
             let i = int.read_number()? as u16;
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Int(int.state.registers.get(&(i as i32))),int.read_number_i(false)?)
+            (i,Numeric::Int(int.state.registers.get(&i)),int.read_number_i(false)?,false)
         }
         AV(AssignableValue::Int(c)) if *c == DIMEN => {
             let i = int.read_number()? as u16;
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            (i,Numeric::Dim(int.state.dimensions.get(&i)), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)},false)
         }
         AV(AssignableValue::Int(c)) if *c == SKIP => {
             let i = int.read_number()? as u16;
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Skip(int.state.skips.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+            (i,Numeric::Skip(int.state.skips.get(&i)), if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)},false)
         }
         AV(AssignableValue::Dim(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32,Numeric::Dim(int.state.dimensions.get(&(i as i32))), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            (i,Numeric::Dim(int.state.dimensions.get(&i)), if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)},false)
         }
         AV(AssignableValue::PrimDim(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Dim(int.state.dimensions.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)})
+            ((r.index -1) as u16, Numeric::Dim(int.state.dimensions_prim.get(&((r.index - 1) as usize))),if withint {int.read_number_i(false)?} else {Numeric::Dim(int.read_dimension()?)},true)
         }
         AV(AssignableValue::Skip(i)) => {
             int.read_keyword(vec!("by"))?;
-            (i as i32, Numeric::Skip(int.state.skips.get(&(i as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+            (i, Numeric::Skip(int.state.skips.get(&i)),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)},false)
         }
         AV(AssignableValue::PrimSkip(r)) => {
             int.read_keyword(vec!("by"))?;
-            (-(r.index as i32), Numeric::Skip(int.state.skips.get(&-(r.index as i32))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)})
+            ((r.index -1) as u16, Numeric::Skip(int.state.skips_prim.get(&((r.index -1) as usize))),if withint {int.read_number_i(false)?} else {Numeric::Skip(int.read_skip()?)},true)
         }
         ref p =>{
             todo!("{}",p)
         }
         //_ => return Err(TeXError::new("Expected register after \\divide; got: ".to_owned() + &cmd.as_string()))
     };
-    Ok((index,num,val))
+    Ok((index,num,val,prim))
 }
 pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
     name: "divide",
     _assign: |_,int,global| {
-        let (index,num,div) = get_inrv(int,true)?;
+        let (index,num,div,primitive) = get_inrv(int,true)?;
         log!("\\divide sets {} to {}",index,num/div);
         match num {
+            Numeric::Int(i) if primitive => int.state.registers_prim.set(index as usize, i / div.get_i32(), global),
+            Numeric::Dim(i) if primitive => int.state.dimensions_prim.set(index as usize, i / div.get_i32(),global),
+            Numeric::Skip(i) if primitive => int.state.skips_prim.set(index as usize, i / div.get_i32(),global),
+            Numeric::MuSkip(i) if primitive => int.state.muskips_prim.set(index as usize, i / div.get_i32(),global),
             Numeric::Int(i) => int.state.registers.set(index, i / div.get_i32(), global),
             Numeric::Dim(i) => int.state.dimensions.set(index, i / div.get_i32(),global),
             Numeric::Skip(i) => int.state.skips.set(index, i / div.get_i32(),global),
@@ -645,9 +649,25 @@ pub static DIVIDE : PrimitiveAssignment = PrimitiveAssignment {
 pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
     name: "multiply",
     _assign: |_,int,global| {
-        let (index,num,fac) = get_inrv(int,true)?;
+        let (index,num,fac,primitive) = get_inrv(int,true)?;
         log!("\\multiply sets {} to {}",index,num*fac);
         match num {
+            Numeric::Int(_) if primitive => int.state.registers_prim.set(index as usize,match num * fac.as_int() {
+                Numeric::Int(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            }, global),
+            Numeric::Dim(_) if primitive => int.state.dimensions_prim.set(index as usize,match num * fac.as_int() {
+                Numeric::Dim(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            },global),
+            Numeric::Skip(_) if primitive => int.state.skips_prim.set(index as usize, match num * fac.as_int() {
+                Numeric::Skip(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            },global),
+            Numeric::MuSkip(_) if primitive => int.state.muskips_prim.set(index as usize, match num * fac.as_int() {
+                Numeric::MuSkip(i) => i,
+                _ => TeXErr!("Should be unreachable!")
+            },global),
             Numeric::Int(_) => int.state.registers.set(index,match num * fac.as_int() {
                 Numeric::Int(i) => i,
                 _ => TeXErr!("Should be unreachable!")
@@ -672,9 +692,14 @@ pub static MULTIPLY : PrimitiveAssignment = PrimitiveAssignment {
 pub static ADVANCE : PrimitiveAssignment = PrimitiveAssignment {
     name: "advance",
     _assign: |_,int,global| {
-        let (index,num,sum) = get_inrv(int,false)?;
+        let (index,num,sum,primitive) = get_inrv(int,false)?;
         log!("\\advance sets {} to {}",index,num + sum);
         match (num,sum) {
+            (Numeric::Int(num),Numeric::Int(sum)) if primitive => int.state.registers_prim.set(index as usize,num + sum,global),
+            (Numeric::Int(num),Numeric::Dim(sum)) if primitive => int.state.registers_prim.set(index as usize,num+sum,global),
+            (Numeric::Dim(num),Numeric::Dim(sum)) if primitive => int.state.dimensions_prim.set(index as usize,num + sum,global),
+            (Numeric::Skip(num),Numeric::Skip(sum)) if primitive => int.state.skips_prim.set(index as usize,num + sum,global),
+            (Numeric::MuSkip(num),Numeric::MuSkip(sum)) if primitive => int.state.muskips_prim.set(index as usize,num + sum,global),
             (Numeric::Int(num),Numeric::Int(sum)) => int.state.registers.set(index,num + sum,global),
             (Numeric::Int(num),Numeric::Dim(sum)) => int.state.registers.set(index,num+sum,global),
             (Numeric::Dim(num),Numeric::Dim(sum)) => int.state.dimensions.set(index,num + sum,global),
@@ -702,17 +727,17 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
                 stt(ret.to_string().into())
             },
             AV(AssignableValue::Int(i)) => stt((i._getvalue)(int)?.to_string().into()),
-            AV(AssignableValue::PrimReg(i)) => stt(int.state.registers.get(&-(i.index as i32)).to_string().into()),
-            AV(AssignableValue::Register(i)) => stt(int.state.registers.get(&(*i as i32)).to_string().into()),
-            AV(AssignableValue::Toks(i)) => int.state.toks.get(&(*i as i32)),
-            AV(AssignableValue::PrimToks(r)) => int.state.toks.get(&-(r.index as i32)),
+            AV(AssignableValue::PrimReg(i)) => stt(int.state.registers_prim.get(&((i.index - 1) as usize)).to_string().into()),
+            AV(AssignableValue::Register(i)) => stt(int.state.registers.get(i).to_string().into()),
+            AV(AssignableValue::Toks(i)) => int.state.toks.get(i),
+            AV(AssignableValue::PrimToks(r)) => int.state.toks_prim.get(&((r.index - 1) as usize)),
             AV(AssignableValue::Tok(r)) => (r._getvalue)(int)?,
             Char(tk) => stt(tk.char.to_string().into()),
             MathChar(i) => stt(i.to_string().into()),
-            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state.dimensions.get(&(*i as i32))).into()),
-            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state.dimensions.get(&-(r.index as i32))).into()),
-            AV(AssignableValue::Skip(i)) => stt(int.state.skips.get(&(*i as i32)).to_string().into()),
-            AV(AssignableValue::PrimSkip(r)) => stt(int.state.skips.get(&-(r.index as i32)).to_string().into()),
+            AV(AssignableValue::Dim(i)) => stt(dimtostr(int.state.dimensions.get(i)).into()),
+            AV(AssignableValue::PrimDim(r)) => stt(dimtostr(int.state.dimensions_prim.get(&((r.index - 1) as usize))).into()),
+            AV(AssignableValue::Skip(i)) => stt(int.state.skips.get(i).to_string().into()),
+            AV(AssignableValue::PrimSkip(r)) => stt(int.state.skips_prim.get(&((r.index - 1) as usize)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
                 vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get().name.clone()),None,true)),
@@ -1086,7 +1111,7 @@ pub static ERRMESSAGE: PrimitiveExecutable = PrimitiveExecutable {
         }
         let ret = int.read_token_list(true,false,false,true)?;
         let string = int.tokens_to_string(&ret);
-        let eh = int.state.toks.get(&-(ERRHELP.index as i32));
+        let eh = int.state.toks_prim.get(&((ERRHELP.index - 1) as usize));
         let rethelp : TeXString = /*if !eh.is_empty() {
            /* eh.push(Token::new(0,CategoryCode::EndGroup,None,None,false));
             int.push_tokens(eh);
@@ -1753,7 +1778,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
         let bx = (VBOX._get)(tk,int)?;
         match bx {
             TeXBox::V(mut vb) => {
-                let lineheight = int.state.skips.get(&-(registers::LINESKIP.index as i32)).base;
+                let lineheight = int.state.skips_prim.get(&((registers::LINESKIP.index - 1) as usize)).base;
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }
@@ -1884,12 +1909,12 @@ pub static TOKS: TokAssValue = TokAssValue {
         let num = int.read_number()? as u16;
         int.read_eq();
         let r = int.read_balanced_argument(false,false,false,true)?;
-        int.state.toks.set(num as i32,r.iter().map(|x| x.cloned()).collect(),global);
+        int.state.toks.set(num,r.iter().map(|x| x.cloned()).collect(),global);
         Ok(())
     },
     _getvalue: |int| {
         let num = int.read_number()? as u16;
-        Ok(int.state.toks.get(&(num as i32)))
+        Ok(int.state.toks.get(&num))
     }
 };
 
@@ -2478,7 +2503,7 @@ pub static PAGEGOAL: NumAssValue = NumAssValue {
         } else {
             let pg = int.state.pagegoal;
             if pg == 0 {
-                Ok(Numeric::Dim(int.state.dimensions.get(&-(VSIZE.index as i32))))
+                Ok(Numeric::Dim(int.state.dimensions_prim.get(&(VSIZE.index - 1))))
             } else {
                 Ok(Numeric::Dim(pg))
             }
@@ -2679,7 +2704,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
     int.state.push(int.stomach,GroupType::Box(betweenmode));
 
-    let mut tabskip = int.state.skips.get(&-(registers::TABSKIP.index as i32));
+    let mut tabskip = int.state.skips_prim.get(&(registers::TABSKIP.index - 1));
     let firsttabskip = tabskip;
 
     let mut in_v = false;
@@ -3271,7 +3296,7 @@ pub static INDENT: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         int.stomach_add(Whatsit::Simple(SimpleWI::Indent(
             Indent {
-                dim:int.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
+                dim:int.state.dimensions_prim.get(&(crate::commands::primitives::PARINDENT.index - 1)),
                 sourceref:int.update_reference(&tk.0)
             })))?;
         Ok(())

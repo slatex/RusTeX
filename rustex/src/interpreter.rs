@@ -438,7 +438,7 @@ impl Interpreter<'_> {
             }
         };
         if cls == 7 {
-            match self.state.registers.get(&-(crate::commands::registers::FAM.index as i32)) {
+            match self.state.registers_prim.get(&(crate::commands::registers::FAM.index - 1)) {
                 i if i < 0 || i > 15 => {
                     cls = 0;
                     //num = 256 * fam + pos
@@ -472,21 +472,21 @@ impl Interpreter<'_> {
                 match &*pr.orig {
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::NOINDENT => 0,
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::INDENT =>
-                        self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32)),
+                        self.state.dimensions_prim.get(&(crate::commands::registers::PARINDENT.index - 1)),
                     _ => {
                         self.requeue(next);
-                        self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32))
+                        self.state.dimensions_prim.get(&(crate::commands::registers::PARINDENT.index - 1))
                     }
                 }
             }
             _ => {
                 self.requeue(next);
-                self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32))
+                self.state.dimensions_prim.get(&(crate::commands::registers::PARINDENT.index - 1))
             }
         };
         self.state.borrow_mut().mode = TeXMode::Horizontal;
         self.insert_every(&crate::commands::registers::EVERYPAR);
-        let parskip = self.state.skips.get(&-(crate::commands::registers::PARSKIP.index as i32));
+        let parskip = self.state.skips_prim.get(&(crate::commands::registers::PARSKIP.index - 1));
         self.stomach.borrow_mut().start_paragraph(parskip.base);
         if indent != 0 {
             self.stomach_add(Indent {

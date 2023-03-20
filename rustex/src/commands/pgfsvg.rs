@@ -269,8 +269,8 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
     use crate::commands::AssignableValue;
     let p = int.get_command(&s.into())?;
     match &*p.orig {
-        PrimitiveTeXCommand::AV(AssignableValue::Dim(u)) => Ok(int.state.dimensions.get(&(*u as i32))),
-        PrimitiveTeXCommand::AV(AssignableValue::PrimDim(r)) => Ok(int.state.dimensions.get(&-(r.index as i32))),
+        PrimitiveTeXCommand::AV(AssignableValue::Dim(u)) => Ok(int.state.dimensions.get(u)),
+        PrimitiveTeXCommand::AV(AssignableValue::PrimDim(r)) => Ok(int.state.dimensions_prim.get(&(r.index - 1))),
         _ => TeXErr!("Not a dimension: \\{}",s)
     }
 }

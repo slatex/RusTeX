@@ -232,14 +232,14 @@ impl Colon<String> for HTMLColon {
     } //}
     fn initialize(&mut self, basefont: ArcFont, basecolor: TeXStr, int: &Interpreter) {
         if self.doheader {
-            self.state.currsize =  int.state.dimensions.get(&-(crate::commands::registers::HSIZE.index as i32));
+            self.state.currsize =  int.state.dimensions_prim.get(&(crate::commands::registers::HSIZE.index - 1));
             self.state.currcolor = match &basecolor {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
             };
-            self.pagewidth = int.state.dimensions.get(&-(crate::commands::registers::PDFPAGEWIDTH.index as i32));
-            self.textwidth = int.state.dimensions.get(&-(crate::commands::registers::HSIZE.index as i32));
-            self.lineheight = int.state.skips.get(&-(crate::commands::registers::BASELINESKIP.index as i32));
+            self.pagewidth = int.state.dimensions_prim.get(&(crate::commands::registers::PDFPAGEWIDTH.index - 1));
+            self.textwidth = int.state.dimensions_prim.get(&(crate::commands::registers::HSIZE.index - 1));
+            self.lineheight = int.state.skips_prim.get(&(crate::commands::registers::BASELINESKIP.index - 1));
 
             let base = self.base_mut();
             base.basefont = Some(basefont);

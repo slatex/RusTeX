@@ -397,8 +397,8 @@ pub static PDFOBJ: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_,int| {
         match int.read_keyword(vec!("reserveobjnum","useobjnum","stream"))? {
             Some(s) if s == "reserveobjnum" => {
-                let num = int.state.registers.get(&-(PDFLASTOBJ.index as i32));
-                int.state.registers.set(-(PDFLASTOBJ.index as i32),num+1,true);
+                let num = int.state.registers_prim.get(&(PDFLASTOBJ.index - 1));
+                int.state.registers_prim.set(PDFLASTOBJ.index - 1,num+1,true);
                 Ok(())
             }
             Some(s) if s == "useobjnum" => {
@@ -422,8 +422,8 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
         let resource = read_resource_spec(int)?;
         let ind = int.read_number()? as u16;
         let bx = int.state.boxes.take(ind);
-        let lastform = int.state.registers.get(&-(PDFLASTXFORM.index as i32));
-        int.state.registers.set(-(PDFLASTXFORM.index as i32),lastform + 1,true);
+        let lastform = int.state.registers_prim.get(&(PDFLASTXFORM.index - 1));
+        int.state.registers_prim.set(PDFLASTXFORM.index - 1,lastform + 1,true);
         int.state.pdfxforms.push(PDFXForm {
             attr,
             resource,

@@ -236,7 +236,7 @@ pub trait Stomach : Send {
 
     fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
         self.flush()?;
-        state.registers.set(-(PREVGRAF.index as i32),0,true);
+        state.registers_prim.set((PREVGRAF.index - 1),0,true);
         let mut p = self.end_paragraph_loop()?;
         let hangindent = state.hangindent.get();
         let hangafter = state.hangafter.get();
@@ -895,7 +895,7 @@ impl Stomach for NoShipoutRoutine {
     fn on_begin_document_inner(&mut self, state: &mut State) {
         self.floatlist = self.get_float_list(state);
         let maxval= i32::MAX;
-        state.dimensions.set(-(registers::VSIZE.index as i32),(maxval / 3) * 2,true);
+        state.dimensions_prim.set((registers::VSIZE.index - 1),(maxval / 3) * 2,true);
     }
 }
 

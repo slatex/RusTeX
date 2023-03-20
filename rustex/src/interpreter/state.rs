@@ -77,11 +77,18 @@ pub struct State {
     pub tp: store::LinkedValue<GroupType>,
     pub catcodes:store::LinkedCatScheme,
     pub commands: store::StateStore<TeXStr,Option<TeXCommand>,store::RusTeXMap<TeXStr,Option<TeXCommand>>>,
-    pub registers: store::StateStore<i32,i32,PrimStore<i32,79>>,
-    pub dimensions: store::StateStore<i32,i32,PrimStore<i32,34>>,
-    pub skips: store::StateStore<i32,Skip,PrimStore<Skip,18>>,
-    pub muskips: store::StateStore<i32,MuSkip,PrimStore<MuSkip,4>>,
-    pub toks: store::StateStore<i32,Vec<Token>,PrimStore<Vec<Token>,12>>,
+
+    pub registers_prim: store::StateStore<usize,i32,[i32;78]>,
+    pub registers: store::StateStore<u16,i32,Vec<i32>>,
+    pub dimensions_prim: store::StateStore<usize,i32,[i32;33]>,
+    pub dimensions: store::StateStore<u16,i32,Vec<i32>>,
+    pub skips_prim: store::StateStore<usize,Skip,[Skip;17]>,
+    pub skips: store::StateStore<u16,Skip,Vec<Skip>>,
+    pub muskips_prim: store::StateStore<usize,MuSkip,[MuSkip;3]>,
+    pub muskips: store::StateStore<u16,MuSkip,Vec<MuSkip>>,
+    pub toks_prim: store::StateStore<usize,Vec<Token>,[Vec<Token>;11]>,
+    pub toks: store::StateStore<u16,Vec<Token>,Vec<Vec<Token>>>,
+
     pub boxes: store::StateStore<u16,TeXBox,Vec<TeXBox>>,
     pub sfcodes : store::StateStore<u8,i32,[i32;256]>,
     pub lccodes : store::StateStore<u8,u8,[u8;256]>,
@@ -131,10 +138,15 @@ macro_rules! pass_on {
     ($s:tt,$e:ident$(,$tl:expr)*) => {
         $s.catcodes.$e($(,$tl)*);
         $s.commands.$e($(,$tl)*);
+        $s.registers_prim.$e($(,$tl)*);
         $s.registers.$e($(,$tl)*);
+        $s.dimensions_prim.$e($(,$tl)*);
         $s.dimensions.$e($(,$tl)*);
+        $s.skips_prim.$e($(,$tl)*);
         $s.skips.$e($(,$tl)*);
+        $s.muskips_prim.$e($(,$tl)*);
         $s.muskips.$e($(,$tl)*);
+        $s.toks_prim.$e($(,$tl)*);
         $s.toks.$e($(,$tl)*);
         $s.sfcodes.$e($(,$tl)*);
         $s.lccodes.$e($(,$tl)*);
@@ -223,6 +235,11 @@ impl State {
             tp:Default::default(),
             catcodes: store::LinkedCatScheme::default(),
             commands: Default::default(),
+            registers_prim: Default::default(),
+            dimensions_prim: Default::default(),
+            skips_prim: Default::default(),
+            muskips_prim: Default::default(),
+            toks_prim: Default::default(),
             registers: Default::default(),
             dimensions: Default::default(),
             skips: Default::default(),
@@ -260,9 +277,9 @@ impl State {
             let c = c.as_command();
             state.commands.set_locally(unsafe {c.name().unwrap_unchecked()},Some(c))
         }
-        state.registers.set_locally(-(crate::commands::registers::MAG.index as i32),1000);
-        state.registers.set_locally(-(crate::commands::registers::FAM.index as i32),-1);
-        state.dimensions.set_locally(-(crate::commands::registers::PDFPXDIMEN.index as i32),65536);
+        state.registers_prim.set_locally((crate::commands::registers::MAG.index -1) as usize,1000);
+        state.registers_prim.set_locally((crate::commands::registers::FAM.index -1) as usize,-1);
+        state.dimensions_prim.set_locally((crate::commands::registers::PDFPXDIMEN.index - 1) as usize,65536);
         for i in 0..=255 {
             state.uccodes.set_locally(i,i);
             state.lccodes.set_locally(i,i);

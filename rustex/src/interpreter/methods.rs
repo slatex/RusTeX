@@ -17,8 +17,8 @@ impl Interpreter<'_> {
     // General -------------------------------------------------------------------------------------
 
     pub fn insert_every(&mut self,tr:&TokReference) {
-        let i = -(tr.index as i32);
-        let insert = self.state.toks.get(&i);
+        let i = tr.index - 1;
+        let insert = self.state.toks_prim.get(&i);
         self.push_tokens(insert)
     }
 
@@ -560,7 +560,7 @@ impl Interpreter<'_> {
             Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get().get_dimen(5) as f64 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get().get_dimen(6) as f64 * f,istrue))),
             Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
-                self.state.dimensions.get(&-(crate::commands::registers::PDFPXDIMEN.index as i32)) as f64 * f,
+                self.state.dimensions_prim.get(&(crate::commands::registers::PDFPXDIMEN.index - 1)) as f64 * f,
                 istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
@@ -577,7 +577,7 @@ impl Interpreter<'_> {
     fn make_true(&self,f : f64,istrue:bool) -> i32 {
         use crate::commands::registers::MAG;
         if istrue {
-            let mag = (self.state.registers.get(&-(MAG.index as i32)) as f64) / 1000.0;
+            let mag = (self.state.registers_prim.get(&(MAG.index - 1)) as f64) / 1000.0;
             round_f(f * mag)
         } else { round_f(f) }
     }
