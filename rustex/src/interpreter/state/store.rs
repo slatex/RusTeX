@@ -18,20 +18,24 @@ pub trait RegisterLike<K,V:Default> {
 #[derive(Clone)]
 pub struct StateStore<K:Eq+Hash+Clone,V:Default+PartialEq+Clone,R:RegisterLike<K,V>> {
     store:R,
-    diffs:Vec<RusTeXMap<K,V>>
+    diffs:Vec<Option<RusTeXMap<K,V>>>
 }
 impl<K:Eq+Hash+Clone,V:Default+PartialEq+Clone,R:RegisterLike<K,V>> StateStore<K,V,R> {
     pub fn new() -> Self {
         StateStore {store: R::new(), diffs:vec!()}
     }
-    pub fn push(&mut self) {self.diffs.push(RusTeXMap::default())}
+    pub fn push(&mut self) {self.diffs.push(None)}
     fn insert_opt(&mut self,k:K,v:V) -> Option<V> {
         if v == V::default() {self.store.remove(&k)}
         else {self.store.insert(k,v)}
     }
-    pub fn pop(&mut self) {
-        for (k,v) in unsafe{self.diffs.pop().unwrap_unchecked()} {
-            self.insert_opt(k,v);
+    pub fn pop(&mut self) { // RusTeXMap::default()
+        match unsafe{self.diffs.pop().unwrap_unchecked()} {
+            Some(m) =>
+                for (k,v) in m {
+                    self.insert_opt(k,v);
+                },
+            _ => ()
         }
     }
     pub fn destroy(self) -> R {self.store}
@@ -47,18 +51,27 @@ impl<K:Eq+Hash+Clone,V:Default+PartialEq+Clone,R:RegisterLike<K,V>> StateStore<K
     }
     pub fn set_locally(&mut self,k:K,v:V) {
         match self.diffs.last() {
-            Some(old) if !old.contains_key(&k) => {
+            Some(Some(old)) if !old.contains_key(&k) => {
                 let nold = self.insert_opt(k.clone(),v);
-                unsafe{self.diffs.last_mut().unwrap_unchecked()}.insert(k,match nold {
+                unsafe{self.diffs.last_mut().unwrap_unchecked().as_mut().unwrap_unchecked()}.insert(k,match nold {
                     None => V::default(),
                     Some(v) => v
                 });
+            }
+            Some(None) => {
+                let nold = self.insert_opt(k.clone(),v);
+                let mut n : RusTeXMap<K,V> = RusTeXMap::default();
+                n.insert(k,match nold {
+                    None => V::default(),
+                    Some(v) => v
+                });
+                *unsafe{self.diffs.last_mut().unwrap_unchecked()} = Some(n);
             }
             _ => {self.insert_opt(k,v);}
         }
     }
     pub fn set_globally(&mut self,k:K,v:V) {
-        for cc in self.diffs.iter_mut() { cc.remove(&k); }
+        for cc in self.diffs.iter_mut() { cc.as_mut().map(|m| m.remove(&k)); }
         self.insert_opt(k,v);
     }
     pub fn take(&mut self,k:K) -> V {
