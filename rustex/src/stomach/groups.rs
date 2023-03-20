@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::fonts::Font;
+use crate::fonts::{ArcFont, Font};
 use crate::{htmlannotate, htmlnode, htmlparent};
 use crate::interpreter::state::GroupType;
 use crate::references::SourceFileReference;
@@ -124,7 +124,7 @@ impl WIGroupTrait for WIGroup {
 
 #[derive(Clone)]
 pub struct FontChange {
-    pub font:Arc<Font>,
+    pub font:ArcFont,
     pub closes_with_group:bool,
     pub children:Vec<Whatsit>,
     pub sourceref:Option<SourceFileReference>

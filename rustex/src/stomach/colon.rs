@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
-use crate::fonts::Font;
+use crate::fonts::{ArcFont, Font};
 use crate::Interpreter;
 use crate::stomach::{StomachMessage, Whatsit};
 use crate::stomach::whatsits::WhatsitTrait;
@@ -10,7 +10,7 @@ use crate::utils::TeXStr;
 pub enum ColonMode { V,H,P,M,External(TeXStr) }
 
 pub struct ColonBase {
-    pub basefont:Option<Arc<Font>>,
+    pub basefont:Option<ArcFont>,
     pub basecolor:Option<TeXStr>,
     pub receiver:Option<Receiver<StomachMessage>>
 }
@@ -35,7 +35,7 @@ pub trait Colon<A> : Send {
         wi.normalize(&ColonMode::V,&mut top,None);
         top
     }
-    fn initialize(&mut self,basefont:Arc<Font>,basecolor:TeXStr,_:&Interpreter) {
+    fn initialize(&mut self,basefont:ArcFont,basecolor:TeXStr,_:&Interpreter) {
         let base = self.base_mut();
         base.basefont = Some(basefont);
         base.basecolor = Some(basecolor)

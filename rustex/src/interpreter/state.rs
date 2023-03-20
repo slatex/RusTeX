@@ -1,13 +1,16 @@
+pub mod store;
+
 use ahash::RandomState;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::path::Path;
 use std::sync::Arc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
-use crate::fonts::{Font, FontFile, NULL_FONT};
+use crate::fonts::{ArcFont, Font, FontFile, NULL_FONT};
 use crate::interpreter::dimensions::{MuSkip, Skip};
 use crate::interpreter::mouth::StringMouth;
 use crate::interpreter::TeXMode;
@@ -23,6 +26,7 @@ use crate::commands::rustex_specials::rustex_special_commands;
 use crate::utils::{PWD, TeXError, TeXStr};
 use crate::interpreter::files::VFile;
 use crate::interpreter::params::{InterpreterParams, NoOutput};
+use crate::interpreter::state::store::PrimStore;
 use crate::stomach::colon::NoColon;
 
 pub type RusTeXMap<A,B> = HashMap<A,B,RandomState>;
@@ -107,7 +111,7 @@ impl HasDefault for TeXBox {
         TeXBox::Void
     }
 }
-impl HasDefault for Arc<Font> {
+impl HasDefault for ArcFont {
     fn default() -> Self {
         unsafe{NULL_FONT.try_with(|x| x.clone()).unwrap_unchecked()}
     }
@@ -414,31 +418,32 @@ impl CommandStore {
     }
 }
 
+
 #[derive(Clone)]
 pub struct State {
     pub tp: LinkedStateValue<(),GroupType,Var<GroupType>>,
     pub catcodes:LinkedCatScheme,
-    pub commands: CommandStore,
-    pub registers: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
-    pub dimensions: LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
-    pub skips: LinkedStateValue<i32,Skip,RusTeXMap<i32,Skip>>,
-    pub muskips: LinkedStateValue<i32,MuSkip,RusTeXMap<i32,MuSkip>>,
-    pub toks: LinkedStateValue<i32,Vec<Token>,RusTeXMap<i32,Vec<Token>>>,
-    pub sfcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub lccodes : LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
-    pub uccodes : LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
-    pub mathcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub delcodes : LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub boxes: LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>>,
+    pub commands: store::StateStore<TeXStr,Option<TeXCommand>,store::RusTeXMap<TeXStr,Option<TeXCommand>>>,//CommandStore,
+    pub registers: store::StateStore<i32,i32,PrimStore<i32,79>>,//LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
+    pub dimensions: store::StateStore<i32,i32,PrimStore<i32,34>>,
+    pub skips: store::StateStore<i32,Skip,PrimStore<Skip,18>>,
+    pub muskips: store::StateStore<i32,MuSkip,PrimStore<MuSkip,4>>,
+    pub toks: store::StateStore<i32,Vec<Token>,PrimStore<Vec<Token>,12>>,//LinkedStateValue<i32,Vec<Token>,RusTeXMap<i32,Vec<Token>>>,
+    pub boxes: store::StateStore<u16,TeXBox,Vec<TeXBox>>,//LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>>,
+    pub sfcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
+    pub lccodes : store::StateStore<u8,u8,[u8;256]>,//LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
+    pub uccodes : store::StateStore<u8,u8,[u8;256]>,//LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
+    pub mathcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
+    pub delcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
     pub parshape : LinkedStateValue<(),Vec<(i32,i32)>,Var<Vec<(i32,i32)>>>,
     pub hangindent : LinkedStateValue<(),i32,Var<i32>>,
     pub hangafter : LinkedStateValue<(),usize,Var<usize>>,
-    pub(crate) currfont : LinkedStateValue<(),Arc<Font>,Var<Arc<Font>>>,
+    pub(crate) textfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,//LinkedStateValue<usize,Arc<Font>,[Option<Arc<Font>>;16]>,
+    pub(crate) scriptfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,
+    pub(crate) scriptscriptfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,
+    pub(crate) currfont : LinkedStateValue<(),ArcFont,Var<ArcFont>>,
     pub(crate) aftergroups : LinkedStateValue<(),Vec<Token>,Var<Vec<Token>>>,
     pub(crate) fontstyle : LinkedStateValue<(),FontStyle,Var<FontStyle>>,
-    pub(crate) textfonts: LinkedStateValue<usize,Arc<Font>,[Option<Arc<Font>>;16]>,
-    pub(crate) scriptfonts: LinkedStateValue<usize,Arc<Font>,[Option<Arc<Font>>;16]>,
-    pub(crate) scriptscriptfonts: LinkedStateValue<usize,Arc<Font>,[Option<Arc<Font>>;16]>,
     pub(crate) displaymode: LinkedStateValue<(),bool,Var<bool>>,
 
     // DIRECT ------------------------------------------
@@ -606,9 +611,9 @@ impl State {
             let c = c.as_command();
             state.commands.set_locally(unsafe {c.name().unwrap_unchecked()},Some(c))
         }
-        state.registers.set_locally(-(crate::commands::primitives::MAG.index as i32),1000);
-        state.registers.set_locally(-(crate::commands::primitives::FAM.index as i32),-1);
-        state.dimensions.set_locally(-(crate::commands::pdftex::PDFPXDIMEN.index as i32),65536);
+        state.registers.set_locally(-(crate::commands::registers::MAG.index as i32),1000);
+        state.registers.set_locally(-(crate::commands::registers::FAM.index as i32),-1);
+        state.dimensions.set_locally(-(crate::commands::registers::PDFPXDIMEN.index as i32),65536);
         for i in 0..=255 {
             state.uccodes.set_locally(i,i);
             state.lccodes.set_locally(i,i);

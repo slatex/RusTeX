@@ -3,6 +3,7 @@ pub mod pdftex;
 pub mod conditionals;
 pub mod pgfsvg; pub mod rustex_specials;
 pub mod latex_bindings;
+pub(crate) mod registers;
 
 use crate::ontology::{Expansion, ExpansionRef, Token};
 use crate::interpreter::{Interpreter, TeXMode};
@@ -54,12 +55,12 @@ impl PartialEq for NumAssValue {
     }
 }
 
-use crate::fonts::Font;
+use crate::fonts::{ArcFont, Font};
 
 pub struct FontAssValue {
     pub name: &'static str,
     pub _assign: fn(rf:ExpansionRef,int: &mut Interpreter,global: bool) -> Result<(),TeXError>,
-    pub _getvalue: fn(int: &mut Interpreter) -> Result<Arc<Font>,TeXError>
+    pub _getvalue: fn(int: &mut Interpreter) -> Result<ArcFont,TeXError>
 }
 impl PartialEq for FontAssValue {
     fn eq(&self, other: &Self) -> bool {
@@ -219,7 +220,7 @@ pub enum AssignableValue {
     Int(&'static NumAssValue),
     Font(&'static FontAssValue),
     Tok(&'static TokAssValue),
-    FontRef(Arc<Font>),
+    FontRef(ArcFont),
     PrimReg(&'static RegisterReference),
     PrimDim(&'static DimenReference),
     PrimSkip(&'static SkipReference),
@@ -808,7 +809,7 @@ impl PrimitiveTeXCommand {
         Ok(exp)
     }
     pub fn assign(&self,tk:Token,int:&mut Interpreter,globally:bool,cmd:Arc<TeXCommand>) -> Result<(),TeXError> {
-        use crate::commands::primitives::GLOBALDEFS;
+        use crate::commands::registers::GLOBALDEFS;
         use PrimitiveTeXCommand::*;
 
         let globals = int.state.registers.get(&-(GLOBALDEFS.index as i32));

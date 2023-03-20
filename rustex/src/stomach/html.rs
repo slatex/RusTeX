@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 use itertools::Itertools;
-use crate::fonts::{Font, NULL_FONT};
+use crate::fonts::{ArcFont, Font, NULL_FONT};
 use crate::fonts::fontchars::FontTableParam;
 use crate::Interpreter;
 use crate::interpreter::dimensions::{numtostr, Skip};
@@ -230,16 +230,16 @@ impl Colon<String> for HTMLColon {
             self.ret += &n.make_string("  ".into(),&HTML_NS,&fi).to_string()
         }
     } //}
-    fn initialize(&mut self, basefont: Arc<Font>, basecolor: TeXStr, int: &Interpreter) {
+    fn initialize(&mut self, basefont: ArcFont, basecolor: TeXStr, int: &Interpreter) {
         if self.doheader {
-            self.state.currsize =  int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32));
+            self.state.currsize =  int.state.dimensions.get(&-(crate::commands::registers::HSIZE.index as i32));
             self.state.currcolor = match &basecolor {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
             };
-            self.pagewidth = int.state.dimensions.get(&-(crate::commands::pdftex::PDFPAGEWIDTH.index as i32));
-            self.textwidth = int.state.dimensions.get(&-(crate::commands::primitives::HSIZE.index as i32));
-            self.lineheight = int.state.skips.get(&-(crate::commands::primitives::BASELINESKIP.index as i32));
+            self.pagewidth = int.state.dimensions.get(&-(crate::commands::registers::PDFPAGEWIDTH.index as i32));
+            self.textwidth = int.state.dimensions.get(&-(crate::commands::registers::HSIZE.index as i32));
+            self.lineheight = int.state.skips.get(&-(crate::commands::registers::BASELINESKIP.index as i32));
 
             let base = self.base_mut();
             base.basefont = Some(basefont);

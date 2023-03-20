@@ -321,11 +321,11 @@ impl Interpreter<'_> {
         self.state.push(self.stomach,GroupType::Box(bm));
         self.state.mode = match bm {
             BoxMode::H => {
-                if insertevery { self.insert_every(&crate::commands::primitives::EVERYHBOX) };
+                if insertevery { self.insert_every(&crate::commands::registers::EVERYHBOX) };
                 TeXMode::RestrictedHorizontal
             },
             BoxMode::V => {
-                if insertevery { self.insert_every(&crate::commands::primitives::EVERYVBOX) };
+                if insertevery { self.insert_every(&crate::commands::registers::EVERYVBOX) };
                 TeXMode::InternalVertical
             },
             BoxMode::M => TeXMode::Math,
@@ -560,7 +560,7 @@ impl Interpreter<'_> {
             Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(5) as f64 * f,istrue))),
             Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(6) as f64 * f,istrue))),
             Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
-                self.state.dimensions.get(&-(crate::commands::pdftex::PDFPXDIMEN.index as i32)) as f64 * f,
+                self.state.dimensions.get(&-(crate::commands::registers::PDFPXDIMEN.index as i32)) as f64 * f,
                 istrue))),
             Some(s) if s == "fil" => Ok(SkipDim::Fil(self.make_true(pt(f),istrue))),
             Some(s) if s == "fill" => Ok(SkipDim::Fill(self.make_true(pt(f),istrue))),
@@ -575,7 +575,7 @@ impl Interpreter<'_> {
     }
 
     fn make_true(&self,f : f64,istrue:bool) -> i32 {
-        use crate::commands::primitives::MAG;
+        use crate::commands::registers::MAG;
         if istrue {
             let mag = (self.state.registers.get(&-(MAG.index as i32)) as f64) / 1000.0;
             round_f(f * mag)

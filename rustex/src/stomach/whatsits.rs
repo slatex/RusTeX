@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
-use crate::fonts::Font;
+use crate::fonts::{ArcFont, Font};
 use crate::references::SourceFileReference;
 use crate::{htmlliteral};
 use crate::interpreter::params::InterpreterParams;
@@ -235,7 +235,7 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
 #[derive(Clone)]
 pub struct SpaceChar {
     pub sourceref:Option<SourceFileReference>,
-    pub font : Arc<Font>,
+    pub font : ArcFont,
     pub nonbreaking: bool
 }
 impl WhatsitTrait for SpaceChar {
@@ -259,7 +259,7 @@ impl WhatsitTrait for SpaceChar {
 #[derive(Clone)]
 pub struct Accent {
     pub sourceref:Option<SourceFileReference>,
-    pub font : Arc<Font>,
+    pub font : ArcFont,
     pub char:PrintChar,
     pub acc:i32
 }
@@ -322,7 +322,7 @@ lazy_static! {
 #[derive(Clone)]
 pub struct PrintChar {
     pub char : u8,
-    pub font : Arc<Font>,
+    pub font : ArcFont,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PrintChar {

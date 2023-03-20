@@ -71,7 +71,7 @@ mod tests {
     use crate::Interpreter;
     use std::path::Path;
     use std::io::Write;
-    use std::time::Instant;
+    use std::{thread, time};
 
     #[test]
     fn it_works() {
@@ -84,6 +84,7 @@ mod tests {
         crate::utils::with_stack_size(csstest_i)
     }
     fn csstest_i() {
+        thread::sleep(time::Duration::from_millis(50));
         let pathstr = "/home/jazzpirate/work/Software/sTeX/RusTeX/rustex/";
         let infile = pathstr.to_string() + "test.tex";
         let path = Path::new(&infile);

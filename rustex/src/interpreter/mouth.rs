@@ -792,7 +792,7 @@ impl Interpreter<'_> {
     }
     pub(in crate::interpreter::mouth) fn doeof(&mut self) {
         self.push_tokens(vec!(self.eof_token()));
-        self.insert_every(&crate::commands::primitives::EVERYEOF)
+        self.insert_every(&crate::commands::registers::EVERYEOF)
     }
 
     pub fn eof_token(&self) -> Token {

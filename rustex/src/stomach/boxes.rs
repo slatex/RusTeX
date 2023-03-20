@@ -16,6 +16,17 @@ pub enum BoxMode { H,V,M,DM,Void }
 pub enum TeXBox {
     Void,H(HBox),V(VBox)
 }
+impl Default for TeXBox {
+    fn default() -> Self {TeXBox::Void}
+}
+impl PartialEq for TeXBox {
+    fn eq(&self, other: &Self) -> bool {
+        match (self,other) {
+            (TeXBox::Void,TeXBox::Void) => true,
+            _ => false
+        }
+    }
+}
 
 impl TeXBox {
     /*fn pass_on<A>(&self, f: Box<dyn FnOnce(&dyn WhatsitTrait) -> A>, void: A) -> A {

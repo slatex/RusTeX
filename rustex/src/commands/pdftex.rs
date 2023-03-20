@@ -420,8 +420,8 @@ pub static PDFXFORM: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|tk,int| {
         let attr = read_attrspec(int)?;
         let resource = read_resource_spec(int)?;
-        let ind = int.read_number()?;
-        let bx = int.state.boxes.take(ind as i32);
+        let ind = int.read_number()? as u16;
+        let bx = int.state.boxes.take(ind);
         let lastform = int.state.registers.get(&-(PDFLASTXFORM.index as i32));
         int.state.registers.set(-(PDFLASTXFORM.index as i32),lastform + 1,true);
         int.state.pdfxforms.push(PDFXForm {
@@ -802,136 +802,6 @@ pub static PDFUNESCAPEHEX: PrimitiveExecutable = PrimitiveExecutable {
 
 // -------------------------------------------------------------------------------------------------
 
-pub static PDFOUTPUT : RegisterReference = RegisterReference {
-    name: "pdfoutput",
-    index:35
-};
-
-pub static PDFMINORVERSION : RegisterReference = RegisterReference {
-    name: "pdfminorversion",
-    index:36
-};
-
-pub static PDFOBJCOMPRESSLEVEL : RegisterReference = RegisterReference {
-    name: "pdfobjcompresslevel",
-    index:37
-};
-
-pub static PDFCOMPRESSLEVEL : RegisterReference = RegisterReference {
-    name: "pdfcompresslevel",
-    index:38
-};
-
-pub static PDFDECIMALDIGITS : RegisterReference = RegisterReference {
-    name: "pdfdecimaldigits",
-    index:39
-};
-
-pub static PDFPKRESOLUTION : RegisterReference = RegisterReference {
-    name: "pdfpkresolution",
-    index:40
-};
-
-// -----------------
-
-pub static PDFLASTOBJ : RegisterReference = RegisterReference {
-    name: "pdflastobj",
-    index:43
-};
-
-pub static PDFLASTXFORM : RegisterReference = RegisterReference {
-    name: "pdflastxform",
-    index:44
-};
-
-// ----
-
-pub static PDFLASTANNOT : RegisterReference = RegisterReference {
-    name: "pdflastannot",
-    index:48
-};
-
-pub static PDFLASTLINK : RegisterReference = RegisterReference {
-    name: "pdflastlink",
-    index:49
-};
-
-pub static PDFSUPPRESSWARNINGDUPDEST : RegisterReference = RegisterReference {
-    name: "pdfsuppresswarningdupdest",
-    index:50
-};
-
-pub static PDFPROTRUDECHARS : RegisterReference = RegisterReference {
-    name: "pdfprotrudechars",
-    index:51
-};
-
-pub static PDFADJUSTSPACING : RegisterReference = RegisterReference {
-    name: "pdfadjustspacing",
-    index:52
-};
-
-// ------------------
-
-// -------------
-
-
-pub static PDFDRAFTMODE : RegisterReference = RegisterReference {
-    name: "pdfdraftmode",
-    index:73
-};
-
-pub static PDFGENTOUNICODE : RegisterReference = RegisterReference {
-    name: "pdfgentounicode",
-    index:74
-};
-
-// -------------------------------------------------------------------------------------------------
-
-pub static PDFLINKMARGIN : DimenReference = DimenReference {
-    name: "pdflinkmargin",
-    index:23
-};
-
-pub static PDFDESTMARGIN : DimenReference = DimenReference {
-    name: "pdfdestmargin",
-    index:24
-};
-
-// ------------
-
-pub static PDFPXDIMEN : DimenReference = DimenReference {
-    name: "pdfpxdimen",
-    index:68
-};
-
-
-pub static PDFPAGEHEIGHT : DimenReference = DimenReference {
-    name: "pdfpageheight",
-    index:17
-};
-
-pub static PDFPAGEWIDTH : DimenReference = DimenReference {
-    name: "pdfpagewidth",
-    index:18
-};
-
-pub static PDFHORIGIN : DimenReference = DimenReference {
-    name: "pdfhorigin",
-    index:19
-};
-
-pub static PDFVORIGIN : DimenReference = DimenReference {
-    name: "pdfvorigin",
-    index:20
-};
-
-// -------------------------------------------------------------------------------------------------
-
-pub static PDFPAGERESOURCES: TokReference = TokReference {
-    name:"pdfpageresources",
-    index:15
-};
 
 
 // TODO --------------------------------------------------------------------------------------------
@@ -1073,6 +943,8 @@ pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
  */
 
 // -------------------------------------------------------------------------------------------------
+
+use crate::commands::registers::{PDFADJUSTSPACING, PDFCOMPRESSLEVEL, PDFDECIMALDIGITS, PDFDESTMARGIN, PDFDRAFTMODE, PDFGENTOUNICODE, PDFHORIGIN, PDFLASTANNOT, PDFLASTLINK, PDFLASTOBJ, PDFLASTXFORM, PDFLINKMARGIN, PDFMINORVERSION, PDFOBJCOMPRESSLEVEL, PDFOUTPUT, PDFPAGEHEIGHT, PDFPAGERESOURCES, PDFPAGEWIDTH, PDFPKRESOLUTION, PDFPROTRUDECHARS, PDFPXDIMEN, PDFSUPPRESSWARNINGDUPDEST, PDFVORIGIN};
 
 pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Num(&PDFTEXVERSION),

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit};
+use crate::commands::{RegisterReference, AssignableValue, NumAssValue, DefMacro, NumericCommand, ParamToken, PrimitiveAssignment, PrimitiveExecutable, ProvidesExecutableWhatsit, ProvidesWhatsit, Signature, TokenList, DimenReference, SkipReference, TokReference, PrimitiveTeXCommand, FontAssValue, ProvidesBox, TokAssValue, MathWhatsit, MuSkipReference, SimpleWhatsit, registers};
 use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::{Token, ExpansionRef};
 use crate::catcodes::CategoryCode;
@@ -80,7 +80,7 @@ pub static SFCODE : NumAssValue = NumAssValue {
 };
 
 use chrono::{Datelike, Timelike};
-use crate::fonts::{Font, NULL_FONT};
+use crate::fonts::{ArcFont, Font, NULL_FONT};
 
 pub static CHARDEF: PrimitiveAssignment = PrimitiveAssignment {
     name: "chardef",
@@ -1524,7 +1524,7 @@ pub static SCRIPTSCRIPTFONT: FontAssValue = FontAssValue {
 };
 
 
-pub fn read_font<'a>(int : &mut Interpreter) -> Result<Arc<Font>,TeXError> {
+pub fn read_font<'a>(int : &mut Interpreter) -> Result<ArcFont,TeXError> {
     int.expand_until(true)?;
     let tk = int.read_command_token()?;
     let cmd = int.get_command(&tk.cmdname())?;
@@ -1695,7 +1695,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
         int.read_eq();
         int.state.insetbox = true;
         let wi = int.read_box()?;
-        int.state.boxes.set(index as i32,wi,global);
+        int.state.boxes.set(index as u16,wi,global);
         Ok(())
     }
 };
@@ -1753,7 +1753,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
         let bx = (VBOX._get)(tk,int)?;
         match bx {
             TeXBox::V(mut vb) => {
-                let lineheight = int.state.skips.get(&-(LINESKIP.index as i32)).base;
+                let lineheight = int.state.skips.get(&-(registers::LINESKIP.index as i32)).base;
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }
@@ -1779,7 +1779,7 @@ pub static VCENTER: ProvidesBox = ProvidesBox {
 pub static VSPLIT: ProvidesBox = ProvidesBox {
     name:"vsplit",
     _get:|_,int| {
-        let boxnum = int.read_number()?;
+        let boxnum = int.read_number()? as u16;
         match int.read_keyword(vec!("to"))? {
             Some(_) => (),
             None => TeXErr!("Expected \"to\" after \\vsplit")
@@ -1847,7 +1847,7 @@ pub static COPY: ProvidesBox = ProvidesBox {
     name:"copy",
     _get: |_tk,int| {
         let ind = int.read_number()?;
-        Ok(int.state.boxes.get(&(ind as i32)))
+        Ok(int.state.boxes.get(&(ind as u16)))
     }
 };
 
@@ -1855,7 +1855,7 @@ pub static BOX: ProvidesBox = ProvidesBox {
     name:"box",
     _get: |_tk,int| {
         let ind = int.read_number()?;
-        Ok(int.state.boxes.take(ind as i32))
+        Ok(int.state.boxes.take(ind as u16))
     }
 };
 
@@ -2241,7 +2241,7 @@ pub static UNVBOX: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state.boxes.take(ind as i32);
+        let bx = int.state.boxes.take(ind as u16);
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
@@ -2255,7 +2255,7 @@ pub static UNVCOPY: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Vertical || m == TeXMode::InternalVertical },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state.boxes.get(&(ind as i32));
+        let bx = int.state.boxes.get(&(ind as u16));
         match bx {
             TeXBox::V(v) => Ok(Whatsit::Ls(v.children)),
             TeXBox::Void => Ok(Whatsit::Ls(vec!())),
@@ -2269,7 +2269,7 @@ pub static UNHBOX: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state.boxes.take(ind as i32);
+        let bx = int.state.boxes.take(ind as u16);
         let mode = int.state.mode;
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
@@ -2284,7 +2284,7 @@ pub static UNHCOPY: SimpleWhatsit = SimpleWhatsit {
     modes:|m| { m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath },
     _get: |_,int| {
         let ind = int.read_number()?;
-        let bx = int.state.boxes.get(&(ind as i32));
+        let bx = int.state.boxes.get(&(ind as u16));
         let mode = int.state.mode;
         match (bx,mode) {
             (TeXBox::H(h),TeXMode::Horizontal | TeXMode::RestrictedHorizontal) => Ok(Whatsit::Ls(h.children)),
@@ -2404,7 +2404,7 @@ pub static GLUESTRETCHORDER: NumericCommand = NumericCommand {
 pub static WD: NumAssValue = NumAssValue {
     name:"wd",
     _assign: |_,int,global| {
-        let index = int.read_number()? as i32;
+        let index = int.read_number()? as u16;
         int.read_eq();
         let dim = int.read_dimension()?;
         let mut bx = int.state.boxes.get(&index);
@@ -2417,15 +2417,15 @@ pub static WD: NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.width()).unwrap_or(0)))
+        let index = int.read_number()? as u16;
+        Ok(Numeric::Dim(int.state.boxes.get(&index).width()))
     }
 };
 
 pub static HT: NumAssValue = NumAssValue {
     name:"ht",
     _assign: |_,int,global| {
-        let index = int.read_number()? as i32;
+        let index = int.read_number()? as u16;
         int.read_eq();
         let dim = int.read_dimension()?;
         let mut bx = int.state.boxes.get(&index);
@@ -2438,15 +2438,15 @@ pub static HT: NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.height()).unwrap_or(0)))
+        let index = int.read_number()? as u16;
+        Ok(Numeric::Dim(int.state.boxes.get(&index).height()))
     }
 };
 
 pub static DP: NumAssValue = NumAssValue {
     name:"dp",
     _assign: |_,int,global| {
-        let index = int.read_number()? as i32;
+        let index = int.read_number()? as u16;
         int.read_eq();
         let dim = int.read_dimension()?;
         let mut bx = int.state.boxes.get(&index);
@@ -2459,8 +2459,8 @@ pub static DP: NumAssValue = NumAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        let index = int.read_number()?;
-        Ok(Numeric::Dim(int.state.boxes.get_maybe(&(index as i32)).map(|x| x.depth()).unwrap_or(0)))
+        let index = int.read_number()? as u16;
+        Ok(Numeric::Dim(int.state.boxes.get(&index).depth()))
     }
 };
 
@@ -2679,7 +2679,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
 
     int.state.push(int.stomach,GroupType::Box(betweenmode));
 
-    let mut tabskip = int.state.skips.get(&-(TABSKIP.index as i32));
+    let mut tabskip = int.state.skips.get(&-(registers::TABSKIP.index as i32));
     let firsttabskip = tabskip;
 
     let mut in_v = false;
@@ -2705,7 +2705,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             int.insert_every(&EVERYCR);
                             break
                         }
-                        PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(p)) if **p == TABSKIP => {
+                        PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(p)) if **p == registers::TABSKIP => {
                             tabskip = int.read_skip()?;
                             columns.last_mut().unwrap().2 = tabskip;
                         }
@@ -3762,633 +3762,7 @@ pub static MARKS: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
-// REGISTERS ---------------------------------------------------------------------------------------
 
-pub static PRETOLERANCE : RegisterReference = RegisterReference {
-    name: "pretolerance",
-    index:5
-};
-
-pub static TOLERANCE : RegisterReference = RegisterReference {
-    name: "tolerance",
-    index:6
-};
-
-pub static HBADNESS : RegisterReference = RegisterReference {
-    name: "hbadness",
-    index:7
-};
-
-pub static VBADNESS : RegisterReference = RegisterReference {
-    name: "vbadness",
-    index:8
-};
-
-pub static LINEPENALTY : RegisterReference = RegisterReference {
-    name: "linepenalty",
-    index:9
-};
-
-pub static HYPHENPENALTY : RegisterReference = RegisterReference {
-    name: "hyphenpenalty",
-    index:10
-};
-
-pub static EXHYPHENPENALTY : RegisterReference = RegisterReference {
-    name: "exhyphenpenalty",
-    index:11
-};
-
-pub static BINOPPENALTY : RegisterReference = RegisterReference {
-    name: "binoppenalty",
-    index:12
-};
-
-pub static RELPENALTY : RegisterReference = RegisterReference {
-    name: "relpenalty",
-    index:13
-};
-
-pub static CLUBPENALTY : RegisterReference = RegisterReference {
-    name: "clubpenalty",
-    index:14
-};
-
-pub static WIDOWPENALTY : RegisterReference = RegisterReference {
-    name: "widowpenalty",
-    index:15
-};
-
-pub static DISPLAYWIDOWPENALTY : RegisterReference = RegisterReference {
-    name: "displaywidowpenalty",
-    index:16
-};
-
-pub static BROKENPENALTY : RegisterReference = RegisterReference {
-    name: "brokenpenalty",
-    index:17
-};
-
-pub static PREDISPLAYPENALTY : RegisterReference = RegisterReference {
-    name: "predisplaypenalty",
-    index:18
-};
-
-pub static DOUBLEHYPHENDEMERITS : RegisterReference = RegisterReference {
-    name: "doublehyphendemerits",
-    index:19
-};
-
-pub static FINALHYPHENDEMERITS : RegisterReference = RegisterReference {
-    name: "finalhyphendemerits",
-    index:20
-};
-
-pub static ADJDEMERITS : RegisterReference = RegisterReference {
-    name: "adjdemerits",
-    index:21
-};
-
-pub static TRACINGLOSTCHARS : RegisterReference = RegisterReference {
-    name: "tracinglostchars",
-    index:22
-};
-
-pub static UCHYPH : RegisterReference = RegisterReference {
-    name: "uchyph",
-    index:23
-};
-
-pub static DEFAULTHYPHENCHAR : RegisterReference = RegisterReference {
-    name: "defaulthyphenchar",
-    index:24
-};
-
-pub static DEFAULTSKEWCHAR : RegisterReference = RegisterReference {
-    name: "defaultskewchar",
-    index:25
-};
-
-pub static DELIMITERFACTOR : RegisterReference = RegisterReference {
-    name: "delimiterfactor",
-    index:26
-};
-
-pub static SHOWBOXBREADTH : RegisterReference = RegisterReference {
-    name: "showboxbreadth",
-    index:27
-};
-
-pub static SHOWBOXDEPTH : RegisterReference = RegisterReference {
-    name: "showboxdepth",
-    index:28
-};
-
-pub static ERRORCONTEXTLINES : RegisterReference = RegisterReference {
-    name: "errorcontextlines",
-    index:29
-};
-
-pub static MAXDEADCYCLES : RegisterReference = RegisterReference {
-    name: "maxdeadcycles",
-    index:30
-};
-
-pub static TRACINGSTATS : RegisterReference = RegisterReference {
-    name: "tracingstats",
-    index:31
-};
-
-pub static LEFTHYPHENMIN : RegisterReference = RegisterReference {
-    name: "lefthyphenmin",
-    index:32
-};
-
-pub static RIGHTHYPHENMIN : RegisterReference = RegisterReference {
-    name: "righthyphenmin",
-    index:33
-};
-
-pub static SAVINGHYPHCODES : RegisterReference = RegisterReference {
-    name: "savinghyphcodes",
-    index:34
-};
-
-// -----------
-
-pub static FAM : RegisterReference = RegisterReference {
-    name: "fam",
-    index:41
-};
-
-pub static SPACEFACTOR : RegisterReference = RegisterReference {
-    name: "spacefactor",
-    index:42
-};
-
-// -----------
-
-pub static GLOBALDEFS : RegisterReference = RegisterReference {
-    name: "globaldefs",
-    index:45
-};
-
-// -----------
-
-pub static TRACINGNESTING : RegisterReference = RegisterReference {
-    name: "tracingnesting",
-    index:47
-};
-
-// -----------
-
-pub static MAG : RegisterReference = RegisterReference {
-    name: "mag",
-    index:53
-};
-
-pub static LANGUAGE : RegisterReference = RegisterReference {
-    name: "language",
-    index:54
-};
-
-pub static INTERLINEPENALTY : RegisterReference = RegisterReference {
-    name: "interlinepenalty",
-    index:56
-};
-
-pub static FLOATINGPENALTY : RegisterReference = RegisterReference {
-    name: "floatingpenalty",
-    index:57
-};
-
-pub static LASTNODETYPE : RegisterReference = RegisterReference {
-    name: "lastnodetype",
-    index:58
-};
-
-pub static INSERTPENALTIES : RegisterReference = RegisterReference {
-    name: "insertpenalties",
-    index:59
-};
-
-// -----
-
-pub static BADNESS : RegisterReference = RegisterReference {
-    name: "badness",
-    index:61
-};
-
-pub static DEADCYCLES : RegisterReference = RegisterReference {
-    name: "deadcycles",
-    index:62
-};
-
-pub static INTERLINEPENALTIES : RegisterReference = RegisterReference {
-    name: "interlinepenalties",
-    index:63
-};
-
-pub static CLUBPENALTIES : RegisterReference = RegisterReference {
-    name: "clubpenalties",
-    index:64
-};
-
-pub static WIDOWPENALTIES : RegisterReference = RegisterReference {
-    name: "widowpenalties",
-    index:65
-};
-
-pub static DISPLAYWIDOWPENALTIES : RegisterReference = RegisterReference {
-    name: "displaywidowpenalties",
-    index:66
-};
-
-pub static OUTPUTPENALTY : RegisterReference = RegisterReference {
-    name: "outputpenalty",
-    index:67
-};
-
-pub static SAVINGVDISCARDS : RegisterReference = RegisterReference {
-    name: "savingvdiscards",
-    index:68
-};
-
-pub static DISPLAYINDENT : RegisterReference = RegisterReference {
-    name: "displayindent",
-    index:69
-};
-
-pub static SYNCTEX : RegisterReference = RegisterReference {
-    name: "synctex",
-    index:70
-};
-
-pub static POSTDISPLAYPENALTY : RegisterReference = RegisterReference {
-    name: "postdisplaypenalty",
-    index:71
-};
-
-pub static TRACINGSCANTOKENS : RegisterReference = RegisterReference {
-    name: "tracingscantokens",
-    index:72
-};
-
-pub static TRACINGPAGES : RegisterReference = RegisterReference {
-    name: "tracingpages",
-    index:75
-};
-
-pub static TRACINGCOMMANDS : RegisterReference = RegisterReference {
-    name: "tracingcommands",
-    index:76
-};
-
-pub static TRACINGMACROS : RegisterReference = RegisterReference {
-    name: "tracingmacros",
-    index:77
-};
-
-pub static TRACINGONLINE : RegisterReference = RegisterReference {
-    name: "tracingonline",
-    index:78
-};
-
-pub static TRACINGOUTPUT : RegisterReference = RegisterReference {
-    name: "tracingoutput",
-    index:79
-};
-
-pub static TRACINGPARAGRAPHS : RegisterReference = RegisterReference {
-    name: "tracingparagraphs",
-    index:80
-};
-
-pub static TRACINGRESTORES : RegisterReference = RegisterReference {
-    name: "tracingrestores",
-    index:81
-};
-
-pub static TRACINGASSIGNS : RegisterReference = RegisterReference {
-    name: "tracingassigns",
-    index:82
-};
-
-pub static TRACINGGROUPS : RegisterReference = RegisterReference {
-    name: "tracinggroups",
-    index:83
-};
-
-pub static TRACINGIFS : RegisterReference = RegisterReference {
-    name: "tracingifs",
-    index:84
-};
-
-pub static PREVGRAF: RegisterReference = RegisterReference {
-    name: "prevgraf",
-    index:85
-};
-
-
-// Dimensions --------------------------------------------------------------------------------------
-
-pub static HFUZZ : DimenReference = DimenReference {
-    name: "hfuzz",
-    index:5
-};
-
-pub static VFUZZ : DimenReference = DimenReference {
-    name: "vfuzz",
-    index:6
-};
-
-pub static OVERFULLRULE : DimenReference = DimenReference {
-    name: "overfullrule",
-    index:7
-};
-
-pub static MAXDEPTH : DimenReference = DimenReference {
-    name: "maxdepth",
-    index:8
-};
-
-pub static SPLITMAXDEPTH : DimenReference = DimenReference {
-    name: "splitmaxdepth",
-    index:9
-};
-
-pub static BOXMAXDEPTH : DimenReference = DimenReference {
-    name: "boxmaxdepth",
-    index:10
-};
-
-pub static DELIMITERSHORTFALL : DimenReference = DimenReference {
-    name: "delimitershortfall",
-    index:11
-};
-
-pub static NULLDELIMITERSPACE : DimenReference = DimenReference {
-    name: "nulldelimiterspace",
-    index:12
-};
-
-pub static SCRIPTSPACE : DimenReference = DimenReference {
-    name: "scriptspace",
-    index:13
-};
-
-pub static PARINDENT : DimenReference = DimenReference {
-    name: "parindent",
-    index:14
-};
-
-pub static VSIZE : DimenReference = DimenReference {
-    name: "vsize",
-    index:15
-};
-
-pub static HSIZE : DimenReference = DimenReference {
-    name: "hsize",
-    index:16
-};
-
-// -----------------
-
-pub static LINESKIPLIMIT : DimenReference = DimenReference {
-    name: "lineskiplimit",
-    index:21
-};
-
-pub static MATHSURROUND : DimenReference = DimenReference {
-    name: "mathsurround",
-    index:22
-};
-
-// ----------------
-
-pub static PAGETOTAL : DimenReference = DimenReference {
-    name: "pagetotal",
-    index:27
-};
-
-pub static PAGESTRETCH : DimenReference = DimenReference {
-    name: "pagestretch",
-    index:28
-};
-
-pub static PAGEFILSTRETCH : DimenReference = DimenReference {
-    name: "pagefilstretch",
-    index:29
-};
-
-pub static PAGEFILLSTRETCH : DimenReference = DimenReference {
-    name: "pagefillstretch",
-    index:30
-};
-
-pub static PAGEFILLLSTRETCH : DimenReference = DimenReference {
-    name: "pagefilllstretch",
-    index:31
-};
-
-pub static PAGESHRINK : DimenReference = DimenReference {
-    name: "pageshrink",
-    index:32
-};
-
-pub static PAGEDEPTH : DimenReference = DimenReference {
-    name: "pagedepth",
-    index:33
-};
-
-// -------------
-
-pub static EMERGENCYSTRETCH : DimenReference = DimenReference {
-    name: "emergencystretch",
-    index:63
-};
-
-pub static VOFFSET : DimenReference = DimenReference {
-    name: "voffset",
-    index:64
-};
-
-pub static HOFFSET : DimenReference = DimenReference {
-    name: "hoffset",
-    index:65
-};
-
-pub static DISPLAYWIDTH : DimenReference = DimenReference {
-    name: "displaywidth",
-    index:66
-};
-
-pub static PREDISPLAYSIZE : DimenReference = DimenReference {
-    name: "predisplaysize",
-    index:67
-};
-
-// Skips -------------------------------------------------------------------------------------------
-
-pub static PARSKIP : SkipReference = SkipReference {
-    name: "parskip",
-    index:5
-};
-
-pub static ABOVEDISPLAYSKIP : SkipReference = SkipReference {
-    name: "abovedisplayskip",
-    index:6
-};
-
-pub static ABOVEDISPLAYSHORTSKIP : SkipReference = SkipReference {
-    name: "abovedisplayshortskip",
-    index:7
-};
-
-pub static BELOWDISPLAYSKIP : SkipReference = SkipReference {
-    name: "belowdisplayskip",
-    index:8
-};
-
-pub static BELOWDISPLAYSHORTSKIP : SkipReference = SkipReference {
-    name: "belowdisplayshortskip",
-    index:9
-};
-
-pub static TOPSKIP : SkipReference = SkipReference {
-    name: "topskip",
-    index:10
-};
-
-pub static SPLITTOPSKIP : SkipReference = SkipReference {
-    name: "splittopskip",
-    index:11
-};
-
-pub static PARFILLSKIP : SkipReference = SkipReference {
-    name: "parfillskip",
-    index:12
-};
-
-pub static BASELINESKIP : SkipReference = SkipReference {
-    name: "baselineskip",
-    index:13
-};
-
-pub static LINESKIP : SkipReference = SkipReference {
-    name: "lineskip",
-    index:14
-};
-
-pub static PREVDEPTH : SkipReference = SkipReference {
-    name: "prevdepth",
-    index:15
-};
-
-// -----------
-
-pub static LEFTSKIP : SkipReference = SkipReference {
-    name: "leftskip",
-    index:17
-};
-
-pub static RIGHTSKIP : SkipReference = SkipReference {
-    name: "rightskip",
-    index:18
-};
-
-// ----------
-
-pub static TABSKIP : SkipReference = SkipReference {
-    name: "tabskip",
-    index:20
-};
-
-pub static SPACESKIP : SkipReference = SkipReference {
-    name: "spaceskip",
-    index:21
-};
-
-pub static XSPACESKIP : SkipReference = SkipReference {
-    name: "xspaceskip",
-    index:22
-};
-
-pub static BIGSKIPAMOUNT : SkipReference = SkipReference {
-    name: "bigskipamount",
-    index:23
-};
-
-// -------------------------
-
-pub static THINMUSKIP : MuSkipReference = MuSkipReference {
-    name: "thinmuskip",
-    index:5
-};
-
-pub static MEDMUSKIP : MuSkipReference = MuSkipReference {
-    name: "medmuskip",
-    index:6
-};
-
-pub static THICKMUSKIP : MuSkipReference = MuSkipReference {
-    name: "thickmuskip",
-    index:7
-};
-
-
-
-// Tokens ------------------------------------------------------------------------------------------
-
-pub static EVERYJOB : TokReference = TokReference {
-    name:"everyjob",
-    index:5
-};
-
-pub static EVERYPAR : TokReference = TokReference {
-    name:"everypar",
-    index:6
-};
-
-pub static EVERYMATH : TokReference = TokReference {
-    name:"everymath",
-    index:7
-};
-
-pub static EVERYDISPLAY : TokReference = TokReference {
-    name:"everydisplay",
-    index:8
-};
-
-pub static EVERYHBOX : TokReference = TokReference {
-    name:"everyhbox",
-    index:9
-};
-
-pub static EVERYVBOX : TokReference = TokReference {
-    name:"everyvbox",
-    index:10
-};
-
-pub static EVERYCR : TokReference = TokReference {
-    name:"everycr",
-    index:11
-};
-
-pub static ERRHELP : TokReference = TokReference {
-    name:"errhelp",
-    index:12
-};
-
-pub static OUTPUT : TokReference = TokReference {
-    name:"output",
-    index:13
-};
-
-pub static EVERYEOF : TokReference = TokReference {
-    name:"everyeof",
-    index:14
-};
 
 
 // TODO --------------------------------------------------------------------------------------------
@@ -4708,6 +4082,8 @@ pub static VFILNEG: PrimitiveExecutable = PrimitiveExecutable {
 };
 
 // -------------------------------------------------------------------------------------------------
+
+use crate::commands::registers::{ABOVEDISPLAYSHORTSKIP, ABOVEDISPLAYSKIP, ADJDEMERITS, BADNESS, BASELINESKIP, BELOWDISPLAYSHORTSKIP, BELOWDISPLAYSKIP, BIGSKIPAMOUNT, BINOPPENALTY, BOXMAXDEPTH, BROKENPENALTY, CLUBPENALTIES, CLUBPENALTY, DEADCYCLES, DEFAULTHYPHENCHAR, DEFAULTSKEWCHAR, DELIMITERFACTOR, DELIMITERSHORTFALL, DISPLAYINDENT, DISPLAYWIDOWPENALTIES, DISPLAYWIDOWPENALTY, DISPLAYWIDTH, DOUBLEHYPHENDEMERITS, EMERGENCYSTRETCH, ERRHELP, ERRORCONTEXTLINES, EVERYCR, EVERYDISPLAY, EVERYEOF, EVERYHBOX, EVERYJOB, EVERYMATH, EVERYPAR, EVERYVBOX, EXHYPHENPENALTY, FAM, FINALHYPHENDEMERITS, FLOATINGPENALTY, GLOBALDEFS, HBADNESS, HFUZZ, HOFFSET, HSIZE, HYPHENPENALTY, INSERTPENALTIES, INTERLINEPENALTIES, INTERLINEPENALTY, LANGUAGE, LASTNODETYPE, LEFTHYPHENMIN, LEFTSKIP, LINEPENALTY, LINESKIP, LINESKIPLIMIT, MAG, MATHSURROUND, MAXDEADCYCLES, MAXDEPTH, MEDMUSKIP, NULLDELIMITERSPACE, OUTPUT, OUTPUTPENALTY, OVERFULLRULE, PAGEDEPTH, PAGEFILLLSTRETCH, PAGEFILLSTRETCH, PAGEFILSTRETCH, PAGESHRINK, PAGESTRETCH, PAGETOTAL, PARFILLSKIP, PARINDENT, PARSKIP, POSTDISPLAYPENALTY, PREDISPLAYPENALTY, PREDISPLAYSIZE, PRETOLERANCE, PREVDEPTH, PREVGRAF, RELPENALTY, RIGHTHYPHENMIN, RIGHTSKIP, SAVINGHYPHCODES, SAVINGVDISCARDS, SCRIPTSPACE, SHOWBOXBREADTH, SHOWBOXDEPTH, SPACEFACTOR, SPACESKIP, SPLITMAXDEPTH, SPLITTOPSKIP, SYNCTEX, TABSKIP, THICKMUSKIP, THINMUSKIP, TOLERANCE, TOPSKIP, TRACINGASSIGNS, TRACINGCOMMANDS, TRACINGGROUPS, TRACINGIFS, TRACINGLOSTCHARS, TRACINGMACROS, TRACINGNESTING, TRACINGONLINE, TRACINGOUTPUT, TRACINGPAGES, TRACINGPARAGRAPHS, TRACINGRESTORES, TRACINGSCANTOKENS, TRACINGSTATS, UCHYPH, VBADNESS, VFUZZ, VOFFSET, VSIZE, WIDOWPENALTIES, WIDOWPENALTY, XSPACESKIP};
 
 pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PAR),

@@ -109,7 +109,7 @@ pub static PGFHBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!hbox",
     modes: |_| {true},
     _get: |tk, int| {
-        let num = int.read_number()?;
+        let num = int.read_number()? as u16;
         Ok(PGFEscape {
             bx:int.state.boxes.take(num),
             sourceref:int.update_reference(tk)
@@ -279,7 +279,7 @@ pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
     modes: |_| {true},
     _get: |tk, int| {
-        let num = int.read_number()?;
+        let num = int.read_number()? as u16;
         Ok(PGFBox {
             content:int.state.boxes.take(num).children(),
             sourceref:int.update_reference(tk),

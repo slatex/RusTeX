@@ -9,7 +9,7 @@ pub fn dd(f:f64) -> f64 {pt(f) / 1157.0 * 1238.0 }
 pub fn cc(f:f64) -> f64 {dd(f) * 12.0 }
 pub fn mm(f:f64) -> f64 { cm(f) / 10.0 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum SkipDim {
     Pt(i32),
     Fil(i32),
@@ -48,11 +48,14 @@ impl SkipDim {
         }
     }
 }
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub struct Skip {
     pub base : i32,
     pub stretch : Option<SkipDim>,
     pub shrink: Option<SkipDim>
+}
+impl Default for Skip {
+    fn default() -> Self {Skip{base:0,stretch:None,shrink:None}}
 }
 impl Display for Skip {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -108,7 +111,7 @@ impl std::ops::Add for Skip {
 }
 
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum MuSkipDim {
     Mu(i32),
     Fil(i32),
@@ -140,11 +143,16 @@ impl MuSkipDim {
     }
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub struct MuSkip {
     pub base : i32,
     pub stretch : Option<MuSkipDim>,
     pub shrink: Option<MuSkipDim>
+}
+impl Default for MuSkip {
+    fn default() -> Self {
+        MuSkip{base:0,stretch:None,shrink:None}
+    }
 }
 impl Display for MuSkip {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -216,7 +216,7 @@ impl Interpreter<'_> {
 
     fn do_vfile<A:'static,B:'static>(&mut self,vf:Arc<VFile>,mut colon:A) -> (bool,B) where A:Colon<B>,B: Send {
         self.push_file(vf);
-        self.insert_every(&crate::commands::primitives::EVERYJOB);
+        self.insert_every(&crate::commands::registers::EVERYJOB);
         let cont = match self.predoc_toploop() {
             Ok(b) => b,
             Err(mut e) => {
@@ -438,7 +438,7 @@ impl Interpreter<'_> {
             }
         };
         if cls == 7 {
-            match self.state.registers.get(&-(crate::commands::primitives::FAM.index as i32)) {
+            match self.state.registers.get(&-(crate::commands::registers::FAM.index as i32)) {
                 i if i < 0 || i > 15 => {
                     cls = 0;
                     //num = 256 * fam + pos
@@ -472,21 +472,21 @@ impl Interpreter<'_> {
                 match &*pr.orig {
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::NOINDENT => 0,
                     PrimitiveTeXCommand::Primitive(c) if **c == crate::commands::primitives::INDENT =>
-                        self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32)),
+                        self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32)),
                     _ => {
                         self.requeue(next);
-                        self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32))
+                        self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32))
                     }
                 }
             }
             _ => {
                 self.requeue(next);
-                self.state.dimensions.get(&-(crate::commands::primitives::PARINDENT.index as i32))
+                self.state.dimensions.get(&-(crate::commands::registers::PARINDENT.index as i32))
             }
         };
         self.state.borrow_mut().mode = TeXMode::Horizontal;
-        self.insert_every(&crate::commands::primitives::EVERYPAR);
-        let parskip = self.state.skips.get(&-(crate::commands::primitives::PARSKIP.index as i32));
+        self.insert_every(&crate::commands::registers::EVERYPAR);
+        let parskip = self.state.skips.get(&-(crate::commands::registers::PARSKIP.index as i32));
         self.stomach.borrow_mut().start_paragraph(parskip.base);
         if indent != 0 {
             self.stomach_add(Indent {
@@ -513,19 +513,19 @@ impl Interpreter<'_> {
         use crate::stomach::Whatsit as WI;
         self.state.push(self.stomach,GroupType::Math);
         let mode = if inner {
-            self.insert_every(&crate::commands::primitives::EVERYMATH);
+            self.insert_every(&crate::commands::registers::EVERYMATH);
             TeXMode::Math
         } else {
             let next = self.next_token();
             match next.catcode {
                 MathShift => {
-                    self.insert_every(&crate::commands::primitives::EVERYDISPLAY);
+                    self.insert_every(&crate::commands::registers::EVERYDISPLAY);
                     self.state.displaymode.set((),true,false);
                     TeXMode::Displaymath
                 }
                 _ => {
                     self.requeue(next);
-                    self.insert_every(&crate::commands::primitives::EVERYMATH);
+                    self.insert_every(&crate::commands::registers::EVERYMATH);
                     TeXMode::Math
                 }
             }

@@ -1,8 +1,8 @@
 use std::borrow::BorrowMut;
 pub use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, log, TeXErr};
-use crate::commands::DefMacro;
-use crate::fonts::Font;
+use crate::commands::{DefMacro, registers};
+use crate::fonts::{ArcFont, Font};
 use crate::interpreter::state::{GroupType, State};
 use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
 use crate::stomach::paragraph::Paragraph;
@@ -11,7 +11,7 @@ use crate::utils::{TeXError, TeXStr};
 use crate::stomach::whatsits::{Insert, PrintChar, WhatsitTrait};
 use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use crate::commands::primitives::PREVGRAF;
+use crate::commands::registers::PREVGRAF;
 use crate::interpreter::params::InterpreterParams;
 use crate::stomach::boxes::{HBox, TeXBox};
 
@@ -236,7 +236,7 @@ pub trait Stomach : Send {
 
     fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
         self.flush()?;
-        state.dimensions.set(-(PREVGRAF.index as i32),0,true);
+        state.registers.set(-(PREVGRAF.index as i32),0,true);
         let mut p = self.end_paragraph_loop()?;
         let hangindent = state.hangindent.get(&());
         let hangafter = state.hangafter.get(&());
@@ -661,12 +661,12 @@ pub trait Stomach : Send {
         None
     }
 
-    fn on_begin_document(&mut self, state:&mut State) -> (Receiver<StomachMessage>,Arc<Font>,TeXStr) {
+    fn on_begin_document(&mut self, state:&mut State) -> (Receiver<StomachMessage>,ArcFont,TeXStr) {
         self.flush().unwrap();
         state.indocument = true;
         let base = self.base_mut();
         base.indocument = true;
-        let mut basefont: Option<Arc<Font>> = None;
+        let mut basefont: Option<ArcFont> = None;
         let mut basecolor: TeXStr = "000000".into();
         let mut rets : Vec<Whatsit> = vec!();
         for s in &mut base.stomachgroups { match s {
@@ -832,7 +832,7 @@ impl NoShipoutRoutine {
                                Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true);
             self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             for fnm in floatregs {
-                let bx = state.boxes.take(fnm);
+                let bx = state.boxes.take(fnm as u16);
                 self.add(state,params,Whatsit::Float(bx))?;
                 self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             }
@@ -895,7 +895,7 @@ impl Stomach for NoShipoutRoutine {
     fn on_begin_document_inner(&mut self, state: &mut State) {
         self.floatlist = self.get_float_list(state);
         let maxval= i32::MAX;
-        state.dimensions.set(-(crate::commands::primitives::VSIZE.index as i32),(maxval / 3) * 2,true);
+        state.dimensions.set(-(registers::VSIZE.index as i32),(maxval / 3) * 2,true);
     }
 }
 

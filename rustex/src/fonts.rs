@@ -275,6 +275,7 @@ impl FontFile {
 }
 
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam, STANDARD_TEXT_EC};
@@ -314,10 +315,10 @@ impl Font {
             None => self.file.size as i32
         }
     }
-    pub fn new(file:Arc<FontFile>,at:Option<i32>,name:TeXStr) -> Arc<Font> {
+    pub fn new(file:Arc<FontFile>,at:Option<i32>,name:TeXStr) -> ArcFont {
         let hc = file.hyphenchar;
         let sc = file.skewchar;
-        Arc::new(Font {
+        ArcFont(Arc::new(Font {
             file,at,name,
             inner:RwLock::new(FontInner {
                 dimen:HashMap::new(),
@@ -326,7 +327,7 @@ impl Font {
                 lps:HashMap::new(),
                 rps:HashMap::new()
             })
-        })
+        }))
     }
     pub fn set_dimen(&self,i : u16,vl : i32) {
         self.inner.write().unwrap().dimen.insert(i,vl);
@@ -393,6 +394,16 @@ impl Font {
     }
 }
 
+#[derive(Clone,PartialEq)]
+pub struct ArcFont(Arc<Font>);
+impl Default for ArcFont {
+    fn default() -> Self { unsafe{NULL_FONT.try_with(|x| x.clone()).unwrap_unchecked()} }
+}
+impl Deref for ArcFont {
+    type Target = Arc<Font>;
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
 thread_local! {
     pub static NULLFONT_FILE : Arc<FontFile> = Arc::new(FontFile {
         hyphenchar : 45,
@@ -410,14 +421,14 @@ thread_local! {
         name : TeXStr::new("Nullfont".as_bytes()),
         chartable:None
     });
-    pub static NULL_FONT : std::sync::Arc<Font> = std::sync::Arc::new(Font {
+    pub static NULL_FONT : ArcFont = ArcFont(std::sync::Arc::new(Font {
             file:NULLFONT_FILE.try_with(|x| x.clone()).unwrap(),at:Some(0),
             inner:RwLock::new(FontInner {
                 dimen:HashMap::new(),
                 hyphenchar:45,
                 skewchar:255,lps:HashMap::new(),rps:HashMap::new()
             }),name:"nullfont".into()
-    });
+    }));
     pub static CUSTOM_BINDINGS_FONT_FILE : Arc<FontFile> = Arc::new(FontFile {
         hyphenchar : 45,
         skewchar : 255,

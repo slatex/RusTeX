@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::sync::Arc;
-use crate::fonts::Font;
+use crate::fonts::{ArcFont, Font};
 use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
 use crate::fonts::convert::convert;
 use crate::interpreter::dimensions::{MuSkip, numtostr};
@@ -422,7 +422,7 @@ impl WhatsitTrait for MKern {
 #[derive(Clone)]
 pub struct CustomMathChar {
     pub str:String,
-    pub font:Arc<Font>,
+    pub font:ArcFont,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for CustomMathChar {
@@ -473,7 +473,7 @@ pub struct MathChar {
     pub class:u32,
     pub family:u32,
     pub position:u32,
-    pub font:Arc<Font>,
+    pub font:ArcFont,
     pub sourceref:Option<SourceFileReference>
 }
 impl MathChar {

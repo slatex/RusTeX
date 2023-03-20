@@ -477,9 +477,9 @@ pub static IFHMODE : Conditional = Conditional {
 pub static IFVOID : Conditional = Conditional {
     name:"ifvoid",
     _apply: |int,cond,unless| {
-        let ind = int.read_number()?;
-        match int.state.boxes.get_maybe(&(ind as i32)) {
-            Some(TeXBox::Void) | None => dotrue(int,cond,unless),
+        let ind = int.read_number()? as u16;
+        match int.state.boxes.get(&ind) {
+            TeXBox::Void => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
@@ -488,9 +488,9 @@ pub static IFVOID : Conditional = Conditional {
 pub static IFVBOX : Conditional = Conditional {
     name:"ifvbox",
     _apply: |int,cond,unless| {
-        let ind = int.read_number()?;
-        match int.state.boxes.get_maybe(&(ind as i32)) {
-            Some(TeXBox::V(_)) => dotrue(int,cond,unless),
+        let ind = int.read_number()? as u16;
+        match int.state.boxes.get(&ind) {
+            TeXBox::V(_) => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
@@ -499,9 +499,9 @@ pub static IFVBOX : Conditional = Conditional {
 pub static IFHBOX : Conditional = Conditional {
     name:"ifhbox",
     _apply: |int,cond,unless| {
-        let ind = int.read_number()?;
-        match int.state.boxes.get_maybe(&(ind as i32)) {
-            Some(TeXBox::H(_)) => dotrue(int,cond,unless),
+        let ind = int.read_number()? as u16;
+        match int.state.boxes.get(&ind) {
+            TeXBox::H(_) => dotrue(int,cond,unless),
             _ => dofalse(int,cond,unless)
         }
     }
