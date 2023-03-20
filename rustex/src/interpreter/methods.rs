@@ -452,8 +452,8 @@ impl Interpreter<'_> {
                     } else {
                         match &*p.orig {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
-                            PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(Some(Numeric::Int(self.state.parshape.get(&()).len() as i32))),
-                            PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get(&())))),
+                            PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(Some(Numeric::Int(self.state.parshape.get().len() as i32))),
+                            PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get()))),
                             _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
                         }
                     }
@@ -557,8 +557,8 @@ impl Interpreter<'_> {
             Some(s) if s == "dd" => Ok(SkipDim::Pt(self.make_true(dd(f),istrue))),
             Some(s) if s == "cc" => Ok(SkipDim::Pt(self.make_true(cc(f),istrue))),
             Some(s) if s == "pc" => Ok(SkipDim::Pt(self.make_true(pc(f),istrue))),
-            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(5) as f64 * f,istrue))),
-            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get(&()).get_dimen(6) as f64 * f,istrue))),
+            Some(s) if s == "ex" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get().get_dimen(5) as f64 * f,istrue))),
+            Some(s) if s == "em" => Ok(SkipDim::Pt(self.make_true(self.state.currfont.get().get_dimen(6) as f64 * f,istrue))),
             Some(s) if s == "px" => Ok(SkipDim::Pt(self.make_true(
                 self.state.dimensions.get(&-(crate::commands::registers::PDFPXDIMEN.index as i32)) as f64 * f,
                 istrue))),

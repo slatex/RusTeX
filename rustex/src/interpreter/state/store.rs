@@ -1,7 +1,8 @@
 use ahash::RandomState;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
-use crate::catcodes::{CategoryCode, CategoryCodeScheme};
+use std::marker::PhantomData;
+use crate::catcodes::{CategoryCode, CategoryCodeScheme, STARTING_SCHEME};
 use crate::commands::TeXCommand;
 use crate::utils::TeXStr;
 
@@ -178,5 +179,181 @@ impl RegisterLike<TeXStr,Option<TeXCommand>> for RusTeXMap<TeXStr,Option<TeXComm
     }
     fn insert(&mut self,k:TeXStr,v:Option<TeXCommand>) -> Option<Option<TeXCommand>> {
         RusTeXMap::insert(self,k,v)
+    }
+}
+
+#[derive(Clone,PartialEq)]
+pub struct LinkedValueOpt<V:Default+Clone> {
+    v:PhantomData<V>,
+    pub ls: VecDeque<Option<V>>
+}
+impl<V:Default+Clone> LinkedValueOpt<V> {
+    pub fn get(&self) -> V {
+        for s in self.ls.iter() {
+            match s {
+                Some(v) => {return v.clone()}
+                _ => ()
+            }
+        }
+        V::default()
+    }
+    fn set_locally(&mut self,v:V) { *self.ls.front_mut().unwrap() = Some(v)}
+    fn set_globally(&mut self,v:V) {
+        for m in self.ls.iter_mut() {
+            *m = None;
+        }
+        *self.ls.back_mut().unwrap() = Some(v);
+    }
+    pub fn set(&mut self,v:V,globally:bool) {
+        if globally {self.set_globally(v)} else {self.set_locally(v)}
+    }
+    pub fn push(&mut self) {self.ls.push_front(None)}
+    pub fn pop(&mut self) {
+        self.ls.pop_front();
+    }
+}
+impl<V:Clone> LinkedValueOpt<Vec<V>> {
+    pub fn add(&mut self,b:V) {
+        match self.ls.front_mut().unwrap() {
+            Some(ref mut v) => v.push(b),
+            v => *v = Some(vec!(b))
+        }
+    }
+}
+impl<V:Default+Clone> Default for LinkedValueOpt<V> {
+    fn default() -> Self {
+        let mut ret: Self = LinkedValueOpt{v:PhantomData::default(),ls:VecDeque::new()};
+        ret.push();
+        ret
+    }
+}
+
+#[derive(Clone,PartialEq)]
+pub struct LinkedValue<V:Default+Clone> {
+    v:PhantomData<V>,
+    pub ls: VecDeque<V>
+}
+impl<V:Default+Clone> LinkedValue<V> {
+    pub fn get(&self) -> V {
+        self.ls.front().unwrap().clone()
+    }
+    pub fn set_locally(&mut self,v:V) { *self.ls.front_mut().unwrap() = v}
+    fn set_globally(&mut self,v:V) {
+        for m in self.ls.iter_mut() {
+            *m = v.clone();
+        }
+    }
+    pub fn set(&mut self,v:V,globally:bool) {
+        if globally {self.set_globally(v)} else {self.set_locally(v)}
+    }
+    pub fn push_v(&mut self,v:V) {self.ls.push_front(v)}
+    pub fn push(&mut self) {self.ls.push_front(self.ls.front().unwrap().clone())}
+    pub fn pop(&mut self) {
+        self.ls.pop_front();
+    }
+}
+impl<V:Default+Clone> Default for LinkedValue<V> {
+    fn default() -> Self {
+        let mut ret: Self = LinkedValue{v:PhantomData::default(),ls:VecDeque::new()};
+        ret.ls.push_front(V::default());
+        ret
+    }
+}
+
+// Catgeory Codes ------------------------------------------------------------
+
+#[derive(Clone,PartialEq)]
+pub struct LinkedCatScheme {
+    ls : Vec<(RusTeXMap<u8,CategoryCode>,Option<u8>,Option<u8>,Option<u8>)>,
+    scheme:CategoryCodeScheme
+}
+impl std::default::Default for LinkedCatScheme {
+    fn default() -> Self {
+        LinkedCatScheme {ls:vec!(),scheme:STARTING_SCHEME.clone()}
+    }
+}
+impl LinkedCatScheme {
+    pub fn get_scheme(&self) -> &CategoryCodeScheme {
+        &self.scheme
+    }
+    pub fn push(&mut self) {
+        self.ls.push((RusTeXMap::default(),None,None,None))
+    }
+    pub fn set_newline(&mut self,v:u8,globally:bool) {
+        if globally {
+            for cc in self.ls.iter_mut() {
+                cc.1 = None
+            }
+        } else {
+            match self.ls.last_mut() {
+                Some((_,r@None,_,_)) => {*r = Some(self.scheme.newlinechar);}
+                _ => {},
+            }
+        }
+        self.scheme.newlinechar = v;
+    }
+    pub fn set_endline(&mut self,v:u8,globally:bool) {
+        if globally {
+            for cc in self.ls.iter_mut() {
+                cc.2 = None
+            }
+        } else {
+            match self.ls.last_mut() {
+                Some((_,_,r@None,_)) => {*r = Some(self.scheme.endlinechar);}
+                _ => {},
+            }
+        }
+        self.scheme.endlinechar = v;
+    }
+    pub fn set_escape(&mut self,v:u8,globally:bool) {
+        if globally {
+            for cc in self.ls.iter_mut() {
+                cc.3 = None
+            }
+        } else {
+            match self.ls.last_mut() {
+                Some((_,_,_,r@None)) => {*r = Some(self.scheme.escapechar);}
+                _ => {},
+            }
+        }
+        self.scheme.escapechar = v;
+    }
+    pub fn set(&mut self,k:u8,v: CategoryCode,globally:bool) {
+        if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
+    }
+    fn set_locally(&mut self,k : u8,v : CategoryCode) {
+        match self.ls.last_mut() {
+            Some((m,_,_,_)) if !m.contains_key(&k) => {m.insert(k,self.scheme.catcodes[k as usize]);}
+            _ => ()
+        }
+        self.scheme.catcodes[k as usize] = v;
+    }
+    fn set_globally(&mut self,k : u8,v : CategoryCode) {
+        for cc in self.ls.iter_mut() {
+            cc.0.remove(&k);
+        }
+        self.scheme.catcodes[k as usize] = v;
+    }
+    pub fn pop(&mut self) {
+        match self.ls.pop() {
+            Some((hm,nl,el,sc)) => {
+                for (k,v) in hm {
+                    self.scheme.catcodes[k as usize] = v;
+                };
+                match nl {
+                    None => {},
+                    Some(v) => self.scheme.newlinechar = v
+                }
+                match el {
+                    None => {},
+                    Some(v) => self.scheme.endlinechar = v
+                }
+                match sc {
+                    None => {},
+                    Some(v) => self.scheme.escapechar = v
+                }
+            }
+            _ => ()
+        }
     }
 }

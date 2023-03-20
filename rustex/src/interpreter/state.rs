@@ -29,11 +29,13 @@ use crate::interpreter::params::{InterpreterParams, NoOutput};
 use crate::interpreter::state::store::PrimStore;
 use crate::stomach::colon::NoColon;
 
-pub type RusTeXMap<A,B> = HashMap<A,B,RandomState>;
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum FontStyle {
     Text,Script,Scriptscript
+}
+impl Default for FontStyle {
+    fn default() -> Self { FontStyle::Text }
 }
 impl FontStyle {
     pub fn inc(&self) -> FontStyle {
@@ -53,6 +55,11 @@ pub enum GroupType {
     Math,
     LeftRight
 }
+impl Default for GroupType {
+    fn default() -> Self {
+        GroupType::Begingroup
+    }
+}
 impl Display for GroupType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}",match self {
@@ -65,403 +72,49 @@ impl Display for GroupType {
     }
 }
 
-pub trait HasDefault {
-    fn default() -> Self;
-}
-impl<A> HasDefault for Option<A> {
-    fn default() -> Self { None }
-}
-impl HasDefault for i32 {
-    fn default() -> Self { 0 }
-}
-impl HasDefault for usize {
-    fn default() -> Self { 0 }
-}
-impl HasDefault for u8 {
-    fn default() -> Self { 0 }
-}
-impl HasDefault for CategoryCode {
-    fn default() -> Self { CategoryCode::Other }
-}
-impl HasDefault for bool {
-    fn default() -> Self { false }
-}
-impl HasDefault for GroupType {
-    fn default() -> Self {
-        GroupType::Box(BoxMode::V)
-    }
-}
-impl HasDefault for Skip {
-    fn default() -> Self {
-        Skip {base:0,stretch:None,shrink:None}
-    }
-}
-impl HasDefault for MuSkip {
-    fn default() -> Self {
-        MuSkip {base:0,stretch:None,shrink:None}
-    }
-}
-impl<A> HasDefault for Vec<A> {
-    fn default() -> Self {
-        vec!()
-    }
-}
-impl HasDefault for TeXBox {
-    fn default() -> Self {
-        TeXBox::Void
-    }
-}
-impl HasDefault for ArcFont {
-    fn default() -> Self {
-        unsafe{NULL_FONT.try_with(|x| x.clone()).unwrap_unchecked()}
-    }
-}
-impl HasDefault for FontStyle {
-    fn default() -> Self {
-        FontStyle::Text
-    }
-}
-
-pub trait StateStore<K,V>:Sized {
-    fn get(&self,k:&K) -> Option<&V>;
-    fn set(&mut self,k:K,v:V);
-    fn remove(&mut self,k:&K);
-    fn new_store() -> Self;
-}
-impl<K:Hash+Eq,V> StateStore<K,V> for RusTeXMap<K,V> {
-    fn get(&self, k: &K) -> Option<&V> {
-        RusTeXMap::get(self,k)
-    }
-    fn set(&mut self, k: K, v: V) {
-        self.insert(k,v);
-    }
-    fn remove(&mut self, k: &K) {
-        RusTeXMap::remove(self,k);
-    }
-    fn new_store() -> Self {
-        RusTeXMap::default()
-    }
-}
-/*
-impl StateStore<TeXStr,Option<TeXCommand>> for qp_trie::Trie<Vec<u8>,Option<TeXCommand>> {
-    fn get(&self, k: &TeXStr) -> Option<&Option<TeXCommand>> {
-        self.get(k.0.as_slice())
-    }
-
-    fn set(&mut self, k: TeXStr, v: Option<TeXCommand>) {
-        self.insert(k.0.to_vec(),v);
-    }
-
-    fn remove(&mut self, k: &TeXStr) {
-        self.remove(k.0.as_slice());
-    }
-
-    fn new_store() -> Self {
-        qp_trie::Trie::new()
-    }
-}
- */
-
-#[derive(Clone,PartialEq)]
-pub struct Var<V>(pub Option<V>) where V:HasDefault;
-impl<V:HasDefault> StateStore<(),V> for Var<V> {
-    fn get(&self, _k: &()) -> Option<&V> {
-        match &self.0 {
-            None => None,
-            Some(v) => Some(v)
-        }
-    }
-    fn set(&mut self, _k: (), v: V) { self.0 = Some(v) }
-    fn remove(&mut self, _k: &()) { self.0 = None }
-    fn new_store() -> Self { Var(None) }
-}
-impl StateStore<usize,Arc<Font>> for [Option<Arc<Font>>;16] {
-    fn get(&self, k: &usize) -> Option<&Arc<Font>> { self[*k].as_ref() }
-    fn set(&mut self, k: usize, v: Arc<Font>) { self[k] = Some(v) }
-    fn remove(&mut self, k: &usize) { self[*k] = None }
-    fn new_store() -> Self { newfonts() }
-}
-
-fn newfonts() -> [Option<Arc<Font>>;16] {
-    [
-        None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-    ]
-}
-
-#[derive(Clone,PartialEq)]
-pub struct LinkedStateValue<K,V:HasDefault,A:StateStore<K,V>> {
-    k:PhantomData<K>,
-    v:PhantomData<V>,
-    pub ls : VecDeque<A>
-}
-impl<K,V:HasDefault+Clone,A:StateStore<K,V>> std::default::Default for LinkedStateValue<K,V,A> {
-    fn default() -> Self {
-        let mut ret = LinkedStateValue {
-            k:PhantomData::default(),
-            v:PhantomData::default(),
-            ls:VecDeque::new()
-        };
-        ret.push();
-        ret
-    }
-}
-
-impl<K,V:HasDefault+Clone,A:StateStore<K,V>> LinkedStateValue<K,V,A> {
-    pub fn get_maybe(&self,k:&K) -> Option<&V> {
-        for store in self.ls.iter() {
-            match store.get(k) {
-                s@Some(_) => return s,
-                _ => {}
-            }
-        }
-        return None
-    }
-    pub fn get(&self,k:&K) -> V {
-        match self.get_maybe(k) {
-            Some(s) => s.clone(),
-            None => HasDefault::default()
-        }
-    }
-    fn set_locally(&mut self, k : K, v : V) {
-        self.ls.front_mut().unwrap().set(k,v);
-    }
-    fn set_globally(&mut self,k:K,v:V) {
-        for m in self.ls.iter_mut() {
-            m.remove(&k);
-        }
-        self.ls.back_mut().unwrap().set(k,v);
-    }
-    pub fn set(&mut self,k:K,v:V,globally:bool) {
-        if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
-    }
-    fn push(&mut self) {
-        self.ls.push_front(StateStore::new_store())
-    }
-    fn pop(&mut self) {
-        self.ls.pop_front();
-    }
-}
-impl LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>> {
-    pub fn take(&mut self,k:i32) -> TeXBox {
-        for store in self.ls.iter_mut() {
-            match store.remove(&k) {
-                Some(b) => return b,
-                _ => {}
-            }
-        }
-        TeXBox::Void
-    }
-}
-impl <B> LinkedStateValue<(),Vec<B>,Var<Vec<B>>> {
-    pub fn add(&mut self,b:B) {
-        match self.ls.front_mut().unwrap() {
-            Var(Some(ref mut v)) => v.push(b),
-            v => *v = Var(Some(vec!(b)))
-        }
-    }
-}
-
-#[derive(Clone,PartialEq)]
-pub struct LinkedCatScheme {
-    ls : Vec<(RusTeXMap<u8,CategoryCode>,Option<u8>,Option<u8>,Option<u8>)>,
-    scheme:CategoryCodeScheme
-}
-impl std::default::Default for LinkedCatScheme {
-    fn default() -> Self {
-        LinkedCatScheme {ls:vec!(),scheme:STARTING_SCHEME.clone()}
-    }
-}
-impl LinkedCatScheme {
-    pub fn get_scheme(&self) -> &CategoryCodeScheme {
-        &self.scheme
-    }
-    fn push(&mut self) {
-        self.ls.push((RusTeXMap::default(),None,None,None))
-    }
-    pub fn set_newline(&mut self,v:u8,globally:bool) {
-        if globally {
-            for cc in self.ls.iter_mut() {
-                cc.1 = None
-            }
-        } else {
-            match self.ls.last_mut() {
-                Some((_,r@None,_,_)) => {*r = Some(self.scheme.newlinechar);}
-                _ => {},
-            }
-        }
-        self.scheme.newlinechar = v;
-    }
-    pub fn set_endline(&mut self,v:u8,globally:bool) {
-        if globally {
-            for cc in self.ls.iter_mut() {
-                cc.2 = None
-            }
-        } else {
-            match self.ls.last_mut() {
-                Some((_,_,r@None,_)) => {*r = Some(self.scheme.endlinechar);}
-                _ => {},
-            }
-        }
-        self.scheme.endlinechar = v;
-    }
-    pub fn set_escape(&mut self,v:u8,globally:bool) {
-        if globally {
-            for cc in self.ls.iter_mut() {
-                cc.3 = None
-            }
-        } else {
-            match self.ls.last_mut() {
-                Some((_,_,_,r@None)) => {*r = Some(self.scheme.escapechar);}
-                _ => {},
-            }
-        }
-        self.scheme.escapechar = v;
-    }
-    pub fn set(&mut self,k:u8,v: CategoryCode,globally:bool) {
-        if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
-    }
-    fn set_locally(&mut self,k : u8,v : CategoryCode) {
-        match self.ls.last_mut() {
-            Some((m,_,_,_)) if !m.contains_key(&k) => {m.insert(k,self.scheme.catcodes[k as usize]);}
-            _ => ()
-        }
-        self.scheme.catcodes[k as usize] = v;
-    }
-    fn set_globally(&mut self,k : u8,v : CategoryCode) {
-        for cc in self.ls.iter_mut() {
-            cc.0.remove(&k);
-        }
-        self.scheme.catcodes[k as usize] = v;
-    }
-    fn pop(&mut self) {
-        match self.ls.pop() {
-            Some((hm,nl,el,sc)) => {
-                for (k,v) in hm {
-                    self.scheme.catcodes[k as usize] = v;
-                };
-                match nl {
-                    None => {},
-                    Some(v) => self.scheme.newlinechar = v
-                }
-                match el {
-                    None => {},
-                    Some(v) => self.scheme.endlinechar = v
-                }
-                match sc {
-                    None => {},
-                    Some(v) => self.scheme.escapechar = v
-                }
-            }
-            _ => ()
-        }
-    }
-}
-
-//type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,RusTeXMap<TeXStr,Option<TeXCommand>>>;
-//type CommandStore = LinkedStateValue<TeXStr,Option<TeXCommand>,qp_trie::Trie<Vec<u8>,Option<TeXCommand>>>;
-
-#[derive(Clone,PartialEq)]
-pub struct CommandStore {
-    ls:Vec<RusTeXMap<TeXStr,Option<Option<TeXCommand>>>>,
-    map:RusTeXMap<TeXStr,Option<TeXCommand>>
-}
-impl Default for CommandStore {
-    fn default() -> Self {
-        CommandStore {
-            ls: vec!(),
-            map:RusTeXMap::default()
-        }
-    }
-}
-impl CommandStore {
-    pub fn destroy(self) -> RusTeXMap<TeXStr,Option<TeXCommand>> {
-        self.map
-    }
-    fn push(&mut self) {
-        self.ls.push(RusTeXMap::default())
-    }
-    pub fn get(&self,k:&TeXStr) -> Option<TeXCommand> {
-        match self.map.get(k) {
-            None => None,
-            Some(s) => s.clone()
-        }
-    }
-    pub fn set(&mut self,k:TeXStr,v: Option<TeXCommand>,globally:bool) {
-        if globally {self.set_globally(k,v)} else {self.set_locally(k,v)}
-    }
-    fn set_locally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
-        match self.ls.last_mut() {
-            None => {self.map.insert(k.clone(),v);}
-            Some(old) => {
-                if old.contains_key(&k) {
-                    self.map.insert(k.clone(),v);
-                } else {
-                    let old = self.map.insert(k.clone(),v);
-                    unsafe{self.ls.last_mut().unwrap_unchecked()}.insert(k,old);
-                }
-            }
-        };
-    }
-    fn set_globally(&mut self,k:TeXStr,v: Option<TeXCommand>) {
-        for cc in self.ls.iter_mut() {
-            cc.remove(&k);
-        }
-        self.map.insert(k,v);
-    }
-    fn pop(&mut self) {
-        for (k,v) in unsafe{self.ls.pop().unwrap_unchecked()} {
-            match v {
-                None => self.map.remove(&k),
-                Some(v) => self.map.insert(k,v)
-            };
-        }
-    }
-}
-
-
 #[derive(Clone)]
 pub struct State {
-    pub tp: LinkedStateValue<(),GroupType,Var<GroupType>>,
-    pub catcodes:LinkedCatScheme,
-    pub commands: store::StateStore<TeXStr,Option<TeXCommand>,store::RusTeXMap<TeXStr,Option<TeXCommand>>>,//CommandStore,
-    pub registers: store::StateStore<i32,i32,PrimStore<i32,79>>,//LinkedStateValue<i32,i32,RusTeXMap<i32,i32>>,
+    pub tp: store::LinkedValue<GroupType>,
+    pub catcodes:store::LinkedCatScheme,
+    pub commands: store::StateStore<TeXStr,Option<TeXCommand>,store::RusTeXMap<TeXStr,Option<TeXCommand>>>,
+    pub registers: store::StateStore<i32,i32,PrimStore<i32,79>>,
     pub dimensions: store::StateStore<i32,i32,PrimStore<i32,34>>,
     pub skips: store::StateStore<i32,Skip,PrimStore<Skip,18>>,
     pub muskips: store::StateStore<i32,MuSkip,PrimStore<MuSkip,4>>,
-    pub toks: store::StateStore<i32,Vec<Token>,PrimStore<Vec<Token>,12>>,//LinkedStateValue<i32,Vec<Token>,RusTeXMap<i32,Vec<Token>>>,
-    pub boxes: store::StateStore<u16,TeXBox,Vec<TeXBox>>,//LinkedStateValue<i32,TeXBox,RusTeXMap<i32,TeXBox>>,
-    pub sfcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub lccodes : store::StateStore<u8,u8,[u8;256]>,//LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
-    pub uccodes : store::StateStore<u8,u8,[u8;256]>,//LinkedStateValue<u8,u8,RusTeXMap<u8,u8>>,
-    pub mathcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub delcodes : store::StateStore<u8,i32,[i32;256]>,//LinkedStateValue<u8,i32,RusTeXMap<u8,i32>>,
-    pub parshape : LinkedStateValue<(),Vec<(i32,i32)>,Var<Vec<(i32,i32)>>>,
-    pub hangindent : LinkedStateValue<(),i32,Var<i32>>,
-    pub hangafter : LinkedStateValue<(),usize,Var<usize>>,
-    pub(crate) textfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,//LinkedStateValue<usize,Arc<Font>,[Option<Arc<Font>>;16]>,
+    pub toks: store::StateStore<i32,Vec<Token>,PrimStore<Vec<Token>,12>>,
+    pub boxes: store::StateStore<u16,TeXBox,Vec<TeXBox>>,
+    pub sfcodes : store::StateStore<u8,i32,[i32;256]>,
+    pub lccodes : store::StateStore<u8,u8,[u8;256]>,
+    pub uccodes : store::StateStore<u8,u8,[u8;256]>,
+    pub mathcodes : store::StateStore<u8,i32,[i32;256]>,
+    pub delcodes : store::StateStore<u8,i32,[i32;256]>,
+    pub parshape : store::LinkedValue<Vec<(i32,i32)>>,
+    pub hangindent : store::LinkedValue<i32>,
+    pub hangafter : store::LinkedValue<usize>,
+    pub(crate) textfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,
     pub(crate) scriptfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,
     pub(crate) scriptscriptfonts: store::StateStore<usize,ArcFont,[ArcFont;16]>,
-    pub(crate) currfont : LinkedStateValue<(),ArcFont,Var<ArcFont>>,
-    pub(crate) aftergroups : LinkedStateValue<(),Vec<Token>,Var<Vec<Token>>>,
-    pub(crate) fontstyle : LinkedStateValue<(),FontStyle,Var<FontStyle>>,
-    pub(crate) displaymode: LinkedStateValue<(),bool,Var<bool>>,
+    pub(crate) currfont : store::LinkedValue<ArcFont>,
+    pub(crate) aftergroups : store::LinkedValueOpt<Vec<Token>>,
+    pub(crate) fontstyle : store::LinkedValue<FontStyle>,
+    pub(crate) displaymode: store::LinkedValue<bool>,
 
     // DIRECT ------------------------------------------
     pub(in crate) conditions:Vec<Option<bool>>,
-    pub(in crate) outfiles:RusTeXMap<u8,Arc<VFile>>,
-    pub(in crate) infiles:RusTeXMap<u8,StringMouth>,
+    pub(in crate) outfiles:store::RusTeXMap<u8,Arc<VFile>>,
+    pub(in crate) infiles:store::RusTeXMap<u8,StringMouth>,
     pub(in crate) incs : u8,
     pub(in crate) mode:TeXMode,
     pub(in crate) afterassignment : Option<Token>,
     pub(in crate) pdfmatches : Vec<TeXStr>,
     pub(in crate) pdfcolorstacks: Vec<Vec<TeXStr>>,
-    pub(in crate) pdfobjs: RusTeXMap<u16,TeXStr>,
+    pub(in crate) pdfobjs: store::RusTeXMap<u16,TeXStr>,
     pub(in crate) pdfxforms: Vec<PDFXForm>,
     pub(in crate) indocument_line:Option<(TeXStr,usize)>,
     pub(in crate) indocument:bool,
     pub(in crate) insetbox:bool,
     pub(in crate) vadjust:Vec<Whatsit>,
-    pub (in crate) inserts:RusTeXMap<u16,Vec<Whatsit>>,
+    pub (in crate) inserts:store::RusTeXMap<u16,Vec<Whatsit>>,
     pub(in crate) pagegoal:i32,
     pub(in crate) pdfximages:Vec<PDFXImage>,
     pub(in crate) aligns: Vec<Option<Vec<Token>>>,
@@ -471,12 +124,11 @@ pub struct State {
     pub(in crate) splitfirstmark : Vec<Token>,
     pub(in crate) splitbotmark : Vec<Token>,
     // TODO -----------------------------------------
-    pub (in crate) filestore:RusTeXMap<TeXStr,Arc<VFile>>,
+    pub (in crate) filestore:store::RusTeXMap<TeXStr,Arc<VFile>>,
 }
 
 macro_rules! pass_on {
     ($s:tt,$e:ident$(,$tl:expr)*) => {
-        $s.tp.$e($(,$tl)*);
         $s.catcodes.$e($(,$tl)*);
         $s.commands.$e($(,$tl)*);
         $s.registers.$e($(,$tl)*);
@@ -503,7 +155,7 @@ macro_rules! pass_on {
 
     }
 }
-static mut FONT_FILES: Option<RusTeXMap<TeXStr,Arc<FontFile>>> = None;
+static mut FONT_FILES: Option<store::RusTeXMap<TeXStr,Arc<FontFile>>> = None;
 
 macro_rules! unwrap {
     ($e:expr) => {
@@ -522,20 +174,21 @@ impl State {
         }*/
         log!("Push: {} -> {}",gt,self.stack_depth() + 1);
         pass_on!(self,push);
+        self.tp.push_v(gt);
         stomach.new_group(gt);
-        self.tp.set_locally((),gt)
     }
     pub fn pop(&mut self,tp:GroupType) -> Result<Option<Vec<Token>>,TeXError> {
         log!("Pop: {} -> {}",tp,self.stack_depth());
-        match unwrap!(unwrap!(self.tp.ls.front()).0) {
-            t if t == tp => (),
+        match unwrap!(self.tp.ls.front()) {
+            t if *t == tp => (),
             t => TeXErr!("Group opened by {} ended by {}",t,tp)
         }
         let ag = match self.aftergroups.ls.front_mut() {
-            Some(ref mut v) => std::mem::take(&mut v.0),
+            Some( v) => std::mem::take(v),
             _ => None
         };
         pass_on!(self,pop);
+        self.tp.pop();
         Ok(ag)
     }
     pub fn stack_depth(&self) -> usize {
@@ -545,20 +198,20 @@ impl State {
     pub fn new() -> State {
         let mut state = State {
             conditions:vec!(),
-            outfiles:RusTeXMap::new_store(),
-            infiles:RusTeXMap::new_store(),
+            outfiles:store::RusTeXMap::default(),
+            infiles:store::RusTeXMap::default(),
             incs:0,
             mode:TeXMode::Vertical,
             afterassignment:None,
             pdfmatches:vec!(),
             pdfcolorstacks:vec!(vec!()),
-            pdfobjs:RusTeXMap::new_store(),
+            pdfobjs:store::RusTeXMap::default(),
             pdfxforms:vec!(),
             indocument_line:None,
             indocument:false,
             insetbox:false,
             vadjust:vec!(),
-            inserts:RusTeXMap::new_store(),
+            inserts:store::RusTeXMap::default(),
             pagegoal:0,
             pdfximages:vec!(),
             aligns:vec!(),
@@ -567,12 +220,8 @@ impl State {
             firstmark:vec!(),
             splitfirstmark:vec!(),
             splitbotmark:vec!(),
-            tp:LinkedStateValue {
-                k: PhantomData,
-                v: PhantomData,
-                ls : VecDeque::new()
-            },
-            catcodes: LinkedCatScheme::default(),
+            tp:Default::default(),
+            catcodes: store::LinkedCatScheme::default(),
             commands: Default::default(),
             registers: Default::default(),
             dimensions: Default::default(),
@@ -760,7 +409,7 @@ impl State {
     pub fn get_font(&mut self,indir:&Path,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
         unsafe {
             match FONT_FILES {
-                None => FONT_FILES = Some(RusTeXMap::new_store()),
+                None => FONT_FILES = Some(store::RusTeXMap::default()),
                 _ => ()
             }
             match FONT_FILES.as_ref().unwrap().get(&name) {

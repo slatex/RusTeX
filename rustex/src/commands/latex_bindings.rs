@@ -58,11 +58,11 @@ pub static NOT: SimpleWhatsit = SimpleWhatsit {
                             _ => ""
                         }),
                     _ => {
-                        (int.state.currfont.get(&()),"")
+                        (int.state.currfont.get(),"")
                     }
                 }
             },
-            _ => (int.state.currfont.get(&()),"")
+            _ => (int.state.currfont.get(),"")
         };
 
         Ok(CustomMathChar {
@@ -137,7 +137,7 @@ pub static MAPSTO: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         Ok(CustomMathChar {
             str: "↦".to_string(),
-            font:int.state.currfont.get(&()),
+            font:int.state.currfont.get(),
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -187,7 +187,7 @@ pub static UNDERBRACE: SimpleWhatsit = SimpleWhatsit {
                     superscript: None,
                     subscript: Some(MathKernel::CustomMath(CustomMathChar {
                         str: "⏟".to_string(),
-                        font:int.state.currfont.get(&()),
+                        font:int.state.currfont.get(),
                         sourceref: None,
                     })),
                     limits: true,
@@ -241,7 +241,7 @@ pub static OVERBRACE: SimpleWhatsit = SimpleWhatsit {
                     subscript: None,
                     superscript: Some(MathKernel::CustomMath(CustomMathChar {
                         str: "⏞".to_string(),
-                        font:int.state.currfont.get(&()),
+                        font:int.state.currfont.get(),
                         sourceref: None,
                     })),
                     limits: true,

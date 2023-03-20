@@ -19,7 +19,7 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
         match int.state.mode {
             TeXMode::Horizontal | TeXMode::RestrictedHorizontal => Ok(Whatsit::Space(
                 SpaceChar {
-                    font: int.state.currfont.get(&()),
+                    font: int.state.currfont.get(),
                     sourceref: int.update_reference(tk),
                     nonbreaking:true
                 })),
@@ -715,16 +715,16 @@ pub static THE: PrimitiveExecutable = PrimitiveExecutable {
             AV(AssignableValue::PrimSkip(r)) => stt(int.state.skips.get(&-(r.index as i32)).to_string().into()),
             AV(AssignableValue::FontRef(f)) => vec!(Token::new(0,CategoryCode::Escape,Some(f.name.clone()),None,true)),
             AV(AssignableValue::Font(f)) if **f == FONT =>
-                vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get(&()).name.clone()),None,true)),
+                vec!(Token::new(0,CategoryCode::Escape,Some(int.state.currfont.get().name.clone()),None,true)),
             AV(AssignableValue::Font(f)) => {
                 let font = (f._getvalue)(int)?;
                 vec!(Token::new(0,CategoryCode::Escape,Some(font.name.clone()),None,true))
             }
             Primitive(p) if **p == PARSHAPE => {
-                stt(int.state.parshape.get(&()).len().to_string().into())
+                stt(int.state.parshape.get().len().to_string().into())
             }
             Primitive(p) if **p == HANGINDENT => {
-                stt(dimtostr(int.state.hangindent.get(&())).into())
+                stt(dimtostr(int.state.hangindent.get()).into())
             }
             p => {
                 todo!("{}",p)
@@ -1460,7 +1460,7 @@ pub static FONT: FontAssValue = FontAssValue {
         Ok(())
     },
     _getvalue: |int| {
-        Ok(int.state.currfont.get(&()))
+        Ok(int.state.currfont.get())
     }
 };
 
@@ -1927,7 +1927,7 @@ pub static DELCODE: NumAssValue = NumAssValue {
 pub static NULLFONT: PrimitiveAssignment = PrimitiveAssignment {
     name:"nullfont",
     _assign: |rf,int,global| {
-        int.state.currfont.set((),NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
+        int.state.currfont.set(NULL_FONT.try_with(|x| x.clone()).unwrap(),global);
         int.stomach_add(FontChange {
             font: NULL_FONT.try_with(|x| x.clone()).unwrap(),
             closes_with_group: !global,
@@ -2308,7 +2308,7 @@ pub static TEXTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"textstyle",
     expandable:false,
     _apply:|_,int| {
-        int.state.fontstyle.set((),FontStyle::Text,false);
+        int.state.fontstyle.set(FontStyle::Text,false);
         Ok(())
     }
 };
@@ -2317,7 +2317,7 @@ pub static SCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.state.fontstyle.set((),FontStyle::Script,false);
+        int.state.fontstyle.set(FontStyle::Script,false);
         Ok(())
     }
 };
@@ -2326,7 +2326,7 @@ pub static SCRIPTSCRIPTSTYLE: PrimitiveExecutable = PrimitiveExecutable {
     name:"scriptscriptstyle",
     expandable:false,
     _apply:|_,int| {
-        int.state.fontstyle.set((),FontStyle::Scriptscript,false);
+        int.state.fontstyle.set(FontStyle::Scriptscript,false);
         Ok(())
     }
 };
@@ -2542,7 +2542,7 @@ pub static CURRENTGROUPLEVEL: NumericCommand = NumericCommand {
 pub static CURRENTGROUPTYPE: NumericCommand = NumericCommand {
     name:"currentgrouptype",
     _getvalue:|int| {
-        Ok(Numeric::Int(match int.state.tp.get(&()) {
+        Ok(Numeric::Int(match int.state.tp.get() {
             GroupType::Begingroup if int.state.stack_depth() == 0 => 0,
             GroupType::Begingroup | GroupType::Token => 1,
             GroupType::Box(BoxMode::H) => 2,
@@ -3029,8 +3029,8 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
     name:"mathchoice",
     modes: |x| {x == TeXMode::Math || x == TeXMode::Displaymath},
     _get:|_tk,int| {
-        let mode = int.state.displaymode.get(&());
-        let font = int.state.fontstyle.get(&());
+        let mode = int.state.displaymode.get();
+        let font = int.state.fontstyle.get();
         let ret = match (font,mode) {
             (FontStyle::Scriptscript,_) => {
                 int.skip_ws();int.read_argument()?;
@@ -3182,12 +3182,12 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
     _get:|tk,int| {
         let num = int.read_number()?;
         int.expand_until(false)?;
-        let fnt = int.state.currfont.get(&());
+        let fnt = int.state.currfont.get();
         let pc = loop {
             let next = int.next_token();
             match next.catcode {
                 CategoryCode::Letter | CategoryCode::Other => {
-                    let font = int.state.currfont.get(&());
+                    let font = int.state.currfont.get();
                     let sourceref = int.update_reference(&next);
                     break PrintChar {
                         char:next.char,
@@ -3199,7 +3199,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                     int.requeue(next);
                     let _ret = int.read_argument()?;
                     // TODO do this properly!
-                    let font = int.state.currfont.get(&());
+                    let font = int.state.currfont.get();
                     break PrintChar {
                         char:32,font,sourceref
                     }
@@ -3207,7 +3207,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                 CategoryCode::EndGroup => {
                     let sourceref = int.update_reference(&next);
                     int.requeue(next);
-                    let font = int.state.currfont.get(&());
+                    let font = int.state.currfont.get();
                     break PrintChar {
                         char:32,font,sourceref
                     }
@@ -3240,7 +3240,7 @@ pub static PARSHAPE: PrimitiveExecutable = PrimitiveExecutable {
             vals.push((f,s))
         }
         //TeXErr!(r.0.clone() => "Here!");
-        int.state.parshape.set((),vals,false);
+        int.state.parshape.set(vals,false);
         Ok(())
     }
 };
@@ -3250,7 +3250,7 @@ pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let dim = int.read_dimension()?;
-        int.state.hangindent.set((),dim,false);
+        int.state.hangindent.set(dim,false);
         Ok(())
     }
 };
@@ -3260,7 +3260,7 @@ pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply: |_,int| {
         let num = int.read_number()?;
-        int.state.hangafter.set((),num as usize,false);
+        int.state.hangafter.set(num as usize,false);
         Ok(())
     }
 };
@@ -3333,7 +3333,7 @@ pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
     name:"displaylimits",
     _get: |_,int,pr| {
         match pr {
-            Some(p) => p.limits = int.state.displaymode.get(&()),
+            Some(p) => p.limits = int.state.displaymode.get(),
             _ => ()
         }
         Ok(None)
@@ -3575,7 +3575,7 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
             TeXMode::Math | TeXMode::Displaymath => (),
             _ => TeXErr!(tk.0.clone() => "\\displaymode only allowed in math mode")
         }
-        int.state.displaymode.set((),true,false);
+        int.state.displaymode.set(true,false);
         Ok(())
     }
 };

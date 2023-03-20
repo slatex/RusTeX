@@ -372,14 +372,14 @@ impl Interpreter<'_> {
             (EndGroup,_) => self.pop_group(GroupType::Token),
             (Space | EOL, Vertical | InternalVertical | Math | Displaymath ) => Ok(()),
             (Space | EOL, Horizontal | RestrictedHorizontal) => {
-                let font = self.state.currfont.get(&());
+                let font = self.state.currfont.get();
                 let sourceref = self.update_reference(&next);
                 self.stomach_add(crate::stomach::Whatsit::Space(SpaceChar {
                     font,sourceref,nonbreaking:false
                 }))
             }
             (Letter | Other , Horizontal | RestrictedHorizontal) => {
-                let font = self.state.currfont.get(&());
+                let font = self.state.currfont.get();
                 let sourceref = self.update_reference(&next);
                 self.stomach_add(crate::stomach::Whatsit::Char(PrintChar {
                     char:next.char,
@@ -403,7 +403,7 @@ impl Interpreter<'_> {
                         let wi = self.do_math_char(Some(next),mc as u32);
                         self.stomach_add(crate::stomach::Whatsit::Math(MathGroup::new(
                               crate::stomach::math::MathKernel::MathChar(wi),
-                              self.state.displaymode.get(&()))))?;
+                              self.state.displaymode.get())))?;
                         Ok(())
                     }
                 }
@@ -450,7 +450,7 @@ impl Interpreter<'_> {
                 }
             }
         }
-        let mode = self.state.fontstyle.get(&());
+        let mode = self.state.fontstyle.get();
         let font = match mode {
             FontStyle::Text => self.state.textfonts.get(&(fam as usize)),
             FontStyle::Script => self.state.scriptfonts.get(&(fam as usize)),
@@ -520,7 +520,7 @@ impl Interpreter<'_> {
             match next.catcode {
                 MathShift => {
                     self.insert_every(&crate::commands::registers::EVERYDISPLAY);
-                    self.state.displaymode.set((),true,false);
+                    self.state.displaymode.set(true,false);
                     TeXMode::Displaymath
                 }
                 _ => {
@@ -820,13 +820,13 @@ impl Interpreter<'_> {
                             }
                         }
                     }
-                    return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get(&())))))
+                    return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get()))))
                 },
                 Superscript => {
-                    let oldmode = self.state.fontstyle.get(&());
+                    let oldmode = self.state.fontstyle.get();
                     //println!("Here! {}",self.preview());
                     //unsafe { crate::LOG = true }
-                    self.state.fontstyle.set((),oldmode.inc(),false);
+                    self.state.fontstyle.set(oldmode.inc(),false);
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
@@ -834,7 +834,7 @@ impl Interpreter<'_> {
                             TeXErr!(next => "Expected Whatsit after ^")
                         }
                     };
-                    self.state.fontstyle.set((),oldmode,false);
+                    self.state.fontstyle.set(oldmode,false);
                     match previous {
                         Some(mg) => {
                             mg.superscript = Some(ret);
@@ -847,12 +847,12 @@ impl Interpreter<'_> {
                                     return Ok(Some(WI::Math(mg)))
                                 }
                                 Some(o) => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get(&()));
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
                                     mg.superscript = Some(ret);
                                     return Ok(Some(WI::Math(mg)))
                                 }
                                 _ => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get());
                                     mg.superscript = Some(ret);
                                     return Ok(Some(WI::Math(mg)))
                                 }
@@ -861,14 +861,14 @@ impl Interpreter<'_> {
                     }
                 }
                 Subscript => {
-                    let oldmode = self.state.fontstyle.get(&());
-                    self.state.fontstyle.set((),oldmode.inc(),false);
+                    let oldmode = self.state.fontstyle.get();
+                    self.state.fontstyle.set(oldmode.inc(),false);
                     let read = self.read_math_whatsit(None)?;
                     let ret = match read {
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
                         _ => TeXErr!(next => "Expected Whatsit after _")
                     };
-                    self.state.fontstyle.set((),oldmode,false);
+                    self.state.fontstyle.set(oldmode,false);
                     match previous {
                         Some(mg) => {
                             mg.subscript = Some(ret);
@@ -881,12 +881,12 @@ impl Interpreter<'_> {
                                     return Ok(Some(WI::Math(mg)))
                                 }
                                 Some(o) => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get(&()));
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
                                     mg.subscript = Some(ret);
                                     return Ok(Some(WI::Math(mg)))
                                 }
                                 _ => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get(&()));
+                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get());
                                     mg.subscript = Some(ret);
                                     return Ok(Some(WI::Math(mg)))
                                 }
@@ -949,7 +949,7 @@ impl Interpreter<'_> {
                                         }
                                     }
                                 }
-                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get(&())))))
+                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get()))))
                             }
                             Primitive(np) => {
                                 let mut exp = Expansion::new(next, p.orig.clone());
@@ -975,7 +975,7 @@ impl Interpreter<'_> {
                             },
                             Whatsit(ProvidesWhatsit::Math(mw)) => {
                                 return match (mw._get)(&next,self,previous)? {
-                                    Some(k) => Ok(Some(WI::Math(MathGroup::new(k,self.state.displaymode.get(&()))))),
+                                    Some(k) => Ok(Some(WI::Math(MathGroup::new(k,self.state.displaymode.get())))),
                                     _ => Ok(None)
                                 }
                             },
@@ -991,7 +991,7 @@ impl Interpreter<'_> {
                                     let wi = self.do_math_char(Some(next),*mc);
                                     let ret = crate::stomach::Whatsit::Math(MathGroup::new(
                                         crate::stomach::math::MathKernel::MathChar(wi),
-                                        self.state.displaymode.get(&())));
+                                        self.state.displaymode.get()));
                                     return Ok(Some(ret))
                                 }
                             },
@@ -1010,7 +1010,7 @@ impl Interpreter<'_> {
                             let wi = self.do_math_char(Some(next),mc as u32);
                             let ret = crate::stomach::Whatsit::Math(MathGroup::new(
                                 crate::stomach::math::MathKernel::MathChar(wi),
-                                self.state.displaymode.get(&())));
+                                self.state.displaymode.get()));
                             return Ok(Some(ret))
                         }
                     }

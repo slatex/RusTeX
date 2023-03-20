@@ -21,7 +21,7 @@ extern crate pathdiff;
 
 use std::sync::{Arc, RwLock};
 use crate::{HYPHEN_CFG, /*PGFSYS_COMMON,*/ PGFSYS_RUST};
-use crate::interpreter::state::RusTeXMap;
+use crate::interpreter::state::store::RusTeXMap;
 
 impl VFile {
     pub(in crate::interpreter) fn new<'a>(fp : &Path,intexmf:bool, in_file: &Path, filestore:&mut RusTeXMap<TeXStr,Arc<VFile>>) -> Arc<VFile> {

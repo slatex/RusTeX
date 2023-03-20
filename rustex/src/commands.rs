@@ -835,7 +835,7 @@ impl PrimitiveTeXCommand {
                 }
                 AssignableValue::Tok(t) => (t._assign)(rf,int,global),
                 AssignableValue::FontRef(f) => {
-                    int.state.currfont.set((),f.clone(),global);
+                    int.state.currfont.set(f.clone(),global);
                     int.stomach_add(FontChange {
                         font: f.clone(),
                         closes_with_group: !global,

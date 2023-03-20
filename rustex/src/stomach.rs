@@ -238,9 +238,9 @@ pub trait Stomach : Send {
         self.flush()?;
         state.registers.set(-(PREVGRAF.index as i32),0,true);
         let mut p = self.end_paragraph_loop()?;
-        let hangindent = state.hangindent.get(&());
-        let hangafter = state.hangafter.get(&());
-        let parshape = state.parshape.get(&());
+        let hangindent = state.hangindent.get();
+        let hangafter = state.hangafter.get();
+        let parshape = state.parshape.get();
         /*if !parshape.is_empty() {
             unsafe{ crate::LOG = true }
             println!("here")
@@ -695,7 +695,7 @@ pub trait Stomach : Send {
         }
         for r in rets {base.stomachgroups.first_mut().unwrap().push(r)}
         if basefont.is_none() {
-            basefont = Some(state.currfont.get(&()))
+            basefont = Some(state.currfont.get())
         }
         self.on_begin_document_inner(state);
         let (sender,receiver) = mpsc::channel::<StomachMessage>();
@@ -704,9 +704,9 @@ pub trait Stomach : Send {
     }
 
     fn reset_par(&self,state:&mut State) {
-        state.hangafter.set((),0,false);
-        state.hangindent.set((),0,false);
-        state.parshape.set((),vec!(),false);
+        state.hangafter.set(0,false);
+        state.hangindent.set(0,false);
+        state.parshape.set(vec!(),false);
     }
     fn page_height(&self) -> i32 {
         self.base().pageheight
