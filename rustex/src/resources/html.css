@@ -1,13 +1,17 @@
-body {
-    font-family: Latin Modern, STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
-    margin:auto;
+* { position:relative;}
+span {display: contents}
+div {display: inherit}
+
+.rustex-scaled{
+    width: var(--this-width);
+    min-width: var(--this-width);
 }
-* {
-    position:relative
+.rustex-scaled>*:first-child {
+    --current-width:var(--this-width);
 }
 
-.resetfont {
-    font-family: Latin Modern, STIXgeneral, Times, Times New Roman, Symbol, cmr10, CMSY10, CMEX10, serif;
+.resetfont, .body {
+    font-family: Latin Modern, STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
     font-style: normal;
     font-weight: 400;
     font-variant: normal;
@@ -21,8 +25,6 @@ body {
     font-family: msbm;
 }
 
-.mskip {}
-
 .script {
     font-family: URW Chancery L, cursive;
 }
@@ -32,188 +34,72 @@ body {
 }
 
 .body {
-    align-content:inherit;
     background-color:#f9fafb;
-    color:#1b1818;
-    display:flex;
-    flex-direction:column;
-    grid-auto-flow:row;
-    justify-content:flex-start;
-    margin:auto;
-    text-align:justify;
-    text-rendering:optimizeLegibility;
-    overflow:hidden;
+    color: #000000;
 }
 
-.body > span {display:block}
-.vbox > span {display:block;}
-.foreign > span {display:block;}
-.displaymath {
-    display:block;
-    text-align:center;
+.body, .vbox, .foreign {
+    display:inline-flex;
+    flex-direction: column;
 }
-.vskip {
+
+.hbox, .vbox {
+    width: auto;
+    height: auto;
+    overflow: visible;
+}
+
+.vbox {
+    flex-wrap: nowrap;
+}
+
+.hbox {
+    display:inline-block;
+    white-space: nowrap;
+}
+
+.paragraph {
+    text-align:justify;
+    white-space:normal;
     display: inline-block;
-    line-height:0pt
 }
+
 .reftarget {
 }
 .vrule {
-    /*align-self:end;*/
-    display:inline-block;
 }
 .hrule {
-    /*align-self:start;*/
-    display:block;
 }
 a {
     color: inherit;
     text-decoration: inherit;
 }
 .raise {
-    position: relative;
-    display: inline-block;
 }
 .moveright {
-    position: relative;
-    display: inline-block;
 }
-.paragraph {
-    hyphens: auto;
-    -webkit-hyphens: auto;
-    -moz-hyphens: auto;
-    margin-top: 0;
-    margin-bottom: 0;
-    max-width:100%;
-    justify-content:inherit;
-    align-content:inherit;
-    white-space:normal;
-}
-hr {
-    width: 100%;
-}
-.vbox {
-    overflow-wrap:initial;
-    display: inline-flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-content: center;
-    justify-content: flex-start;
-    width:fit-content;
-    max-width:100%;
-    text-align:justify;
-    align-self: center;
-}
-.hbox {
-    overflow-wrap:initial;
-    display: inline-flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-content: inherit;
-    align-items: baseline;
-    align-self: baseline;
-    width:fit-content;
-    height:fit-content;
-    max-width:100%;
-    vertical-align: baseline;
-    white-space:nowrap;
-}
-.matrix {
-    display: inline-flex;
-}
-.hskip {
-    display: inline-block;
-    width: 0%;
-    height: 0%;
-}
-.indent {
-    display: inline-block;
-    width: 0%;
-    height: 0%;
-}
-.vskip {
-    width: 0%;
-    height: 0%;
-}
-foreignObject {
-}
-.foreign {
-    display:flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    width:100%;
-    height:100%;
-    align-content:center;
-    justify-content:center;
-}
-table {
-    border-spacing:0;
-    white-space:nowrap;
-    width:fit-content;
-    height:fit-content;
-    display:initial;
-}
-td {
-    padding:0;
-}
-.vfil {
-    margin-bottom: 10px;
-    width: 0%;
-    height: 0%;
-}
-.vfill {
-    margin-bottom: 30px;
-    width: 0%;
-    height: 0%;
-}
-.HFil {
-    width: 0%;
-    height: 0%;
-    display: inline-block;
-}
-.Hss {
-    width: 0%;
-    height: 0%;
-    display: inline-block;
-}
-.hkern {
-    display: inline-block;
-}
-.HFill {
-    margin-left: 30px;
-    width: 0%;
-    height: 0%;
-    display: inline-block;
-}
-.br {
-    flex-basis:100%;
-    height:0;
-}
+hr {width: 100%;}
+
 math {
-    width:fit-content;
-    height:fit-content;
-    font-size:85%;
-    align-self: baseline;
+    vertical-align: middle;
+    line-height: inherit;
+    font-size: inherit;
+    font-style: inherit;
+    font-family: inherit;
+    font-weight: inherit;
+}
+mtext {
+    letter-spacing: initial;
+    word-spacing: initial;
 }
 .displaymath {
-    align-self: center;
+    position: relative;
 }
 .displaymathcontainer {
+    position: relative;
     text-align:center;
-    display:flex;
-    justify-content:center;
-    align-self:center;
-}
-.halign{
-    display:table;
-    border-collapse:collapse;
-}
-.row{display: table-row}
-.cell{display: table-cell}
-.rustex-scaled{
-    width: var(--this-width);
-    min-width: var(--this-width);
-}
-.rustex-scaled>*:first-child {
-    --current-width:var(--this-width);
+    display:block;
+    align-self: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }

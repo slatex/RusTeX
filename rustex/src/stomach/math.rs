@@ -5,6 +5,7 @@ use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
 use crate::fonts::convert::convert;
 use crate::interpreter::dimensions::{MuSkip, numtostr};
 use crate::references::SourceFileReference;
+use crate::stomach::boxes::{TeXBox, VBoxType};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, MATHML_NS, FontInfo};
 use crate::stomach::Whatsit;
@@ -119,6 +120,9 @@ impl WhatsitTrait for MathGroup {
                             ret.push(o);
                             return
                         }
+                        Whatsit::Box(TeXBox::V(vb)) if *mode != ColonMode::M && vb.tp == VBoxType::Center => {
+                            v.push(Whatsit::Box(TeXBox::V(vb)))
+                        },
                         Whatsit::Box(b) if *mode != ColonMode::M => ret.push(b.as_whatsit()),
                         o if *mode == ColonMode::M => {
                             ret.push(o);
@@ -136,7 +140,7 @@ impl WhatsitTrait for MathGroup {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H | ColonMode::P if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
+            ColonMode::H | ColonMode::P | ColonMode::V if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
                 div.style("width".into(),"100%".into());
                 div.style("min-width".into(),"100%".into());
                 if crate::INSERT_RUSTEX_ATTRS {
@@ -156,7 +160,7 @@ impl WhatsitTrait for MathGroup {
                     })
                 })
             }),
-            ColonMode::H | ColonMode::P => htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",node_top,node=> {
+            ColonMode::H | ColonMode::P | ColonMode::V => htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",node_top,node=> {
                 htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                     self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
                     /*if mrow.children.len() == 1 {

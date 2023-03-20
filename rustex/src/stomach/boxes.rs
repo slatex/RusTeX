@@ -533,7 +533,7 @@ impl WhatsitTrait for VBox {
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
                 }
                 match self.tp {
-                    VBoxType::V => node.style("vertical-align".into(),"baseline".into()),
+                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
                     VBoxType::Center => node.style("vertical-align".into(),"middle".into()),
                     VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
                 }

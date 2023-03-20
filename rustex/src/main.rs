@@ -48,24 +48,7 @@ fn run() {
     use rustex::interpreter::state::State;
     //use magick_rust::{MagickWand, magick_wand_genesis};
     use rustex::fonts::convert::*;
-/*
-    let teststr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789Γ∆ΘΛΞΠϴΣΥΦΨΩαβγδϵζηθικλμνξπρστυɸχψωεϑϖϱςφ∂ϵϑϰϕϱϖ";
-    let vec: Vec<&HashMap<char,char>> = vec!(SCRIPT.deref(),BOLD_SCRIPT.deref(),ITALIC.deref(),BOLD.deref(),BOLD_ITALIC.deref(),
-        BOLD_SANS.deref(),BOLD_ITALIC_SANS.deref(),ITALIC_SANS.deref(),SANS.deref(),
-        CAPITAL.deref(),FRAKTUR.deref(),BOLD_FRAKTUR.deref(),MONOSPACED.deref(),
-        BLACKBOARD.deref()
-    );
-    for c in teststr.chars() {
-        let mut ret = c.to_string() + ": ";
-        for v in &vec {
-            match v.get(&c) {
-                Some(v) => ret += (v.to_string() + "    | ").as_str(),
-                _ => ret += "None | "
-            }
-        }
-        println!("{}",ret);
-    }
-*/
+
     match params.input {
         None => {
             match params.dir {

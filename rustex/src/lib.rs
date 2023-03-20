@@ -63,10 +63,102 @@ pub static PGFSYS_RUST: &str = include_str!("resources/pgfsys-rust.def");
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Display;
+    use crate::interpreter::state::State;
+    use crate::stomach::NoShipoutRoutine;
+    use crate::interpreter::params::DefaultParams;
+    use crate::stomach::html::HTMLColon;
+    use crate::Interpreter;
+    use std::path::Path;
+    use std::io::Write;
+    use std::time::Instant;
+
     #[test]
     fn it_works() {
         let result = 2 + 2;
         assert_eq!(result, 4);
+    }
+
+    #[test]
+    fn csstest() {
+        crate::utils::with_stack_size(csstest_i)
+    }
+    fn csstest_i() {
+        let pathstr = "/home/jazzpirate/work/Software/sTeX/RusTeX/rustex/";
+        let infile = pathstr.to_string() + "test.tex";
+        let path = Path::new(&infile);
+
+        let state = State::pdf_latex();
+        let mut stomach = NoShipoutRoutine::new();
+        let p = DefaultParams::new(false, false, None);
+        let mut int = Interpreter::with_state(state.clone(), &mut stomach, &p);
+        let (success, s) = int.do_file(&path, HTMLColon::new(true));
+        let outfile = pathstr.to_string() + "test.xhtml";
+        let mut file = std::fs::File::create(&outfile).unwrap();
+        file.write_all(s.as_bytes()).expect("");
+        assert!(success)
+    }
+
+    #[test]
+    fn speedtest() {
+        crate::utils::with_stack_size(speedtest_i)
+    }
+    fn speedtest_i() {
+        let d = "/home/jazzpirate/work/MathHub/sTeX";
+        let output= "/home/jazzpirate/work/Software/sTeX/RusTeX/rustex/out.xhtml";
+        let max = 10;
+        let mut done = 0;
+        let mut state = State::pdf_latex();
+        fn do_dir<P: AsRef<Path>,D:Display>(s : P,d:D,mut st : State,out:Option<String>,done:&mut i32,max: i32) -> State {
+            //println!("{}",d);
+            for f in std::fs::read_dir(s).unwrap() {
+                let f = f.unwrap();
+                let path = f.path();
+                if std::fs::metadata(&path).unwrap().is_dir() {
+                    let init = path.to_str().unwrap();
+                    if !init.ends_with(".git") &&
+                        !init.ends_with("content") &&
+                        !init.ends_with("errors") &&
+                        !init.ends_with("narration") &&
+                        !init.ends_with("relational") &&
+                        !init.ends_with("buildresults") &&
+                        !init.ends_with("xhtml") &&
+                        !init.ends_with("export") &&
+                        !init.ends_with("lib")
+                    {
+                        st = do_dir(path.clone(),path.display(),st.clone(),out.clone(),done,max)
+                    }
+                } else {
+                    if path.to_str().unwrap().ends_with(".tex") && !path.to_str().unwrap().ends_with("tutorial/course.tex") {
+                        if *done < max {
+                            *done += 1;
+                            println!("------------\n\nDoing {}\n\n---------------\n", path.to_str().unwrap());
+                            let mut stomach = NoShipoutRoutine::new();
+                            let p = DefaultParams::new(false, false, None);
+                            let mut int = Interpreter::with_state(st.clone(), &mut stomach, &p);
+                            let (success, s) = int.do_file(&path, HTMLColon::new(true));
+                            assert!(success);
+                            if success {
+                                let mut topcommands = int.state.commands.destroy();
+                                for (n,cmd) in topcommands.drain() {
+                                    if n.to_string().starts_with("c_stex_module") {
+                                        st.commands.set(n,cmd.map(|x| x.clean()),true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            st
+        }
+        state = do_dir(d.clone(),d,state,Some(output.to_string()),&mut done,max);
+        let mut stomach = NoShipoutRoutine::new();
+        let p = DefaultParams::new(false, false, None);
+        let mut int = Interpreter::with_state(state, &mut stomach, &p);
+        let path = Path::new("/home/jazzpirate/work/MathHub/sTeX/DemoExamples/source/quickstart.tex");
+        let (success, s) = int.do_file(path, HTMLColon::new(true));
+        assert!(success);
     }
 }
 
