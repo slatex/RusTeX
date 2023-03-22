@@ -94,6 +94,8 @@ macro_rules! pass_on {
 }
 
 impl WhatsitTrait for SimpleWI {
+    fn get_par_width(&self) -> Option<i32> { pass_on!(self,get_par_width) }
+    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,get_par_widths) }
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,get_ref) }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(self) }
     fn width(&self) -> i32 { pass_on!(self,width) }
@@ -168,6 +170,8 @@ pub struct PDFXImage{
     pub _height:Option<i32>
 }
 impl WhatsitTrait for PDFXImage {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFXImage(self))
@@ -285,6 +289,8 @@ pub struct VRule {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VRule {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::VRule(self))
@@ -327,6 +333,8 @@ pub struct HRule {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HRule {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HRule(self))
@@ -367,6 +375,8 @@ pub struct VSkip {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VSkip {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::VSkip(self))
@@ -402,6 +412,8 @@ pub struct HSkip {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HSkip {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HSkip(self))
@@ -445,6 +457,8 @@ pub struct MSkip {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MSkip {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::MSkip(self))
@@ -488,6 +502,8 @@ pub struct Penalty {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Penalty {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Penalty(self))
@@ -520,6 +536,8 @@ pub struct PDFLiteral {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFLiteral {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFLiteral(self))
@@ -543,6 +561,8 @@ pub struct PDFInfo {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFInfo {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFInfo(self))
@@ -569,6 +589,8 @@ pub struct PDFXForm {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFXForm {
+    fn get_par_width(&self) -> Option<i32> { self.content.get_par_width() }
+    fn get_par_widths(&self) -> Vec<i32> { self.content.get_par_widths() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFXForm(self))
@@ -593,6 +615,8 @@ pub struct Raise {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Raise {
+    fn get_par_width(&self) -> Option<i32> { self.content.get_par_width() }
+    fn get_par_widths(&self) -> Vec<i32> { self.content.get_par_widths() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Raise(self))
@@ -673,6 +697,8 @@ pub struct MoveRight {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for MoveRight {
+    fn get_par_width(&self) -> Option<i32> { self.content.get_par_width() }
+    fn get_par_widths(&self) -> Vec<i32> { self.content.get_par_widths() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::MoveRight(self))
@@ -743,6 +769,8 @@ pub struct VKern {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VKern {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::VKern(self))
@@ -778,6 +806,8 @@ pub struct HKern {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HKern {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HKern(self))
@@ -802,16 +832,6 @@ impl WhatsitTrait for HKern {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         colon.state.add_kern(self.dim);
-        /*
-        match mode {
-            ColonMode::M => htmlnode!(colon,mspace,self.sourceref,"hkern",node_top,node => {
-            node.attr("width".into(),dimtohtml(self.dim));
-        }),
-            _ => htmlnode!(colon,div,self.sourceref,"hkern",node_top,node => {
-            node.style("margin-left".into(),dimtohtml(self.dim));
-        })
-        }
-         */
     }
 }
 
@@ -821,6 +841,8 @@ pub struct Indent {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Indent {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Indent(self))
@@ -857,6 +879,8 @@ pub struct PDFDest {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFDest {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFDest(self))
@@ -887,6 +911,8 @@ pub struct HAlign {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HAlign {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HAlign(self))
@@ -1169,6 +1195,8 @@ pub struct VAlign {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VAlign {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::VAlign(self))
@@ -1303,6 +1331,8 @@ pub struct Mark {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Mark {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Mark(self))
@@ -1324,6 +1354,8 @@ pub struct Leaders {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Leaders {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Leaders(self))
@@ -1360,6 +1392,8 @@ pub struct PDFMatrix {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFMatrix {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::PDFMatrix(self))
@@ -1386,6 +1420,8 @@ pub struct Left {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Left {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Left(self))
@@ -1411,6 +1447,8 @@ pub struct Middle {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Middle {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Middle(self))
@@ -1436,6 +1474,8 @@ pub struct Right {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for Right {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::Right(self))
@@ -1482,6 +1522,8 @@ macro_rules! trivial {
                     _ => ()
                 }
             }
+            fn get_par_width(&self) -> Option<i32> { None }
+            fn get_par_widths(&self) -> Vec<i32> { vec!() }
         }
     )
 }

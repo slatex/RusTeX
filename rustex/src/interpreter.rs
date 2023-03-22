@@ -578,7 +578,7 @@ impl Interpreter<'_> {
         FileEnd!()
     }
 
-    fn get_last_math(&mut self,tk:&Token) -> Result<MathGroup,TeXError> {
+    fn get_last_math(&mut self) -> Result<MathGroup,TeXError> {
         use crate::stomach::Whatsit as WI;
         match self.stomach.get_last() {
             Some(WI::Math(mg)) => {
@@ -588,7 +588,7 @@ impl Interpreter<'_> {
                 let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
                 return Ok(mg)
             }
-            _ => TeXErr!("Whatsit expected before {}",tk)
+            _ => return Ok(MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get()))
         }
     }
 
@@ -613,7 +613,7 @@ impl Interpreter<'_> {
                     return Ok(Some(self.read_math_group(mode,false)?.as_whatsit_limits(self.state.displaymode.get())))
                 }
                 Superscript => {
-                    let mut last = match self.get_last_math(&next)? {
+                    let mut last = match self.get_last_math()? {
                         mg if mg.superscript.is_none() => mg,
                         _ => TeXErr!("Double superscript")
                     };
@@ -629,7 +629,7 @@ impl Interpreter<'_> {
                     return Ok(Some(last.as_whatsit()))
                 }
                 Subscript => {
-                    let mut last = match self.get_last_math(&next)? {
+                    let mut last = match self.get_last_math()? {
                         mg if mg.subscript.is_none() => mg,
                         _ => TeXErr!("Double subscript")
                     };

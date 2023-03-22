@@ -19,19 +19,21 @@ pub struct HTMLLiteral {
     pub(crate) str : TeXStr
 }
 impl WhatsitTrait for HTMLLiteral {
-    fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
-    fn has_ink(&self) -> bool { true }
     fn as_xml_internal(&self, _: String) -> String { self.str.to_string() }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,self.str)
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for HTMLLiteral {
     fn name(&self) -> TeXStr { "htmlliteral".into() }
@@ -54,21 +56,23 @@ pub struct HTMLNamespace {
     ns : TeXStr
 }
 impl WhatsitTrait for HTMLNamespace {
-    fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
-    fn has_ink(&self) -> bool { true }
     fn as_xml_internal(&self, _: String) -> String {
         "<namespace abbr=\"".to_string() + &self.abbr.to_string() + "\" target=\"" + &self.ns.to_string() + "\"/>"
+    }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, _: &mut Option<HTMLParent>) {
         colon.namespaces.insert(self.abbr.to_string(),self.ns.to_string());
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for HTMLNamespace {
     fn name(&self) -> TeXStr { "htmlnamespace".into() }

@@ -52,30 +52,15 @@ impl HTMLState {
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident,$e:expr) => ({
      let _withwidth_currsize = $colon.state.currsize;
-     //let _withwidth_currsquare = $colon.state.squaresize;
-     //$colon.state.squaresize = false;
-     if $wd == 0 {
-        $node.style("width".into(),"0px".into());
-        $node.style("max-width".into(),"0px".into());
-        {
-            let mut $inner = &mut $node;
-            $e
-        }
-     } else {
-        $colon.state.currsize = $wd;
-        let _withwidth_pctg_str = (($wd as f32) / (_withwidth_currsize as f32)).to_string();
-        let _withwidth_pctg = "calc(".to_string() + &_withwidth_pctg_str + " * var(--current-width))";
-        $node.style("--this-width".into(),_withwidth_pctg.into());
-        $node.classes.push("rustex-scaled".into());
-        //$node.style("width".into(),"var(--this-width)".into());
-        //$node.style("min-width".into(),"var(--this-width)".into());
-        htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
-            //$inner.style("--current-width".into(),"var(--this-width)".into());
-            $e
-        });
-    }
-    $colon.state.currsize = _withwidth_currsize;
-    //$colon.state.squaresize = _withwidth_currsquare;
+     let _withwidth_newsize = if $wd == 0 {2048} else {$wd};
+     $colon.state.currsize = _withwidth_newsize;
+     let _withwidth_pctg_str = ((_withwidth_newsize as f32) / (_withwidth_currsize as f32) * 100.0).to_string();
+     let _withwidth_pctg = _withwidth_pctg_str + "%";
+     $node.style("width".into(),_withwidth_pctg.clone().into());
+     $node.style("min-width".into(),_withwidth_pctg.into());
+     let mut $inner = &mut $node;
+     $e
+     $colon.state.currsize = _withwidth_currsize;
  });
 }
 #[macro_export]

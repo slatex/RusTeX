@@ -61,9 +61,18 @@ pub trait ExternalWhatsitGroup : Send+Sync {
     fn sourceref(&self) -> &Option<SourceFileReference>;
     fn normalize(&self,ch:Vec<Whatsit>, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>);
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>);
+    fn get_par_widths(&self,ch:&Vec<Whatsit>) -> Vec<i32> {
+        let mut ret : Vec<i32> = vec!();
+        for c in ch {
+            for w in c.get_par_widths() { ret.push(w)}
+        }
+        ret
+    }
 }
 
 impl WhatsitTrait for WIGroup {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,get_par_widths,(e,ch) => e.get_par_widths(ch)) }
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,get_ref,(e,ch) => e.get_ref(ch))}
     fn as_whatsit(self) -> Whatsit {
         Whatsit::GroupOpen(self)
@@ -130,6 +139,14 @@ pub struct FontChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for FontChange {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> {
+        let mut ret : Vec<i32> = vec!();
+        for c in &self.children {
+            for w in c.get_par_widths() { ret.push(w)}
+        }
+        ret
+    }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
     }
@@ -236,6 +253,14 @@ pub struct ColorChange {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for ColorChange {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> {
+        let mut ret : Vec<i32> = vec!();
+        for c in &self.children {
+            for w in c.get_par_widths() { ret.push(w)}
+        }
+        ret
+    }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
     }
@@ -406,6 +431,14 @@ pub struct PDFLink {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFLink {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> {
+        let mut ret : Vec<i32> = vec!();
+        for c in &self.children {
+            for w in c.get_par_widths() { ret.push(w)}
+        }
+        ret
+    }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
     }
@@ -479,6 +512,14 @@ pub struct PDFMatrixSave {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PDFMatrixSave {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> {
+        let mut ret : Vec<i32> = vec!();
+        for c in &self.children {
+            for w in c.get_par_widths() { ret.push(w)}
+        }
+        ret
+    }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(self.children()).or(self.sourceref.clone())
     }
@@ -623,6 +664,8 @@ impl WIGroupCloseTrait for GroupClose {
     }
 }
 impl WhatsitTrait for GroupClose {
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on_close!(self,get_ref,e => e.sourceref().clone()) }
     fn as_whatsit(self) -> Whatsit {
         WIGroupCloseTrait::as_whatsit_i(self)
@@ -660,6 +703,8 @@ macro_rules! groupclose {
             fn has_ink(&self) -> bool { false }
             fn normalize(self, _: &ColonMode, _: &mut Vec<Whatsit>, _: Option<f32>) {}
             fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
+            fn get_par_width(&self) -> Option<i32> { None }
+            fn get_par_widths(&self) -> Vec<i32> { vec!() }
         }
     )
 }

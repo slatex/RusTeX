@@ -1733,7 +1733,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
         };
-        int.eat_relax();
+        int.skip_ws();int.eat_relax();int.skip_ws();
         let ret = int.read_whatsit_group(BoxMode::H,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::H(HBox {
@@ -1756,7 +1756,7 @@ pub static VBOX: ProvidesBox = ProvidesBox {
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
         };
-        int.eat_relax();
+        int.skip_ws();int.eat_relax();int.skip_ws();
         let ret = int.read_whatsit_group(BoxMode::V,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::V(VBox {
@@ -3317,7 +3317,16 @@ pub static INSERT: PrimitiveExecutable = PrimitiveExecutable {
     expandable:false,
     _apply:|_,int| {
         let num = int.read_number()? as u16;
+        let right = int.state.skips_prim.get(&(RIGHTSKIP.index - 1));
+        let left = int.state.skips_prim.get(&(LEFTSKIP.index - 1));
+        let parshape = int.state.parshape.get();
+        int.state.parshape.set(vec!(),false);
+        int.state.skips_prim.set(RIGHTSKIP.index - 1,Skip::default(),false);
+        int.state.skips_prim.set(LEFTSKIP.index - 1,Skip::default(),false);
         let mut bx = int.read_whatsit_group(BoxMode::V,true)?;
+        int.state.skips_prim.set(RIGHTSKIP.index - 1,right,false);
+        int.state.skips_prim.set(LEFTSKIP.index - 1,left,false);
+        int.state.parshape.set(parshape,false);
         let prev = int.state.inserts.get_mut(&num);
         match prev {
             Some(v) => v.append(&mut bx),

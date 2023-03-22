@@ -64,7 +64,6 @@ macro_rules! pass_on {
 }
 
 impl WhatsitTrait for TeXBox {
-    fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,None,get_ref) }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Box(self)
     }
@@ -81,6 +80,9 @@ impl WhatsitTrait for TeXBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         pass_on!(self,(),as_html,mode,colon,node_top)
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,None,get_ref) }
+    fn get_par_width(&self) -> Option<i32> { pass_on!(self,None,get_par_width) }
+    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,vec!(),get_par_widths) }
 }
 
 #[derive(Clone)]
@@ -98,13 +100,9 @@ impl HBox {
 }
 
 impl WhatsitTrait for HBox {
-    fn get_ref(&self) -> Option<SourceFileReference> {
-        SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
-    }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Box(TeXBox::H(self))
     }
-
     fn width(&self) -> i32 {
         match self._width {
             Some(i) => i,
@@ -117,7 +115,6 @@ impl WhatsitTrait for HBox {
             }
         }
     }
-
     fn height(&self) -> i32 {
         match self._height {
             Some(i) => i,
@@ -191,6 +188,7 @@ impl WhatsitTrait for HBox {
         for c in &self.children { if c.has_ink() { return true } }
         false
     }
+
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         match mode {
             ColonMode::V | ColonMode::External(_) | ColonMode::P => {
@@ -254,6 +252,7 @@ impl WhatsitTrait for HBox {
             }
         }
     }
+
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
@@ -262,14 +261,6 @@ impl WhatsitTrait for HBox {
                         node.attr("rustex:width".into(),dimtohtml(self.width()));
                         node.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
-                    //htmlliteral!(colon,node_top,"\n");
-                    /*match self._width {
-                        Some(h) => {
-                            node.style("width".into(),dimtohtml(h));
-                            node.style("min-width".into(),dimtohtml(h))
-                        }
-                        _ => ()
-                    }*/
                     match self._height {
                         Some(v) => {
                             node.style("height".into(),dimtohtml(v));
@@ -290,14 +281,15 @@ impl WhatsitTrait for HBox {
                             })
                         }
                         _ => {
-                            //let currsquare = colon.state.squaresize;
-                            //colon.state.squaresize = true;
-                            HBox::ch_as_html(self.children,colon,&mut node);
-                            //colon.state.squaresize = currsquare;
+                            match self.get_par_width() {
+                                None => HBox::ch_as_html(self.children,colon,&mut node),
+                                Some(w) =>
+                                    withwidth!(colon,w,node,inner,{
+                                        HBox::ch_as_html(self.children,colon,&mut inner);
+                                    })
+                            }
                         }
                     }
-
-                    //htmlliteral!(colon,node_top,"\n");
                 })
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
@@ -311,6 +303,22 @@ impl WhatsitTrait for HBox {
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }
     }
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
+    }
+    fn get_par_width(&self) -> Option<i32> {
+        let mut ret : Option<i32> = None;
+        for c in &self.children {
+            for w in c.get_par_widths() {
+                match ret {
+                    None => ret = Some(w),
+                    Some(ow) => ret = Some(w + ow)
+                }
+            }
+        }
+        ret
+    }
+    fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
 }
 impl HBox {
     fn ch_as_html(children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
@@ -356,6 +364,20 @@ pub struct VBox {
 }
 
 impl WhatsitTrait for VBox {
+    fn get_par_width(&self) -> Option<i32> {
+        let mut ret : Option<i32> = None;
+        for c in &self.children {
+            for w in c.get_par_widths() {
+                match ret {
+                    Some(ow) if ow < w => ret = Some(w),
+                    None => ret = Some(w),
+                    _ => ()
+                }
+            }
+        }
+        ret
+    }
+    fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
@@ -562,10 +584,19 @@ impl WhatsitTrait for VBox {
                                 })
                             }
                             _ => {
-                                for c in self.children {
-                                    htmlliteral!(colon,htmlparent!(node),"\n");
-                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                                    htmlliteral!(colon,htmlparent!(node),"\n");
+                                match self.get_par_width() {
+                                    None => for c in self.children {
+                                            htmlliteral!(colon,htmlparent!(node),"\n");
+                                            c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                                            htmlliteral!(colon,htmlparent!(node),"\n");
+                                        }
+                                    Some(i) => withwidth!(colon,i,node,inner,{
+                                        for c in self.children {
+                                            htmlliteral!(colon,htmlparent!(inner),"\n");
+                                            c.as_html(&ColonMode::V,colon,htmlparent!(inner));
+                                            htmlliteral!(colon,htmlparent!(inner),"\n");
+                                        }
+                                    })
                                 }
                             }
                         }
@@ -601,10 +632,19 @@ impl WhatsitTrait for VBox {
                         })
                     }
                     _ => {
-                        for c in self.children {
-                            htmlliteral!(colon,htmlparent!(node),"\n");
-                            c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                            htmlliteral!(colon,htmlparent!(node),"\n");
+                        match self.get_par_width() {
+                            None => for c in self.children {
+                                    htmlliteral!(colon,htmlparent!(node),"\n");
+                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                                    htmlliteral!(colon,htmlparent!(node),"\n");
+                                }
+                            Some(i) => withwidth!(colon,i,node,inner,{
+                                for c in self.children {
+                                    htmlliteral!(colon,htmlparent!(inner),"\n");
+                                    c.as_html(&ColonMode::V,colon,htmlparent!(inner));
+                                    htmlliteral!(colon,htmlparent!(inner),"\n");
+                                }
+                            })
                         }
                     }
                 }

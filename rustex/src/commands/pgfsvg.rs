@@ -28,17 +28,16 @@ pub struct PGFEscape {
     pub bx : TeXBox
 }
 impl WhatsitTrait for PGFEscape {
-    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
-    fn has_ink(&self) -> bool { true }
-    fn depth(&self) -> i32 { 0 }
-    fn height(&self) -> i32 { 0 }
-    fn width(&self) -> i32 { 0 }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::External(Box::new(self)))
     }
+    fn width(&self) -> i32 { 0 }
+    fn height(&self) -> i32 { 0 }
+    fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, prefix: String) -> String {
         "<escape>".to_string() + &self.bx.as_xml_internal(prefix) + "</escape>"
     }
+    fn has_ink(&self) -> bool { true }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let mut nret : Vec<Whatsit> = vec!();
         let _ = self.bx.width();
@@ -86,6 +85,9 @@ impl WhatsitTrait for PGFEscape {
             _ => self.bx.as_html(mode,colon,node_top)
         }
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 //unsafe impl Send for PGFEscape {}
 //unsafe impl Sync for PGFEscape {}
@@ -155,37 +157,15 @@ impl PGFBox {
             },
             o => ret.push(o)
         }
-        /*
-        match wi {
-
-            //Whatsit::Simple(SimpleWI::External(ref ext)) if ext.name().to_string() == "pgfliteral" => { vec!(wi) }
-            //Whatsit::Grouped(WIGroup::ColorChange(mut c)) => c.children.drain(..).map(PGFBox::normalize_i).flatten().collect(),
-            //Whatsit::Space(_) => {vec!(wi) }
-            o => {
-                vec!(o)
-            }
-        }
-         */
     }
 }
 impl WhatsitTrait for PGFBox {
-    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
-    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        let mut nc : Vec<Whatsit> = vec!();
-        for x in self.content.drain(..) {
-            PGFBox::normalize_i(x,&mut nc)
-        }
-        //self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
-        self.content = nc;
-        ret.push(self.as_whatsit())
-    }
-    fn has_ink(&self) -> bool { true }
-    fn depth(&self) -> i32 { 0 }
-    fn height(&self) -> i32 { self.maxy - self.miny }
-    fn width(&self) -> i32 { self.maxx - self.minx }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::External(Box::new(self)))
     }
+    fn width(&self) -> i32 { self.maxx - self.minx }
+    fn height(&self) -> i32 { self.maxy - self.miny }
+    fn depth(&self) -> i32 { 0 }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut str ="\n".to_string() + &prefix + "<svg xmlns=\"http://www.w3.org/2000/svg\"";
         str += &(" width=\"".to_string() + &numtostr(self.maxx - self.minx,"px") + "\"");
@@ -202,14 +182,21 @@ impl WhatsitTrait for PGFBox {
         for s in &self.content {str += &s.as_xml_internal(prefix.clone() + "  ")}
         str + "\n" + &prefix + "</g></svg>"
     }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        let mut nc : Vec<Whatsit> = vec!();
+        for x in self.content.drain(..) {
+            PGFBox::normalize_i(x,&mut nc)
+        }
+        //self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
+        self.content = nc;
+        ret.push(self.as_whatsit())
+    }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,HTML_NS:div,None,"",node_top,div => {
             div.style("display".into(),"inline-block".into());
-            //div.style("vertical-align".into(),"middle".into());
-            let currsize = colon.state.currsize;
-            //colon.state.currsize = self.maxx - self.minx;
             withwidth!(colon,self.maxx-self.minx,div,inner,{
-                htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(div),svg => {
+                htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(inner),svg => {
                     let mut vb : HTMLStr = numtohtml(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
                     vb += " ";
                     vb += numtohtml(self.miny);
@@ -240,9 +227,11 @@ impl WhatsitTrait for PGFBox {
                     })
                 });
             });
-            //div.style("--current-width".into(),dimtohtml(self.maxx-self.minx).into());
         });
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for PGFBox {
     fn name(&self) -> TeXStr { "pgfbox".into() }
@@ -298,16 +287,15 @@ pub struct PGFLiteral {
     str : TeXStr
 }
 impl WhatsitTrait for PGFLiteral {
-    fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Simple(SimpleWI::External(Box::new(self)))}
     fn width(&self) -> i32 { 0 }
     fn height(&self) -> i32 { 0 }
     fn depth(&self) -> i32 { 0 }
-    fn has_ink(&self) -> bool { true }
     fn as_xml_internal(&self, _: String) -> String { self.str.to_string() }
+    fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::External(s) if s.to_string()=="svg" => {
@@ -316,6 +304,9 @@ impl WhatsitTrait for PGFLiteral {
             _ => ()
         }
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { None }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for PGFLiteral {
     fn name(&self) -> TeXStr { "pgfliteral".into() }

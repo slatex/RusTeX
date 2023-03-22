@@ -130,8 +130,6 @@ impl WhatsitTrait for Paragraph {
             let wd = self.width();
             let fullwidth = wd + negwd;
             let currsize = colon.state.currsize;
-            //let currsquare = colon.state.squaresize;
-            //colon.state.squaresize = false;
             if wd == 0 {
                 node.style("width".into(),"0px".into());
                 node.style("max-width".into(),"0px".into());
@@ -143,26 +141,27 @@ impl WhatsitTrait for Paragraph {
                     });
                 } else {
                     colon.state.currsize = wd;
-                    let pctg = ((fullwidth as f32) / (currsize as f32)).to_string();
-                    /*if currsquare {
-                        pctgnum = pctgnum.sqrt();
-                    }*/
-                    let str = "calc((".to_string() + &pctg + " * var(--current-width)) - " + &dimtohtml(negwd).to_string() + ")";
-                    node.style("--this-width".into(),str.clone().into());
-                    node.classes.push("rustex-scaled".into());
-                    //node.style("width".into(),"var(--this-width)".into());
-                    //node.style("min-width".into(),"var(--this-width)".into());
+                    let pctg = ((fullwidth as f32) / (currsize as f32) * 100.0).to_string();
+                    let str = "calc(".to_string() + &pctg + "% - " + &dimtohtml(negwd).to_string() + ")";
+                    node.style("width".into(),str.clone().into());
+                    node.style("min-width".into(),str.clone().into());
                     htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
-                        //inner.style("--current-width".into(),"var(--this-width)".into());
                         for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
                     })
                 }
             }
             colon.state.currsize = currsize;
-            //colon.state.squaresize = currsquare;
         });
         htmlliteral!(colon,node_top,"\n");
     }
+    fn get_par_width(&self) -> Option<i32> { Some(
+        self.width() +
+            self.leftskip.map(|s| s.base).unwrap_or(0) +
+            self.rightskip.map(|s| s.base).unwrap_or(0)
+    ) }
+    fn get_par_widths(&self) -> Vec<i32> { vec!(self.width() +
+        self.leftskip.map(|s| s.base).unwrap_or(0) +
+        self.rightskip.map(|s| s.base).unwrap_or(0)) }
 }
 
 impl Paragraph {

@@ -80,6 +80,8 @@ pub trait WhatsitTrait {
     fn normalize(self,mode:&ColonMode,ret:&mut Vec<Whatsit>,scale:Option<f32>);
     fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
     fn get_ref(&self) -> Option<SourceFileReference>;
+    fn get_par_width(&self) -> Option<i32>;
+    fn get_par_widths(&self) -> Vec<i32>;
 }
 
 use crate::stomach::boxes::TeXBox;
@@ -134,14 +136,6 @@ macro_rules! pass_on {
 
 impl WhatsitTrait for Whatsit {
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,get_ref) }
-    /*fn test(&self) {
-        match self {
-            Whatsit::Exec(e) => {
-                let test = e.deref();
-            }
-            _ => ()
-        }
-    }*/
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         pass_on!(self,normalize,mode,ret,scale)
     }
@@ -156,6 +150,8 @@ impl WhatsitTrait for Whatsit {
         pass_on!(self,as_xml_internal,prefix)
     }
     fn has_ink(&self) -> bool { pass_on!(self,has_ink) }
+    fn get_par_width(&self) -> Option<i32> { pass_on!(self,get_par_width)}
+    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,get_par_widths)}
 }
 
 #[derive(Clone)]
@@ -228,6 +224,8 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
     }
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -254,6 +252,8 @@ impl WhatsitTrait for SpaceChar {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         if self.nonbreaking {htmlliteral!(colon,node_top,"&#160;")} else {htmlliteral!(colon,node_top," ")}
     }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -264,10 +264,6 @@ pub struct Accent {
     pub acc:i32
 }
 impl WhatsitTrait for Accent {
-    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Accent(self) }
     fn width(&self) -> i32 { self.char.width() }
     fn height(&self) -> i32 { self.char.height() }
@@ -276,6 +272,9 @@ impl WhatsitTrait for Accent {
         self.char.as_xml_internal(ind) // TODO
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         let ch = match &self.char.font.file.chartable {
             Some(ct) => Some(ct.get_char(self.char.char)),
@@ -298,6 +297,9 @@ impl WhatsitTrait for Accent {
         }
         self.char.as_html(mode,colon,node_top) // TODO
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 lazy_static! {
@@ -326,10 +328,6 @@ pub struct PrintChar {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for PrintChar {
-    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Char(self) }
     fn width(&self) -> i32 { self.font.get_width(self.char as u16) }
     fn height(&self) -> i32 { self.font.get_height(self.char as u16) }
@@ -351,6 +349,9 @@ impl WhatsitTrait for PrintChar {
         }
     }
     fn has_ink(&self) -> bool { true }
+    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+        ret.push(self.as_whatsit())
+    }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlliteral!(colon,node_top,{
             match &self.font.file.chartable {
@@ -364,18 +365,21 @@ impl WhatsitTrait for PrintChar {
             }
         })
     }
+    fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
 pub struct Insert(pub Vec<Vec<Whatsit>>);
 impl WhatsitTrait for Insert {
-    fn get_ref(&self) -> Option<SourceFileReference> {
-        SourceFileReference::from_wi_lists(&self.0)
-    }
     fn as_whatsit(self) -> Whatsit { Whatsit::Inserts(self) }
-    fn width(&self) -> i32 { 0 }//TeXErr!("TODO") }
-    fn height(&self) -> i32 { 0 }//TeXErr!("TODO") }
-    fn depth(&self) -> i32 { 0 }//TeXErr!("TODO") }
+    fn width(&self) -> i32 { 0 }
+    //TeXErr!("TODO") }
+    fn height(&self) -> i32 { 0 }
+    //TeXErr!("TODO") }
+    fn depth(&self) -> i32 { 0 }
+    //TeXErr!("TODO") }
     fn as_xml_internal(&self, prefix: String) -> String {
         let mut ret = "<inserts>".to_string();
         for v in &self.0 {
@@ -401,4 +405,9 @@ impl WhatsitTrait for Insert {
             }
         }
     }
+    fn get_ref(&self) -> Option<SourceFileReference> {
+        SourceFileReference::from_wi_lists(&self.0)
+    }
+    fn get_par_width(&self) -> Option<i32> { None }
+    fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }

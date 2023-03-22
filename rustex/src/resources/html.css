@@ -116,14 +116,6 @@
 span {display: contents}
 div {display: inherit}
 
-.rustex-scaled{
-    width: var(--this-width);
-    min-width: var(--this-width);
-}
-.rustex-scaled>*:first-child {
-    --current-width:var(--this-width);
-}
-
 .resetfont, .body {
     font-family: Latin Modern, STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
     font-style: normal;
@@ -165,6 +157,7 @@ div {display: inherit}
 
 .vbox {
     flex-wrap: nowrap;
+    justify-content: space-between;
 }
 
 .hbox {
@@ -195,7 +188,6 @@ a {
 hr {width: 100%;}
 
 math {
-    vertical-align: middle;
     line-height: inherit;
     font-size: inherit;
     font-style: inherit;
@@ -205,10 +197,8 @@ math {
 mtext {
     letter-spacing: initial;
     word-spacing: initial;
-    vertical-align: middle;
 }
 mrow {
-    vertical-align: middle;
 }
 .displayvbox {
     text-align:center;
