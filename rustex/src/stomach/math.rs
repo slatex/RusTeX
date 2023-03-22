@@ -301,6 +301,14 @@ impl MathKernel {
             _ => false
         }
     }
+    pub fn as_whatsit_limits(self,limits:bool) -> Whatsit {
+        Whatsit::Math(MathGroup {
+            kernel:self,
+            superscript:None,
+            subscript:None,
+            limits
+        })
+    }
 }
 impl WhatsitTrait for MathKernel {
     fn as_whatsit(self) -> Whatsit {
@@ -331,6 +339,16 @@ impl WhatsitTrait for MathKernel {
 
 #[derive(Clone)]
 pub struct GroupedMath(pub Vec<Whatsit>);
+impl GroupedMath {
+    pub fn as_whatsit_limits(self,limits:bool) -> Whatsit {
+        Whatsit::Math(MathGroup {
+            kernel:MathKernel::Group(self),
+            superscript:None,
+            subscript:None,
+            limits
+        })
+    }
+}
 impl WhatsitTrait for GroupedMath {
     fn get_ref(&self) -> Option<SourceFileReference> { SourceFileReference::from_wi_list(&self.0) }
     fn as_whatsit(self) -> Whatsit {
@@ -383,7 +401,6 @@ impl WhatsitTrait for GroupedMath {
             })
         }
     }
-
 }
 
 #[derive(Clone)]

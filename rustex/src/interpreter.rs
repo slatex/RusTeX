@@ -117,6 +117,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 use crate::stomach::{NoShipoutRoutine, Stomach, StomachMessage, Whatsit};
 use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
+use crate::stomach::boxes::BoxMode;
 use crate::stomach::colon::Colon;
 use crate::stomach::simple::Indent;
 use crate::stomach::whatsits::{PrintChar, SpaceChar, WhatsitTrait};
@@ -153,7 +154,6 @@ impl Interpreter<'_> {
     }
 
     fn predoc_toploop(&mut self) -> Result<bool,TeXError> {
-        use crate::log;
         while self.has_next() {
             let next = self.next_token();
             let indoc = self.state.indocument;
@@ -402,7 +402,7 @@ impl Interpreter<'_> {
                     _ => {
                         let wi = self.do_math_char(Some(next),mc as u32);
                         self.stomach_add(crate::stomach::Whatsit::Math(MathGroup::new(
-                              crate::stomach::math::MathKernel::MathChar(wi),
+                              MathKernel::MathChar(wi),
                               self.state.displaymode.get())))?;
                         Ok(())
                     }
@@ -510,138 +510,263 @@ impl Interpreter<'_> {
 
     fn do_math(&mut self, inner : bool) -> Result<(),TeXError> {
         use crate::catcodes::CategoryCode::*;
-        use crate::stomach::Whatsit as WI;
-        self.state.push(self.stomach,GroupType::Math);
-        let mode = if inner {
-            self.insert_every(&crate::commands::registers::EVERYMATH);
-            TeXMode::Math
-        } else {
+        let display = if inner {false} else {
             let next = self.next_token();
             match next.catcode {
-                MathShift => {
-                    self.insert_every(&crate::commands::registers::EVERYDISPLAY);
-                    self.state.displaymode.set(true,false);
-                    TeXMode::Displaymath
-                }
+                MathShift => true,
                 _ => {
                     self.requeue(next);
-                    self.insert_every(&crate::commands::registers::EVERYMATH);
-                    TeXMode::Math
+                    false
                 }
             }
         };
         let _oldmode = self.state.mode;
-        self.state.mode = mode;
+        let bm = if display {
+            let m = BoxMode::DM;
+            self.state.push(self.stomach,GroupType::Box(m));
+            self.state.mode = TeXMode::Displaymath;
+            self.state.displaymode.set(true,false);
+            self.insert_every(&crate::commands::registers::EVERYDISPLAY);
+            m
+        } else {
+            let m = BoxMode::M;
+            self.state.push(self.stomach,GroupType::Box(m));
+            self.state.mode = TeXMode::Math;
+            self.insert_every(&crate::commands::registers::EVERYMATH);
+            m
+        };
+        let ret = self.read_math_group(bm,true)?;
+        self.state.mode = _oldmode;
+        self.stomach_add(ret.as_whatsit_limits(display))?;
+        return Ok(())
+    }
 
-        let mut mathgroup: Option<MathGroup> = None;
+    fn read_math_group(&mut self,mode:BoxMode,mathshift:bool) -> Result<GroupedMath,TeXError> {
+        use crate::catcodes::CategoryCode::*;
         while self.has_next() {
             let next = self.next_token();
-            match next.catcode {
-                MathShift if mode == TeXMode::Displaymath => {
+            match (next.catcode,mode) {
+                (MathShift,BoxMode::DM) if mathshift => {
                     let nnext = self.next_token();
                     match nnext.catcode {
                         MathShift => {
-                            self.state.mode = _oldmode;
-                            if let Some(g) = mathgroup.take() {
-                                self.stomach_add(WI::Math(g))?
-                            }
-                            let mut ret = self.get_whatsit_group(GroupType::Math)?;
-                            {
-                                let mut first : Vec<WI> = vec!();
-                                let mut second : Vec<WI> = vec!();
-                                for x in ret.drain(0..) {
-                                    if !second.is_empty() {
-                                        second.push(x)
-                                    } else {
-                                        match x {
-                                            WI::Above(_) => second.push(x),
-                                            _ => first.push(x)
-                                        }
-                                    }
-                                }
-                                if second.is_empty() {
-                                    ret = first
-                                } else {
-                                    let head = second.remove(0);
-                                    match head {
-                                        WI::Above(mut mi) => {
-                                            mi.set(first,second);
-                                            ret = vec!(WI::Above(mi))
-                                        },
-                                        _ => TeXErr!("Should be unreachable!")
-                                    }
-                                }
-                            }
-                            self.stomach_add(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),true)))?;
-                            return Ok(())
+                            let ret = self.get_whatsit_group(GroupType::Box(BoxMode::DM))?;
+                            return Ok(GroupedMath(ret))
                         }
                         _ => TeXErr!(nnext => "displaymode must be closed with $$")
                     }
-                },
-                MathShift => {
-                    self.state.mode = _oldmode;
-                    if let Some(g) = mathgroup.take() {
-                        self.stomach_add(WI::Math(g))?
-                    }
-                    let ret = self.get_whatsit_group(GroupType::Math)?;
-                    self.stomach_add(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),false)))?;
-                    return Ok(())
                 }
-                EndGroup => TeXErr!(next => "{}","Unexpected } in math environment"),
+                (MathShift,BoxMode::M) if mathshift => {
+                    let ret = self.get_whatsit_group(GroupType::Box(BoxMode::M))?;
+                    return Ok(GroupedMath(ret))
+                }
+                (MathShift,_) => TeXErr!("Unexpected $"),
+                (EndGroup,_) if mathshift => TeXErr!(next => "{}","Unexpected } in math environment"),
+                (EndGroup,m) => {
+                    let ret = self.get_whatsit_group(GroupType::Box(m))?;
+                    return Ok(GroupedMath(ret))
+                },
                 _ => {
-                    let p = self.get_command(&next.cmdname());
-                    match p {
-                        Ok(tc) => match &*tc.orig {
-                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
-                                TeXErr!(next => "{}","Unexpected \\right in math environment")
-                            }
-                            _ => ()
-                        }
-                        _ => ()
-                    }
                     self.requeue(next);
-                    let ret = self.read_math_whatsit(match mathgroup.as_mut() {
-                        Some(mg) => Some(mg),
-                        _ => None
-                    })?;
-                    match ret {
-                        Some(WI::Ls(v)) if v.is_empty() => (),
-                        Some(WI::Ls(mut v)) => {
-                            if let Some(g) = mathgroup.take() {
-                                self.stomach_add(WI::Math(g))?
-                            }
-                            let last = v.pop();
-                            for w in v { self.stomach_add(w)? }
-                            match last {
-                                Some(WI::Math(mg)) => {
-                                    match mathgroup.replace(mg) {
-                                        Some(m) => self.stomach_add(WI::Math(m))?,
-                                        _ => ()
-                                    }
-                                },
-                                Some(w) => self.stomach_add(w)?,
-                                None => ()
-                            }
-                        }
-                        Some(WI::Math(mg)) => {
-                            match mathgroup.replace(mg) {
-                                Some(m) => self.stomach_add(WI::Math(m))?,
-                                _ => ()
-                            }
-                        },
-                        Some(w) => {
-                            if let Some(g) = mathgroup.take() {
-                                self.stomach_add(WI::Math(g))?
-                            }
-                            self.stomach_add(w)?
-                        },
-                        None => ()
+                    match self.read_math_whatsit()? {
+                        Some(wi) => self.stomach_add(wi)?,
+                        _ => ()
                     }
                 }
             }
         }
         FileEnd!()
     }
+
+    fn get_last_math(&mut self,tk:&Token) -> Result<MathGroup,TeXError> {
+        use crate::stomach::Whatsit as WI;
+        match self.stomach.get_last() {
+            Some(WI::Math(mg)) => {
+                return Ok(mg)
+            }
+            Some(o) => {
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
+                return Ok(mg)
+            }
+            _ => TeXErr!("Whatsit expected before {}",tk)
+        }
+    }
+
+    pub fn read_math_whatsit(&mut self) -> Result<Option<Whatsit>,TeXError> {
+        use crate::catcodes::CategoryCode::*;
+        use crate::commands::PrimitiveTeXCommand::*;
+        use crate::stomach::Whatsit as WI;
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                MathShift | EndGroup => {
+                    self.requeue(next);
+                    return Ok(None)
+                }
+                BeginGroup => {
+                    let mode = match self.state.mode {
+                        TeXMode::Math => BoxMode::M,
+                        TeXMode::Displaymath => BoxMode::DM,
+                        _ => unreachable!()
+                    };
+                    self.state.push(self.stomach,GroupType::Box(mode));
+                    return Ok(Some(self.read_math_group(mode,false)?.as_whatsit_limits(self.state.displaymode.get())))
+                }
+                Superscript => {
+                    let mut last = match self.get_last_math(&next)? {
+                        mg if mg.superscript.is_none() => mg,
+                        _ => TeXErr!("Double superscript")
+                    };
+                    let oldmode = self.state.fontstyle.get();
+                    self.state.fontstyle.set(oldmode.inc(),false);
+                    let ret = match self.read_math_whatsit()? {
+                        None => TeXErr!(next => "Expected Whatsit after ^"),
+                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
+                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi)))
+                    };
+                    self.state.fontstyle.set(oldmode,false);
+                    last.superscript = Some(ret);
+                    return Ok(Some(last.as_whatsit()))
+                }
+                Subscript => {
+                    let mut last = match self.get_last_math(&next)? {
+                        mg if mg.subscript.is_none() => mg,
+                        _ => TeXErr!("Double subscript")
+                    };
+                    let oldmode = self.state.fontstyle.get();
+                    self.state.fontstyle.set(oldmode.inc(),false);
+                    let ret = match self.read_math_whatsit()? {
+                        None => TeXErr!(next => "Expected Whatsit after _"),
+                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
+                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi)))
+                    };
+                    self.state.fontstyle.set(oldmode,false);
+                    last.subscript = Some(ret);
+                    return Ok(Some(last.as_whatsit()))
+                }
+                Active | Escape => {
+                    let p = self.get_command(&next.cmdname())?;
+                    if p.assignable() {
+                        p.assign(next, self, false)?
+                    } else if p.expandable(true) {
+                        p.expand(next, self)?
+                    } else {match &*p.orig {
+                        Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
+                            self.requeue(next);
+                            return Ok(None)
+                        }
+                        Whatsit(ProvidesWhatsit::Math(mw)) if **mw == LEFT => {
+                            self.state.push(self.stomach,GroupType::Box(BoxMode::LeftRight));
+                            let left = (LEFT._get)(&next,self)?;
+                            while self.has_next() {
+                                let next = self.next_token();
+                                match &next.catcode {
+                                    MathShift | EndGroup => {
+                                        TeXErr!("\\left ended with {}",next)
+                                    }
+                                    Active | Escape => {
+                                        let p = self.get_command(&next.cmdname())?;
+                                        match &*p.orig {
+                                            Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
+                                                let right = (RIGHT._get)(&next,self)?;
+                                                let mut v = self.get_whatsit_group(GroupType::Box(BoxMode::LeftRight))?;
+                                                for le in left {
+                                                    v.insert(0,le.as_whatsit_limits(self.state.displaymode.get()));
+                                                }
+                                                for ri in right {
+                                                    v.push(ri.as_whatsit_limits(self.state.displaymode.get()));
+                                                }
+                                                return Ok(Some(GroupedMath(v).as_whatsit_limits(self.state.displaymode.get())))
+                                            }
+                                            _ => {
+                                                self.requeue(next);
+                                                match self.read_math_whatsit()? {
+                                                    Some(wi) => self.stomach_add(wi)?,
+                                                    _ => ()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        self.requeue(next);
+                                        match self.read_math_whatsit()? {
+                                            Some(wi) => self.stomach_add(wi)?,
+                                            _ => ()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Whatsit(ProvidesWhatsit::Math(mw)) => {
+                            match (mw._get)(&next,self)? {
+                                Some(krnl) => return Ok(Some(krnl.as_whatsit_limits(self.state.displaymode.get()))),
+                                _ => return Ok(None)
+                            }
+                        }
+                        Primitive(np) => {
+                            let mut exp = Expansion::new(next, p.orig.clone());
+                            np.apply(&mut exp, self)?;
+                            if !exp.2.is_empty() {
+                                self.push_expansion(exp)
+                            }
+                        },
+                        Ext(exec) =>
+                            exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!"))?,
+                        Char(tk) => self.requeue(tk.clone()),
+                        Whatsit(w) if w.allowed_in(self.state.mode) => {
+                            let next = w.get(&next, self)?;
+                            return Ok(Some(next))
+                        },
+                        MathChar(mc) => match mc {
+                            32768 => {
+                                self.requeue(Token::new(next.char, CategoryCode::Active, None, None, true))
+                            }
+                            _ => {
+                                let wi = self.do_math_char(Some(next),*mc);
+                                let ret = crate::stomach::Whatsit::Math(MathGroup::new(
+                                    crate::stomach::math::MathKernel::MathChar(wi),
+                                    self.state.displaymode.get()));
+                                return Ok(Some(ret))
+                            }
+                        },
+                        _ => TeXErr!(next.clone() => "TODO: {} in {}\n => {}",next,self.current_line(),self.preview())
+                    }}
+                }
+                Space | EOL=> (),
+                Letter | Other => {
+                    let mc = self.state.mathcodes.get(&(next.char as u8));
+                    match mc {
+                        32768 => {
+                            self.requeue(Token::new(next.char,CategoryCode::Active,None,None,true))
+                        }
+                        _ => {
+                            let wi = self.do_math_char(Some(next),mc as u32);
+                            let ret = crate::stomach::Whatsit::Math(MathGroup::new(
+                                MathKernel::MathChar(wi),
+                                self.state.displaymode.get()));
+                            return Ok(Some(ret))
+                        }
+                    }
+                }
+                AlignmentTab => {
+                    let align = self.state.borrow_mut().aligns.pop();
+                    self.state.borrow_mut().aligns.push(None);
+                    match align {
+                        Some(Some(v)) => {
+                            self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                            self.push_tokens(v);
+                            ()
+                        }
+                        _ => TeXErr!(next => "Misplaced alignment tab")
+                    }
+                }
+                Parameter => TeXErr!(next.clone() => "Parameter Token {} not allowed in math mode",next),
+                _ => TeXErr!(next.clone() => "Not allowed in {} mode: {} of category code {}",self.state.mode,next,next.catcode),
+            }
+        }
+        FileEnd!()
+    }
+/*
 
     fn read_math_group(&mut self,finish: fn(&Token,&mut Interpreter) -> Result<bool,TeXError>) -> Result<Option<()>,TeXError> {
         use crate::catcodes::CategoryCode::*;
@@ -774,266 +899,8 @@ impl Interpreter<'_> {
         FileEnd!()
     }
 
-    pub fn read_math_whatsit(&mut self,previous: Option<&mut MathGroup>) -> Result<Option<Whatsit>,TeXError> {
-        use crate::catcodes::CategoryCode::*;
-        use crate::commands::PrimitiveTeXCommand::*;
-        use crate::stomach::Whatsit as WI;
-        while self.has_next() {
-            let next = self.next_token();
-            match next.catcode {
-                MathShift | EndGroup => {
-                    self.requeue(next);
-                    return Ok(None)
-                }
-                BeginGroup => {
-                    self.state.push(self.stomach,GroupType::Math);
-                    match self.read_math_group(|t,_| Ok(t.catcode == EndGroup))? {
-                        None => return Ok(None),
-                        _ => ()
-                    }
-                    self.next_token();
 
-                    let mut ret = self.get_whatsit_group(GroupType::Math)?;
-                    {
-                        let mut first : Vec<WI> = vec!();
-                        let mut second : Vec<WI> = vec!();
-                        for x in ret.drain(0..) {
-                            if !second.is_empty() {
-                                second.push(x)
-                            } else {
-                                match x {
-                                    WI::Above(_) => second.push(x),
-                                    _ => first.push(x)
-                                }
-                            }
-                        }
-                        if second.is_empty() {
-                            ret = first
-                        } else {
-                            let head = second.remove(0);
-                            match head {
-                                WI::Above(mut mi) => {
-                                    mi.set(first,second);
-                                    ret = vec!(WI::Above(mi))
-                                },
-                                _ => TeXErr!("Should be unreachable!")
-                            }
-                        }
-                    }
-                    return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get()))))
-                },
-                Superscript => {
-                    let oldmode = self.state.fontstyle.get();
-                    //println!("Here! {}",self.preview());
-                    //unsafe { crate::LOG = true }
-                    self.state.fontstyle.set(oldmode.inc(),false);
-                    let read = self.read_math_whatsit(None)?;
-                    let ret = match read {
-                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        _ => {
-                            TeXErr!(next => "Expected Whatsit after ^")
-                        }
-                    };
-                    self.state.fontstyle.set(oldmode,false);
-                    match previous {
-                        Some(mg) => {
-                            mg.superscript = Some(ret);
-                            return Ok(None)
-                        },
-                        _ => {
-                            match self.stomach.get_last() {
-                                Some(WI::Math(mut mg)) if mg.superscript.is_none() => {
-                                    mg.superscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                                Some(o) => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
-                                    mg.superscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                                _ => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get());
-                                    mg.superscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                            }
-                        },
-                    }
-                }
-                Subscript => {
-                    let oldmode = self.state.fontstyle.get();
-                    self.state.fontstyle.set(oldmode.inc(),false);
-                    let read = self.read_math_whatsit(None)?;
-                    let ret = match read {
-                        Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        _ => TeXErr!(next => "Expected Whatsit after _")
-                    };
-                    self.state.fontstyle.set(oldmode,false);
-                    match previous {
-                        Some(mg) => {
-                            mg.subscript = Some(ret);
-                            return Ok(None)
-                        },
-                        _ => {
-                            match self.stomach.get_last() {
-                                Some(WI::Math(mut mg)) if mg.subscript.is_none() => {
-                                    mg.subscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                                Some(o) => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
-                                    mg.subscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                                _ => {
-                                    let mut mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get());
-                                    mg.subscript = Some(ret);
-                                    return Ok(Some(WI::Math(mg)))
-                                }
-                            }
-                        },
-                    }
-                }
-                Active | Escape => {
-                    let p = self.get_command(&next.cmdname())?;
-                    if p.assignable() {
-                        p.assign(next,self,false)?
-                    } else if p.expandable(true) {
-                        p.expand(next,self)?
-                    } else {
-                        match &*p.orig {
-                            Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => {
-                                self.requeue(next);
-                                return Ok(None)
-                            }
-                            Whatsit(ProvidesWhatsit::Math(mw)) if **mw == LEFT => {
-                                self.state.push(self.stomach,GroupType::LeftRight);
-                                (LEFT._get)(&next,self,None)?;
-                                match self.read_math_group(|t,i| Ok((t.catcode == Active || t.catcode == Escape) && {
-                                    let p = i.get_command(&t.cmdname())?;
-                                    match &*p.orig {
-                                        Whatsit(ProvidesWhatsit::Math(mw)) if **mw == RIGHT => true,
-                                        _ => false
-                                    }
-                                }))? {
-                                    None => return Ok(None),
-                                    _ => ()
-                                }
-                                let next = self.next_token();
-                                (RIGHT._get)(&next,self,None)?;
-
-                                let mut ret = self.get_whatsit_group(GroupType::LeftRight)?;
-                                {
-                                    let mut first : Vec<WI> = vec!();
-                                    let mut second : Vec<WI> = vec!();
-                                    for x in ret.drain(0..) {
-                                        if !second.is_empty() {
-                                            second.push(x)
-                                        } else {
-                                            match x {
-                                                WI::Above(_) => second.push(x),
-                                                _ => first.push(x)
-                                            }
-                                        }
-                                    }
-                                    if second.is_empty() {
-                                        ret = first
-                                    } else {
-                                        let head = second.remove(0);
-                                        match head {
-                                            WI::Above(mut mi) => {
-                                                mi.set(first,second);
-                                                ret = vec!(WI::Above(mi))
-                                            },
-                                            _ => TeXErr!("Should be unreachable!")
-                                        }
-                                    }
-                                }
-                                return Ok(Some(WI::Math(MathGroup::new(MathKernel::Group(GroupedMath(ret)),self.state.displaymode.get()))))
-                            }
-                            Primitive(np) => {
-                                let mut exp = Expansion::new(next, p.orig.clone());
-                                np.apply(&mut exp, self)?;
-                                if !exp.2.is_empty() {
-                                    self.push_expansion(exp)
-                                }
-                            },
-                            Ext(exec) =>
-                                exec.execute(self).map_err(|x| x.derive("External Command ".to_owned() + &exec.name() + " errored!"))?,
-                            Char(tk) => {
-                                /*match self.state.commands.get(&next.cmdname()) {
-                                    Some(_) =>*/ self.requeue(tk.clone())//,
-                                 /*   None => return Ok(Some(crate::stomach::Whatsit::Math(MathGroup::new(
-                                            MathKernel::MathChar(crate::stomach::math::MathChar {
-                                                                     class:7,family:0,position:tk.char as u32,
-                                                                     font:self.state.textfonts.get(&0),
-                                                                     sourceref:self.update_reference(tk)
-                                                                 }),
-                                            self.state.displaymode.get(&())))
-                                    ))
-                                }*/
-                            },
-                            Whatsit(ProvidesWhatsit::Math(mw)) => {
-                                return match (mw._get)(&next,self,previous)? {
-                                    Some(k) => Ok(Some(WI::Math(MathGroup::new(k,self.state.displaymode.get())))),
-                                    _ => Ok(None)
-                                }
-                            },
-                            Whatsit(w) if w.allowed_in(self.state.mode) => {
-                                let next = w.get(&next, self)?;
-                                return Ok(Some(next))
-                            },
-                            MathChar(mc) => match mc {
-                                32768 => {
-                                    self.requeue(Token::new(next.char, CategoryCode::Active, None, None, true))
-                                }
-                                _ => {
-                                    let wi = self.do_math_char(Some(next),*mc);
-                                    let ret = crate::stomach::Whatsit::Math(MathGroup::new(
-                                        crate::stomach::math::MathKernel::MathChar(wi),
-                                        self.state.displaymode.get()));
-                                    return Ok(Some(ret))
-                                }
-                            },
-                            _ => TeXErr!(next.clone() => "TODO: {} in {}\n => {}",next,self.current_line(),self.preview())
-                        }
-                    }
-                },
-                Space | EOL=> (),
-                Letter | Other => {
-                    let mc = self.state.mathcodes.get(&(next.char as u8));
-                    match mc {
-                        32768 => {
-                            self.requeue(Token::new(next.char,CategoryCode::Active,None,None,true))
-                        }
-                        _ => {
-                            let wi = self.do_math_char(Some(next),mc as u32);
-                            let ret = crate::stomach::Whatsit::Math(MathGroup::new(
-                                crate::stomach::math::MathKernel::MathChar(wi),
-                                self.state.displaymode.get()));
-                            return Ok(Some(ret))
-                        }
-                    }
-                }
-                AlignmentTab => {
-                    let align = self.state.borrow_mut().aligns.pop();
-                    self.state.borrow_mut().aligns.push(None);
-                    match align {
-                        Some(Some(v)) => {
-                            self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
-                            self.push_tokens(v);
-                            ()
-                        }
-                        _ => TeXErr!(next => "Misplaced alignment tab")
-                    }
-                }
-                Parameter =>
-                    TeXErr!(next.clone() => "Parameter Token {} not allowed in math mode",next),
-                _ => TeXErr!(next.clone() => "Not allowed in {} mode: {} of category code {}",self.state.mode,next,next.catcode),
-            }
-        }
-        FileEnd!()
-    }
+ */
 
     /*pub fn assert_has_next(&self) -> Result<(),TeXError> {
         if self.has_next() {Ok(())} else  {

@@ -365,6 +365,7 @@ pub struct HTMLNode {
     pub classes:Vec<HTMLStr>,
     attributes:HashMap<HTMLStr,HTMLStr>,
     styles:HashMap<HTMLStr,HTMLStr>,
+    pub forcefont: bool,
     pub fontinfo: Option<FontInfo>,
     pub sourceref:Option<SourceFileReference>
 }
@@ -379,7 +380,7 @@ impl HTMLNode {
     }
     pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLNode { HTMLNode {
         name,namespace,children:vec!(),classes:vec!(),
-        attributes:HashMap::new(),styles:HashMap::new(),
+        attributes:HashMap::new(),styles:HashMap::new(),forcefont:false,
         fontinfo:None,sourceref
     }}
     pub fn attr(&mut self,name:HTMLStr,value:HTMLStr) {
@@ -414,64 +415,15 @@ impl HTMLNode {
             }
         }
 
-        let fi_o = self.fontinfo.take();
+        let fi_o = if self.forcefont {
+            Some(std::mem::take(&mut self.fontinfo).unwrap_or(fi.clone()))
+        } else {self.fontinfo.take()};
         let nfi = match &fi_o {
             None => fi,
             Some(ref mi) if self.namespace == MATHML_NS => {
                 if !mi.params.contains(&FontTableParam::Italic) {
                     self.attr("mathvariant".into(),"normal".into())
                 };
-                /*
-                if mi.params.contains(&FontTableParam::SansSerif) &&
-                    mi.params.contains(&FontTableParam::Bold) &&
-                    mi.params.contains(&FontTableParam::Italic) {
-                    self.attr("mathvariant".into(),"sans-serif-bold-italic".into())
-                }
-                else if mi.params.contains(&FontTableParam::SansSerif) &&
-                    mi.params.contains(&FontTableParam::Italic) {
-                    self.attr("mathvariant".into(),"sans-serif-italic".into())
-                }
-                else if mi.params.contains(&FontTableParam::SansSerif) &&
-                    mi.params.contains(&FontTableParam::Bold) {
-                    self.attr("mathvariant".into(),"bold-sans-serif".into())
-                }
-                else if mi.params.contains(&FontTableParam::Script) &&
-                    mi.params.contains(&FontTableParam::Bold) {
-                    self.attr("mathvariant".into(),"bold-script".into())
-                }
-                else if mi.params.contains(&FontTableParam::Fraktur) &&
-                    mi.params.contains(&FontTableParam::Bold) {
-                    self.attr("mathvariant".into(),"bold-fraktur".into())
-                }
-                else if mi.params.contains(&FontTableParam::Italic) &&
-                    mi.params.contains(&FontTableParam::Bold) {
-                    self.attr("mathvariant".into(),"bold-italic".into())
-                }
-                else if mi.params.contains(&FontTableParam::Bold) {
-                    self.attr("mathvariant".into(),"bold".into())
-                }
-                else if mi.params.contains(&FontTableParam::Italic) {
-                    self.attr("mathvariant".into(),"italic".into())
-                }
-                else if mi.params.contains(&FontTableParam::Blackboard) {
-                    self.attr("mathvariant".into(),"double-struck".into())
-                }
-                else if mi.params.contains(&FontTableParam::Script) {
-                    self.attr("mathvariant".into(),"script".into())
-                }
-                else if mi.params.contains(&FontTableParam::Fraktur) {
-                    self.attr("mathvariant".into(),"fraktur".into())
-                }
-                else if mi.params.contains(&FontTableParam::SansSerif) {
-                    self.attr("mathvariant".into(),"sans-serif".into())
-                }
-                else if mi.params.contains(&FontTableParam::Monospaced) {
-                    self.attr("mathvariant".into(),"monospace".into())
-                }
-                else {
-                    self.attr("mathvariant".into(),"normal".into())
-                }
-                 */
                 let ratio = (mi.at as f32) / (fi.at as f32);
                 if ratio != 1.0 {
                     self.attr("mathsize".into(), ((ratio * 100.0).round().to_string() + "%").into())
@@ -480,13 +432,8 @@ impl HTMLNode {
             }
             Some(ref mi) => {
                 self.classes.push("resetfont".into());
-                //self.style("font-family".into(),"STIXgeneral, Times, Symbol, cmr10, CMSY10, CMEX10, serif".into());
-                //self.style("font-style".into(),"normal".into());
-                //self.style("font-weight".into(),"normal".into());
-                //self.style("font-variant".into(),"normal".into());
                 if mi.params.contains(&FontTableParam::Monospaced) {
                     self.classes.push("monospaced".into())
-                    //self.style("font-family".into(),"monospace".into())
                 }
                 if mi.params.contains(&FontTableParam::Italic) {
                     self.style("font-style".into(),"italic".into())
@@ -636,6 +583,7 @@ impl HTMLAnnotation {
             classes: std::mem::take(&mut self.classes),
             attributes: std::mem::take(&mut self.attributes),
             styles: std::mem::take(&mut self.styles),
+            forcefont:false,
             fontinfo: std::mem::take(&mut self.fontinfo),
             sourceref: std::mem::take(&mut self.sourceref)
         }.make_string(prefix,namespace,fi)

@@ -330,6 +330,7 @@ impl Interpreter<'_> {
             },
             BoxMode::M => TeXMode::Math,
             BoxMode::DM => TeXMode::Displaymath,
+            BoxMode::LeftRight => TeXMode::Math,
             _ => TeXErr!("read_whatsit_group requires non-void box mode")
         };
         if self.state.insetbox {

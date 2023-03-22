@@ -170,7 +170,7 @@ impl StomachGroup {
         use StomachGroup::*;
         match self {
             Top(_) => 255,
-            TeXGroup(GroupType::Box(_) | GroupType::Math | GroupType::LeftRight,_) => 250,
+            TeXGroup(GroupType::Box(_),_) => 250,
             Par(_) => 240,
             TeXGroup(_,_) => 5,
             Other(w) => w.priority(),
@@ -485,7 +485,7 @@ pub trait Stomach : Send {
                 self.base_mut().buffer.push(wi);
                 Ok(())
             },
-            Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_) | SimpleWI::MSkip(_)) => {
+            Whatsit::Simple(SimpleWI::HSkip(_) | SimpleWI::VSkip(_) | SimpleWI::MSkip(_) | SimpleWI::Indent(_)) => {
                 self.base_mut().buffer.push(wi);
                 Ok(())
             }
@@ -602,6 +602,9 @@ pub trait Stomach : Send {
         let mut repush : Vec<Whatsit> = vec!();
         loop {
             match self.base_mut().buffer.pop() {
+                Some(r@Whatsit::GroupOpen(WIGroup::GroupOpen(GroupType::Token|GroupType::Begingroup))) => {
+                    repush.push(r);
+                }
                 Some(r@Whatsit::GroupOpen(WIGroup::GroupOpen(_))) => {
                     repush.push(r);
                     break
@@ -611,6 +614,11 @@ pub trait Stomach : Send {
                     repush.reverse();
                     for r in repush { self.base_mut().buffer.push(r) }
                     return Ok(Some(tb))
+                }
+                Some(i@Whatsit::Simple(SimpleWI::Indent(_))) => {
+                    repush.reverse();
+                    for r in repush { self.base_mut().buffer.push(r) }
+                    return Ok(Some(TeXBox::H(HBox::new_trivial(vec!(i)))))
                 }
                 Some(Whatsit::Simple(SimpleWI::HAlign(h))) => {
                     let done = self.last_halign(h);
@@ -671,7 +679,7 @@ pub trait Stomach : Send {
         let mut rets : Vec<Whatsit> = vec!();
         for s in &mut base.stomachgroups { match s {
             StomachGroup::Top(_) => (),
-            StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) | StomachGroup::Par(_) => break,
+            StomachGroup::TeXGroup(GroupType::Box(_),_) | StomachGroup::Par(_) => break,
             StomachGroup::Other(WIGroup::FontChange(f)) => {
                 basefont = Some(f.font.clone());
                 for c in std::mem::take(&mut f.children) {rets.push(c)}
@@ -687,7 +695,7 @@ pub trait Stomach : Send {
         let mut i = 1;
         loop {
             match base.stomachgroups.get(i) {
-                Some(StomachGroup::TeXGroup(GroupType::Box(_) | GroupType::Math,_) | StomachGroup::Par(_)) => break,
+                Some(StomachGroup::TeXGroup(GroupType::Box(_),_) | StomachGroup::Par(_)) => break,
                 Some(StomachGroup::Other(WIGroup::ColorChange(_) | WIGroup::FontChange(_))) => {base.stomachgroups.remove(i);}
                 Some(_) => i +=1,
                 None => break

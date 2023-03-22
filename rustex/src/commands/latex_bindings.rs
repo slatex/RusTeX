@@ -45,7 +45,7 @@ pub static NOT: SimpleWhatsit = SimpleWhatsit {
         _ => false
     }},
     _get: |tk,int| {
-        let pc = match int.read_math_whatsit(None)? {
+        let pc = match int.read_math_whatsit()? {
             Some(Whatsit::Math(MathGroup{ superscript:None,subscript:None,limits:_,kernel:MathKernel::MathChar(mc) })) => (mc.font.clone(),match &mc.font.file.chartable {
                 Some(ct) => ct.table.get(&(mc.position as u8)).map(|s| *s).unwrap_or(""),
                 _ => ""
@@ -172,7 +172,7 @@ pub static UNDERBRACE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     }},
     _get: |tk,int| {
-        let first = match int.read_math_whatsit(None)? {
+        let first = match int.read_math_whatsit()? {
             None => GroupedMath(vec!()).as_whatsit(),
             Some(s) => s
         };
@@ -226,7 +226,7 @@ pub static OVERBRACE: SimpleWhatsit = SimpleWhatsit {
         _ => false
     }},
     _get: |tk,int| {
-        let first = match int.read_math_whatsit(None)? {
+        let first = match int.read_math_whatsit()? {
             None => GroupedMath(vec!()).as_whatsit(),
             Some(s) => s
         };

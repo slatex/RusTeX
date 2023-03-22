@@ -53,7 +53,8 @@ impl WhatsitTrait for PGFEscape {
                 //vb._width = Some(width); vb._height = Some(height); vb._depth = Some(depth);
                 vb.normalize(&ColonMode::H,&mut nret,scale)
             },
-            TeXBox::Void => return ()
+            TeXBox::Void => return (),
+            _ => unreachable!()
         }
         if nret.is_empty() {return ()}
         assert_eq!(nret.len(),1);

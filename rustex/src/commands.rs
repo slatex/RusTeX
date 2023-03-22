@@ -187,7 +187,7 @@ impl PartialEq for ProvidesBox {
 
 pub struct MathWhatsit {
     pub name: &'static str,
-    pub _get: fn(tk:&Token,int: &mut Interpreter,prev:Option<&mut MathGroup>) -> Result<Option<MathKernel>,TeXError>
+    pub _get: fn(tk:&Token,int: &mut Interpreter) -> Result<Option<MathKernel>,TeXError>
 }
 
 impl PartialEq for MathWhatsit {

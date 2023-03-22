@@ -3,6 +3,8 @@ use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
+use crate::stomach::math::{GroupedMath, MathKernel};
+use crate::stomach::simple::{Left, Right};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, WIDTH_CORRECTION};
 
@@ -10,11 +12,11 @@ use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, 
 pub enum VBoxType { V, Center, Top(i32) }
 
 #[derive(Copy,Clone,PartialEq)]
-pub enum BoxMode { H,V,M,DM,Void }
+pub enum BoxMode { H,V,M,DM,LeftRight,Void }
 
 #[derive(Clone)]
 pub enum TeXBox {
-    Void,H(HBox),V(VBox)
+    Void,H(HBox),V(VBox),M(GroupedMath),DM(GroupedMath),LeftRight(Option<MathKernel>,GroupedMath,Option<MathKernel>)
 }
 impl Default for TeXBox {
     fn default() -> Self {TeXBox::Void}
@@ -29,26 +31,22 @@ impl PartialEq for TeXBox {
 }
 
 impl TeXBox {
-    /*fn pass_on<A>(&self, f: Box<dyn FnOnce(&dyn WhatsitTrait) -> A>, void: A) -> A {
-        match self {
-            TeXBox::H(hb) => f(hb),
-            TeXBox::V(vb) => f(vb),
-            TeXBox::Void => void
-        }
-    }
-
-    fn iter(&self) -> WhatsitIter {
-        match self {
-            TeXBox::Void => WhatsitIter::default(),
-            TeXBox::H(hb) => hb.children.iter_wi(),
-            TeXBox::V(vb) => vb.children.iter_wi(),
-        }
-    }*/
     pub fn children(self) -> Vec<Whatsit> {
         match self {
             TeXBox::Void => vec!(),
             TeXBox::H(hb) => hb.children,
-            TeXBox::V(vb) => vb.children
+            TeXBox::V(vb) => vb.children,
+            TeXBox::M(GroupedMath(v)) => v,
+            TeXBox::DM(GroupedMath(v)) => v,
+            TeXBox::LeftRight(l,GroupedMath(mut v),r) => {
+                for le in l {
+                    v.insert(0,le.as_whatsit());
+                }
+                for ri in r {
+                    v.push(ri.as_whatsit());
+                }
+                v
+            },
         }
     }
 }
@@ -57,7 +55,11 @@ macro_rules! pass_on {
     ($s:tt,$d:expr,$e:ident$(,$tl:expr)*) => (match $s {
         TeXBox::Void => $d,
         TeXBox::H(hb) => HBox::$e(hb $(,$tl)*),
-        TeXBox::V(vb) => VBox::$e(vb $(,$tl)*)
+        TeXBox::V(vb) => VBox::$e(vb $(,$tl)*),
+        TeXBox::M(m) => GroupedMath::$e(m $(,$tl)*),
+        TeXBox::DM(m) => GroupedMath::$e(m $(,$tl)*),
+        TeXBox::LeftRight(_,_,_) =>
+            unreachable!(),
     })
 }
 
@@ -89,6 +91,10 @@ pub struct HBox {
     pub _height:Option<i32>,
     pub _depth:Option<i32>,
     pub rf : Option<SourceFileReference>
+}
+
+impl HBox {
+    pub fn new_trivial(v:Vec<Whatsit>) -> Self {HBox {children:v,spread:0,_depth:None,_height:None,_width:None,rf:None}}
 }
 
 impl WhatsitTrait for HBox {
@@ -296,6 +302,7 @@ impl WhatsitTrait for HBox {
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
@@ -587,6 +594,7 @@ impl WhatsitTrait for VBox {
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");

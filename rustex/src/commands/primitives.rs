@@ -361,7 +361,7 @@ fn do_def(int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool
 
 use crate::interpreter::dimensions::{dimtostr, MuSkip, Numeric, round_f, Skip};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
-use crate::stomach::math::{Above, Delimiter, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Radical, Underline};
+use crate::stomach::math::{Above, Delimiter, GroupedMath, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Radical, Underline};
 use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
 use crate::stomach::groups::FontChange;
 use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSkip, Hss, Indent, Leaders, Left, Mark, Middle, MoveRight, MSkip, Penalty, Raise, Right, SimpleWI, VAlign, VFil, VFill, VKern, VRule, VSkip, Vss};
@@ -2437,6 +2437,7 @@ pub static WD: NumAssValue = NumAssValue {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._width = Some(dim),
             TeXBox::V(ref mut hb) => hb._width = Some(dim),
+            _ => unreachable!()
         }
         int.state.boxes.set(index,bx,global);
         Ok(())
@@ -2458,6 +2459,7 @@ pub static HT: NumAssValue = NumAssValue {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._height = Some(dim),
             TeXBox::V(ref mut hb) => hb._height = Some(dim),
+            _ => unreachable!()
         }
         int.state.boxes.set(index,bx,global);
         Ok(())
@@ -2479,6 +2481,7 @@ pub static DP: NumAssValue = NumAssValue {
             TeXBox::Void => (),
             TeXBox::H(ref mut hb) => hb._depth = Some(dim),
             TeXBox::V(ref mut hb) => hb._depth = Some(dim),
+            _ => unreachable!()
         }
         int.state.boxes.set(index,bx,global);
         Ok(())
@@ -2572,8 +2575,8 @@ pub static CURRENTGROUPTYPE: NumericCommand = NumericCommand {
             GroupType::Begingroup | GroupType::Token => 1,
             GroupType::Box(BoxMode::H) => 2,
             GroupType::Box(BoxMode::V) => 4,
-            GroupType::LeftRight => 16,
-            GroupType::Math | GroupType::Box(BoxMode::DM) | GroupType::Box(BoxMode::M) => 9,
+            GroupType::Box(BoxMode::LeftRight) => 16,
+            GroupType::Box(BoxMode::DM) | GroupType::Box(BoxMode::M) => 9,
             GroupType::Box(BoxMode::Void) => TeXErr!("Should be unreachable!")
         }))
     }
@@ -3061,27 +3064,27 @@ pub static MATHCHOICE: SimpleWhatsit = SimpleWhatsit {
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
-                int.skip_ws();int.read_math_whatsit(None)?
+                int.skip_ws();int.read_math_whatsit()?
             }
             (FontStyle::Script,_) => {
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();
-                let ret = int.read_math_whatsit(None)?;
+                let ret = int.read_math_whatsit()?;
                 int.skip_ws();int.read_argument()?;
                 ret
             },
             (_,false) => {
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();
-                let ret = int.read_math_whatsit(None)?;
+                let ret = int.read_math_whatsit()?;
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
                 ret
             },
             (_,_) => {
                 int.skip_ws();
-                let ret = int.read_math_whatsit(None)?;
+                let ret = int.read_math_whatsit()?;
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
                 int.skip_ws();int.read_argument()?;
@@ -3109,7 +3112,7 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
 };
 
 fn dodelim(int:&mut Interpreter) -> Result<Option<MathChar>,TeXError> {
-    let wi = int.read_math_whatsit(None)?;
+    let wi = int.read_math_whatsit()?;
     match wi {
         Some(Whatsit::Math(MathGroup { kernel:
             MathKernel::MathChar(mc) |
@@ -3356,9 +3359,16 @@ pub static SPLITBOTMARK: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
     name:"displaylimits",
-    _get: |_,int,pr| {
-        match pr {
-            Some(p) => p.limits = int.state.displaymode.get(),
+    _get: |t,int| {
+        match int.stomach.get_last() {
+            Some(Whatsit::Math(mut mg)) => {
+                mg.limits = int.state.displaymode.get();
+                int.stomach_add(mg.as_whatsit());
+            }
+            Some(o) => {
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),int.state.displaymode.get());
+                int.stomach_add(mg.as_whatsit());
+            }
             _ => ()
         }
         Ok(None)
@@ -3367,8 +3377,8 @@ pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
 
 pub static MATHCLOSE: MathWhatsit = MathWhatsit {
     name:"mathclose",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathClose(MathClose {
@@ -3382,8 +3392,8 @@ pub static MATHCLOSE: MathWhatsit = MathWhatsit {
 
 pub static MATHBIN: MathWhatsit = MathWhatsit {
     name:"mathbin",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathBin(MathBin {
@@ -3397,8 +3407,8 @@ pub static MATHBIN: MathWhatsit = MathWhatsit {
 
 pub static MATHOPEN: MathWhatsit = MathWhatsit {
     name:"mathopen",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathOpen(MathOpen {
@@ -3412,8 +3422,8 @@ pub static MATHOPEN: MathWhatsit = MathWhatsit {
 
 pub static MATHORD: MathWhatsit = MathWhatsit {
     name:"mathord",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathOrd(MathOrd {
@@ -3427,8 +3437,8 @@ pub static MATHORD: MathWhatsit = MathWhatsit {
 
 pub static MATHPUNCT: MathWhatsit = MathWhatsit {
     name:"mathpunct",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathPunct(MathPunct {
@@ -3442,8 +3452,8 @@ pub static MATHPUNCT: MathWhatsit = MathWhatsit {
 
 pub static MATHREL: MathWhatsit = MathWhatsit {
     name:"mathrel",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathRel(MathRel {
@@ -3457,7 +3467,7 @@ pub static MATHREL: MathWhatsit = MathWhatsit {
 
 pub static DELIMITER: MathWhatsit = MathWhatsit {
     name:"delimiter",
-    _get: |tk,int,_| {
+    _get: |tk,int| {
         let num = int.read_number()?;
         let large = num % 4096;
         let small = (num - large)/4096;
@@ -3474,8 +3484,8 @@ pub static DELIMITER: MathWhatsit = MathWhatsit {
 
 pub static MATHOP : MathWhatsit = MathWhatsit {
     name: "mathop",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathOp(MathOp {
@@ -3489,8 +3499,8 @@ pub static MATHOP : MathWhatsit = MathWhatsit {
 
 pub static MATHINNER: MathWhatsit = MathWhatsit {
     name: "mathinner",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::MathInner(MathInner {
@@ -3504,8 +3514,8 @@ pub static MATHINNER: MathWhatsit = MathWhatsit {
 
 pub static UNDERLINE: MathWhatsit = MathWhatsit {
     name: "underline",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::Underline(Underline {
@@ -3519,8 +3529,8 @@ pub static UNDERLINE: MathWhatsit = MathWhatsit {
 
 pub static OVERLINE: MathWhatsit = MathWhatsit {
     name: "overline",
-    _get: |tk, int, _| {
-        let ret = int.read_math_whatsit(None)?;
+    _get: |tk, int| {
+        let ret = int.read_math_whatsit()?;
         match ret {
             Some(w) => Ok(
                 Some(MathKernel::Overline(Overline {
@@ -3534,10 +3544,10 @@ pub static OVERLINE: MathWhatsit = MathWhatsit {
 
 pub static MATHACCENT: MathWhatsit = MathWhatsit {
     name:"mathaccent",
-    _get: |tk,int,_| {
+    _get: |tk,int| {
         let num = int.read_number()?;
         let mc = int.do_math_char(None,num as u32);
-        let next = match int.read_math_whatsit(None)? {
+        let next = match int.read_math_whatsit()? {
             Some(w) => w,
             None => TeXErr!("unfinished \\mathaccent")
         };
@@ -3552,13 +3562,13 @@ pub static MATHACCENT: MathWhatsit = MathWhatsit {
 
 pub static RADICAL: MathWhatsit = MathWhatsit {
     name:"radical",
-    _get: |tk,int,_| {
+    _get: |tk,int| {
         let num = int.read_number()?;
         let large = num % 4096;
         let small = (num - large)/4096;
         let largemc = int.do_math_char(None,large as u32);
         let smallmc = int.do_math_char(None,small as u32);
-        let body = match int.read_math_whatsit(None)? {
+        let body = match int.read_math_whatsit()? {
             None => TeXErr!(tk.clone() => "Expected Whatsit after \\radical"),
             Some(wi) => wi
         };
@@ -3574,7 +3584,7 @@ pub static RADICAL: MathWhatsit = MathWhatsit {
 
 pub static MATHCHAR: MathWhatsit = MathWhatsit {
     name:"mathchar",
-    _get: |_,int,_| {
+    _get: |_,int| {
         let num = int.read_number()? as u32;
         let mc = int.do_math_char(None,num);
         Ok(Some(MathKernel::MathChar(mc)))
@@ -3583,7 +3593,7 @@ pub static MATHCHAR: MathWhatsit = MathWhatsit {
 
 pub static MKERN: MathWhatsit = MathWhatsit {
     name:"mkern",
-    _get: |tk,int,_| {
+    _get: |tk,int| {
         let kern = int.read_muskip()?;
         Ok(Some(MathKernel::MKern(MKern {
             sk:kern,
@@ -3606,10 +3616,17 @@ pub static DISPLAYSTYLE: PrimitiveExecutable = PrimitiveExecutable {
 };
 pub static LIMITS: MathWhatsit = MathWhatsit {
     name:"limits",
-    _get: |tk,_int,last| {
-        match last {
-            None => TeXErr!(tk.clone() => "Nothing to \\limits here"),
-            Some(s) => s.limits = true
+    _get: |tk,int,| {
+        match int.stomach.get_last() {
+            Some(Whatsit::Math(mut mg)) => {
+                mg.limits = true;
+                int.stomach_add(mg.as_whatsit());
+            }
+            Some(o) => {
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),true);
+                int.stomach_add(mg.as_whatsit());
+            }
+            _ => ()
         }
         Ok(None)
     }
@@ -3617,10 +3634,17 @@ pub static LIMITS: MathWhatsit = MathWhatsit {
 
 pub static NOLIMITS: MathWhatsit = MathWhatsit {
     name:"nolimits",
-    _get: |tk,_int,last| {
-        match last {
-            None => TeXErr!(tk.clone() => "Nothing to \\nolimits here"),
-            Some(s) => s.limits = false
+    _get: |tk,int| {
+        match int.stomach.get_last() {
+            Some(Whatsit::Math(mut mg)) => {
+                mg.limits = false;
+                int.stomach_add(mg.as_whatsit());
+            }
+            Some(o) => {
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),false);
+                int.stomach_add(mg.as_whatsit());
+            }
+            _ => ()
         }
         Ok(None)
     }
@@ -3640,8 +3664,7 @@ pub static DISCRETIONARY: PrimitiveExecutable = PrimitiveExecutable {
 
 pub static LEFT: MathWhatsit = MathWhatsit {
     name:"left",
-    _get: |tk,int,_| {
-        //int.state.push(int.stomach,GroupType::LeftRight);
+    _get: |tk,int| {
         int.expand_until(true)?;
         let next = int.next_token();
         match next.char {
@@ -3651,7 +3674,7 @@ pub static LEFT: MathWhatsit = MathWhatsit {
             }
             _ => int.requeue(next)
         }
-        let wi = int.read_math_whatsit(None)?;
+        let wi = int.read_math_whatsit()?;
         match wi {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
@@ -3669,8 +3692,8 @@ pub static LEFT: MathWhatsit = MathWhatsit {
 
 pub static MIDDLE: MathWhatsit = MathWhatsit {
     name:"middle",
-    _get: |tk,int,_| {
-        let wi = int.read_math_whatsit(None)?;
+    _get: |tk,int| {
+        let wi = int.read_math_whatsit()?;
         match wi {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
@@ -3688,7 +3711,7 @@ pub static MIDDLE: MathWhatsit = MathWhatsit {
 
 pub static RIGHT: MathWhatsit = MathWhatsit {
     name:"right",
-    _get: |tk,int,_| {
+    _get: |tk,int| {
         int.expand_until(true)?;
         let next = int.next_token();
         match next.char {
@@ -3699,7 +3722,7 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
             }
             _ => int.requeue(next)
         }
-        let wi = int.read_math_whatsit(None)?;
+        let wi = int.read_math_whatsit()?;
         match wi {
             Some(Whatsit::Math(MathGroup { kernel:
                 MathKernel::MathChar(mc) |
@@ -3711,7 +3734,6 @@ pub static RIGHT: MathWhatsit = MathWhatsit {
                 })))?,
             _ => TeXErr!("Missing delimiter after \\right")
         }
-        //int.pop_group(GroupType::LeftRight)?;
         Ok(None)
     }
 };

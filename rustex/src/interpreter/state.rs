@@ -52,8 +52,6 @@ pub enum GroupType {
     Token,
     Begingroup,
     Box(BoxMode),
-    Math,
-    LeftRight
 }
 impl Default for GroupType {
     fn default() -> Self {
@@ -65,9 +63,9 @@ impl Display for GroupType {
         write!(f,"{}",match self {
             GroupType::Token => "{",
             GroupType::Begingroup => "\\begingroup",
-            GroupType::Box(_) => "\\box",
-            GroupType::Math => "$",
-            GroupType::LeftRight => "\\left\\right"
+            GroupType::Box(BoxMode::LeftRight) => "\\left\\right",
+            GroupType::Box(BoxMode::M | BoxMode::DM) => "$",
+            GroupType::Box(_) => "\\box"
         })
     }
 }
