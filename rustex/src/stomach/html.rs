@@ -52,7 +52,7 @@ impl HTMLState {
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident,$e:expr) => ({
      let _withwidth_currsize = $colon.state.currsize;
-     let _withwidth_newsize = if $wd == 0 {2048} else {$wd};
+     let _withwidth_newsize = if $wd == 0 {8192} else {$wd};
      $colon.state.currsize = _withwidth_newsize;
      let _withwidth_pctg_str = ((_withwidth_newsize as f32) / (_withwidth_currsize as f32) * 100.0).to_string();
      let _withwidth_pctg = _withwidth_pctg_str + "%";
