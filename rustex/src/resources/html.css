@@ -210,14 +210,24 @@ mtext {
 mrow {
     vertical-align: middle;
 }
-.displaymath {
-    position: relative;
-}
-.displaymathcontainer {
-    position: relative;
+.displayvbox {
     text-align:center;
     display:block;
     align-self: center;
     margin-top: 5px;
     margin-bottom: 5px;
+    width: 100%;
+    min-width: 100%;
+}
+.displaymath {
+    position: relative;
+}
+.displaymathcontainer {
+    text-align:center;
+    display:block;
+    align-self: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    width: 100%;
+    min-width: 100%;
 }

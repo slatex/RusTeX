@@ -9,7 +9,7 @@ use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, WIDTH_CORRECTION};
 
 #[derive(Copy,Clone,PartialEq)]
-pub enum VBoxType { V, Center, Top(i32) }
+pub enum VBoxType { V, Center, Top(i32), DMCenter }
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum BoxMode { H,V,M,DM,LeftRight,Void }
@@ -388,7 +388,7 @@ impl WhatsitTrait for VBox {
         };
         match self.tp {
             VBoxType::V => ht,
-            VBoxType::Center => ht / 2,
+            VBoxType::Center | VBoxType::DMCenter => ht / 2,
             VBoxType::Top(i) => i
         }
     }
@@ -405,7 +405,7 @@ impl WhatsitTrait for VBox {
         };
         match self.tp {
             VBoxType::V => dp,
-            VBoxType::Center => dp + self.height(),
+            VBoxType::Center | VBoxType::DMCenter => dp + self.height(),
             VBoxType::Top(i) =>  {
                 let ht = match self._height {
                     Some(i) => i,
@@ -477,14 +477,6 @@ impl WhatsitTrait for VBox {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
                 if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
-                /*else if nch.len() == 1 {
-                    match nch.pop() {
-                        Some(o) => {
-                            nch.push(o)
-                        }
-                        _ => TeXErr!("Should be unreachable!")
-                    }
-                }*/
                 ret.push(VBox {
                     children: nch,
                     spread: self.spread,
@@ -545,6 +537,41 @@ impl WhatsitTrait for VBox {
 
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
+            ColonMode::V | ColonMode::H | ColonMode::P if self.tp == VBoxType::DMCenter => {
+                htmlnode!(colon,div,None,"displayvbox",node_top,div => {
+                    htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(div),node => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                            node.attr("rustex:width".into(),dimtohtml(self.width()));
+                            node.attr("rustex:height".into(),dimtohtml(self.height()));
+                        }
+                        match self._height {
+                            Some(v) => {
+                                node.style("height".into(),dimtohtml(v));
+                                node.style("min-height".into(),dimtohtml(v))
+                            }
+                            _ => ()
+                        }
+                        match self._width {
+                            Some(h) => {
+                                withwidth!(colon,h,node,inner,{
+                                    for c in self.children {
+                                        htmlliteral!(colon,htmlparent!(inner),"\n");
+                                        c.as_html(&ColonMode::V,colon,htmlparent!(inner));
+                                        htmlliteral!(colon,htmlparent!(inner),"\n");
+                                    }
+                                })
+                            }
+                            _ => {
+                                for c in self.children {
+                                    htmlliteral!(colon,htmlparent!(node),"\n");
+                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                                    htmlliteral!(colon,htmlparent!(node),"\n");
+                                }
+                            }
+                        }
+                    });
+                });
+            }
             ColonMode::V | ColonMode::H | ColonMode::P => htmlnode!(colon,div,self.get_ref(),"vbox",node_top,node => {
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
@@ -552,7 +579,8 @@ impl WhatsitTrait for VBox {
                 }
                 match self.tp {
                     VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
-                    VBoxType::Center => node.style("vertical-align".into(),"middle".into()),
+                    VBoxType::Center | VBoxType::DMCenter =>
+                        node.style("vertical-align".into(),"middle".into()),
                     VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
                 }
                 match self._height {
@@ -562,13 +590,6 @@ impl WhatsitTrait for VBox {
                     }
                     _ => ()
                 }
-                /* match self._width {
-                    Some(v) => {
-                        node.style("width".into(),dimtohtml(v));
-                        node.style("min-width".into(),dimtohtml(v))
-                    }
-                    _ => ()
-                } */
                 match self._width {
                     Some(h) => {
                         withwidth!(colon,h,node,inner,{
@@ -580,15 +601,11 @@ impl WhatsitTrait for VBox {
                         })
                     }
                     _ => {
-
-                        //let currsquare = colon.state.squaresize;
-                        //colon.state.squaresize = true;
                         for c in self.children {
                             htmlliteral!(colon,htmlparent!(node),"\n");
                             c.as_html(&ColonMode::V,colon,htmlparent!(node));
                             htmlliteral!(colon,htmlparent!(node),"\n");
                         }
-                        //colon.state.squaresize = currsquare;
                     }
                 }
             }),
@@ -600,7 +617,7 @@ impl WhatsitTrait for VBox {
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 })
             }),
-            _ => for c in self.children { c.as_html(mode,colon,node_top) }
+            _ => for c in self.children { c.as_html(mode, colon, node_top) }
         }
     }
 }

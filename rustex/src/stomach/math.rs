@@ -120,10 +120,15 @@ impl WhatsitTrait for MathGroup {
                             ret.push(o);
                             return
                         }
-                        Whatsit::Box(TeXBox::V(vb)) if *mode != ColonMode::M && vb.tp == VBoxType::Center => {
-                            v.push(Whatsit::Box(TeXBox::V(vb)))
+                        Whatsit::Box(TeXBox::V(mut vb)) if *mode != ColonMode::M && vb.tp == VBoxType::Center && self.limits => {
+                            vb.tp = VBoxType::DMCenter;
+                            ret.push(Whatsit::Box(TeXBox::V(vb)));
+                            return
                         },
-                        Whatsit::Box(b) if *mode != ColonMode::M => ret.push(b.as_whatsit()),
+                        Whatsit::Box(b) if *mode != ColonMode::M => {
+                            ret.push(b.as_whatsit());
+                            return
+                        }
                         o if *mode == ColonMode::M => {
                             ret.push(o);
                             return
@@ -141,8 +146,6 @@ impl WhatsitTrait for MathGroup {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::P | ColonMode::V if self.limits => htmlnode!(colon,div,None,"displaymathcontainer",node_top,div =>{
-                div.style("width".into(),"100%".into());
-                div.style("min-width".into(),"100%".into());
                 if crate::INSERT_RUSTEX_ATTRS {
                     div.attr("rustex:width".into(),dimtohtml(self.width()));
                     div.attr("rustex:height".into(),dimtohtml(self.height()));
