@@ -83,13 +83,9 @@ impl WhatsitTrait for Paragraph {
                         _ => false
                     } => {
                         node.style("text-align".into(),"center".into());
-                        node.style("justify-content".into(),"center".into());
-                        node.style("align-items".into(),"center".into());
                     }
                     _ => {
                         node.style("text-align".into(),"right".into());
-                        node.style("justify-content".into(),"right".into());
-                        node.style("align-items".into(),"right".into());
                     }
                 }
                 _ => match self.rightskip {
@@ -98,8 +94,6 @@ impl WhatsitTrait for Paragraph {
                         _ => false
                     } => {
                         node.style("text-align".into(),"left".into());
-                        node.style("justify-content".into(),"left".into());
-                        node.style("align-items".into(),"left".into());
                     },
                     _ => ()
                 }
@@ -145,9 +139,9 @@ impl WhatsitTrait for Paragraph {
                     let str = "calc(".to_string() + &pctg + "% - " + &dimtohtml(negwd).to_string() + ")";
                     node.style("width".into(),str.clone().into());
                     node.style("min-width".into(),str.clone().into());
-                    htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
-                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
-                    })
+                    //htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
+                    for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+                    //})
                 }
             }
             colon.state.currsize = currsize;

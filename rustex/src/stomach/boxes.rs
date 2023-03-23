@@ -324,8 +324,8 @@ impl HBox {
     fn ch_as_html(children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
         let mut inspace = false;
         for c in children {
-            match c {
-                Whatsit::Space(_) if !inspace => {
+            /* match c {
+               Whatsit::Space(_) if !inspace => {
                     inspace = true;
                     htmlliteral!(colon,htmlparent!(node),"&nbsp;")
                 }
@@ -344,10 +344,10 @@ impl HBox {
                     }
                 }
                 _ => {
-                    inspace = false;
+                    inspace = false; */
                     c.as_html(&ColonMode::H,colon,htmlparent!(node))
-                }
-            }
+                //}
+            //}
         }
     }
 }

@@ -3,9 +3,10 @@ use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
 use crate::fonts::{ArcFont, Font};
 use crate::references::SourceFileReference;
-use crate::{htmlliteral};
+use crate::{htmlliteral, htmlnode, htmlparent};
 use crate::interpreter::params::InterpreterParams;
 use crate::interpreter::state::State;
+use crate::stomach::html::HTMLNode;
 
 pub trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
@@ -250,7 +251,23 @@ impl WhatsitTrait for SpaceChar {
     }
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        if self.nonbreaking {htmlliteral!(colon,node_top,"&#160;")} else {htmlliteral!(colon,node_top," ")}
+        let str: HTMLStr = if self.nonbreaking {"&#160;".into()} else {" ".into()};
+        let maybetext = match match node_top {
+            Some(HTMLParent::N(n)) => n.children.last_mut(),
+            Some(HTMLParent::A(n)) => n.children.last_mut(),
+            _ => None
+        } {
+            Some(HTMLChild::Node(n)) => Some(n),
+            _ => None
+        };
+        match maybetext {
+            Some(n) if n.classes.contains(&"text".into()) =>
+                n.children.push(HTMLChild::Str(str.into())),
+            _ =>
+                htmlnode!(colon,span,None,"text",node_top,span => {
+                    htmlliteral!(colon,htmlparent!(span),str);
+                })
+        }
     }
     fn get_par_width(&self) -> Option<i32> { None }
     fn get_par_widths(&self) -> Vec<i32> { vec!() }
@@ -353,17 +370,31 @@ impl WhatsitTrait for PrintChar {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlliteral!(colon,node_top,{
-            match &self.font.file.chartable {
-                Some(ct) => {
-                    let ch = ct.get_char(self.char).to_string();
-                    if ch == " " {
-                        "&#160;".to_string()
-                    } else {HTMLStr::from(ch).html_escape().to_string()}
-                }
-                None => self.as_xml_internal("".to_string())
+        let maybetext = match match node_top {
+            Some(HTMLParent::N(n)) => n.children.last_mut(),
+            Some(HTMLParent::A(n)) => n.children.last_mut(),
+            _ => None
+        } {
+            Some(HTMLChild::Node(n)) => Some(n),
+            _ => None
+        };
+        let str: HTMLStr = match &self.font.file.chartable {
+            Some(ct) => {
+                let ch = ct.get_char(self.char).to_string();
+                if ch == " " {
+                    "&#160;".into()
+                } else {HTMLStr::from(ch).html_escape()}
             }
-        })
+            None => self.as_xml_internal("".to_string()).into()
+        };
+        match maybetext {
+            Some(n) if n.classes.contains(&"text".into()) =>
+                n.children.push(HTMLChild::Str(str.into())),
+            _ =>
+                htmlnode!(colon,span,None,"text",node_top,span => {
+                    htmlliteral!(colon,htmlparent!(span),str);
+                })
+        }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn get_par_width(&self) -> Option<i32> { None }

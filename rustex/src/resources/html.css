@@ -182,8 +182,10 @@ a {
     text-decoration: inherit;
 }
 .raise {
+    display: inline-block;
 }
 .moveright {
+    display: inline-block;
 }
 hr {width: 100%;}
 
@@ -212,6 +214,9 @@ mrow {
 .displaymath {
     position: relative;
 }
+.text {
+    display:contents;
+}
 .displaymathcontainer {
     text-align:center;
     display:block;
@@ -221,3 +226,31 @@ mrow {
     width: 100%;
     min-width: 100%;
 }
+.foreign {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+.hskip {
+    display:inline-block;
+}
+.vskip {
+    display: block;
+}
+.hkern {
+    display: inline-block;
+}
+.Vss {
+    display:none;
+}
+.Hss {
+    display:none;
+}
+.HFil, .HFill, .HFill { display:inline-block }
+.VFil, .VFill, .VFill { display:inline-block }
+.halign{
+    display:table;
+    border-collapse:collapse;
+}
+.row{display: table-row}
+.cell{display: table-cell}
