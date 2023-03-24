@@ -428,6 +428,7 @@ impl StringMouth {
             let (char,l,p) = unsafe{self.next_char(catcodes.endlinechar).unwrap_unchecked()};
             let ret = match catcodes.get_code(char) {
                 CategoryCode::Escape => {
+                    let line = self.line;
                     self.mouth_state = MouthState::M;
                     match &self.string {
                         Some(s) => {
@@ -454,11 +455,15 @@ impl StringMouth {
                             let mut nc = unsafe{self.next_char(catcodes.endlinechar).unwrap_unchecked()};
                             match catcodes.get_code(nc.0) {
                                 CategoryCode::Letter => {
-                                    let line = self.line;
                                     self.mouth_state = MouthState::M;
                                     buf.push(nc.0);
-                                    while line == self.line && {
-                                        nc = self.next_char(catcodes.endlinechar).unwrap();
+                                    'A: while line == self.line && {
+                                        nc = match self.next_char(catcodes.endlinechar) {
+                                            Some(t) => t,
+                                            _ => {
+                                                return Token::new(char,CategoryCode::Escape,Some(TeXStr::new(buf.as_slice())),self.make_reference(l,p),true)
+                                            }
+                                        };
                                         matches!(catcodes.get_code(nc.0),CategoryCode::Letter)
                                     } {
                                         buf.push(nc.0);
@@ -466,7 +471,6 @@ impl StringMouth {
                                     self.charbuffer = Some(nc);
                                     self.mouth_state = MouthState::S;
                                 }
-                                //CategoryCode::EOL => self.mouth_state = MouthState::M,
                                 CategoryCode::Space => {
                                     buf.push(nc.0);
                                     self.mouth_state = MouthState::S
@@ -693,17 +697,21 @@ impl Mouths {
             _ => "".to_string()
         }
     }
-    pub fn end_input(&mut self) {
+    pub fn end_input(&mut self,line: Option<usize>) {
         let mut prevs : Vec<Mouth> = vec!();
         while !self.mouths.is_empty() {
             match unsafe{self.mouths.pop().unwrap_unchecked()} {
                 Mouth::File(mut sm) => {
+                    let useline = match line {
+                        Some(l) => l,
+                        None => sm.line
+                    };
                     match sm.peekbuffer {
                         Some(p) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(p)))),
                         _ => ()
                     }
                     match &mut sm.string {
-                        Some(s) => {
+                        Some(s) if sm.line == useline => {
                             let mut str = std::mem::take(s);
                             str = TeXString(str.0.as_slice()[sm.pos..].to_vec());
                             match sm.charbuffer {
@@ -714,7 +722,9 @@ impl Mouths {
                                 },
                                 _ => ()
                             }
-                            self.mouths.push(Mouth::Str(StringMouth::new(Expansion::new(Token::dummy(),Arc::new(PrimitiveTeXCommand::Primitive(&RELAX))),str)));
+                            if str.0 != vec!(13) {
+                                self.mouths.push(Mouth::Str(StringMouth::new(Expansion::new(Token::dummy(), Arc::new(PrimitiveTeXCommand::Primitive(&RELAX))), str)));
+                            }
                         }
                         _ => ()
                     }
@@ -798,8 +808,15 @@ impl Interpreter<'_> {
     pub fn eof_token(&self) -> Token {
         Token::new(0,CategoryCode::EOL,Some("EOF".into()),None,true)
     }
-    pub fn end_input(&mut self) {
-        self.mouths.end_input()
+    pub fn end_input(&mut self,tk:&Token) {
+        let withline = match &tk.reference {
+            Some(s) => match &**s {
+                SourceReference::File(_,(l,_),(_,_)) => Some(l.clone()),
+                _ => None
+            }
+            _ => None
+        };
+        self.mouths.end_input(withline)
     }
     pub fn update_reference(&self,tk : &Token) -> Option<SourceFileReference> {
         let mut rf = &tk.reference;

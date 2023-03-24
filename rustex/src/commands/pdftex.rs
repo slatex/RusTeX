@@ -870,19 +870,21 @@ pub static PDFPAGEATTR: PrimitiveExecutable = PrimitiveExecutable {
 pub static PDFSAVEPOS: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfsavepos",
     expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\pdfsavepos")}
+    _apply:|_tk,_int| {Ok(())}
 };
 
-pub static PDFLASTXPOS: PrimitiveExecutable = PrimitiveExecutable {
+pub static PDFLASTXPOS: NumericCommand = NumericCommand {
     name:"pdflastxpos",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\pdflastxpos")}
+    _getvalue: |int| {
+        Ok(Numeric::Int(0))
+    },
 };
 
-pub static PDFLASTYPOS: PrimitiveExecutable = PrimitiveExecutable {
+pub static PDFLASTYPOS: NumericCommand = NumericCommand {
     name:"pdflastypos",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\pdflastypos")}
+    _getvalue: |int| {
+        Ok(Numeric::Int(0))
+    },
 };
 
 pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
@@ -1015,8 +1017,8 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFOUTLINE),
     PrimitiveTeXCommand::Primitive(&PDFPAGEATTR),
     PrimitiveTeXCommand::Primitive(&PDFSAVEPOS),
-    PrimitiveTeXCommand::Primitive(&PDFLASTXPOS),
-    PrimitiveTeXCommand::Primitive(&PDFLASTYPOS),
+    PrimitiveTeXCommand::Num(&PDFLASTXPOS),
+    PrimitiveTeXCommand::Num(&PDFLASTYPOS),
     PrimitiveTeXCommand::Primitive(&PDFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFXIMAGE),
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
