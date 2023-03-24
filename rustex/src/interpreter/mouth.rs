@@ -733,7 +733,7 @@ impl Mouths {
                 m => prevs.push(m)
             }
         }
-        for m in prevs.drain(..).rev() { self.mouths.push(m) }
+        for m in prevs.into_iter().rev() { self.mouths.push(m) }
     }
     pub fn preview(&self) -> TeXString {
         let mut ret : TeXString = "".into();

@@ -846,6 +846,7 @@ pub struct Above {
     pub top:Vec<Whatsit>,
     pub bottom:Vec<Whatsit>,
     pub thickness:Option<i32>,
+    pub filled: bool,
     pub delimiters:(Option<MathChar>,Option<MathChar>),
     pub sourceref:Option<SourceFileReference>
 }
@@ -888,8 +889,8 @@ impl WhatsitTrait for Above {
         let mut nbottom: Vec<Whatsit> = vec!();
         for c in self.top { c.normalize(mode,&mut ntop,scale)}
         for c in self.bottom { c.normalize(mode,&mut nbottom,scale)}
-        ret.push(crate::stomach::math::Above {
-            top:ntop,bottom:nbottom,delimiters:self.delimiters,sourceref:self.sourceref,thickness:self.thickness
+        ret.push(Above {
+            top:ntop,bottom:nbottom,delimiters:self.delimiters,sourceref:self.sourceref,thickness:self.thickness,filled:true
         }.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {

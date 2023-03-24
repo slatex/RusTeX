@@ -126,7 +126,7 @@ impl Kpathsea {
             vars.get("TFMFONTS").map(|x| x.clone()),
             std::env::vars().find(|a| a.0 == "TEXINPUTS").map(|x| x.1.clone()),
             vars.get("TEXINPUTS").map(|x| x.clone())
-        ).drain(..).flatten().collect();
+        ).into_iter().flatten().collect();
         vars.insert("progname".to_string(),"pdflatex".to_string());
         let home = if cfg!(target_os = "windows") {
             std::env::vars().find(|x| x.0 == "HOMEDRIVE").unwrap().1 +
@@ -134,7 +134,7 @@ impl Kpathsea {
         } else {
             std::env::vars().find(|x| x.0 == "HOME").unwrap().1
         };
-        let dirs : Vec<String> = filestrs.drain(..).map(|x| Kpathsea::parse_string(x,&vars)).flatten().collect();
+        let dirs : Vec<String> = filestrs.into_iter().map(|x| Kpathsea::parse_string(x,&vars)).flatten().collect();
         let mut paths : Vec<(PathBuf,bool)> = vec!();
         for mut d in dirs {
             if !d.starts_with(".") {
@@ -253,7 +253,7 @@ impl Kpathsea {
                             None => panic!("Syntax error in texmf.cnf")
                         }
                     }
-                    let allrets : Vec<String> = rets.drain(..).map(|x| Kpathsea::parse_string(x,vars)).flatten().collect();
+                    let allrets : Vec<String> = rets.into_iter().map(|x| Kpathsea::parse_string(x,vars)).flatten().collect();
                     let nrets = std::mem::take(&mut ret);
                     for o in nrets { for r in &allrets { ret.push(o.clone() + r) }}
                 },

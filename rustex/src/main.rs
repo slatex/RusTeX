@@ -95,7 +95,7 @@ fn run() {
                                         let (success, s) = int.do_file(&path, HTMLColon::new(true));
                                         if success {
                                             let mut topcommands = int.state.commands.destroy();
-                                            for (n,cmd) in topcommands.drain() {
+                                            for (n,cmd) in topcommands.into_iter() {
                                                 if n.to_string().starts_with("c_stex_module") {
                                                     st.commands.set(n,cmd.map(|x| x.clean()),true);
                                                 }

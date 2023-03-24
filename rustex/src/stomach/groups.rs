@@ -535,7 +535,7 @@ impl WhatsitTrait for PDFMatrixSave {
             }
         };
         let mut ng = self.new_from();
-        let nch : Vec<Whatsit> = self.children.drain(..).filter(|x| match x {
+        let nch : Vec<Whatsit> = self.children.into_iter().filter(|x| match x {
             Whatsit::Simple(SimpleWI::PDFMatrix(_)) => false,
             _ => true
         }).collect();

@@ -448,7 +448,7 @@ impl HTMLNode {
 
         let mut ret : HTMLStr = "".into();
         let mut body : HTMLStr = "".into();
-        for c in self.children.drain(..) {
+        for c in std::mem::take(&mut self.children).into_iter() {
             body += match c {
                 HTMLChild::Node(mut n) => n.make_string(prefix.clone(),self.namespace,nfi),
                 HTMLChild::Annot(mut a) => a.make_string(prefix.clone(),self.namespace,nfi),
@@ -459,7 +459,7 @@ impl HTMLNode {
         for (a,v) in &self.attributes {
             ret += " " + a + "=\"" + v + "\""
         }
-        self.classes = self.classes.drain(..).filter(|x| x.to_string() != "").collect();
+        self.classes = std::mem::take(&mut self.classes).into_iter().filter(|x| x.to_string() != "").collect();
         if !self.classes.is_empty() {
             ret += " class=\"" + &self.classes[0];
             for c in &self.classes[1..] { ret += " " + c}

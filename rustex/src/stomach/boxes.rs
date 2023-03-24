@@ -293,12 +293,16 @@ impl WhatsitTrait for HBox {
                 })
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
+                let currsize = colon.state.currsize;
+                colon.state.currsize = self.width();
+                mt.style("width".into(),dimtohtml(self.width()));
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
-                })
+                });
+                colon.state.currsize = currsize;
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }
@@ -650,12 +654,16 @@ impl WhatsitTrait for VBox {
                 }
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
+                let currsize = colon.state.currsize;
+                colon.state.currsize = self.width();
+                mt.style("width".into(),dimtohtml(self.width()));
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
-                })
+                });
+                colon.state.currsize = currsize;
             }),
             _ => for c in self.children { c.as_html(mode, colon, node_top) }
         }

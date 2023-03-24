@@ -3117,7 +3117,7 @@ pub static OVER: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         Ok(Above {
             top:vec!(),bottom:vec!(),delimiters:(None,None),
-            sourceref:int.update_reference(tk),thickness:None
+            sourceref:int.update_reference(tk),thickness:None,filled:false
         }.as_whatsit())
     }
 };
@@ -3149,7 +3149,7 @@ pub static OVERWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         let delim1 = dodelim(int)?;
         let delim2 = dodelim(int)?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),delimiters:(delim1,delim2),
+            top:vec!(),bottom:vec!(),delimiters:(delim1,delim2),filled:false,
             sourceref:int.update_reference(tk),thickness:None
         }.as_whatsit())
     }
@@ -3163,7 +3163,7 @@ pub static ABOVE: SimpleWhatsit = SimpleWhatsit {
     _get: |tk,int| {
         let dim = int.read_dimension()?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(None,None),
+            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(None,None),filled:false,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3179,7 +3179,7 @@ pub static ABOVEWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         let delim2 = dodelim(int)?;
         let dim = int.read_dimension()?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(delim1,delim2),
+            top:vec!(),bottom:vec!(),thickness:Some(dim),delimiters:(delim1,delim2),filled:false,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3192,7 +3192,7 @@ pub static ATOP: SimpleWhatsit = SimpleWhatsit {
     },
     _get: |tk,int| {
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(None,None),
+            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(None,None),filled:false,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }
@@ -3207,7 +3207,7 @@ pub static ATOPWITHDELIMS: SimpleWhatsit = SimpleWhatsit {
         let delim1 = dodelim(int)?;
         let delim2 = dodelim(int)?;
         Ok(Above {
-            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(delim1,delim2),
+            top:vec!(),bottom:vec!(),thickness:Some(0),delimiters:(delim1,delim2),filled:false,
             sourceref:int.update_reference(tk)
         }.as_whatsit())
     }

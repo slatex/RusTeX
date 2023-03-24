@@ -372,6 +372,15 @@ impl Paragraph {
                     currline += 1;
                     hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                 }
+                Whatsit::Math(mg) if mg.limits => {
+                    currentwidth = 0;
+                    currentheight += currentlineheight;
+                    currentheight += 2*mg.height();
+                    currentlineheight = 0;
+                    currentdepth = 0;
+                    currline += 2;
+                    hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
+                }
                 wi => {
                     let width = wi.width();
                     if currentwidth + width > hgoal {

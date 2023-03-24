@@ -139,13 +139,13 @@ impl PGFBox {
                 ext.normalize_dyn(&ColonMode::H,ret,None);
             }
             Whatsit::Box(tb) => {
-                for c in tb.children().drain(..) {
+                for c in tb.children().into_iter() {
                     PGFBox::normalize_i(c,ret)
                 }
             },
             Whatsit::Grouped(WIGroup::External(e,mut ch)) if e.name().to_string() == "PGFGbegin" => {
                 let mut nret : Vec<Whatsit> = vec!();
-                for c in ch.drain(..) {
+                for c in ch.into_iter() {
                     PGFBox::normalize_i(c,&mut nret)
                 }
                 ret.push(WIGroup::External(e,nret).as_whatsit())
@@ -185,10 +185,10 @@ impl WhatsitTrait for PGFBox {
     fn has_ink(&self) -> bool { true }
     fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         let mut nc : Vec<Whatsit> = vec!();
-        for x in self.content.drain(..) {
+        for x in self.content.into_iter() {
             PGFBox::normalize_i(x,&mut nc)
         }
-        //self.content.drain(..).map(|x| PGFBox::normalize_i(x)).flatten().collect();
+        //self.content.into_iter().map(|x| PGFBox::normalize_i(x)).flatten().collect();
         self.content = nc;
         ret.push(self.as_whatsit())
     }

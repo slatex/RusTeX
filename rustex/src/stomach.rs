@@ -532,7 +532,7 @@ pub trait Stomach : Send {
                 match base.stomachgroups.last_mut().unwrap() {
                     StomachGroup::Top(v) if base.sender.is_some() => {
                         let sender = base.sender.as_ref().unwrap();
-                        for w in v.drain(..) { sender.send(StomachMessage::WI(w)).unwrap(); }
+                        for w in std::mem::take(v).into_iter() { sender.send(StomachMessage::WI(w)).unwrap(); }
                         sender.send(StomachMessage::WI(o)).unwrap();
                     },
                     sg => sg.push(o)
@@ -591,7 +591,7 @@ pub trait Stomach : Send {
                 self.base_mut().buffer.push(HAlign{
                     skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
                 }.as_whatsit());
-                for w in v.drain(..).rev() { self.base_mut().buffer.push(w) }
+                for w in v.into_iter().rev() { self.base_mut().buffer.push(w) }
                 true
             }
             _ => false
@@ -813,7 +813,7 @@ impl NoShipoutRoutine {
         use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
         //for s in &self.floatlist { println!("{}",s)}
-        let inserts = state.inserts.drain().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
+        let inserts = std::mem::take(&mut state.inserts).into_iter().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
         let cmd = state.commands.get(&"@freelist".into()).unwrap();
         let floatregs : Vec<i32> = match &*cmd.orig {
             PrimitiveTeXCommand::Def(df) if *df != *self.floatcmd.as_ref().unwrap() => {

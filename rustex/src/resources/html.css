@@ -1,5 +1,4 @@
-@import url(https://db.onlinewebfonts.com/c/28328b8c8ae69456252ecea287697286?family=Latin+Modern+Math);
-@import url('https://fonts.cdnfonts.com/css/latin-modern-roman');
+@import url('https://fonts.cdnfonts.com/css/latin-modern-math');
 @font-face {
     font-family: 'Latin Modern SmallCaps';
     font-style: normal;
@@ -35,7 +34,7 @@
 @font-face {
     font-family: 'Latin Modern';
     font-style: normal;
-    font-weight: bold;
+    font-weight: bold;v
     font-display: swap;
     src: url('https://fonts.cdnfonts.com/s/266/lmroman10-bold.otf');
 }
@@ -53,7 +52,7 @@
     font-style: normal;
     font-weight: normal;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmmono10-regular.otf');
+    src: url('https://fonts.cdnfonts.com/s/265/lmmono10-regular.otf');
 }
 
 @font-face {
@@ -61,7 +60,7 @@
     font-style: italic;
     font-weight: normal;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmmono10-italic.otf');
+    src: url('https://fonts.cdnfonts.com/s/265/lmmono10-italic.otf');
 }
 
 @font-face {
@@ -69,7 +68,7 @@
     font-style: normal;
     font-weight: bold;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmmonolt10-bold.otf');
+    src: url('https://fonts.cdnfonts.com/s/265/lmmonolt10-bold.otf');
 }
 
 @font-face {
@@ -77,7 +76,7 @@
     font-style: italic;
     font-weight: bold;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmmonolt10-boldoblique.otf');
+    src: url('https://fonts.cdnfonts.com/s/265/lmmonolt10-boldoblique.otf');
 }
 
 @font-face {
@@ -85,7 +84,7 @@
     font-style: normal;
     font-weight: normal;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmsans10-regular.otf');
+    src: url('https://fonts.cdnfonts.com/s/267/lmsans10-regular.otf');
 }
 
 @font-face {
@@ -93,7 +92,7 @@
     font-style: italic;
     font-weight: normal;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmsans10-oblique.otf');
+    src: url('https://fonts.cdnfonts.com/s/267/lmsans10-oblique.otf');
 }
 
 @font-face {
@@ -101,7 +100,7 @@
     font-style: normal;
     font-weight: bold;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmsans10-bold.otf');
+    src: url('https://fonts.cdnfonts.com/s/267/lmsans10-bold.otf');
 }
 
 @font-face {
@@ -109,7 +108,7 @@
     font-style: italic;
     font-weight: bold;
     font-display: swap;
-    src: url('https://fonts.cdnfonts.com/s/266/lmsans10-boldoblique.otf');
+    src: url('https://fonts.cdnfonts.com/s/267/lmsans10-boldoblique.otf');
 }
 
 * { position:relative;}
@@ -158,13 +157,12 @@ div {display: inherit}
 
 .vbox {
     flex-wrap: nowrap;
-    justify-content: space-between;
+    justify-content: flex-start;
 }
 
 .hbox {
     display:inline-block;
     white-space: nowrap;
-    vertical-align: top; /* ??? */
 }
 .hbox::before {
     content:""; display:inline-block;height:100%;vertical-align: bottom;
@@ -174,13 +172,19 @@ div {display: inherit}
     text-align:justify;
     white-space:normal;
     display: inline-block;
+    margin-top: auto;
 }
 
 .reftarget {
 }
 .vrule {
+    display:inherit;
+}
+.vrulecontainer {
+    display:inline-block;
 }
 .hrule {
+    display: inline-block;
 }
 a {
     color: inherit;
@@ -197,8 +201,6 @@ hr {width: 100%;}
 math {
     line-height: inherit;
     font-size: inherit;
-    font-style: inherit;
-    font-weight: inherit;
     font-family: Latin Modern Math, math;
 }
 mtext {
@@ -261,4 +263,4 @@ mrow {
     border-collapse:collapse;
 }
 .row{display: table-row}
-.cell{display: table-cell}
+.cell{display: table-cell;padding: 0}

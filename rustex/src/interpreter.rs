@@ -115,7 +115,7 @@ pub fn tokens_to_string(tks:&Vec<Token>,catcodes:&CategoryCodeScheme) -> TeXStri
 }
 
 use crate::stomach::{NoShipoutRoutine, Stomach, StomachMessage, Whatsit};
-use crate::stomach::math::{GroupedMath, MathChar, MathGroup, MathKernel};
+use crate::stomach::math::{Above, GroupedMath, MathChar, MathGroup, MathKernel};
 use crate::interpreter::state::FontStyle;
 use crate::stomach::boxes::BoxMode;
 use crate::stomach::colon::Colon;
@@ -535,13 +535,14 @@ impl Interpreter<'_> {
             self.insert_every(&crate::commands::registers::EVERYMATH);
             m
         };
-        let ret = self.read_math_group(bm,true)?;
+        let ret = Interpreter::build_mathgroup(self.read_math_group(bm,true)?,display);
+        self.state.displaymode.set(display,false);
         self.state.mode = _oldmode;
-        self.stomach_add(ret.as_whatsit_limits(display))?;
+        self.stomach_add(ret)?;
         return Ok(())
     }
 
-    fn read_math_group(&mut self,mode:BoxMode,mathshift:bool) -> Result<GroupedMath,TeXError> {
+    fn read_math_group(&mut self,mode:BoxMode,mathshift:bool) -> Result<Vec<Whatsit>,TeXError> {
         use crate::catcodes::CategoryCode::*;
         while self.has_next() {
             let next = self.next_token();
@@ -551,20 +552,20 @@ impl Interpreter<'_> {
                     match nnext.catcode {
                         MathShift => {
                             let ret = self.get_whatsit_group(GroupType::Box(BoxMode::DM))?;
-                            return Ok(GroupedMath(ret))
+                            return Ok(ret)
                         }
                         _ => TeXErr!(nnext => "displaymode must be closed with $$")
                     }
                 }
                 (MathShift,BoxMode::M) if mathshift => {
                     let ret = self.get_whatsit_group(GroupType::Box(BoxMode::M))?;
-                    return Ok(GroupedMath(ret))
+                    return Ok(ret)
                 }
                 (MathShift,_) => TeXErr!("Unexpected $"),
                 (EndGroup,_) if mathshift => TeXErr!(next => "{}","Unexpected } in math environment"),
                 (EndGroup,m) => {
                     let ret = self.get_whatsit_group(GroupType::Box(m))?;
-                    return Ok(GroupedMath(ret))
+                    return Ok(ret)
                 },
                 _ => {
                     self.requeue(next);
@@ -610,7 +611,7 @@ impl Interpreter<'_> {
                         _ => unreachable!()
                     };
                     self.state.push(self.stomach,GroupType::Box(mode));
-                    return Ok(Some(self.read_math_group(mode,false)?.as_whatsit_limits(self.state.displaymode.get())))
+                    return Ok(Some(Interpreter::build_mathgroup(self.read_math_group(mode,false)?,self.state.displaymode.get())))
                 }
                 Superscript => {
                     let mut last = match self.get_last_math()? {
@@ -676,7 +677,7 @@ impl Interpreter<'_> {
                                                 for ri in right {
                                                     v.push(ri.as_whatsit_limits(self.state.displaymode.get()));
                                                 }
-                                                return Ok(Some(GroupedMath(v).as_whatsit_limits(self.state.displaymode.get())))
+                                                return Ok(Some(Interpreter::build_mathgroup(v,self.state.displaymode.get())))
                                             }
                                             _ => {
                                                 self.requeue(next);
@@ -765,6 +766,28 @@ impl Interpreter<'_> {
             }
         }
         FileEnd!()
+    }
+
+    fn build_mathgroup(mut vec:Vec<Whatsit>,limits:bool) -> Whatsit {
+        let mut ret: Vec<Whatsit> = Vec::with_capacity(vec.len());
+        let mut above:Option<Above> = None;
+        for x in vec.into_iter() {
+            match &mut above {
+                Some(a) => a.bottom.push(x),
+                None => match x {
+                    Whatsit::Above(mut a) if !a.filled => {
+                        a.filled = true;
+                        a.top = std::mem::take(&mut ret);
+                        above = Some(a)
+                    },
+                    _ => ret.push(x)
+                }
+            }
+        }
+        match above {
+            Some(a) => a.as_whatsit(),
+            _ => GroupedMath(ret).as_whatsit_limits(limits)
+        }
     }
 /*
 
