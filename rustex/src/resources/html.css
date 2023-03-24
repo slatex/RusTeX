@@ -150,9 +150,10 @@ div {display: inherit}
 }
 
 .hbox, .vbox {
-    width: auto;
-    height: auto;
+    width: fit-content;
+    height: fit-content;
     overflow: visible;
+    text-align: left;
 }
 
 .vbox {
@@ -163,6 +164,10 @@ div {display: inherit}
 .hbox {
     display:inline-block;
     white-space: nowrap;
+    vertical-align: top; /* ??? */
+}
+.hbox::before {
+    content:""; display:inline-block;height:100%;vertical-align: bottom;
 }
 
 .paragraph {
@@ -230,6 +235,9 @@ mrow {
     width: 100%;
     height: 100%;
     text-align: center;
+    justify-content: center;
+    align-content: center;
+    flex-wrap: wrap;
 }
 .hskip {
     display:inline-block;
