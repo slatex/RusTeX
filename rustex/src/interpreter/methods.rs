@@ -454,6 +454,7 @@ impl Interpreter<'_> {
                             PrimitiveTeXCommand::Char(tk) => return Ok(Some(Numeric::Int(if isnegative { -(tk.char as i32) } else { tk.char as i32 }))),
                             PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(Some(Numeric::Int(self.state.parshape.get(&()).len() as i32))),
                             PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get(&())))),
+                            PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(Some(Numeric::Dim(self.state.hangindent.get(&())))),
                             _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
                         }
                     }
@@ -567,11 +568,35 @@ impl Interpreter<'_> {
             Some(s) if s == "filll" => Ok(SkipDim::Filll(self.make_true(pt(f),istrue))),
             Some(o) => todo!("{}",o),
             None => {
-                let r = self.read_dimension()?;
+                let r = self.read_dim_cmd()?;
                 Ok(SkipDim::Pt(((r as f64 * (f * 65536.0).floor()) / 65536.0).floor() as i32))
             }
                 //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
+    }
+
+    fn read_dim_cmd(&mut self) -> Result<i32,TeXError> {
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = self.get_command(&next.cmdname())?;
+                    if p.has_num() {
+                        return Ok(p.get_num(self)?.get_i32())
+                    } else if p.expandable(true) {
+                        p.expand(next,self)?;
+                    } else {
+                        match &*p.orig {
+                            PrimitiveTeXCommand::Primitive(p) if **p == PARSHAPE => return Ok(self.state.parshape.get(&()).len() as i32),
+                            PrimitiveTeXCommand::Primitive(p) if **p == HANGINDENT => return Ok(self.state.hangindent.get(&())),
+                            _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
+                        }
+                    }
+                }
+                _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
+            }
+        }
+        FileEnd!()
     }
 
     fn make_true(&self,f : f64,istrue:bool) -> i32 {

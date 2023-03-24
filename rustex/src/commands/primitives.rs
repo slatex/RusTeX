@@ -369,14 +369,25 @@ use crate::stomach::simple::{AlignBlock, HAlign, HFil, HFill, HKern, HRule, HSki
 pub static GLOBAL : PrimitiveAssignment = PrimitiveAssignment {
     name:"global",
     _assign: |_rf,int,_global| {
-        int.expand_until(true)?;
-        let next = int.read_command_token()?;
-        let cmd = int.get_command(&next.cmdname())?;
-        if !cmd.assignable() {
-            TeXErr!(next.clone() => "Assignment expected after \\global; found: {}",next)
+        let mut last : Option<Token> = None;
+        'a: loop {
+            int.expand_until(true)?;
+            int.eat_relax();
+            let next = int.read_command_token()?;
+            match last {
+                Some(n) if n == next =>
+                    TeXErr!(next.clone() => "Assignment expected after \\global; found: {}",next),
+                _ => ()
+            }
+            let cmd = int.get_command(&next.cmdname())?;
+            if cmd.assignable() {
+                cmd.assign(next,int,true)?;
+                return Ok(())
+            } else {
+                last = Some(next.clone());
+                int.requeue(next);
+            }
         }
-        cmd.assign(next,int,true)?;
-        Ok(())
     }
 };
 
@@ -1872,8 +1883,8 @@ pub static AFTERASSIGNMENT: PrimitiveExecutable = PrimitiveExecutable {
 pub static ENDINPUT: PrimitiveExecutable = PrimitiveExecutable {
     name:"endinput",
     expandable:true,
-    _apply:|_tk,int| {
-        int.end_input();
+    _apply:|tk,int| {
+        int.end_input(&tk.0);
         Ok(())
     }
 };
@@ -3249,6 +3260,7 @@ pub static HANGINDENT : PrimitiveExecutable = PrimitiveExecutable {
     name: "hangindent",
     expandable:false,
     _apply: |_,int| {
+        int.read_eq();
         let dim = int.read_dimension()?;
         int.state.hangindent.set((),dim,false);
         Ok(())
@@ -3259,6 +3271,7 @@ pub static HANGAFTER : PrimitiveExecutable = PrimitiveExecutable {
     name: "hangafter",
     expandable:false,
     _apply: |_,int| {
+        int.read_eq();
         let num = int.read_number()?;
         int.state.hangafter.set((),num as usize,false);
         Ok(())
