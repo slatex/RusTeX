@@ -164,14 +164,18 @@ div {display: inherit; white-space: normal}
     justify-content: flex-start;
 }
 
+.vboxcontainer {
+    display: inline-block;
+}
+.paragraph > .vboxcontainer {
+    display: inline-table;
+}
+
 .hbox {
     display:inline-flex;
     white-space: pre;
     justify-content: space-between;
     align-items: baseline;
-}
-.hboxcontainer::before {
-    content:""; display:inline-block;height:100%;vertical-align: bottom;
 }
 .hbox > .text { display:inline-block}
 .hbox > .hbox {
@@ -180,10 +184,15 @@ div {display: inherit; white-space: normal}
 .hbox > .text {zoom:1}
 
 .hboxcontainer {
-    display:inline-block;
+    display:inline-flex;
+    flex-direction: column;
     width: min-content;
     height: min-content;
+    justify-content: end;
 }
+/*.hboxcontainer::before {
+    content:""; display:inline-block;height:100%;vertical-align: bottom;
+}*/
 
 .paragraph {
     text-align:justify;
@@ -192,19 +201,12 @@ div {display: inherit; white-space: normal}
     margin-top: auto;
 }
 
-.vboxcontainer {
-    display: inline-block;
-}
-
 .reftarget {
 }
 .vrule {
-    display:inline-block;
+    display:block;
 }
 .vrulecontainer {
-    display:inline-block;
-}
-.hbox > .vrulecontainer {
     display:inline-table;
 }
 .hrule {
@@ -278,8 +280,8 @@ mrow {
 .Hss {
     display:none;
 }
-.HFil, .HFill, .HFill { display:inline-block }
-.VFil, .VFill, .VFill { display:inline-block }
+.HFil, .HFill, .HFill { display:none }
+.VFil, .VFill, .VFill { display:none }
 .halign{
     display:table;
     border-collapse:collapse;

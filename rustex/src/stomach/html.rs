@@ -272,7 +272,7 @@ impl HTMLColon {
             ret += CSS;
             ret += "\n    </style>";
             //self.ret += "\n    <script type=\"text/javascript\" id=\"MathJax-script\" src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js\"></script>";
-            ret += "\n  </head>\n  <body style=\"width:";
+            ret += "\n  </head>\n  <body style=\"max-width:";
             ret += &dimtohtml(self.pagewidth).to_string();
             ret += "\">\n    <div class=\"body\" id=\"rustexbody\" style=\"font-size:";
             let fontsize = match &self.base.basefont.as_ref() {
@@ -286,12 +286,13 @@ impl HTMLColon {
             //ret += ";width:var(--current-width)";
             ret += ";max-width:";
             ret += &dimtohtml(self.textwidth).to_string();
-            ret += ";--current-width:";
-            ret += &dimtohtml(self.textwidth).to_string();
             ret += ";padding-left:";
-            ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
+            let padding = ((self.pagewidth - self.textwidth) as f32 / (2.0 * (self.pagewidth as f32)) * 100.0).to_string() + "%";
+            ret += padding.as_str();
+            //ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
             ret += ";padding-right:";
-            ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
+            ret += padding.as_str();
+            //ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
             ret += ";line-height:";
             ret += &(self.lineheight.base as f32 / fontsize as f32).to_string();
             if crate::INSERT_RUSTEX_ATTRS {

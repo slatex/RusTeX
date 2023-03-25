@@ -311,9 +311,15 @@ impl WhatsitTrait for VRule {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,div,self.sourceref.clone(),"vrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
+            let width = self.width();
+            let top_width = colon.state.currsize;
+            if 5*width < top_width {
+                m.style("width".into(),dimtohtml(width))
+            } else {
+                m.style("width".into(),((width as f32 * 100.0) / (top_width as f32)).to_string().into())
+            }
         htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
-            n.style("width".into(),dimtohtml(self.width()));
-            n.style("min-width".into(),dimtohtml(self.width()));
+            n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
             n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
             n.style("background".into(),match &colon.state.currcolor {
@@ -357,9 +363,15 @@ impl WhatsitTrait for HRule {
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         htmlnode!(colon,div,self.sourceref.clone(),"vrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
+            let width = self.width();
+            let top_width = colon.state.currsize;
+            if 5*width < top_width {
+                m.style("width".into(),dimtohtml(width))
+            } else {
+                m.style("width".into(),((width as f32 * 100.0) / (top_width as f32)).to_string().into())
+            }
         htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
-            n.style("width".into(),dimtohtml(self.width()));
-            n.style("min-width".into(),dimtohtml(self.width()));
+            n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
             n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
             n.style("background".into(),match &colon.state.currcolor {

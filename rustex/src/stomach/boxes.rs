@@ -4,7 +4,7 @@ use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::math::{GroupedMath, MathKernel};
-use crate::stomach::simple::{Left, Right};
+use crate::stomach::simple::{Left, Right, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, WIDTH_CORRECTION};
 
@@ -317,34 +317,73 @@ impl WhatsitTrait for HBox {
     }
     fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
 }
+
+enum FilLevel {
+    None,Fil,Fill
+}
+impl FilLevel {
+    fn add(&mut self,other:FilLevel) {
+        use FilLevel::*;
+        match (&self,other) {
+            (None,o) => *self = o,
+            (_,None) => (),
+            (Fil,Fill) => *self = Fill,
+            _ => (),
+        }
+    }
+}
+
 impl HBox {
-    fn ch_as_html(children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
-        let mut inspace = false;
+    fn ch_as_html(mut children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
+        let mut startfil = FilLevel::None;
+        let mut endfil = FilLevel::None;
+        let mut repush:Vec<Whatsit> = vec!();
+        while let Some(head) = children.first() {
+            match head {
+                Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => {
+                    startfil.add(FilLevel::Fil);
+                    children.remove(0);
+                }
+                Whatsit::Simple(SimpleWI::HFill(_)) => {
+                    startfil.add(FilLevel::Fill);
+                    children.remove(0);
+                }
+                o if !o.has_ink() => {
+                    repush.push(children.remove(0))
+                }
+                _ => break
+            }
+        }
+        for c in repush.into_iter().rev() {children.insert(0,c)}
+        let mut repush:Vec<Whatsit> = vec!();
+        while let Some(head) = children.last() {
+            match head {
+                Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => {
+                    endfil.add(FilLevel::Fil);
+                    children.pop();
+                }
+                Whatsit::Simple(SimpleWI::HFill(_)) => {
+                    endfil.add(FilLevel::Fill);
+                    children.pop();
+                }
+                o if !o.has_ink() => {
+                    repush.push(children.remove(0))
+                }
+                _ => break
+            }
+        }
+        for c in repush.into_iter() {children.push(c)}
+        match (startfil,endfil) {
+            (FilLevel::None | FilLevel::Fil,FilLevel::Fill)|(FilLevel::None,FilLevel::Fil) =>
+                node.style("justify-content".into(),"start".into()),
+            (FilLevel::Fil,FilLevel::Fil)|(FilLevel::Fill,FilLevel::Fill) =>
+                node.style("justify-content".into(),"center".into()),
+            (FilLevel::Fil|FilLevel::Fill,FilLevel::None)|(FilLevel::Fill,FilLevel::Fil) =>
+                node.style("justify-content".into(),"end".into()),
+            _ => ()
+        }
         for c in children {
-            /* match c {
-               Whatsit::Space(_) if !inspace => {
-                    inspace = true;
-                    htmlliteral!(colon,htmlparent!(node),"&nbsp;")
-                }
-                Whatsit::Space(_) => {}
-                Whatsit::Char(ref pc) => {
-                    match pc.font.file.chartable.as_ref().map(|ct| ct.table.get(&pc.char)) {
-                        Some(Some(s)) if *s == " " && !inspace => {
-                            inspace = true;
-                            htmlliteral!(colon,htmlparent!(node),"&nbsp;")
-                        }
-                        Some(Some(s)) if *s == " " && inspace => {}
-                        _ => {
-                            inspace = false;
-                            c.as_html(&ColonMode::H,colon,htmlparent!(node))
-                        }
-                    }
-                }
-                _ => {
-                    inspace = false; */
-                    c.as_html(&ColonMode::H,colon,htmlparent!(node))
-                //}
-            //}
+            c.as_html(&ColonMode::H,colon,htmlparent!(node))
         }
     }
 }
@@ -577,26 +616,14 @@ impl WhatsitTrait for VBox {
                         match self._width {
                             Some(h) => {
                                 withwidth!(colon,h,node,inner,{
-                                    for c in self.children {
-                                        htmlliteral!(colon,htmlparent!(inner),"\n");
-                                        c.as_html(&ColonMode::V,colon,htmlparent!(inner));
-                                        htmlliteral!(colon,htmlparent!(inner),"\n");
-                                    }
+                                    VBox::ch_as_html(self.children,colon,&mut inner);
                                 })
                             }
                             _ => {
                                 match self.get_par_width() {
-                                    None => for c in self.children {
-                                            htmlliteral!(colon,htmlparent!(node),"\n");
-                                            c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                                            htmlliteral!(colon,htmlparent!(node),"\n");
-                                        }
+                                    None => VBox::ch_as_html(self.children,colon,&mut node),
                                     Some(i) => withwidth!(colon,i,node,inner,{
-                                        for c in self.children {
-                                            htmlliteral!(colon,htmlparent!(inner),"\n");
-                                            c.as_html(&ColonMode::V,colon,htmlparent!(inner));
-                                            htmlliteral!(colon,htmlparent!(inner),"\n");
-                                        }
+                                        VBox::ch_as_html(self.children,colon,&mut node);
                                     })
                                 }
                             }
@@ -631,9 +658,7 @@ impl WhatsitTrait for VBox {
                                         node.style("vertical-align".into(),"middle".into()),
                                     VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
                                 }
-                                for c in self.children {
-                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                                }
+                                VBox::ch_as_html(self.children,colon,&mut node);
                             })
                         }),
                         None => htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(cont),node => {
@@ -645,59 +670,11 @@ impl WhatsitTrait for VBox {
                                     node.style("vertical-align".into(),"middle".into()),
                                 VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
                             }
-                            for c in self.children {
-                                c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                            }
+                            VBox::ch_as_html(self.children,colon,&mut node);
                         })
                     }
                 })
-            }/*htmlnode!(colon,div,None,"vboxcontainer",node_top,container => {
-                htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(container),node => {
-                if crate::INSERT_RUSTEX_ATTRS {
-                    node.attr("rustex:width".into(),dimtohtml(self.width()));
-                    node.attr("rustex:height".into(),dimtohtml(self.height()));
-                }
-                match self.tp {
-                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
-                    VBoxType::Center | VBoxType::DMCenter =>
-                        node.style("vertical-align".into(),"middle".into()),
-                    VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
-                }
-                match self._height {
-                    Some(v) => {
-                        node.style("height".into(),dimtohtml(v));
-                        node.style("min-height".into(),dimtohtml(v))
-                    }
-                    _ => ()
-                }
-                match self._width {
-                    Some(h) => {
-                        withwidth!(colon,h,node,inner,{
-                            for c in self.children {
-                                htmlliteral!(colon,htmlparent!(inner),"\n");
-                                c.as_html(&ColonMode::V,colon,htmlparent!(inner));
-                                htmlliteral!(colon,htmlparent!(inner),"\n");
-                            }
-                        })
-                    }
-                    _ => {
-                        match self.get_par_width() {
-                            None => for c in self.children {
-                                    htmlliteral!(colon,htmlparent!(node),"\n");
-                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
-                                    htmlliteral!(colon,htmlparent!(node),"\n");
-                                }
-                            Some(i) => withwidth!(colon,i,node,inner,{
-                                for c in self.children {
-                                    htmlliteral!(colon,htmlparent!(inner),"\n");
-                                    c.as_html(&ColonMode::V,colon,htmlparent!(inner));
-                                    htmlliteral!(colon,htmlparent!(inner),"\n");
-                                }
-                            })
-                        }
-                    }
-                }
-            })})*/,
+            }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let currsize = colon.state.currsize;
                 colon.state.currsize = self.width();
@@ -711,6 +688,61 @@ impl WhatsitTrait for VBox {
                 colon.state.currsize = currsize;
             }),
             _ => for c in self.children { c.as_html(mode, colon, node_top) }
+        }
+    }
+}
+
+impl VBox {
+    fn ch_as_html(mut children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
+        let mut startfil = FilLevel::None;
+        let mut endfil = FilLevel::None;
+        let mut repush:Vec<Whatsit> = vec!();
+        while let Some(head) = children.first() {
+            match head {
+                Whatsit::Simple(SimpleWI::VFil(_) | SimpleWI::Vss(_)) => {
+                    startfil.add(FilLevel::Fil);
+                    children.remove(0);
+                }
+                Whatsit::Simple(SimpleWI::VFill(_)) => {
+                    startfil.add(FilLevel::Fill);
+                    children.remove(0);
+                }
+                o if !o.has_ink() => {
+                    repush.push(children.remove(0))
+                }
+                _ => break
+            }
+        }
+        for c in repush.into_iter().rev() {children.insert(0,c)}
+        let mut repush:Vec<Whatsit> = vec!();
+        while let Some(head) = children.last() {
+            match head {
+                Whatsit::Simple(SimpleWI::VFil(_) | SimpleWI::Vss(_)) => {
+                    endfil.add(FilLevel::Fil);
+                    children.pop();
+                }
+                Whatsit::Simple(SimpleWI::VFill(_)) => {
+                    endfil.add(FilLevel::Fill);
+                    children.pop();
+                }
+                o if !o.has_ink() => {
+                    repush.push(children.remove(0))
+                }
+                _ => break
+            }
+        }
+        for c in repush.into_iter() {children.push(c)}
+        match (startfil,endfil) {
+            (FilLevel::None | FilLevel::Fil,FilLevel::Fill)|(FilLevel::None,FilLevel::Fil) =>
+                node.style("justify-content".into(),"start".into()),
+            (FilLevel::Fil,FilLevel::Fil)|(FilLevel::Fill,FilLevel::Fill) =>
+                node.style("justify-content".into(),"center".into()),
+            (FilLevel::Fil|FilLevel::Fill,FilLevel::None)|(FilLevel::Fill,FilLevel::Fil) =>
+                node.style("justify-content".into(),"end".into()),
+            _ => ()
+        }
+        for c in children {
+            c.as_html(&ColonMode::V,colon,htmlparent!(node))
         }
     }
 }
