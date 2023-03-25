@@ -272,57 +272,16 @@ impl WhatsitTrait for HBox {
                     match width {
                         Some(w) => withwidth!(colon,w,cont,inner,{
                             htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(inner),node => {
-                                //node.style("height".into(),"100%".into());
-                                //node.style("min-height".into(),"100%".into());
                                 node.style("width".into(),"100%".into());
                                 node.style("max-width".into(),"100%".into());
                                 HBox::ch_as_html(self.children,colon,&mut node);
                             })
                         }),
                         None => htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(cont),node => {
-                            //node.style("height".into(),"100%".into());
-                            //node.style("min-height".into(),"100%".into());
                             HBox::ch_as_html(self.children,colon,&mut node);
                         })
                     }
                 })
-                /*
-                htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(cont),node => {
-                    if crate::INSERT_RUSTEX_ATTRS {
-                        node.attr("rustex:width".into(),dimtohtml(self.width()));
-                        node.attr("rustex:height".into(),dimtohtml(self.height()));
-                    }
-                    match self._height {
-                        Some(v) => {
-                            node.style("height".into(),"100%".into());
-                            node.style("min-height".into(),"100%".into())
-                        }
-                        _ => ()
-                    }
-
-                    match self._width {
-                        Some(h) => {
-                            withwidth!(colon,h,node,inner,{
-                                HBox::ch_as_html(self.children,colon,&mut inner);
-                            })
-                        }
-                        None if self.width() == 0 => {
-                            withwidth!(colon,0,node,inner,{
-                                HBox::ch_as_html(self.children,colon,&mut inner);
-                            })
-                        }
-                        _ => {
-                            match self.get_par_width() {
-                                None => HBox::ch_as_html(self.children,colon,&mut node),
-                                Some(w) =>
-                                    withwidth!(colon,w,node,inner,{
-                                        HBox::ch_as_html(self.children,colon,&mut inner);
-                                    })
-                            }
-                        }
-                    }
-                })})
-                 */
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let currsize = colon.state.currsize;

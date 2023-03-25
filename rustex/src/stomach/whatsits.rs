@@ -250,23 +250,27 @@ impl WhatsitTrait for SpaceChar {
         " ".to_string()
     }
     fn has_ink(&self) -> bool { false }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let str: HTMLStr = if self.nonbreaking {"&#160;".into()} else {" ".into()};
-        let maybetext = match match node_top {
-            Some(HTMLParent::N(n)) => n.children.last_mut(),
-            Some(HTMLParent::A(n)) => n.children.last_mut(),
-            _ => None
-        } {
-            Some(HTMLChild::Node(n)) => Some(n),
-            _ => None
-        };
-        match maybetext {
-            Some(n) if n.classes.contains(&"text".into()) =>
-                n.children.push(HTMLChild::Str(str.into())),
-            _ =>
-                htmlnode!(colon,span,None,"text",node_top,span => {
-                    htmlliteral!(colon,htmlparent!(span),str);
-                })
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match mode {
+            ColonMode::H => htmlliteral!(colon,node_top,<&str as Into<HTMLStr>>::into("&#160;")),
+            _ => {
+                let str: HTMLStr = if self.nonbreaking { "&#160;".into() } else { " ".into() };
+                let maybetext = match match node_top {
+                    Some(HTMLParent::N(n)) => n.children.last_mut(),
+                    Some(HTMLParent::A(n)) => n.children.last_mut(),
+                    _ => None
+                } {
+                    Some(HTMLChild::Node(n)) => Some(n),
+                    _ => None
+                };
+                match maybetext {
+                    Some(n) if n.classes.contains(&"text".into()) =>
+                        n.children.push(HTMLChild::Str(str.into())),
+                    _ => htmlnode!(colon,span,None,"text",node_top,span => {
+                        htmlliteral!(colon,htmlparent!(span),str);
+                    })
+                }
+            }
         }
     }
     fn get_par_width(&self) -> Option<i32> { None }

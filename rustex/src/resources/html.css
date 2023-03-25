@@ -199,9 +199,12 @@ div {display: inherit; white-space: normal}
 .reftarget {
 }
 .vrule {
-    display:inherit;
+    display:inline-block;
 }
 .vrulecontainer {
+    display:inline-block;
+}
+.hbox > .vrulecontainer {
     display:inline-table;
 }
 .hrule {
