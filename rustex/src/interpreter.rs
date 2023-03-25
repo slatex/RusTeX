@@ -525,7 +525,6 @@ impl Interpreter<'_> {
             let m = BoxMode::DM;
             self.state.push(self.stomach,GroupType::Box(m));
             self.state.mode = TeXMode::Displaymath;
-            self.state.displaymode.set(true,false);
             self.insert_every(&crate::commands::registers::EVERYDISPLAY);
             m
         } else {
@@ -535,8 +534,8 @@ impl Interpreter<'_> {
             self.insert_every(&crate::commands::registers::EVERYMATH);
             m
         };
-        let ret = Interpreter::build_mathgroup(self.read_math_group(bm,true)?,display);
         self.state.displaymode.set(display,false);
+        let ret = Interpreter::build_mathgroup(self.read_math_group(bm,true)?,display);
         self.state.mode = _oldmode;
         self.stomach_add(ret)?;
         return Ok(())

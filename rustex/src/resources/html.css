@@ -113,7 +113,7 @@
 
 * { position:relative;}
 span {display: contents}
-div {display: inherit}
+div {display: inherit; white-space: normal}
 
 .resetfont, .body {
     font-family: Latin Modern, STIXgeneral, Times, Times New Roman,Symbol, cmr10, CMSY10, CMEX10, serif;
@@ -136,6 +136,10 @@ div {display: inherit}
 
 .sansserif {
     font-family: Latin Modern Sans, sans-serif;
+}
+
+.text {
+    display:contents;
 }
 
 .body {
@@ -161,11 +165,24 @@ div {display: inherit}
 }
 
 .hbox {
-    display:inline-block;
-    white-space: nowrap;
+    display:inline-flex;
+    white-space: pre;
+    justify-content: space-between;
+    align-items: baseline;
 }
-.hbox::before {
+.hboxcontainer::before {
     content:""; display:inline-block;height:100%;vertical-align: bottom;
+}
+.hbox > .text { display:inline-block}
+.hbox > .hbox {
+    zoom:1
+}
+.hbox > .text {zoom:1}
+
+.hboxcontainer {
+    display:inline-block;
+    width: min-content;
+    height: min-content;
 }
 
 .paragraph {
@@ -175,13 +192,17 @@ div {display: inherit}
     margin-top: auto;
 }
 
+.vboxcontainer {
+    display: inline-block;
+}
+
 .reftarget {
 }
 .vrule {
     display:inherit;
 }
 .vrulecontainer {
-    display:inline-block;
+    display:inline-table;
 }
 .hrule {
     display: inline-block;
@@ -206,6 +227,7 @@ math {
 mtext {
     letter-spacing: initial;
     word-spacing: initial;
+    display: inline-flex;
 }
 mrow {
 }
@@ -220,9 +242,6 @@ mrow {
 }
 .displaymath {
     position: relative;
-}
-.text {
-    display:contents;
 }
 .displaymathcontainer {
     text-align:center;

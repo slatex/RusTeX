@@ -213,9 +213,9 @@ impl WhatsitTrait for HBox {
                 }.as_whatsit())
             }
             ColonMode::H => {
-                if self._width.is_none() && self._height.is_none() && self._depth.is_none() {
+               /* if self._width.is_none() && self._height.is_none() && self._depth.is_none() {
                     for c in self.children { c.normalize(&ColonMode::H,ret,scale) }
-                } else {
+                } else {*/
                     let mut nch : Vec<Whatsit> = vec!();
                     for c in self.children { c.normalize(&ColonMode::H,&mut nch,scale) }
                     if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) {return () }
@@ -227,7 +227,7 @@ impl WhatsitTrait for HBox {
                         _depth: self._depth,
                         rf: self.rf
                     }.as_whatsit())
-                }
+               // }
             }
             ColonMode::M => {
                 let mut nch : Vec<Whatsit> = vec!();
@@ -256,15 +256,46 @@ impl WhatsitTrait for HBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
-                htmlnode!(colon,div,self.get_ref(),"hbox",node_top,node => {
+                htmlnode!(colon,div,None,"hboxcontainer",node_top,cont => {
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        cont.attr("rustex:width".into(),dimtohtml(self.width()));
+                        cont.attr("rustex:height".into(),dimtohtml(self.height()));
+                    }
+                    match self._height {
+                        Some(v) => {
+                            cont.style("height".into(),dimtohtml(v));
+                            cont.style("min-height".into(),dimtohtml(v))
+                        }
+                        _ => ()
+                    }
+                    let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
+                    match width {
+                        Some(w) => withwidth!(colon,w,cont,inner,{
+                            htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(inner),node => {
+                                //node.style("height".into(),"100%".into());
+                                //node.style("min-height".into(),"100%".into());
+                                node.style("width".into(),"100%".into());
+                                node.style("max-width".into(),"100%".into());
+                                HBox::ch_as_html(self.children,colon,&mut node);
+                            })
+                        }),
+                        None => htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(cont),node => {
+                            //node.style("height".into(),"100%".into());
+                            //node.style("min-height".into(),"100%".into());
+                            HBox::ch_as_html(self.children,colon,&mut node);
+                        })
+                    }
+                })
+                /*
+                htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(cont),node => {
                     if crate::INSERT_RUSTEX_ATTRS {
                         node.attr("rustex:width".into(),dimtohtml(self.width()));
                         node.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
                     match self._height {
                         Some(v) => {
-                            node.style("height".into(),dimtohtml(v));
-                            node.style("min-height".into(),dimtohtml(v))
+                            node.style("height".into(),"100%".into());
+                            node.style("min-height".into(),"100%".into())
                         }
                         _ => ()
                     }
@@ -290,7 +321,8 @@ impl WhatsitTrait for HBox {
                             }
                         }
                     }
-                })
+                })})
+                 */
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let currsize = colon.state.currsize;
@@ -311,16 +343,18 @@ impl WhatsitTrait for HBox {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
     fn get_par_width(&self) -> Option<i32> {
-        let mut ret : Option<i32> = None;
-        for c in &self.children {
-            for w in c.get_par_widths() {
-                match ret {
-                    None => ret = Some(w),
-                    Some(ow) => ret = Some(w + ow)
+        self._width.or({
+            let mut ret : Option<i32> = None;
+            for c in &self.children {
+                for w in c.get_par_widths() {
+                    match ret {
+                        None => ret = Some(w),
+                        Some(ow) => ret = Some(w + ow)
+                    }
                 }
             }
-        }
-        ret
+            ret
+        })
     }
     fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
 }
@@ -369,19 +403,23 @@ pub struct VBox {
 
 impl WhatsitTrait for VBox {
     fn get_par_width(&self) -> Option<i32> {
-        let mut ret : Option<i32> = None;
-        for c in &self.children {
-            for w in c.get_par_widths() {
-                match ret {
-                    Some(ow) if ow < w => ret = Some(w),
-                    None => ret = Some(w),
-                    _ => ()
+        self._width.or({
+            let mut ret : Option<i32> = None;
+            for c in &self.children {
+                for w in c.get_par_widths() {
+                    match ret {
+                        Some(ow) if ow < w => ret = Some(w),
+                        None => ret = Some(w),
+                        _ => ()
+                    }
                 }
             }
-        }
-        ret
+            ret
+        })
     }
-    fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
+    fn get_par_widths(&self) -> Vec<i32> {
+        self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!())
+    }
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
@@ -607,7 +645,55 @@ impl WhatsitTrait for VBox {
                     });
                 });
             }
-            ColonMode::V | ColonMode::H | ColonMode::P => htmlnode!(colon,div,self.get_ref(),"vbox",node_top,node => {
+            ColonMode::V | ColonMode::H | ColonMode::P => {
+                htmlnode!(colon,div,None,"vboxcontainer",node_top,cont => {
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        cont.attr("rustex:width".into(),dimtohtml(self.width()));
+                        cont.attr("rustex:height".into(),dimtohtml(self.height()));
+                    }
+                    match self._height {
+                        Some(v) => {
+                            cont.style("height".into(),dimtohtml(v));
+                            cont.style("min-height".into(),dimtohtml(v));
+                        }
+                        _ => ()
+                    }
+                    let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
+                    match width {
+                        Some(w) => withwidth!(colon,w,cont,inner,{
+                            htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(inner),node => {
+                                node.style("height".into(),"100%".into());
+                                node.style("min-height".into(),"100%".into());
+                                node.style("width".into(),"100%".into());
+                                node.style("max-width".into(),"100%".into());
+                                match self.tp {
+                                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
+                                    VBoxType::Center | VBoxType::DMCenter =>
+                                        node.style("vertical-align".into(),"middle".into()),
+                                    VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
+                                }
+                                for c in self.children {
+                                    c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                                }
+                            })
+                        }),
+                        None => htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(cont),node => {
+                            node.style("height".into(),"100%".into());
+                            node.style("min-height".into(),"100%".into());
+                            match self.tp {
+                                VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
+                                VBoxType::Center | VBoxType::DMCenter =>
+                                    node.style("vertical-align".into(),"middle".into()),
+                                VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
+                            }
+                            for c in self.children {
+                                c.as_html(&ColonMode::V,colon,htmlparent!(node));
+                            }
+                        })
+                    }
+                })
+            }/*htmlnode!(colon,div,None,"vboxcontainer",node_top,container => {
+                htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(container),node => {
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -652,7 +738,7 @@ impl WhatsitTrait for VBox {
                         }
                     }
                 }
-            }),
+            })})*/,
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let currsize = colon.state.currsize;
                 colon.state.currsize = self.width();
