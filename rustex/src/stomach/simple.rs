@@ -289,8 +289,8 @@ pub struct VRule {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VRule {
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    fn get_par_width(&self) -> Option<i32> { Some(self.width()) }
+    fn get_par_widths(&self) -> Vec<i32> { vec!(self.width()) }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::VRule(self))
@@ -303,20 +303,23 @@ impl WhatsitTrait for VRule {
             "\" height=\"" + &dimtostr(self.height()) + "\" depth=\"" + &dimtostr(self.depth()) + "\"/>"
     }
     fn has_ink(&self) -> bool {
-        self.width() != 0 && (self.height() != 0 || self.depth() != 0)
+        true//self.width() != 0 && (self.height() != 0 || self.depth() != 0)
     }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        if self.width() != 0 && (self.height.unwrap_or(10) != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
+        /*if self.width() != 0 && (self.height.unwrap_or(10) != 0 || self.depth() != 0) {*/ ret.push(self.as_whatsit());//}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref.clone(),"vrulecontainer",node_top,m => {
+
+        htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
             let width = self.width();
-            let top_width = colon.state.currsize;
-            if 5*width < top_width {
-                m.style("width".into(),dimtohtml(width))
+            if 3.1*(width as f32) > (colon.textwidth as f32) {
+                let top_width = colon.state.currsize;
+                m.style("width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
+                m.style("min-width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
             } else {
-                m.style("width".into(),((width as f32 * 100.0) / (top_width as f32)).to_string().into())
+                m.style("width".into(),dimtohtml(self.width()));
+                m.style("min-width".into(),dimtohtml(self.width()));
             }
         htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
             n.style("width".into(),"100%".into());
@@ -341,8 +344,8 @@ pub struct HRule {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HRule {
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    fn get_par_width(&self) -> Option<i32> { Some(self.width()) }
+    fn get_par_widths(&self) -> Vec<i32> { vec!(self.width()) }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HRule(self))
@@ -361,16 +364,13 @@ impl WhatsitTrait for HRule {
         if self.width.unwrap_or(10) != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref.clone(),"vrulecontainer",node_top,m => {
+        htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
             let width = self.width();
             let top_width = colon.state.currsize;
-            if 5*width < top_width {
-                m.style("width".into(),dimtohtml(width))
-            } else {
-                m.style("width".into(),((width as f32 * 100.0) / (top_width as f32)).to_string().into())
-            }
-        htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
+            m.style("width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
+            m.style("min-width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
+        htmlnode!(colon,div,self.sourceref.clone(),"hrule",htmlparent!(m),n => {
             n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
             n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
@@ -501,11 +501,11 @@ impl WhatsitTrait for MSkip {
         match mode {
             ColonMode::M =>
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
-                    a.attr("width".into(),numtostr(self.skip.base / 12,"em").into()) // 1179648
+                    a.attr("width".into(),(self.skip.get_em().to_string() + "em").into()) // 1179648
                 }),
             ColonMode::H | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
-                    node.style("margin-left".into(),numtostr(self.skip.base / 12,"em").into());
+                    node.style("margin-left".into(),(self.skip.get_em().to_string() + "em").into());
                 }),
             _ => ()//TeXErr!("TODO")
         }

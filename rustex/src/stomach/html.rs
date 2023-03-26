@@ -198,7 +198,7 @@ pub struct HTMLColon {
     doheader:bool,
     pub state:HTMLState,
     pub namespaces : HashMap<String,String>,
-    pagewidth:i32,textwidth:i32,lineheight:Skip
+    pagewidth:i32,pub textwidth:i32,lineheight:Skip
 }
 //unsafe impl Send for HTMLColon {}
 
@@ -247,9 +247,7 @@ impl HTMLColon {
                 });
             } else if self.state.current_namespace == MATHML_NS {
                 htmlnode!(self,mspace,None,"mkern",parent,node => {
-                    node.attr("width".into(),
-                        numtostr((v as f32 / 12.0).round() as i32,"em").into()
-                    );
+                    node.attr("width".into(),(((v as f32) / (65536.0 * 18.0)).to_string() + "em").into());
                 });
             }
         }

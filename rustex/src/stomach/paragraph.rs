@@ -361,7 +361,7 @@ impl Paragraph {
         let mut currentdepth : i32 = 0;
         let mut currline : usize = 0;
         let mut hgoal = lines.first().unwrap().1;
-        let lineheight = self.lineheight.unwrap();
+        let lineheight = self.lineheight.unwrap() + (2 * 65536);
         for wi in self.children.iter_wi() {
             match wi {
                 Whatsit::Simple(SimpleWI::Penalty(p)) if p.penalty <= -10000 => {

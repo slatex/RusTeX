@@ -169,6 +169,9 @@ impl Div<i32> for MuSkip {
     }
 }
 impl MuSkip {
+    pub fn get_em(self) -> f32 {
+        (((self.base as f32) / 65536.0) / 18.0) // correction for mi/mo widths
+    }
     pub fn negate(self) -> MuSkip {
         MuSkip {
             base:-self.base,

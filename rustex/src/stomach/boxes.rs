@@ -232,15 +232,7 @@ impl WhatsitTrait for HBox {
             ColonMode::M => {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::H,&mut nch,None) }
-                if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) { return () }
-                else if nch.len() == 1 {
-                    match nch.pop().unwrap() {
-                        o@(Whatsit::Char(_)|Whatsit::Grouped(_)) => nch.push(o),
-                        o => {
-                            nch.push(o)
-                        }
-                    }
-                }
+                if nch.is_empty() && (self._width.is_none() && self._height.is_none() && self._depth.is_none()/* || self._width == Some(0)*/) { return () }
                 ret.push(HBox {
                     children: nch,
                     spread: self.spread,
@@ -283,17 +275,25 @@ impl WhatsitTrait for HBox {
                     }
                 })
             }
+            ColonMode::M if self.children.is_empty() =>
+                htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
+                    mt.attr("width".into(),dimtohtml(self.width()));
+                    mt.attr("height".into(),dimtohtml(self.height()));
+                    mt.attr("depth".into(),dimtohtml(self.depth()));
+                }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
-                let currsize = colon.state.currsize;
-                colon.state.currsize = self.width();
-                mt.style("width".into(),dimtohtml(self.width()));
+                let oldwd = colon.state.currsize;
+                let mut wd = self.width();
+                if wd == 0 {wd = 2048};
+                colon.state.currsize = wd;
+                mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 });
-                colon.state.currsize = currsize;
+                colon.state.currsize = oldwd;
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }
@@ -675,17 +675,25 @@ impl WhatsitTrait for VBox {
                     }
                 })
             }
+            ColonMode::M if self.children.is_empty() =>
+                htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
+                    mt.attr("width".into(),dimtohtml(self.width()));
+                    mt.attr("height".into(),dimtohtml(self.height()));
+                    mt.attr("depth".into(),dimtohtml(self.depth()));
+                }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
-                let currsize = colon.state.currsize;
-                colon.state.currsize = self.width();
-                mt.style("width".into(),dimtohtml(self.width()));
+                let oldwd = colon.state.currsize;
+                let mut wd = self.width();
+                if wd == 0 {wd = 2048};
+                colon.state.currsize = wd;
+                mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 });
-                colon.state.currsize = currsize;
+                colon.state.currsize = oldwd;
             }),
             _ => for c in self.children { c.as_html(mode, colon, node_top) }
         }

@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::ops::Deref;
 use std::sync::Arc;
 use crate::fonts::{ArcFont, Font};
 use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
@@ -195,7 +196,7 @@ impl WhatsitTrait for MathGroup {
                     ss.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
-                    (Some(subk),Some(supk)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munderover,rf,"",node_top,msub => {
+                    (Some(subk),Some(supk)) if self.limits && is_large_op(&self.kernel) => htmlnode!(colon,munderover,rf,"",node_top,msub => {
                     msub.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
@@ -239,6 +240,33 @@ impl WhatsitTrait for MathGroup {
     }
     fn get_par_width(&self) -> Option<i32> { None }
     fn get_par_widths(&self) -> Vec<i32> { vec!() }
+}
+
+fn is_large_op(k:&MathKernel) -> bool {
+    match k {
+        MathKernel::MathOp(_) => true,
+        MathKernel::MathChar(c) => c.class == 1,
+        MathKernel::Group(gm) if gm.0.len() == 1 =>
+            is_large_op_wi(gm.0.first().unwrap(),false),
+        _ => false
+    }
+}
+fn is_large_op_wi(wi:&Whatsit,allowgroup:bool) -> bool {
+    match wi {
+        Whatsit::Grouped(WIGroup::ColorChange(cc)) if cc.children.len() == 1 =>
+            is_large_op_wi(cc.children.first().unwrap(),true),
+        Whatsit::Grouped(WIGroup::FontChange(cc)) if cc.children.len() == 1 =>
+            is_large_op_wi(cc.children.first().unwrap(),true),
+        Whatsit::Math(mg) if allowgroup && mg.subscript.is_none() && mg.superscript.is_none() =>
+            match &mg.kernel {
+                MathKernel::MathOp(_) => true,
+                MathKernel::MathChar(c) => c.class == 1,
+                MathKernel::Group(gm) if gm.0.len() == 1 =>
+                    is_large_op_wi(gm.0.first().unwrap(),false),
+                _ => false
+            },
+        _ => false
+    }
 }
 
 fn normalize_kernel(k:MathKernel) -> Option<MathKernel> {
@@ -436,8 +464,11 @@ impl WhatsitTrait for MKern {
             _ => ret.push(self.as_whatsit())
         }
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, _: &mut Option<HTMLParent>) {
-        colon.state.add_kern(((self.sk.base as f32) / 98304.0).round() as i32);
+    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, parent: &mut Option<HTMLParent>) {
+        htmlnode!(colon,mspace,None,"mkern",parent,node => {
+            node.attr("width".into(),(self.sk.get_em().to_string() + "em").into());
+        });
+        //colon.state.add_kern(((self.sk.base as f32) * 18.0 * 12.0).round() as i32 );
         /*htmlnode!(colon,mspace,self.sourceref,"mkern",node_top,a => {
             a.attr("width".into(),numtostr((self.sk.base as f32 / 1179648.0).round() as i32,"em").into())
         })*/
@@ -486,6 +517,16 @@ impl WhatsitTrait for CustomMathChar {
             },
             _ => {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
+                    match KERNS.get(&2) {
+                      Some((l,r)) => {
+                            a.attr("lspace".into(),(l.to_string() + "em").into());
+                            a.attr("rspace".into(),(r.to_string() + "em").into());
+                        },
+                        _ => {
+                            a.attr("lspace".into(),"0em".into());
+                            a.attr("rspace".into(),"0em".into());
+                        }
+                    };
                     a.fontinfo = Some(mimoinfo);
                     if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
@@ -558,6 +599,16 @@ impl MathChar {
             }
             (_,_) => {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
+                    match KERNS.get(&self.class) {
+                      Some((l,r)) => {
+                            a.attr("lspace".into(),(l.to_string() + "em").into());
+                            a.attr("rspace".into(),(r.to_string() + "em").into());
+                        },
+                        _ => {
+                            a.attr("lspace".into(),"0em".into());
+                            a.attr("rspace".into(),"0em".into());
+                        }
+                    };
                     a.fontinfo = Some(mimoinfo);
                     if stretchy {
                         a.attr("stretchy".into(),"true".into());
@@ -583,7 +634,22 @@ impl WhatsitTrait for MathChar {
     }
     fn has_ink(&self) -> bool { true }
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
-        ret.push(self.as_whatsit())
+        match ret.last_mut() {
+            Some(Whatsit::Math(mg)) if mg.subscript.is_none() && mg.superscript.is_none() =>
+                match &mut mg.kernel {
+                    MathKernel::MathOp(o) if self.class == 1 => o.merge(self.as_whatsit()),
+                    MathKernel::MathBin(o) if self.class == 2 => o.merge(self.as_whatsit()),
+                    MathKernel::MathRel(o) if self.class == 3 => o.merge(self.as_whatsit()),
+                    MathKernel::MathOpen(o) if self.class == 4 => o.merge(self.as_whatsit()),
+                    MathKernel::MathClose(o) if self.class == 5 => o.merge(self.as_whatsit()),
+                    MathKernel::MathPunct(o) if self.class == 6 => o.merge(self.as_whatsit()),
+                    MathKernel::MathOrd(o) if self.class == 0 || self.class == 7 => o.merge(self.as_whatsit()),
+                    _ =>
+                        ret.push(self.as_whatsit())
+                }
+            _ =>
+                ret.push(self.as_whatsit())
+        }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         self.as_html_inner(mode,colon,node_top,false)
@@ -664,11 +730,26 @@ impl WhatsitTrait for Radical {
 }
 
 macro_rules! mathgroupkernel {
-    ($e:ident) => (
+    ($e:ident,$id:expr,$cls:expr) => (
         #[derive(Clone)]
         pub struct $e {
             pub content:Box<Whatsit>,
             pub sourceref:Option<SourceFileReference>
+        }
+        impl $e {
+            pub fn merge(&mut self,other:Whatsit) {
+                match &mut *self.content {
+                    Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() => {
+                        match &mut mg.kernel {
+                            MathKernel::Group(g) => g.0.push(other),
+                            _ =>
+                                self.content = Box::new(GroupedMath(vec!(self.content.deref().clone(),other)).as_whatsit())
+                        }
+                    }
+                    wi =>
+                        self.content = Box::new(GroupedMath(vec!(wi.clone(),other)).as_whatsit())
+                }
+            }
         }
         impl WhatsitTrait for $e {
             fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
@@ -685,17 +766,33 @@ macro_rules! mathgroupkernel {
             fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
                 let mut nret : Vec<Whatsit> = vec!();
                 self.content.normalize(mode,&mut nret,scale);
-                let nw = match nret.len() {
-                    1 => {
-                        nret.pop().unwrap()
-                    },
-                    _ => GroupedMath(nret).as_whatsit()
-                };
-                ret.push($e { content:std::boxed::Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+                if maybe_attach(&mut nret,$id) {
+                    ret.push(nret.pop().unwrap());
+                } else {
+                    while let Some(last) = ret.last_mut() {
+                        match last {
+                            Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() =>
+                                match &mut mg.kernel {
+                                MathKernel::MathChar(mc) if mc.class == ($id as u32) =>
+                                    nret.insert(0,ret.pop().unwrap()),
+                                _ => break
+                            }
+                            _ => break
+                        }
+                    }
+                    let nw = GroupedMath(nret).as_whatsit();
+                    ret.push($e { content:std::boxed::Box::new(nw), sourceref:self.sourceref }.as_whatsit())
+                }
             }
             fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-                htmlannotate!(colon,mrow,self.sourceref,node_top,node => {
-                    node.classes.push(stringify!($e).into());
+                htmlnode!(colon,mrow,self.sourceref,$cls,node_top,node => {
+                    match KERNS.get(&$id) {
+                      Some((l,r)) => {
+                        node.style("margin-left".into(),(l.to_string() + "em").into());
+                        node.style("margin-right".into(),(r.to_string() + "em").into());
+                      },
+                        _ => ()
+                    };
                     self.content.clone().as_html(mode,colon,htmlparent!(node))
                 })
             }
@@ -705,14 +802,81 @@ macro_rules! mathgroupkernel {
     )
 }
 
-mathgroupkernel!(MathOp);
-mathgroupkernel!(MathOpen);
-mathgroupkernel!(MathClose);
-mathgroupkernel!(MathBin);
-mathgroupkernel!(MathOrd);
-mathgroupkernel!(MathPunct);
-mathgroupkernel!(MathRel);
-mathgroupkernel!(MathInner);
+fn maybe_attach(wis: &mut Vec<Whatsit>,cls:usize) -> bool {
+    if wis.len() == 1 {
+        if attach_recurse(wis.first_mut().unwrap(),cls) {
+            return true
+        }
+    }
+    cleanup(wis);
+    false
+}
+fn attach_recurse(wi: &mut Whatsit,cls:usize) -> bool {
+    match wi {
+        Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() =>
+            match &mut mg.kernel {
+                MathKernel::MathChar(ref mut mc) => {
+                    mc.class = cls as u32;
+                    true
+                }
+                MathKernel::Group(gm) if gm.0.len() == 1 =>
+                    attach_recurse(gm.0.first_mut().unwrap(),cls),
+                _ => false
+            }
+        Whatsit::Grouped(WIGroup::ColorChange(cc)) if cc.children.len() == 1 =>
+            attach_recurse(cc.children.first_mut().unwrap(),cls),
+        Whatsit::Grouped(WIGroup::FontChange(cc)) if cc.children.len() == 1 =>
+            attach_recurse(cc.children.first_mut().unwrap(),cls),
+        _ => false
+    }
+}
+fn cleanup(wis: &mut Vec<Whatsit>) {
+    for c in wis {
+        match c {
+            Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() => {
+                match &mut mg.kernel {
+                    MathKernel::MathChar(mc) => {
+                        mc.class = 0;
+                    }
+                    MathKernel::Group(gm) =>
+                        cleanup(&mut gm.0),
+                    _ => ()
+                }
+            }
+            Whatsit::Grouped(WIGroup::ColorChange(cc)) =>
+                cleanup(&mut cc.children),
+            Whatsit::Grouped(WIGroup::FontChange(cc)) =>
+                cleanup(&mut cc.children),
+            _ => ()
+        }
+    }
+}
+
+mathgroupkernel!(MathOp,1,"largeop");
+mathgroupkernel!(MathOpen,4,"opening");
+mathgroupkernel!(MathClose,5,"closing");
+mathgroupkernel!(MathBin,2,"binop");
+mathgroupkernel!(MathOrd,0,"");
+mathgroupkernel!(MathPunct,6,"punctuation");
+mathgroupkernel!(MathRel,3,"rel");
+mathgroupkernel!(MathInner,8,"");
+
+use std::collections::HashMap;
+use crate::stomach::groups::WIGroup;
+
+lazy_static! {
+    static ref KERNS : HashMap<u32,(f32,f32)> = HashMap::from([
+        (0,(0.0,0.0)), // "ord",
+        (1,(0.15,0.15)), // "largeop",
+        (2,(0.15,0.15)), // "bin",
+        (3,(0.2,0.2)), // "rel",
+        (4,(0.0,0.0)), // "open",
+        (5,(0.0,0.0)), // "close",
+        (6,(0.0,0.15)), // "punct",
+        (7,(0.0,0.0)), // "ord",
+        (8,(0.15,0.15))
+    ]);
+}
 
 #[derive(Clone)]
 pub struct Overline {

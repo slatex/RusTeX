@@ -24,7 +24,7 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
                     nonbreaking:true
                 })),
             _ => Ok(MSkip {
-                skip: MuSkip {base:12 * 65536, stretch:None, shrink:None},
+                skip: MuSkip {base:18, stretch:None, shrink:None},
                 sourceref: int.update_reference(tk)
             }.as_whatsit())/*Ok(Whatsit::Math(MathGroup::new(
                 MathKernel::MathChar(MathChar {

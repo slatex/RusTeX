@@ -3,7 +3,7 @@ use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{TokReference, PrimitiveTeXCommand};
+use crate::commands::{TokReference, PrimitiveTeXCommand, AssignableValue};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::commands::primitives::{HANGINDENT, PARSHAPE};
@@ -675,12 +675,36 @@ impl Interpreter<'_> {
             Some(s) if s == "fill" => Ok(MuSkipDim::Fill(round_f(pt(f)))),
             Some(s) if s == "filll" => Ok(MuSkipDim::Filll(round_f(pt(f)))),
             None => {
-                let r = self.read_dimension()?;
-                Ok(MuSkipDim::Mu(((r as f64 * (f * 65536.0).floor()) / 65536.0).floor() as i32))
+                let r = self.read_mu_cmd()?;
+                Ok(MuSkipDim::Mu(r))
             }
             _ => TeXErr!("Should be unreachable!")
             //TeXErr!((self,None),"expected unit for dimension : {}",f)
         }
+    }
+
+    fn read_mu_cmd(&mut self) -> Result<i32,TeXError> {
+        while self.has_next() {
+            let next = self.next_token();
+            match next.catcode {
+                CategoryCode::Escape | CategoryCode::Active => {
+                    let p = self.get_command(&next.cmdname())?;
+                    if p.expandable(true) {
+                        p.expand(next,self)?;
+                    } else {
+                        match &*p.orig {
+                            PrimitiveTeXCommand::AV(AssignableValue::MuSkip(u)) =>
+                                return Ok(self.state.muskips.get(u).base),
+                            PrimitiveTeXCommand::AV(AssignableValue::PrimMuSkip(u)) =>
+                                return Ok(self.state.muskips_prim.get(&(u.index - 1)).base),
+                            _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
+                        }
+                    }
+                }
+                _ => TeXErr!(next.clone() => "Number expected; found {}\n{}",next,self.preview())
+            }
+        }
+        FileEnd!()
     }
 
     fn rest_skip(&mut self,dim:i32,plus:Option<SkipDim>,minus:Option<SkipDim>) -> Result<Skip,TeXError> {
