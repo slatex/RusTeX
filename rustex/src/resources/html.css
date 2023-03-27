@@ -34,7 +34,7 @@
 @font-face {
     font-family: 'Latin Modern';
     font-style: normal;
-    font-weight: bold;v
+    font-weight: bold;
     font-display: swap;
     src: url('https://fonts.cdnfonts.com/s/266/lmroman10-bold.otf');
 }
@@ -158,33 +158,44 @@ a { color: inherit; text-decoration: inherit; }
     flex-direction: column;
 }
 
-.vbox, .foreign {
+.vbox, .vtop, .vcenter,.foreign {
     display:inline-flex;
     flex-direction: column;
 }
 
-.hbox, .vbox {
+.hbox, .vbox, .vtop, .vcenter {
     width: fit-content;
     height: fit-content;
     overflow: visible;
     text-align: left;
 }
 
-.vboxcontainer {
-    display: inline-block;
-}
+.vboxcontainer { display:inline }
+.vtopcontainer { display:inline }
+.vcentercontainer { display: inline }
 
-.vbox {
+.vbox, .vtop, .vcenter {
     flex-wrap: nowrap;
     justify-content: flex-start;
 }
+.vbox { vertical-align: bottom }
+.vtop {vertical-align: top }
+.vcenter{vertical-align: middle}
 
 
-.hbox {
+.hbox, .hbox-no-space {
     display:inline-flex;
     white-space: pre;
-    justify-content: space-between;
+    /*justify-content: space-between; */ /* only between spaces */
     align-items: baseline;
+}
+.space-in-hbox {
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+}
+.hbox-no-space > .space-in-hbox{
+    display:none;
 }
 .hbox > .text { display:inline-block}
 
@@ -195,6 +206,7 @@ a { color: inherit; text-decoration: inherit; }
     height: min-content;
     justify-content: end;
 }
+
 
 .paragraph {
     text-align:justify;

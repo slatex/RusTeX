@@ -308,9 +308,18 @@ impl WhatsitTrait for VRule {
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         /*if self.width() != 0 && (self.height.unwrap_or(10) != 0 || self.depth() != 0) {*/ ret.push(self.as_whatsit());//}
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-
-        htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
+    fn as_html(self, m: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        match m {
+            ColonMode::M => htmlnode!(colon,mspace,self.sourceref.clone(),"vrule",node_top,n => {
+                if self.height() != 0 {n.attr("height".into(),dimtohtml(self.height()))}
+                if self.width() != 0 {n.attr("width".into(),dimtohtml(self.height()))}
+                if self.depth() != 0 {n.attr("depth".into(),dimtohtml(self.height()))}
+                n.style("background".into(),match &colon.state.currcolor {
+                    Some(c) => HTMLStr::from("#") + c,
+                    None => "#000000".into()
+                });
+            }),
+            _ => htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
             let width = self.width();
             if 3.1*(width as f32) > (colon.textwidth as f32) {
@@ -333,6 +342,7 @@ impl WhatsitTrait for VRule {
                 n.style("margin-bottom".into(),dimtohtml(-self.depth()))
             }
         })})
+        }
     }
 }
 

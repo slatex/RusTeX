@@ -170,6 +170,7 @@ impl FontTableStore {
                 ("cmex",CMEX,FontTableParam::Math),
                 ("lmex",CMEX,FontTableParam::Math),
                 ("tcrm",MATH_TC,FontTableParam::Math),
+                ("tcbx",MATH_TC,FontTableParam::Math,FontTableParam::Bold),
                 ("tcss",MATH_TC,FontTableParam::Math,FontTableParam::SansSerif),
                 ("tcsl",MATH_TC,FontTableParam::Math,FontTableParam::Italic),
                 ("feymr",FEYMR,FontTableParam::Math),

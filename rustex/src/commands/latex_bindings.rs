@@ -50,7 +50,7 @@ pub static NOT: SimpleWhatsit = SimpleWhatsit {
                 Some(ct) => ct.table.get(&(mc.position as u8)).map(|s| *s).unwrap_or(""),
                 _ => ""
             }),
-            Some(Whatsit::Math(MathGroup{ superscript:None,subscript:None,limits:_,kernel:MathKernel::Group(GroupedMath(v)) })) => {
+            Some(Whatsit::Math(MathGroup{ superscript:None,subscript:None,limits:_,kernel:MathKernel::Group(GroupedMath(v,_)) })) => {
                 match &v[..] {
                     [Whatsit::Math(MathGroup{ superscript:None,subscript:None,limits:_,kernel:MathKernel::MathChar(mc) })] =>
                         (mc.font.clone(),match &mc.font.file.chartable {
@@ -173,7 +173,7 @@ pub static UNDERBRACE: SimpleWhatsit = SimpleWhatsit {
     }},
     _get: |tk,int| {
         let first = match int.read_math_whatsit()? {
-            None => GroupedMath(vec!()).as_whatsit(),
+            None => GroupedMath(vec!(),false).as_whatsit(),
             Some(s) => s
         };
         let kernel = MathKernel::MathOp(MathOp {
@@ -227,7 +227,7 @@ pub static OVERBRACE: SimpleWhatsit = SimpleWhatsit {
     }},
     _get: |tk,int| {
         let first = match int.read_math_whatsit()? {
-            None => GroupedMath(vec!()).as_whatsit(),
+            None => GroupedMath(vec!(),false).as_whatsit(),
             Some(s) => s
         };
         let kernel = MathKernel::MathOp(MathOp {

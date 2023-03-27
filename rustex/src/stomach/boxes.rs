@@ -36,9 +36,9 @@ impl TeXBox {
             TeXBox::Void => vec!(),
             TeXBox::H(hb) => hb.children,
             TeXBox::V(vb) => vb.children,
-            TeXBox::M(GroupedMath(v)) => v,
-            TeXBox::DM(GroupedMath(v)) => v,
-            TeXBox::LeftRight(l,GroupedMath(mut v),r) => {
+            TeXBox::M(GroupedMath(v,_)) => v,
+            TeXBox::DM(GroupedMath(v,_)) => v,
+            TeXBox::LeftRight(l,GroupedMath(mut v,_),r) => {
                 for le in l {
                     v.insert(0,le.as_whatsit());
                 }
@@ -249,6 +249,9 @@ impl WhatsitTrait for HBox {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
                 htmlnode!(colon,div,None,"hboxcontainer",node_top,cont => {
+                    if let Some(dp) = self._depth {
+                        cont.style("margin-bottom".into(),dimtohtml(dp))
+                    }
                     if crate::INSERT_RUSTEX_ATTRS {
                         cont.attr("rustex:width".into(),dimtohtml(self.width()));
                         cont.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -374,12 +377,18 @@ impl HBox {
         }
         for c in repush.into_iter() {children.push(c)}
         match (startfil,endfil) {
-            (FilLevel::None | FilLevel::Fil,FilLevel::Fill)|(FilLevel::None,FilLevel::Fil) =>
-                node.style("justify-content".into(),"start".into()),
-            (FilLevel::Fil,FilLevel::Fil)|(FilLevel::Fill,FilLevel::Fill) =>
-                node.style("justify-content".into(),"center".into()),
-            (FilLevel::Fil|FilLevel::Fill,FilLevel::None)|(FilLevel::Fill,FilLevel::Fil) =>
-                node.style("justify-content".into(),"end".into()),
+            (FilLevel::None | FilLevel::Fil,FilLevel::Fill)|(FilLevel::None,FilLevel::Fil) =>{
+                node.style("justify-content".into(),"start".into());
+                node.classes.push("hbox-no-space".into());
+            }
+            (FilLevel::Fil,FilLevel::Fil)|(FilLevel::Fill,FilLevel::Fill) =>{
+                node.style("justify-content".into(),"center".into());
+                node.classes.push("hbox-no-space".into());
+            }
+            (FilLevel::Fil|FilLevel::Fill,FilLevel::None)|(FilLevel::Fill,FilLevel::Fil) =>{
+                node.style("justify-content".into(),"end".into());
+                node.classes.push("hbox-no-space".into());
+            }
             _ => ()
         }
         for c in children {
@@ -601,7 +610,10 @@ impl WhatsitTrait for VBox {
         match mode {
             ColonMode::V | ColonMode::H | ColonMode::P if self.tp == VBoxType::DMCenter => {
                 htmlnode!(colon,div,None,"displayvbox",node_top,div => {
-                    htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(div),node => {
+                    htmlnode!(colon,div,self.get_ref(),"vcenter",htmlparent!(div),node => {
+                        if let Some(dp) = self._depth {
+                            div.style("margin-bottom".into(),dimtohtml(dp))
+                        }
                         if crate::INSERT_RUSTEX_ATTRS {
                             node.attr("rustex:width".into(),dimtohtml(self.width()));
                             node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -632,7 +644,14 @@ impl WhatsitTrait for VBox {
                 });
             }
             ColonMode::V | ColonMode::H | ColonMode::P => {
-                htmlnode!(colon,div,None,"vboxcontainer",node_top,cont => {
+                let (contcls,boxcls) : (HTMLStr,HTMLStr) =  match self.tp {
+                    VBoxType::V => ("vboxcontainer".into(),"vbox".into()),
+                    VBoxType::Center | VBoxType::DMCenter =>
+                        ("vcentercontainer".into(),"vcenter".into()),
+                    VBoxType::Top(_) => ("vtopcontainer".into(),"vtop".into())
+                };
+                htmlnode!(colon,div,None,contcls,node_top,cont => {
+                    /**/
                     if crate::INSERT_RUSTEX_ATTRS {
                         cont.attr("rustex:width".into(),dimtohtml(self.width()));
                         cont.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -647,29 +666,33 @@ impl WhatsitTrait for VBox {
                     let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
                     match width {
                         Some(w) => withwidth!(colon,w,cont,inner,{
-                            htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(inner),node => {
+                            htmlnode!(colon,div,self.get_ref(),boxcls,htmlparent!(inner),node => {
+                                if let Some(dp) = self._depth {
+                                    match self.tp {
+                                        VBoxType::Top(i) =>
+                                            node.style("margin-bottom".into(),dimtohtml(dp - self.height())),
+                                        _ =>
+                                            node.style("margin-bottom".into(),dimtohtml(dp))
+                                    }
+                                }
                                 node.style("height".into(),"100%".into());
                                 node.style("min-height".into(),"100%".into());
                                 node.style("width".into(),"100%".into());
                                 node.style("max-width".into(),"100%".into());
-                                match self.tp {
-                                    VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
-                                    VBoxType::Center | VBoxType::DMCenter =>
-                                        node.style("vertical-align".into(),"middle".into()),
-                                    VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
-                                }
                                 VBox::ch_as_html(self.children,colon,&mut node);
                             })
                         }),
-                        None => htmlnode!(colon,div,self.get_ref(),"vbox",htmlparent!(cont),node => {
+                        None => htmlnode!(colon,div,self.get_ref(),boxcls,htmlparent!(cont),node => {
+                            if let Some(dp) = self._depth {
+                                match self.tp {
+                                    VBoxType::Top(i) =>
+                                        node.style("margin-bottom".into(),dimtohtml(dp - self.height())),
+                                    _ =>
+                                        node.style("margin-bottom".into(),dimtohtml(dp))
+                                }
+                            }
                             node.style("height".into(),"100%".into());
                             node.style("min-height".into(),"100%".into());
-                            match self.tp {
-                                VBoxType::V => node.style("vertical-align".into(),"bottom".into()),
-                                VBoxType::Center | VBoxType::DMCenter =>
-                                    node.style("vertical-align".into(),"middle".into()),
-                                VBoxType::Top(_) => node.style("vertical-align".into(),"top".into())
-                            }
                             VBox::ch_as_html(self.children,colon,&mut node);
                         })
                     }

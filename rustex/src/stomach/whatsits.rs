@@ -252,7 +252,7 @@ impl WhatsitTrait for SpaceChar {
     fn has_ink(&self) -> bool { false }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H => htmlliteral!(colon,node_top,<&str as Into<HTMLStr>>::into("&#160;")),
+            ColonMode::H => htmlnode!(colon,div,self.get_ref(),"space-in-hbox",node_top,node => {htmlliteral!(colon,htmlparent!(node),<&str as Into<HTMLStr>>::into("&#160;"))}),
             _ => {
                 let str: HTMLStr = if self.nonbreaking { "&#160;".into() } else { " ".into() };
                 let maybetext = match match node_top {

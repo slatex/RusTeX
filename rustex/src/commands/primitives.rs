@@ -3388,7 +3388,7 @@ pub static DISPLAYLIMITS: MathWhatsit = MathWhatsit {
                 int.stomach_add(mg.as_whatsit());
             }
             Some(o) => {
-                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),int.state.displaymode.get());
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o),false)),int.state.displaymode.get());
                 int.stomach_add(mg.as_whatsit());
             }
             _ => ()
@@ -3645,7 +3645,7 @@ pub static LIMITS: MathWhatsit = MathWhatsit {
                 int.stomach_add(mg.as_whatsit());
             }
             Some(o) => {
-                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),true);
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o),false)),true);
                 int.stomach_add(mg.as_whatsit());
             }
             _ => ()
@@ -3663,7 +3663,7 @@ pub static NOLIMITS: MathWhatsit = MathWhatsit {
                 int.stomach_add(mg.as_whatsit());
             }
             Some(o) => {
-                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),false);
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o),false)),false);
                 int.stomach_add(mg.as_whatsit());
             }
             _ => ()

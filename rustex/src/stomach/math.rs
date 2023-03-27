@@ -83,7 +83,7 @@ impl WhatsitTrait for MathGroup {
             Some(s) => s.has_ink()
         }
     }
-    fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(mut self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
         let subscript = match self.subscript {
             Some(k) => normalize_kernel(k),
             _ => None
@@ -92,42 +92,47 @@ impl WhatsitTrait for MathGroup {
             Some(k) => normalize_kernel(k),
             _ => None
         };
-        let mut kernel = match normalize_kernel(self.kernel) {
-            None if subscript.is_none() && superscript.is_none() => return,
-            None => MathKernel::Group(GroupedMath(vec!())),
-            Some(k) => k
-        };
         if superscript.is_none() && subscript.is_none() {
             use crate::stomach::simple::SimpleWI;
-            match &mut kernel {
-                MathKernel::Group(GroupedMath(ref mut v)) if v.len() == 1 => {
-                    match v.pop().unwrap() {
-                        o@Whatsit::Simple(SimpleWI::HAlign(_)) => {
-                            ret.push(o);
-                            return
-                        }
-                        Whatsit::Box(TeXBox::V(mut vb)) if *mode != ColonMode::M && vb.tp == VBoxType::Center && self.limits => {
-                            vb.tp = VBoxType::DMCenter;
-                            ret.push(Whatsit::Box(TeXBox::V(vb)));
-                            return
-                        },
-                        Whatsit::Box(b) if *mode != ColonMode::M => {
-                            ret.push(b.as_whatsit());
-                            return
-                        }
-                        o if *mode == ColonMode::M => {
-                            ret.push(o);
-                            return
-                        }
-                        o => {
-                            v.push(o)
+            if *mode == ColonMode::M {
+                self.kernel.normalize(mode, ret, scale);
+            } else {
+                let mut kernel = match normalize_kernel(self.kernel) {
+                    None if subscript.is_none() && superscript.is_none() => return,
+                    None => MathKernel::Group(GroupedMath(vec!(),false)),
+                    Some(k) => k
+                };
+                match kernel {
+                    MathKernel::Group(GroupedMath(ref mut v,_)) if v.len() == 1 => {
+                        match v.pop().unwrap() {
+                            Whatsit::Box(TeXBox::V(mut vb)) if vb.tp == VBoxType::Center && self.limits => {
+                                vb.tp = VBoxType::DMCenter;
+                                ret.push(vb.as_whatsit());
+                                return
+                            },
+                            o@Whatsit::Simple(SimpleWI::HAlign(_)) => {
+                                ret.push(o);
+                                return
+                            }
+                            Whatsit::Box(b) => {
+                                ret.push(b.as_whatsit());
+                                return
+                            }
+                            o => v.push(o)
                         }
                     }
-                }
-                _ => (),
+                    _ => ()
+                };
+                ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
+            }
+        } else {
+            let kernel = match normalize_kernel(self.kernel) {
+                None if subscript.is_none() && superscript.is_none() => return,
+                None => MathKernel::Group(GroupedMath(vec!(),false)),
+                Some(k) => k
             };
+            ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
         }
-        ret.push(MathGroup { kernel, subscript, superscript, limits: self.limits }.as_whatsit());
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
@@ -281,7 +286,7 @@ fn normalize_kernel(k:MathKernel) -> Option<MathKernel> {
             _ => unreachable!()
         }
     }
-    Some(MathKernel::Group(GroupedMath(nret)))
+    Some(MathKernel::Group(GroupedMath(nret,false)))
 }
 
 #[derive(Clone)]
@@ -373,7 +378,7 @@ impl WhatsitTrait for MathKernel {
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub struct GroupedMath(pub Vec<Whatsit>);
+pub struct GroupedMath(pub Vec<Whatsit>,pub bool);
 impl GroupedMath {
     pub fn as_whatsit_limits(self,limits:bool) -> Whatsit {
         Whatsit::Math(MathGroup {
@@ -419,10 +424,14 @@ impl WhatsitTrait for GroupedMath {
         false
     }
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
-        let mut nret : Vec<Whatsit> = vec!();
-        for w in self.0 { w.normalize(mode,&mut nret,scale) }
-        if nret.is_empty() { return }
-        ret.push(GroupedMath(nret).as_whatsit())
+        if self.1 {
+            let mut nret : Vec<Whatsit> = vec!();
+            for w in self.0 { w.normalize(mode,&mut nret,scale) }
+            if nret.is_empty() { return }
+            ret.push(GroupedMath(nret,true).as_whatsit())
+        } else {
+            for w in self.0 { w.normalize(mode,ret,scale) }
+        }
     }
     fn as_html(mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         if self.0.is_empty() {}
@@ -633,17 +642,17 @@ impl WhatsitTrait for MathChar {
         "\n".to_owned() + &prefix + "<mathchar value=\"" + &self.position.to_string() + "\"/>"
     }
     fn has_ink(&self) -> bool { true }
-    fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
+    fn normalize(mut self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         match ret.last_mut() {
             Some(Whatsit::Math(mg)) if mg.subscript.is_none() && mg.superscript.is_none() =>
                 match &mut mg.kernel {
-                    MathKernel::MathOp(o) if self.class == 1 => o.merge(self.as_whatsit()),
-                    MathKernel::MathBin(o) if self.class == 2 => o.merge(self.as_whatsit()),
-                    MathKernel::MathRel(o) if self.class == 3 => o.merge(self.as_whatsit()),
-                    MathKernel::MathOpen(o) if self.class == 4 => o.merge(self.as_whatsit()),
-                    MathKernel::MathClose(o) if self.class == 5 => o.merge(self.as_whatsit()),
-                    MathKernel::MathPunct(o) if self.class == 6 => o.merge(self.as_whatsit()),
-                    MathKernel::MathOrd(o) if self.class == 0 || self.class == 7 => o.merge(self.as_whatsit()),
+                    MathKernel::MathOp(o) if self.class == 1 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathBin(o) if self.class == 2 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathRel(o) if self.class == 3 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathOpen(o) if self.class == 4 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathClose(o) if self.class == 5 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathPunct(o) if self.class == 6 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathOrd(o) if self.class == 0 || self.class == 7 => {self.class = 0; o.merge(self.as_whatsit())}
                     _ =>
                         ret.push(self.as_whatsit())
                 }
@@ -743,11 +752,11 @@ macro_rules! mathgroupkernel {
                         match &mut mg.kernel {
                             MathKernel::Group(g) => g.0.push(other),
                             _ =>
-                                self.content = Box::new(GroupedMath(vec!(self.content.deref().clone(),other)).as_whatsit())
+                                self.content = Box::new(GroupedMath(vec!(self.content.deref().clone(),other),false).as_whatsit())
                         }
                     }
                     wi =>
-                        self.content = Box::new(GroupedMath(vec!(wi.clone(),other)).as_whatsit())
+                        self.content = Box::new(GroupedMath(vec!(wi.clone(),other),false).as_whatsit())
                 }
             }
         }
@@ -770,17 +779,15 @@ macro_rules! mathgroupkernel {
                     ret.push(nret.pop().unwrap());
                 } else {
                     while let Some(last) = ret.last_mut() {
-                        match last {
-                            Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() =>
-                                match &mut mg.kernel {
-                                MathKernel::MathChar(mc) if mc.class == ($id as u32) =>
-                                    nret.insert(0,ret.pop().unwrap()),
-                                _ => break
+                        match get_last_mathchar(last) {
+                            Some(mc) if mc.class == ($id as u32) => {
+                                mc.class = 0;
+                                nret.insert(0,ret.pop().unwrap())
                             }
                             _ => break
                         }
                     }
-                    let nw = GroupedMath(nret).as_whatsit();
+                    let nw = GroupedMath(nret,false).as_whatsit();
                     ret.push($e { content:std::boxed::Box::new(nw), sourceref:self.sourceref }.as_whatsit())
                 }
             }
@@ -800,6 +807,18 @@ macro_rules! mathgroupkernel {
             fn get_par_widths(&self) -> Vec<i32> { vec!() }
         }
     )
+}
+
+fn get_last_mathchar<'a>(wi: &'a mut Whatsit) -> Option<&'a mut MathChar> {
+    match wi {
+        Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() =>
+        match &mut mg.kernel {
+            MathKernel::MathChar(mc) => Some(mc),
+            MathKernel::Group(mg) if mg.0.len() == 1 => get_last_mathchar(mg.0.first_mut().unwrap()),
+            _ => None
+        }
+        _ => None
+    }
 }
 
 fn maybe_attach(wis: &mut Vec<Whatsit>,cls:usize) -> bool {
@@ -901,7 +920,7 @@ impl WhatsitTrait for Overline {
             1 => {
                 nret.pop().unwrap()
             },
-            _ => GroupedMath(nret).as_whatsit()
+            _ => GroupedMath(nret,false).as_whatsit()
         };
         ret.push(Overline { content:Box::new(nw), sourceref:self.sourceref }.as_whatsit())
     }
@@ -942,7 +961,7 @@ impl WhatsitTrait for Underline {
             1 => {
                 nret.pop().unwrap()
             },
-            _ => GroupedMath(nret).as_whatsit()
+            _ => GroupedMath(nret,false).as_whatsit()
         };
         ret.push(Underline { content:Box::new(nw), sourceref:self.sourceref }.as_whatsit())
     }
@@ -985,7 +1004,7 @@ impl WhatsitTrait for MathAccent {
             1 => {
                 nret.pop().unwrap()
             },
-            _ => GroupedMath(nret).as_whatsit()
+            _ => GroupedMath(nret,false).as_whatsit()
         };
         ret.push(MathAccent { content:std::boxed::Box::new(nw), sourceref:self.sourceref,accent:self.accent }.as_whatsit())
     }

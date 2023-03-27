@@ -585,10 +585,10 @@ impl Interpreter<'_> {
                 return Ok(mg)
             }
             Some(o) => {
-                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o))),self.state.displaymode.get());
+                let mg = MathGroup::new(MathKernel::Group(GroupedMath(vec!(o),false)),self.state.displaymode.get());
                 return Ok(mg)
             }
-            _ => return Ok(MathGroup::new(MathKernel::Group(GroupedMath(vec!())),self.state.displaymode.get()))
+            _ => return Ok(MathGroup::new(MathKernel::Group(GroupedMath(vec!(),false)),self.state.displaymode.get()))
         }
     }
 
@@ -622,7 +622,7 @@ impl Interpreter<'_> {
                     let ret = match self.read_math_whatsit()? {
                         None => TeXErr!(next => "Expected Whatsit after ^"),
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi)))
+                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi),false))
                     };
                     self.state.fontstyle.set(oldmode,false);
                     last.superscript = Some(ret);
@@ -638,7 +638,7 @@ impl Interpreter<'_> {
                     let ret = match self.read_math_whatsit()? {
                         None => TeXErr!(next => "Expected Whatsit after _"),
                         Some(WI::Math(m)) if m.subscript.is_none() && m.superscript.is_none() => m.kernel,
-                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi)))
+                        Some(wi) => MathKernel::Group(GroupedMath(vec!(wi),false))
                     };
                     self.state.fontstyle.set(oldmode,false);
                     last.subscript = Some(ret);
@@ -785,7 +785,7 @@ impl Interpreter<'_> {
         }
         match above {
             Some(a) => a.as_whatsit(),
-            _ => GroupedMath(ret).as_whatsit_limits(limits)
+            _ => GroupedMath(ret,true).as_whatsit_limits(limits)
         }
     }
 /*

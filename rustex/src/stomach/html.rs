@@ -247,7 +247,7 @@ impl HTMLColon {
                 });
             } else if self.state.current_namespace == MATHML_NS {
                 htmlnode!(self,mspace,None,"mkern",parent,node => {
-                    node.attr("width".into(),(((v as f32) / (65536.0 * 18.0)).to_string() + "em").into());
+                    node.attr("width".into(),(((v as f32) / (65536.0 * 18.0 * 12.0)).to_string() + "em").into());
                 });
             }
         }
