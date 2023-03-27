@@ -599,7 +599,7 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
                 "dur","restart","repeatCount","repeatDur","begin","end"))? {
                 None => {
                     if !int.preview().to_string().starts_with("\\relax") {
-                        println!("missing: >>{}",int.preview());
+                        //println!("missing: >>{}",int.preview());
                         print!("");
                     }
                     break 'attr
