@@ -396,7 +396,7 @@ impl TeXError {
     }
     pub fn print(&mut self) {
         self.backtrace.resolve();
-        println!("{}",self)
+        //println!("{}",self)
     }
 }
 

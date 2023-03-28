@@ -21,7 +21,7 @@ impl FontTable {
         match self.table.get(&u) {
             Some(c) => c,
             None => {
-                println!("Unknown character {} in font {}",u,self.name);
+                //println!("Unknown character {} in font {}",u,self.name);
                 "???"
             }
         }
@@ -205,7 +205,7 @@ impl FontTableStore {
                 ("lasy",WASY,FontTableParam::Math),
                 ("wasyb",WASY,FontTableParam::Math)
                 ;{
-                    println!("Warning: No character table for font {}",name);
+                    //println!("Warning: No character table for font {}",name);
                     None
                 }
             )

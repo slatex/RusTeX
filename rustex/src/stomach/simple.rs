@@ -269,7 +269,7 @@ impl WhatsitTrait for PDFXImage {
                         })
                     }
                     Err(e) =>
-                        println!("{}",e)
+                        //println!("{}",e)
                 }
             }
             _ => ()

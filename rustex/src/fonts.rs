@@ -252,8 +252,8 @@ impl FontFile {
         let chartable = FONT_TABLES.get(tablename.into());
         match chartable {
             None => {
-                println!("Missing Font Table: {}",name);
-                print!("")
+                //println!("Missing Font Table: {}",name);
+                //print!("")
             }
             Some(ref x) if *x.table == *STANDARD_TEXT_EC => {
                 // Why aren't these part of the ligature table already??
