@@ -597,7 +597,10 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
                 "markerUnits","orient","overflow","attributeName","from","to",
                 "animateTransform","animateMotion","type",
                 "dur","restart","repeatCount","repeatDur","begin","end"))? {
-                None => {
+                None => { // \#pgfcp\the \pgf@sys@svg@objectcount
+                    // gradientTransform="rotate(90)"\
+                    // offset="0.0" stop-color=" #feb053 "\relax
+                    // width="100.0" height="100.0" style="fill:url(\#pgfsh10); stroke:none"\relax
                     if !int.preview().to_string().starts_with("\\relax") {
                         //println!("missing: >>{}",int.preview());
                         print!("");
