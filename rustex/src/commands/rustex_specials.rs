@@ -292,7 +292,7 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
         use std::io::{self, Write};
         let prev = int.preview();
         unsafe {crate::LOG = true}
-        println!("BREAK! {}",prev);
+        //println!("BREAK! {}",prev);
         io::stdout().flush().unwrap();
         Ok(())
     },

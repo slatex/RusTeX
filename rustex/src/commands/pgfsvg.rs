@@ -716,8 +716,8 @@ pub static PGF_BEGIN: SimpleWhatsit = SimpleWhatsit {
                 None => break 'attr,
                 Some(s) => {
                     let r = int.read_string()?;
-                    println!("SVG: {} = {}",s,r);
-                    print!("")
+                    //println!("SVG: {} = {}",s,r);
+                    //print!("")
                 }
             }
         }
