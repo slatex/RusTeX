@@ -272,7 +272,7 @@ impl WhatsitTrait for PDFXImage {
                             i.attr("height".into(),dimtohtml(self.height()));
                         })
                     }
-                    Err(e) =>
+                    Err(e) => ()
                         //println!("{}",e)
                 }
             }
