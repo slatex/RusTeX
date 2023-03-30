@@ -1,3 +1,4 @@
+use std::cmp::max;
 use crate::interpreter::dimensions::dimtostr;
 use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
 use crate::references::SourceFileReference;
@@ -92,11 +93,12 @@ pub struct HBox {
     pub _width:Option<i32>,
     pub _height:Option<i32>,
     pub _depth:Option<i32>,
+    pub _to:Option<i32>,
     pub rf : Option<SourceFileReference>
 }
 
 impl HBox {
-    pub fn new_trivial(v:Vec<Whatsit>) -> Self {HBox {children:v,spread:0,_depth:None,_height:None,_width:None,rf:None}}
+    pub fn new_trivial(v:Vec<Whatsit>) -> Self {HBox {children:v,spread:0,_depth:None,_height:None,_width:None,_to:None,rf:None}}
 }
 
 impl WhatsitTrait for HBox {
@@ -107,11 +109,7 @@ impl WhatsitTrait for HBox {
         match self._width {
             Some(i) => i,
             None => {
-                let mut w = self.spread;
-                for c in self.children.iter_wi() {
-                    w += c.width() + WIDTH_CORRECTION
-                }
-                w
+                self.spread + self.inner_width()
             }
         }
     }
@@ -209,6 +207,7 @@ impl WhatsitTrait for HBox {
                     _width: self._width,
                     _height: self._height,
                     _depth: self._depth,
+                    _to:self._to,
                     rf: self.rf
                 }.as_whatsit())
             }
@@ -225,6 +224,7 @@ impl WhatsitTrait for HBox {
                         _width: self._width,
                         _height: self._height,
                         _depth: self._depth,
+                        _to:self._to,
                         rf: self.rf
                     }.as_whatsit())
                // }
@@ -239,6 +239,7 @@ impl WhatsitTrait for HBox {
                     _width: self._width,
                     _height: self._height,
                     _depth: self._depth,
+                    _to:self._to,
                     rf: self.rf
                 }.as_whatsit())
             }
@@ -248,35 +249,35 @@ impl WhatsitTrait for HBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
-                htmlnode!(colon,div,None,"hboxcontainer",node_top,cont => {
-                    if let Some(dp) = self._depth {
-                        cont.style("margin-bottom".into(),dimtohtml(dp))
-                    }
-                    if crate::INSERT_RUSTEX_ATTRS {
-                        cont.attr("rustex:width".into(),dimtohtml(self.width()));
-                        cont.attr("rustex:height".into(),dimtohtml(self.height()));
-                    }
-                    match self._height {
-                        Some(v) => {
-                            cont.style("height".into(),dimtohtml(v));
-                            cont.style("min-height".into(),dimtohtml(v))
+                let parwidth = self.get_par_width();
+                let width = self._width.or(if self.width() <= 0 {Some(0)} else {parwidth});
+                match (self._height,self._depth,width) {
+                    (None,None,None) => {
+                        let oldwidth = colon.state.currsize;
+                        //colon.state.currsize = 2 * self.width(); // hack for wd=0
+                        self.html_inner(colon,node_top,false);
+                        //colon.state.currsize = oldwidth;
+                    },
+                    _ => htmlnode!(colon,div,None,"hboxcontainer",node_top,cont => {
+                        if let Some(dp) = self._depth {
+                            cont.style("margin-bottom".into(),dimtohtml(dp))
                         }
-                        _ => ()
-                    }
-                    let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
-                    match width {
-                        Some(w) => withwidth!(colon,w,cont,inner,{
-                            htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(inner),node => {
-                                node.style("width".into(),"100%".into());
-                                node.style("max-width".into(),"100%".into());
-                                HBox::ch_as_html(self.children,colon,&mut node);
+                        if let Some(ht) = self._height {
+                            cont.style("height".into(),dimtohtml(ht))
+                        }
+                        if let Some(wd) = width {
+                            let iwd = self.inner_width();
+                            withwidth!(colon,wd,cont,cont,{
+                                self.html_inner(colon,htmlparent!(cont),wd < iwd || wd <= 0)
                             })
-                        }),
-                        None => htmlnode!(colon,div,self.get_ref(),"hbox",htmlparent!(cont),node => {
-                            HBox::ch_as_html(self.children,colon,&mut node);
-                        })
-                    }
-                })
+                        } else {
+                            let oldwidth = colon.state.currsize;
+                            //colon.state.currsize = 2 * self.width(); // hack for wd=0
+                            self.html_inner(colon,htmlparent!(cont),false);
+                            //colon.state.currsize = oldwidth;
+                        }
+                    })
+                }
             }
             ColonMode::M if self.children.is_empty() =>
                 htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
@@ -337,6 +338,47 @@ impl FilLevel {
 }
 
 impl HBox {
+    fn inner_width(&self) -> i32 {
+        let mut w = 0;
+        for c in self.children.iter_wi() {
+            w += c.width() + WIDTH_CORRECTION
+        }
+        w
+    }
+    fn html_inner(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>,incontainer:bool) {
+        match (self._to,self.spread) {
+            (None,0) => htmlnode!(colon,div,self.get_ref(),"hbox",node_top,node => {
+                if (incontainer) {
+                    node.style("width".into(),"100%".into())
+                }
+                if crate::INSERT_RUSTEX_ATTRS {
+                    node.attr("rustex:width".into(),dimtohtml(self.width()));
+                    node.attr("rustex:height".into(),dimtohtml(self.height()));
+                }
+                HBox::ch_as_html(self.children,colon,&mut node);
+            }),
+            (Some(to),_) => htmlnode!(colon,div,self.get_ref(),"hbox",node_top,node => {
+                withwidth!(colon,to,node,node,{
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        node.attr("rustex:width".into(),dimtohtml(self.width()));
+                        node.attr("rustex:height".into(),dimtohtml(self.height()));
+                        node.attr("rustex:to".into(),dimtohtml(to));
+                    }
+                    HBox::ch_as_html(self.children,colon,&mut node);
+                })
+            }),
+            (_,spread) => htmlnode!(colon,div,self.get_ref(),"hbox",node_top,node => {
+                withwidth!(colon,self.width(),node,node,{
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        node.attr("rustex:width".into(),dimtohtml(self.width()));
+                        node.attr("rustex:height".into(),dimtohtml(self.height()));
+                        node.attr("rustex:spread".into(),dimtohtml(spread));
+                    }
+                    HBox::ch_as_html(self.children,colon,&mut node);
+                })
+            }),
+        }
+    }
     fn ch_as_html(mut children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
         let mut startfil = FilLevel::None;
         let mut endfil = FilLevel::None;
@@ -405,6 +447,7 @@ pub struct VBox {
     pub _width:Option<i32>,
     pub _height:Option<i32>,
     pub _depth:Option<i32>,
+    pub _to:Option<i32>,
     pub rf : Option<SourceFileReference>
 }
 
@@ -554,6 +597,7 @@ impl WhatsitTrait for VBox {
                     _width: self._width,
                     _height: self._height,
                     _depth: self._depth,
+                    _to:self._to,
                     rf: self.rf,
                     tp:self.tp
                 }.as_whatsit())
@@ -571,6 +615,7 @@ impl WhatsitTrait for VBox {
                         _width: self._width,
                         _height: self._height,
                         _depth: self._depth,
+                        _to:self._to,
                         rf: self.rf,
                         tp:self.tp
                     }.as_whatsit())
@@ -599,6 +644,7 @@ impl WhatsitTrait for VBox {
                     _width: self._width,
                     _height: self._height,
                     _depth: self._depth,
+                    _to:self._to,
                     rf: self.rf,
                     tp:self.tp
                 }.as_whatsit())
@@ -609,7 +655,7 @@ impl WhatsitTrait for VBox {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::V | ColonMode::H | ColonMode::P if self.tp == VBoxType::DMCenter => {
-                htmlnode!(colon,div,None,"displayvbox",node_top,div => {
+                htmlnode!(colon,div,None,"displayvcenter",node_top,div => {
                     htmlnode!(colon,div,self.get_ref(),"vcenter",htmlparent!(div),node => {
                         if let Some(dp) = self._depth {
                             div.style("margin-bottom".into(),dimtohtml(dp))
@@ -643,60 +689,99 @@ impl WhatsitTrait for VBox {
                     });
                 });
             }
-            ColonMode::V | ColonMode::H | ColonMode::P => {
-                let (contcls,boxcls) : (HTMLStr,HTMLStr) =  match self.tp {
-                    VBoxType::V => ("vboxcontainer".into(),"vbox".into()),
-                    VBoxType::Center | VBoxType::DMCenter =>
-                        ("vcentercontainer".into(),"vcenter".into()),
-                    VBoxType::Top(_) => ("vtopcontainer".into(),"vtop".into())
-                };
-                htmlnode!(colon,div,None,contcls,node_top,cont => {
-                    /**/
+            /*
+            ColonMode::V | ColonMode::H | ColonMode::P if matches!(self.tp,VBoxType::Top(_)) => {
+                htmlnode!(colon,div,None,"vtopcontainerouter",node_top,conta => {
                     if crate::INSERT_RUSTEX_ATTRS {
-                        cont.attr("rustex:width".into(),dimtohtml(self.width()));
-                        cont.attr("rustex:height".into(),dimtohtml(self.height()));
+                        conta.attr("rustex:width".into(),dimtohtml(self.width()));
+                        conta.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
-                    match self._height {
-                        Some(v) => {
-                            cont.style("height".into(),dimtohtml(v));
-                            cont.style("min-height".into(),dimtohtml(v));
+                    htmlnode!(colon,div,None,"vtopcontainer",htmlparent!(conta),cont => {
+                        if let Some(h) = self._height {
+                            cont.style("height".into(),dimtohtml(h));
+                            cont.style("min-height".into(),dimtohtml(h));
                         }
-                        _ => ()
-                    }
-                    let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
-                    match width {
-                        Some(w) => withwidth!(colon,w,cont,inner,{
-                            htmlnode!(colon,div,self.get_ref(),boxcls,htmlparent!(inner),node => {
-                                if let Some(dp) = self._depth {
-                                    match self.tp {
-                                        VBoxType::Top(i) =>
-                                            node.style("margin-bottom".into(),dimtohtml(dp - self.height())),
-                                        _ =>
-                                            node.style("margin-bottom".into(),dimtohtml(dp))
-                                    }
-                                }
-                                node.style("height".into(),"100%".into());
-                                node.style("min-height".into(),"100%".into());
-                                node.style("width".into(),"100%".into());
-                                node.style("max-width".into(),"100%".into());
+                        if let Some(d) = self._depth {
+                            cont.style("margin-bottom".into(),dimtohtml(d))
+                        }
+                        let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
+                        match width {
+                            Some(w) => withwidth!(colon,w,cont,inner,{
+                                htmlnode!(colon,div,self.get_ref(),"vtop",htmlparent!(inner),node => {
+                                    node.style("width".into(),"100%".into());
+                                    node.style("max-width".into(),"100%".into());
+                                    VBox::ch_as_html(self.children,colon,&mut node);
+                                });
+                            }),
+                            None => htmlnode!(colon,div,self.get_ref(),"vtop",htmlparent!(cont),node => {
                                 VBox::ch_as_html(self.children,colon,&mut node);
                             })
-                        }),
-                        None => htmlnode!(colon,div,self.get_ref(),boxcls,htmlparent!(cont),node => {
-                            if let Some(dp) = self._depth {
-                                match self.tp {
-                                    VBoxType::Top(i) =>
-                                        node.style("margin-bottom".into(),dimtohtml(dp - self.height())),
-                                    _ =>
-                                        node.style("margin-bottom".into(),dimtohtml(dp))
-                                }
-                            }
-                            node.style("height".into(),"100%".into());
-                            node.style("min-height".into(),"100%".into());
-                            VBox::ch_as_html(self.children,colon,&mut node);
-                        })
+                        }
+                    });
+                });
+            }
+
+             */
+            ColonMode::V | ColonMode::H | ColonMode::P if matches!(self.tp,VBoxType::Top(_)) => {
+                let width = self._width.or(if self.width() <= 0 {Some(0)} else {self.get_par_width()});
+                match width {
+                    None => htmlnode!(colon,div,None,"vtopcontainer",node_top,cont => {
+                        self.html_t_inner(colon,htmlparent!(cont),false);
+                    }),
+                    Some(wd) => htmlnode!(colon,div,None,"vtopcontainer",node_top,cont => {
+                        withwidth!(colon,wd,cont,cont,{self.html_t_inner(colon,htmlparent!(cont),true)})
+                    })
+                }
+            }
+            ColonMode::V | ColonMode::H | ColonMode::P if matches!(self.tp,VBoxType::V) => {
+                let width = self._width.or(if self.width() <= 0 {Some(0)} else {self.get_par_width()});
+                match width {
+                    /*(None,None) => self.html_inner(colon,node_top,false),*/
+                    None => htmlnode!(colon,div,None,"vboxcontainer",node_top,cont => {
+                        if let Some(d) = self._depth {cont.style("margin-bottom".into(),dimtohtml(d))}
+                        self.html_v_inner(colon,htmlparent!(cont),false);
+                    }),
+                    Some(wd) => htmlnode!(colon,div,None,"vboxcontainer",node_top,cont => {
+                        //if let Some(ht) = self._height {cont.style("height".into(),dimtohtml(ht))}
+                        if let Some(d) = self._depth {cont.style("margin-bottom".into(),dimtohtml(d))}
+                        withwidth!(colon,wd,cont,cont,{self.html_v_inner(colon,htmlparent!(cont),true)})
+                    })
+                }
+            }
+            ColonMode::V | ColonMode::H | ColonMode::P => {
+                let (outercls,innercls,cls) = if self.tp == VBoxType::Center {
+                    ("vcentercontainerouter","vcentercontainer","vcenter")
+                } else {
+                    ("vboxcontainerouter","vboxcontainer","vbox")
+                };
+                htmlnode!(colon,div,None,outercls,node_top,conta => {
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        conta.attr("rustex:width".into(),dimtohtml(self.width()));
+                        conta.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
-                })
+                    htmlnode!(colon,div,None,innercls,htmlparent!(conta),cont => {
+                        if let Some(h) = self._height {
+                            cont.style("height".into(),dimtohtml(h));
+                            cont.style("min-height".into(),dimtohtml(h));
+                        }
+                        if let Some(d) = self._depth {
+                            cont.style("margin-bottom".into(),dimtohtml(d))
+                        }
+                        let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
+                        match width {
+                            Some(w) => withwidth!(colon,w,cont,inner,{
+                                htmlnode!(colon,div,None,cls,htmlparent!(inner),node => {
+                                    node.style("width".into(),"100%".into());
+                                    node.style("max-width".into(),"100%".into());
+                                    VBox::ch_as_html(self.children,colon,&mut node);
+                                });
+                            }),
+                            None => htmlnode!(colon,div,None,cls,htmlparent!(cont),node => {
+                                VBox::ch_as_html(self.children,colon,&mut node);
+                            })
+                        }
+                    });
+                });
             }
             ColonMode::M if self.children.is_empty() =>
                 htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
@@ -724,6 +809,81 @@ impl WhatsitTrait for VBox {
 }
 
 impl VBox {
+    fn html_t_inner(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
+        match (self._height,self._depth) {
+            (None,None) => self.html_t_inner_i(colon, node_top, withwidth),
+            _ => htmlnode!(colon,div,None,"vtopheightcontainer",node_top,inner => {
+                let VBoxType::Top(lineht) = self.tp else { unreachable!()};
+                if let Some(ht) = self._height {
+                    inner.style("margin-top".into(),dimtohtml(ht - lineht));
+                    inner.style("bottom".into(),dimtohtml(ht - lineht));
+                }
+                if let Some(dp) = self._depth {
+                    inner.style("height".into(),dimtohtml(dp + lineht));
+                }
+                if withwidth {inner.style("width".into(),"100%".into())}
+                self.html_t_inner_i(colon,htmlparent!(inner),withwidth);
+            })
+        }
+    }
+    fn html_t_inner_i(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
+        htmlnode!(colon,div,self.get_ref(),"vtop",node_top,node => {
+            if withwidth {node.style("width".into(),"100%".into())}
+            if crate::INSERT_RUSTEX_ATTRS {
+                node.attr("rustex:width".into(),dimtohtml(self.width()));
+                node.attr("rustex:height".into(),dimtohtml(self.height()));
+                node.attr("rustex:depth".into(),dimtohtml(self.depth()));
+            }
+            if let Some(h) = self._to {
+                if crate::INSERT_RUSTEX_ATTRS {
+                    node.attr("rustex:to".into(),dimtohtml(h));
+                }
+                node.style("height".into(),dimtohtml(h));
+                //node.style("min-height".into(),dimtohtml(h));
+            }
+            //if let Some(d) = self._depth {node.style("margin-bottom".into(),dimtohtml(d))}
+            VBox::ch_as_html(self.children,colon,&mut node);
+        })
+    }
+    fn html_v_inner(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
+        if let Some(ht) = self._height {
+            htmlnode!(colon,div,None,"vboxheightcontainer",node_top,inner => {
+                inner.style("height".into(),dimtohtml(ht));
+                if withwidth {inner.style("width".into(),"100%".into())}
+                self.html_v_inner_i(colon,htmlparent!(inner),withwidth);
+            })
+        } else { self.html_v_inner_i(colon, node_top, withwidth)}
+    }
+    fn html_v_inner_i(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
+        htmlnode!(colon,div,self.get_ref(),"vbox",node_top,node => {
+            if withwidth {node.style("width".into(),"100%".into())}
+            if crate::INSERT_RUSTEX_ATTRS {
+                node.attr("rustex:width".into(),dimtohtml(self.width()));
+                node.attr("rustex:height".into(),dimtohtml(self.height()));
+                node.attr("rustex:depth".into(),dimtohtml(self.depth()));
+            }
+            if let Some(h) = self._to {
+                if crate::INSERT_RUSTEX_ATTRS {
+                    node.attr("rustex:to".into(),dimtohtml(h));
+                }
+                node.style("height".into(),dimtohtml(h));
+                //node.style("min-height".into(),dimtohtml(h));
+            }
+            //if let Some(d) = self._depth {node.style("margin-bottom".into(),dimtohtml(d))}
+            VBox::ch_as_html(self.children,colon,&mut node);
+        })
+    }
+    fn html_depth(&self) -> i32 {
+        let ht = match self._height {
+            Some(i) => i,
+            None => {
+                let mut w = self.spread;
+                for c in self.children.iter_wi() { w += c.height() + HEIGHT_CORRECTION }
+                w
+            }
+        };
+        self._depth.unwrap() - ht
+    }
     fn ch_as_html(mut children:Vec<Whatsit>, colon: &mut HTMLColon, node: &mut HTMLNode) {
         let mut startfil = FilLevel::None;
         let mut endfil = FilLevel::None;

@@ -475,6 +475,9 @@ impl WhatsitTrait for MKern {
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, parent: &mut Option<HTMLParent>) {
         htmlnode!(colon,mspace,None,"mkern",parent,node => {
+            if self.sk.base < 0 {
+                node.style("margin-left".into(),(self.sk.get_em().to_string() + "em").into());
+            }
             node.attr("width".into(),(self.sk.get_em().to_string() + "em").into());
         });
         //colon.state.add_kern(((self.sk.base as f32) * 18.0 * 12.0).round() as i32 );

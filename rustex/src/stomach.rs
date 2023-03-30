@@ -561,7 +561,7 @@ pub trait Stomach : Send {
                 for (c,_,_) in v {
                     ch.push(HBox {
                         spread:0,
-                        _width:None,_height:None,_depth:None,rf:None,
+                        _width:None,_height:None,_depth:None,rf:None,_to:None,
                         children:c
                     }.as_whatsit());
                     ch.push(HSkip {
@@ -581,7 +581,7 @@ pub trait Stomach : Send {
                     spread: 0,
                     _width: None,
                     _height: None,
-                    _depth: None,
+                    _depth: None,_to:None,
                     rf: None
                 });
                 self.base_mut().buffer.push(tb.as_whatsit());

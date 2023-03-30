@@ -21,7 +21,7 @@ pub static SPACE: SimpleWhatsit = SimpleWhatsit {
                 SpaceChar {
                     font: int.state.currfont.get(),
                     sourceref: int.update_reference(tk),
-                    nonbreaking:true
+                    nonbreaking:false
                 })),
             _ => Ok(MSkip {
                 skip: MuSkip {base:18, stretch:None, shrink:None},
@@ -1481,7 +1481,7 @@ pub static FONT: FontAssValue = FontAssValue {
         int.read_eq();
         let mut name = int.read_string()?;
         if !name.ends_with(".tfm") {name += ".tfm"}
-        let ff = int.state.get_font(int.jobinfo.in_file(),name.into())?;
+        let ff = int.state.get_font(int.jobinfo.in_file(),name.into(),int.params)?;
         let at = match int.read_keyword(vec!("at","scaled"))? {
             Some(s) if s == "at" => Some(int.read_dimension()?),
             Some(s) if s == "scaled" => Some(round_f((ff.as_ref().size as f64) * match int.read_number_i(true)? {
@@ -1739,7 +1739,7 @@ pub static SETBOX: PrimitiveAssignment = PrimitiveAssignment {
 pub static HBOX: ProvidesBox = ProvidesBox {
     name:"hbox",
     _get: |tk,int| {
-        let (spread,width) = match int.read_keyword(vec!("to","spread"))? {
+        let (spread,to) = match int.read_keyword(vec!("to","spread"))? {
             Some(s) if s == "to" => (0 as i32,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
@@ -1750,9 +1750,10 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             Ok(TeXBox::H(HBox {
                 children: ret,
                 spread,
-                _width: width,
+                _width: None,
                 _height: None,
                 _depth: None,
+                _to:to,
                 rf : int.update_reference(tk)
             }))
         }
@@ -1762,7 +1763,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
 pub static VBOX: ProvidesBox = ProvidesBox {
     name:"vbox",
     _get: |tk,int| {
-        let (spread,height) = match int.read_keyword(vec!("to","spread"))? {
+        let (spread,to) = match int.read_keyword(vec!("to","spread"))? {
             Some(s) if s == "to" => (0 as i32,Some(int.read_dimension()?)),
             Some(s) if s == "spread" => (int.read_dimension()?,None),
             _ => (0 as i32,None)
@@ -1775,7 +1776,8 @@ pub static VBOX: ProvidesBox = ProvidesBox {
                 tp: VBoxType::V,
                 spread,
                 _width: None,
-                _height: height,
+                _height: None,
+                _to:to,
                 _depth: None,
                 rf : int.update_reference(tk)
             }))
@@ -1789,7 +1791,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
         let bx = (VBOX._get)(tk,int)?;
         match bx {
             TeXBox::V(mut vb) => {
-                let lineheight = int.state.skips_prim.get(&((registers::LINESKIP.index - 1) as usize)).base;
+                let lineheight = int.state.skips_prim.get(&((BASELINESKIP.index - 1) as usize)).base;
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }
@@ -1831,8 +1833,9 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
             tp: vbox.tp,
             spread: vbox.spread,
             _width: vbox._width,
-            _height: Some(target),
-            _depth: vbox._depth,
+            _height: None,
+            _depth: None,
+            _to:Some(target),
             rf: None
         };
         let mut rest = VBox {
@@ -1842,6 +1845,7 @@ pub static VSPLIT: ProvidesBox = ProvidesBox {
             _width: vbox._width,
             _height: None,
             _depth: vbox._depth,
+            _to:None,
             rf: None
         };
         let (first,second) = crate::stomach::split_vertical(vbox.children,target,int);

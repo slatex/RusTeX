@@ -6,7 +6,7 @@ use crate::references::SourceFileReference;
 use crate::{htmlliteral, htmlnode, htmlparent};
 use crate::interpreter::params::InterpreterParams;
 use crate::interpreter::state::State;
-use crate::stomach::html::HTMLNode;
+use crate::stomach::html::{dimtohtml, HTMLNode};
 
 pub trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
@@ -255,6 +255,9 @@ impl WhatsitTrait for SpaceChar {
             ColonMode::H => htmlnode!(colon,div,self.get_ref(),"space-in-hbox",node_top,node => {htmlliteral!(colon,htmlparent!(node),<&str as Into<HTMLStr>>::into("&#160;"))}),
             _ => {
                 let str: HTMLStr = if self.nonbreaking { "&#160;".into() } else { " ".into() };
+                htmlliteral!(colon,node_top,str);
+                /*
+                let str: HTMLStr = if self.nonbreaking { "&#160;".into() } else { " ".into() };
                 let maybetext = match match node_top {
                     Some(HTMLParent::N(n)) => n.children.last_mut(),
                     Some(HTMLParent::A(n)) => n.children.last_mut(),
@@ -270,6 +273,7 @@ impl WhatsitTrait for SpaceChar {
                         htmlliteral!(colon,htmlparent!(span),str);
                     })
                 }
+                 */
             }
         }
     }
@@ -373,15 +377,7 @@ impl WhatsitTrait for PrintChar {
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         ret.push(self.as_whatsit())
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let maybetext = match match node_top {
-            Some(HTMLParent::N(n)) => n.children.last_mut(),
-            Some(HTMLParent::A(n)) => n.children.last_mut(),
-            _ => None
-        } {
-            Some(HTMLChild::Node(n)) => Some(n),
-            _ => None
-        };
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         let str: HTMLStr = match &self.font.file.chartable {
             Some(ct) => {
                 let ch = ct.get_char(self.char).to_string();
@@ -391,13 +387,29 @@ impl WhatsitTrait for PrintChar {
             }
             None => self.as_xml_internal("".to_string()).into()
         };
-        match maybetext {
-            Some(n) if n.classes.contains(&"text".into()) =>
-                n.children.push(HTMLChild::Str(str.into())),
+        match mode {
+            ColonMode::H => {
+                let maybetext = match match node_top {
+                    Some(HTMLParent::N(n)) => n.children.last_mut(),
+                    Some(HTMLParent::A(n)) => n.children.last_mut(),
+                    _ => None
+                } {
+                    Some(HTMLChild::Node(n)) => Some(n),
+                    _ => None
+                };;
+                match maybetext {
+                    Some(n) if n.classes.contains(&"text".into()) =>
+                        n.children.push(HTMLChild::Str(str.into())),
+                    _ => htmlnode!(colon,span,None,"text",node_top,span => {
+                        /*let h = self.font.get_height(self.char as u16);
+                        span.style("height".into(),dimtohtml(h));
+                        span.style("line-height".into(),dimtohtml(h));*/
+                        htmlliteral!(colon,htmlparent!(span),str);
+                    })
+                }
+            }
             _ =>
-                htmlnode!(colon,span,None,"text",node_top,span => {
-                    htmlliteral!(colon,htmlparent!(span),str);
-                })
+                node_top.as_mut().unwrap().push(HTMLChild::Str(str.into()))
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }

@@ -111,6 +111,15 @@
     src: url('https://fonts.cdnfonts.com/s/267/lmsans10-boldoblique.otf');
 }
 
+@font-face {
+    font-family: 'cmr17';
+    src: url('file:///home/jazzpirate/Documents/Cmr17.woff2') format('woff2'),
+    url('file:///home/jazzpirate/Documents/Cmr17.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ----------------------------------------------------- CSS -------------------------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -164,31 +173,62 @@ a { color: inherit; text-decoration: inherit; }
 }
 
 .hbox, .vbox, .vtop, .vcenter {
-    width: fit-content;
-    height: fit-content;
     overflow: visible;
     text-align: left;
 }
 
-.vboxcontainer { display:inline }
-.vtopcontainer { display:inline }
-.vcentercontainer { display: inline }
-
 .vbox, .vtop, .vcenter {
+    height: min-content;
+    width: min-content;
     flex-wrap: nowrap;
     justify-content: flex-start;
 }
-.vbox { vertical-align: bottom }
-.vtop {vertical-align: top }
+.vbox { vertical-align: text-bottom }
+.vtop {vertical-align: baseline }
 .vcenter{vertical-align: middle}
 
+.vboxheightcontainer {
+    display:inline-block;
+    width:min-content;
+    height: min-content;
+    vertical-align: bottom;
+}
+
+.vtopheightcontainer {
+    display:inline-block;
+    width:min-content;
+    height: min-content;
+}
+
+.vboxcontainer { display:inline-block; width: min-content; height: min-content }
+.vboxcontainerouter { display:contents; width: min-content; height: min-content }
+.vtopcontainer { display:inline-block;; width: min-content; height: min-content }
+.vtopcontainerouter { display:contents; width: min-content; height: min-content }
+.vcentercontainer { display:inline-block; width: min-content; height: min-content }
+.vcentercontainerouter { display:contents; width: min-content; height: min-content }
+
+.displayvcenter {
+    text-align:center;
+    display:block;
+    align-self: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    width: 100%;
+    min-width: 100%;
+}
 
 .hbox, .hbox-no-space {
     display:inline-flex;
     white-space: pre;
-    /*justify-content: space-between; */ /* only between spaces */
+    width: fit-content;
+    height: fit-content;
     align-items: baseline;
+    /*
+    vertical-align: bottom;
+    align-items: end;
+     */
 }
+/*.paragraph > .hbox { align-items: baseline}*/
 .space-in-hbox {
     display: inline-block;
     margin-left: auto;
@@ -206,7 +246,6 @@ a { color: inherit; text-decoration: inherit; }
     height: min-content;
     justify-content: end;
 }
-
 
 .paragraph {
     text-align:justify;
@@ -244,15 +283,6 @@ mrow {}
     position: relative;
 }
 .displaymathcontainer {
-    text-align:center;
-    display:block;
-    align-self: center;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    width: 100%;
-    min-width: 100%;
-}
-.displayvbox {
     text-align:center;
     display:block;
     align-self: center;

@@ -673,6 +673,7 @@ impl WhatsitTrait for Raise {
                         _width: bx._width,
                         _height: bx._height,
                         _depth: bx._depth,
+                        _to: bx._to,
                         rf: bx.rf
                     }),
                     dim:self.dim,
@@ -689,6 +690,7 @@ impl WhatsitTrait for Raise {
                         _width: bx._width,
                         _height: bx._height,
                         _depth: bx._depth,
+                        _to: bx._to,
                         rf: bx.rf,
                         tp:bx.tp
                     }),
@@ -755,6 +757,7 @@ impl WhatsitTrait for MoveRight {
                         _width: bx._width,
                         _height: bx._height,
                         _depth: bx._depth,
+                        _to: bx._to,
                         rf: bx.rf
                     }),
                     dim:self.dim,
@@ -771,6 +774,7 @@ impl WhatsitTrait for MoveRight {
                         _width: bx._width,
                         _height: bx._height,
                         _depth: bx._depth,
+                        _to: bx._to,
                         rf: bx.rf,
                         tp:bx.tp
                     }),

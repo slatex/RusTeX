@@ -66,6 +66,7 @@ pub struct FontFile {
     pub rps: HashMap<u16,u8>,
     pub ligs:HashMap<(u8,u8),u8>,
     pub name:TeXStr,
+    pub filepath:TeXStr,
     pub chartable:Option<Arc<FontTable>>
 }
 impl PartialEq for FontFile {
@@ -89,7 +90,8 @@ use std::borrow::BorrowMut;
 // https://www.tug.org/TUGboat/tb02-1/tb02fuchstfm.pdf
 
 impl FontFile {
-    pub fn new(pb : PathBuf) -> FontFile {
+    pub fn new(pb : PathBuf,params:&dyn InterpreterParams) -> FontFile {
+        let filepath : TeXStr = pb.as_path().to_str().unwrap().into();
         let name : TeXStr = pb.file_stem().unwrap().to_str().unwrap().into();
         let mut state = FontState {
             ret:fs::read(pb).unwrap(),
@@ -252,6 +254,7 @@ impl FontFile {
         let chartable = FONT_TABLES.get(tablename.into());
         match chartable {
             None => {
+                params.write_other(&*std::format!("Missing Font Table: {}",name));
                 //println!("Missing Font Table: {}",name);
                 //print!("")
             }
@@ -269,7 +272,7 @@ impl FontFile {
 
         FontFile {
             hyphenchar,skewchar,dimen,size,typestr,widths,heights,depths,ics,lps,rps,ligs,name,
-            chartable
+            chartable,filepath
         }
     }
 }
@@ -280,6 +283,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use crate::fonts::fontchars::{FONT_TABLES, FontTable, FontTableParam, STANDARD_TEXT_EC};
 use crate::interpreter::dimensions::round_f;
+use crate::interpreter::params::InterpreterParams;
 use crate::ontology::EMPTY_NAME;
 use crate::utils::TeXStr;
 
@@ -419,6 +423,7 @@ thread_local! {
         rps : HashMap::new(),
         ligs : HashMap::new(),
         name : TeXStr::new("Nullfont".as_bytes()),
+        filepath: TeXStr::new("NULL".as_bytes()),
         chartable:None
     });
     pub static NULL_FONT : ArcFont = ArcFont(std::sync::Arc::new(Font {
@@ -451,7 +456,8 @@ thread_local! {
             name:"custom_bindings_font".into(),
             params:vec!(FontTableParam::Math),
             table:&CUSTOM_BINDINGS_MAP
-        }))
+        })),
+        filepath: TeXStr::new("CUSTOM".as_bytes()),
     });
     pub static CUSTOM_BINDINGS_FONT : std::sync::Arc<Font> = std::sync::Arc::new(Font {
             file:CUSTOM_BINDINGS_FONT_FILE.try_with(|x| x.clone()).unwrap(),at:Some(0),

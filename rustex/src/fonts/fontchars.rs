@@ -14,9 +14,9 @@ pub struct FontTable {
     pub(crate) table:&'static HashMap<u8,&'static str>
 }
 impl FontTable {
-    /*pub fn as_unicode(&self,_:u8) -> &str {
-        TeXErr!("TODO")
-    }*/
+    pub fn default(&self,u:u8) -> String {
+        std::format!("?{}?{}?",self.name,u)
+    }
     pub fn get_char(&self,u:u8) -> &'static str {
         match self.table.get(&u) {
             Some(c) => c,
@@ -28,15 +28,6 @@ impl FontTable {
     }
 }
 
-/*macro_rules! table {
-    ($s:tt,$o:ident,$name:ident,$($para:expr),*) => (
-        Some($o.insert(Arc::new(FontTable {
-            params:vec!($($para),*),
-            table:&$name,
-            name:$s.into()
-        })).clone())
-    )
-}*/
 macro_rules! table {
     ($name:expr,$o:ident,$(($s:tt,$iname:ident,$($para:expr),*)),* ;$rest:expr) => (
         match &$name.to_string() {

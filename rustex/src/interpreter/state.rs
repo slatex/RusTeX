@@ -421,7 +421,7 @@ impl State {
             }
         }
     }
-    pub fn get_font(&mut self,indir:&Path,name:TeXStr) -> Result<Arc<FontFile>,TeXError> {
+    pub fn get_font(&mut self,indir:&Path,name:TeXStr,params:&dyn InterpreterParams) -> Result<Arc<FontFile>,TeXError> {
         unsafe {
             match FONT_FILES {
                 None => FONT_FILES = Some(store::RusTeXMap::default()),
@@ -433,7 +433,7 @@ impl State {
                     let ret = crate::kpathsea::kpsewhich(std::str::from_utf8_unchecked(name.iter()),indir);
                     match ret {
                         Some((pb,_)) if pb.exists() => {
-                            let f = Arc::new(FontFile::new(pb));
+                            let f = Arc::new(FontFile::new(pb,params));
                             FONT_FILES.as_mut().unwrap().insert(name, Arc::clone(&f));
                             Ok(f)
                         }

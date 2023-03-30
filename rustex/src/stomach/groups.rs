@@ -207,7 +207,10 @@ impl WhatsitTrait for FontChange {
         match &self.font.file.chartable {
             Some(_) => {
                 htmlannotate!(colon,span,self.get_ref(),node_top,a => {
-                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),self.font.file.name.clone().into()) }
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        a.attr("rustex:font".into(),(&self.font.file.name).into());
+                        a.attr("rustex:fontfile".into(),(&self.font.file.filepath).into());
+                    }
                     a.fontinfo = Some(FontInfo::new(&self.font));
                     for c in self.children {
                         c.as_html(mode,colon,htmlparent!(a))
