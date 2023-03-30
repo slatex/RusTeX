@@ -106,12 +106,7 @@ impl WhatsitTrait for HBox {
         Whatsit::Box(TeXBox::H(self))
     }
     fn width(&self) -> i32 {
-        match self._width {
-            Some(i) => i,
-            None => {
-                self.spread + self.inner_width()
-            }
-        }
+        self._width.unwrap_or(self._to.unwrap_or(self.spread + self.inner_width()))
     }
     fn height(&self) -> i32 {
         match self._height {
@@ -253,10 +248,7 @@ impl WhatsitTrait for HBox {
                 let width = self._width.or(if self.width() <= 0 {Some(0)} else {parwidth});
                 match (self._height,self._depth,width) {
                     (None,None,None) => {
-                        let oldwidth = colon.state.currsize;
-                        //colon.state.currsize = 2 * self.width(); // hack for wd=0
                         self.html_inner(colon,node_top,false);
-                        //colon.state.currsize = oldwidth;
                     },
                     _ => htmlnode!(colon,div,None,"hboxcontainer",node_top,cont => {
                         if let Some(dp) = self._depth {
@@ -271,7 +263,7 @@ impl WhatsitTrait for HBox {
                                 self.html_inner(colon,htmlparent!(cont),wd < iwd || wd <= 0)
                             })
                         } else {
-                            let oldwidth = colon.state.currsize;
+                            //let oldwidth = colon.state.currsize;
                             //colon.state.currsize = 2 * self.width(); // hack for wd=0
                             self.html_inner(colon,htmlparent!(cont),false);
                             //colon.state.currsize = oldwidth;
@@ -492,7 +484,8 @@ impl WhatsitTrait for VBox {
     }
 
     fn height(&self) -> i32 {
-        let ht = match self._height {
+        if let VBoxType::Top(r) = self.tp {return r}
+        let ht = match self._height.or(self._to) {
             Some(i) => i,
             None => {
                 let mut w = self.spread;
