@@ -52,10 +52,15 @@ impl HTMLState {
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident,$e:expr) => ({
      let _withwidth_currsize = $colon.state.currsize;
-     let _withwidth_newsize = if $wd == 0 {8192} else {$wd};
+     let _withwidth_newsize = $wd;//if $wd == 0 {8192} else {$wd};
      $colon.state.currsize = _withwidth_newsize;
-     let _withwidth_pctg_str = ((_withwidth_newsize as f32) / (_withwidth_currsize as f32) * 100.0).to_string();
-     let _withwidth_pctg = _withwidth_pctg_str + "%";
+     let _withwidth_pctg = if _withwidth_currsize == 0 {
+         let _withwidth_pctg_str = ((_withwidth_newsize as f32) / ($colon.textwidth as f32) /* * 100.0 */).to_string();
+         "calc(".to_string() + &_withwidth_pctg_str + " * var(--document-width))"
+     } else {
+         let _withwidth_pctg_str = ((_withwidth_newsize as f32) / (_withwidth_currsize as f32) * 100.0 ).to_string();
+         _withwidth_pctg_str + "%"
+     };
      $node.style("width".into(),_withwidth_pctg.clone().into());
      $node.style("min-width".into(),_withwidth_pctg.into());
      let mut $inner = &mut $node;
@@ -288,7 +293,9 @@ impl HTMLColon {
             //ret += ";width:var(--current-width)";
             ret += ";max-width:";
             ret += &dimtohtml(self.textwidth).to_string();
-            ret += ";padding-left:";
+            ret += ";--document-width:min(100vw,";
+            ret += &dimtohtml(self.textwidth).to_string();
+            ret += ");padding-left:";
             let padding = ((self.pagewidth - self.textwidth) as f32 / (2.0 * (self.pagewidth as f32)) * 100.0).to_string() + "%";
             ret += padding.as_str();
             //ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
@@ -347,6 +354,7 @@ impl FontInfo {
     }
 }
 pub struct HTMLNode {
+    pub ht:i32,
     pub name:HTMLStr,
     pub namespace:&'static str,
     pub children:Vec<HTMLChild>,
@@ -367,7 +375,7 @@ impl HTMLNode {
         HTMLParent::N(self)
     }
     pub fn new(namespace:&'static str,name:HTMLStr,sourceref:Option<SourceFileReference>) -> HTMLNode { HTMLNode {
-        name,namespace,children:vec!(),classes:vec!(),
+        name,namespace,children:vec!(),classes:vec!(),ht:0,
         attributes:HashMap::new(),styles:HashMap::new(),forcefont:false,
         fontinfo:None,sourceref
     }}
@@ -570,7 +578,7 @@ impl HTMLAnnotation {
             children: std::mem::take(&mut self.children),
             classes: std::mem::take(&mut self.classes),
             attributes: std::mem::take(&mut self.attributes),
-            styles: std::mem::take(&mut self.styles),
+            styles: std::mem::take(&mut self.styles),ht:0,
             forcefont:false,
             fontinfo: std::mem::take(&mut self.fontinfo),
             sourceref: std::mem::take(&mut self.sourceref)

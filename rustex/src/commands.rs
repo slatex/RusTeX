@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
-use crate::{COPY_COMMANDS_FULL, log};
+use crate::log;
 use crate::commands::ProvidesWhatsit::Exec;
 
 pub struct PrimitiveExecutable {

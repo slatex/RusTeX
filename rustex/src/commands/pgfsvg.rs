@@ -1,5 +1,5 @@
 use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
-use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth};
+use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth, INSERT_RUSTEX_ATTRS};
 use crate::interpreter::dimensions::numtostr;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::TeXBox;
@@ -66,6 +66,11 @@ impl WhatsitTrait for PGFEscape {
         match mode {
             ColonMode::External(s) if s.to_string() == "svg" => {
                 htmlnode!(colon,foreignObject,self.sourceref,"",node_top,fo => {
+                    if INSERT_RUSTEX_ATTRS {
+                        fo.attr("rustex:width".into(),dimtohtml(self.bx.width()));
+                        fo.attr("rustex:height".into(),dimtohtml(self.bx.height()));
+                        fo.attr("rustex:depth".into(),dimtohtml(self.bx.depth()));
+                    }
                     let wd = self.bx.width();
                     let ht = self.bx.height() + self.bx.depth();
                     if FIX {

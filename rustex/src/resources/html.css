@@ -147,7 +147,7 @@ a { color: inherit; text-decoration: inherit; }
 }
 
 .script {
-    font-family: URW Chancery L, cursive;
+    /*font-family: URW Chancery L, cursive; /* TODO think about this */
 }
 
 .sansserif {
@@ -183,7 +183,7 @@ a { color: inherit; text-decoration: inherit; }
     flex-wrap: nowrap;
     justify-content: flex-start;
 }
-.vbox { vertical-align: text-bottom }
+.vbox { vertical-align: bottom }
 .vtop {vertical-align: baseline }
 .vcenter{vertical-align: middle}
 
@@ -237,7 +237,7 @@ a { color: inherit; text-decoration: inherit; }
 .hbox-no-space > .space-in-hbox{
     display:none;
 }
-.hbox > .text { display:inline-block}
+.hbox > .text, .hbox > span > .text, .hbox > span > span > .text, .hbox > span > span > span > .text { display:inline-block} /* line-height:0 */
 
 .hboxcontainer {
     display:inline-flex;
@@ -253,6 +253,7 @@ a { color: inherit; text-decoration: inherit; }
     display: inline-block;
     margin-top: auto;
 }
+.paragraph > .text, .paragraph > span > .text, .paragraph > span > span > .text, .paragraph > span > span > span > .text  { display:contents; }
 
 /* ---------------------------------------------------- Rules ------------------------------------------------------- */
 

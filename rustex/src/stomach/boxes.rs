@@ -271,12 +271,15 @@ impl WhatsitTrait for HBox {
                     })
                 }
             }
-            ColonMode::M if self.children.is_empty() =>
+            ColonMode::M if self.children.is_empty() => {
+                htmlnode!(colon,mi,None,"dummy",node_top);
                 htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
+                    mt.attr("stretchy".into(),"false".into());
                     mt.attr("width".into(),dimtohtml(self.width()));
                     mt.attr("height".into(),dimtohtml(self.height()));
                     mt.attr("depth".into(),dimtohtml(self.depth()));
-                }),
+                });
+            }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let oldwd = colon.state.currsize;
                 let mut wd = self.width();
@@ -776,12 +779,15 @@ impl WhatsitTrait for VBox {
                     });
                 });
             }
-            ColonMode::M if self.children.is_empty() =>
+            ColonMode::M if self.children.is_empty() => {
+                htmlnode!(colon,mi,None,"dummy",node_top);
                 htmlnode!(colon,mspace,self.get_ref(),"phantom",node_top,mt => {
+                    mt.attr("stretchy".into(),"false".into());
                     mt.attr("width".into(),dimtohtml(self.width()));
                     mt.attr("height".into(),dimtohtml(self.height()));
                     mt.attr("depth".into(),dimtohtml(self.depth()));
-                }),
+                });
+            }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 let oldwd = colon.state.currsize;
                 let mut wd = self.width();

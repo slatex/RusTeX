@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::HashMap;
 use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
@@ -398,12 +399,18 @@ impl WhatsitTrait for PrintChar {
                     _ => None
                 };;
                 match maybetext {
-                    Some(n) if n.classes.contains(&"text".into()) =>
-                        n.children.push(HTMLChild::Str(str.into())),
+                    Some(n) if n.classes.contains(&"text".into()) =>{
+                        n.children.push(HTMLChild::Str(str.into()));
+                        /*n.style("height".into(),"".into());
+                        n.style("width".into(),"".into());
+                        n.style("line-height".into(),"".into());*/
+                    }
                     _ => htmlnode!(colon,span,None,"text",node_top,span => {
-                        /*let h = self.font.get_height(self.char as u16);
+                        let h = self.font.get_height(self.char as u16);
+                        /*span.ht = h;
                         span.style("height".into(),dimtohtml(h));
-                        span.style("line-height".into(),dimtohtml(h));*/
+                        span.style("width".into(),dimtohtml(self.font.get_width(self.char as u16)));
+                        span.style("line-height".into(),"0".into());*/
                         htmlliteral!(colon,htmlparent!(span),str);
                     })
                 }
