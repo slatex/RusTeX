@@ -474,11 +474,11 @@ impl WhatsitTrait for PDFLink {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => htmlnode!(colon,a,self.get_ref(),"pdflink",node_top,a => {
-                a.attr("href".into(),self.action.as_link().into());
+                a.attr("href".into(),self.action.as_link().replace("&","&amp;").into());
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
             }),
             ColonMode::M => htmlannotate!(colon,mrow,self.get_ref(),node_top,a => {
-                a.attr("href".into(),self.action.as_link().into());
+                a.attr("href".into(),self.action.as_link().replace("&","&amp;").into());
                 for c in self.children { c.as_html(mode,colon,htmlparent!(a)) }
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
@@ -575,8 +575,7 @@ impl WhatsitTrait for PDFMatrixSave {
             _ => false
         }).next() {
             Some(Whatsit::Simple(SimpleWI::PDFMatrix(matrix))) => {
-                htmlnode!(colon,span,self.get_ref(),"pdfmatrix",node_top,m => {
-                    m.style("transform-origin".into(),"top left".into());
+                htmlnode!(colon,div,self.get_ref(),"pdfmatrix",node_top,m => {
                     let mut tf : HTMLStr = "matrix(".into();
                     tf += matrix.scale.to_string();
                     tf += ",";

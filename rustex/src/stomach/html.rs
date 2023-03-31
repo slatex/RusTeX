@@ -49,9 +49,48 @@ impl HTMLState {
 }
 
 #[macro_export]
+macro_rules! setwidth {
+    ($colon:ident,$wd:expr,$node:expr) => ({
+        let _withwidth_pctg = (($wd as f32) / ($colon.state.currsize as f32));
+         if _withwidth_pctg == 1.0 {
+             $node.style("width".into(),"var(--document-width)".into());
+             $node.style("min-width".into(),"var(--document-width)".into());
+        } else {
+            let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
+             $node.style("width".into(),_withwidth_str.clone().into());
+             $node.style("min-width".into(),_withwidth_str.into());
+        };
+    })
+}
+
+#[macro_export]
 macro_rules! withwidth {
- ($colon:ident,$wd:expr,$node:expr,$inner:ident,$e:expr) => ({
-     let _withwidth_currsize = $colon.state.currsize;
+ ($colon:ident,$wd:expr,$node:expr,$inner:ident => $e:expr) => ({
+     if $wd == 0 {
+         $node.style("width".into(),"0".into());
+         $node.style("min-width".into(),"0".into());
+         let mut $inner = &mut $node;
+         $e
+     } else {
+         let _withwidth_currsize = $colon.state.currsize;
+         $colon.state.currsize = $wd;
+         let _withwidth_pctg = (($wd as f32) / (_withwidth_currsize as f32));
+         if _withwidth_pctg == 1.0 {
+             $node.style("width".into(),"var(--document-width)".into());
+             $node.style("min-width".into(),"var(--document-width)".into());
+             let mut $inner = &mut $node;
+             $e
+         } else {
+             let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
+             $node.style("--temp-width".into(),_withwidth_str.into());
+             $node.classes.push("withwidth".into());
+             htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
+                $e
+             });
+             $colon.state.currsize = _withwidth_currsize;
+         }
+     }
+     /*let _withwidth_currsize = $colon.state.currsize;
      let _withwidth_newsize = $wd;//if $wd == 0 {8192} else {$wd};
      $colon.state.currsize = _withwidth_newsize;
      let _withwidth_pctg = if _withwidth_currsize == 0 {
@@ -63,9 +102,11 @@ macro_rules! withwidth {
      };
      $node.style("width".into(),_withwidth_pctg.clone().into());
      $node.style("min-width".into(),_withwidth_pctg.into());
-     let mut $inner = &mut $node;
-     $e
-     $colon.state.currsize = _withwidth_currsize;
+     $node.classes.push("withheight".into());
+     htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
+        $e
+     });
+     $colon.state.currsize = _withwidth_currsize;*/
  });
 }
 #[macro_export]

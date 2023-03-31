@@ -130,7 +130,7 @@ impl WhatsitTrait for Paragraph {
                 for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
             } else {
                 if negwd <= 0 {
-                    withwidth!(colon,wd,node,inner,{
+                    withwidth!(colon,wd,node,inner => {
                         for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
                     });
                 } else {

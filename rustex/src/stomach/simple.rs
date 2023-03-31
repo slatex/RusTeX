@@ -13,7 +13,7 @@ use crate::stomach::html::{dimtohtml, HTMLChild, HTMLColon, HTMLNode, HTMLParent
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
-use crate::{htmlliteral, htmlnode, htmlparent, Token };
+use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token};
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -320,28 +320,27 @@ impl WhatsitTrait for VRule {
                 });
             }),
             _ => htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
-            m.style("height".into(),dimtohtml(self.height() + self.depth()));
-            let width = self.width();
-            if 3.1*(width as f32) > (colon.textwidth as f32) {
-                let top_width = colon.state.currsize;
-                m.style("width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
-                m.style("min-width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
-            } else {
-                m.style("width".into(),dimtohtml(self.width()));
-                m.style("min-width".into(),dimtohtml(self.width()));
-            }
-        htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
-            n.style("width".into(),"100%".into());
-            n.style("height".into(),dimtohtml(self.height() + self.depth()));
-            n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
-            n.style("background".into(),match &colon.state.currcolor {
-                Some(c) => HTMLStr::from("#") + c,
-                None => "#000000".into()
-            });
-            if self.depth() != 0 {
-                n.style("margin-bottom".into(),dimtohtml(-self.depth()))
-            }
-        })})
+                m.style("height".into(),dimtohtml(self.height() + self.depth()));
+                let width = self.width();
+                if 3.1*(width as f32) > (colon.textwidth as f32) {
+                    setwidth!(colon,width,m);
+                } else {
+                    m.style("width".into(),dimtohtml(self.width()));
+                    m.style("min-width".into(),dimtohtml(self.width()));
+                }
+                htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
+                    n.style("width".into(),"100%".into());
+                    n.style("height".into(),dimtohtml(self.height() + self.depth()));
+                    n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
+                    n.style("background".into(),match &colon.state.currcolor {
+                        Some(c) => HTMLStr::from("#") + c,
+                        None => "#000000".into()
+                    });
+                    if self.depth() != 0 {
+                        n.style("margin-bottom".into(),dimtohtml(-self.depth()))
+                    }
+                })
+            })
         }
     }
 }
@@ -377,9 +376,7 @@ impl WhatsitTrait for HRule {
         htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
             let width = self.width();
-            let top_width = colon.state.currsize;
-            m.style("width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
-            m.style("min-width".into(),(((width as f32 * 100.0) / (top_width as f32)).to_string() + "%").into());
+            setwidth!(colon,width,m);
         htmlnode!(colon,div,self.sourceref.clone(),"hrule",htmlparent!(m),n => {
             n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
@@ -470,6 +467,9 @@ impl WhatsitTrait for HSkip {
                 }),
             ColonMode::M =>
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                    if self.skip.base < 0 {
+                        a.style("margin-left".into(),dimtohtml(self.skip.base));
+                    }
                     a.attr("width".into(),dimtohtml(self.skip.base))
                 }),
             _ => ()//TeXErr!("TODO")
@@ -511,11 +511,14 @@ impl WhatsitTrait for MSkip {
         match mode {
             ColonMode::M =>
                 htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                    if self.skip.base < 0 {
+                        a.style("margin-left".into(),(self.skip.get_em().to_string() + "em").into());
+                    }
                     a.attr("width".into(),(self.skip.get_em().to_string() + "em").into()) // 1179648
                 }),
             ColonMode::H | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
-                    node.style("margin-left".into(),(self.skip.get_em().to_string() + "em").into());
+                    node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
             _ => ()//TeXErr!("TODO")
         }
@@ -861,7 +864,10 @@ impl WhatsitTrait for HKern {
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        colon.state.add_kern(self.dim);
+        //colon.state.add_kern(self.dim);
+        htmlnode!(colon,div,self.get_ref(),"hkern",node_top,node => {
+            node.style("margin-left".into(),dimtohtml(self.dim));
+        });
     }
 }
 

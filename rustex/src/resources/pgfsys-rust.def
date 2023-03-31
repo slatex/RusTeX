@@ -98,7 +98,7 @@
         }{}%
     }%
     \pgf@sys@svg@node{use}{%
-        xlink:href="\#\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}"%
+        href="\#\pgfsys@if@fresh@currentid{\pgf@sys@cacheref}{pgfcp\the\pgf@sys@svg@objectcount}"%
         \ifx\pgfsys@anim@ba@d\pgfutil@empty\else%
         \ifx\pgfsys@anim@ba@markerstart\pgfutil@empty\else%
             marker-start="url(\#\pgfsys@anim@ba@markerstart)"%
@@ -747,9 +747,9 @@
 \def\pgfsys@setpatternuncolored#1#2#3#4{%
   \global\advance\pgf@sys@svg@objectcount by1\relax%
   \pgf@sys@svg@color@rgb#2,#3,#4\relax%
-  \pgf@sys@svg@node{pattern}{id="pgfupat\the\pgf@sys@svg@objectcount" xlink:href="\#pgfpat#1"}{
+  \pgf@sys@svg@node{pattern}{id="pgfupat\the\pgf@sys@svg@objectcount" href="\#pgfpat#1"}{
     \pgf@sys@svg@node{g}{stroke="\pgf@sys@svg@prepared" fill="\pgf@sys@svg@prepared"}{
-        \pgf@sys@svg@node{use}{xlink:href="\#pgfsym#1"}{}
+        \pgf@sys@svg@node{use}{href="\#pgfsym#1"}{}
     }
   }
   \pgf@sys@svg@ref@defs{#1}%
@@ -789,7 +789,7 @@
 \let\pgfsys@anim@val@@type\pgfutil@empty
 \let\pgfsys@anim@val@base\pgfutil@empty
 \let\pgfsys@anim@val@idref\pgfutil@empty
-\expandafter\let\csname pgfsys@anim@val@xlink:href\endcsname\pgfutil@empty
+\expandafter\let\csname pgfsys@anim@val@href\endcsname\pgfutil@empty
 
 \def\pgf@sys@svg@key#1{%
   \expandafter\ifx\csname pgfsys@anim@val@#1\endcsname\pgfutil@empty\else%
@@ -816,7 +816,7 @@
   \pgf@sys@svg@key{to}%
   \pgf@sys@svg@key{path}%
   \pgf@sys@svg@key{rotate}%
-  \pgf@sys@svg@key{xlink:href}%
+  \pgf@sys@svg@key{href}%
 }
 
 \newif\ifpgf@sys@at@least@one@event
@@ -925,7 +925,7 @@
       \edef\pgf@sys@svg@add@code{%
         \noexpand\pgf@sys@svg@ref@defs{pgfs\pgf@svg@anim@marker@start}%
         \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
-          \pgf@sys@svg@node{use}{xlink:href="\#pgfs\pgf@svg@anim@marker@start" transform="scale(-1,-1)"}{}%
+          \pgf@sys@svg@node{use}{href="\#pgfs\pgf@svg@anim@marker@start" transform="scale(-1,-1)"}{}%
         }
       }%
       \let\pgf@sys@svg@marker@id@start\pgf@sys@svg@marker@id%
@@ -939,7 +939,7 @@
       \edef\pgf@sys@svg@add@code@{%
         \noexpand\pgf@sys@svg@ref@defs{pgfs\pgf@svg@anim@marker@end}%
         \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
-          \pgf@sys@svg@node{use}{xlink:href="\#pgfs\pgf@svg@anim@marker@end"}{}
+          \pgf@sys@svg@node{use}{href="\#pgfs\pgf@svg@anim@marker@end"}{}
         }
       }%
       \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\pgf@sys@svg@add@code\expandafter\expandafter\expandafter{\expandafter\pgf@sys@svg@add@code\pgf@sys@svg@add@code@}%
@@ -988,7 +988,7 @@
             \pgf@sys@svg@key{fill}%
             \pgf@sys@svg@key{begin}%
             \pgf@sys@svg@key{end}%
-            \pgf@sys@svg@key{xlink:href}%
+            \pgf@sys@svg@key{href}%
             from="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"%
             to="\ifx\pgf@svg@anim@marker@start\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@start)\fi"%
           }{}%
@@ -1001,7 +1001,7 @@
             \pgf@sys@svg@key{fill}%
             \pgf@sys@svg@key{begin}%
             \pgf@sys@svg@key{end}%
-            \pgf@sys@svg@key{xlink:href}
+            \pgf@sys@svg@key{href}
             from="\ifx\pgf@svg@anim@marker@end\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@end)\fi"
             to="\ifx\pgf@svg@anim@marker@end\pgfutil@empty none\else url(\#\pgf@sys@svg@marker@id@end)\fi"
           }{}
@@ -1079,7 +1079,7 @@
     \pgf@sys@svg@do@events{end}%
     #2%
     \pgfsys@register@type{\pgfsys@anim@val@@type}%
-    \pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id canvas\the\pgf@sys@svg@canvascount}{\pgfsys@anim@val@@type}}%
+    \pgf@sys@svg@replace{href}{\#\pgfsys@id@ref{\pgfsys@anim@val@@id canvas\the\pgf@sys@svg@canvascount}{\pgfsys@anim@val@@type}}%
     \ifx\pgfsys@anim@val@base\pgfutil@empty%
       \let\pgf@sys@svg@base@trans\pgfutil@empty%
     \else%
@@ -1223,7 +1223,7 @@
 \pgfsys@if@fresh@id{#1}{#2}{}{\pgferror{Animations must precede the to-be-animated objects (``whom'')}}%
 \pgf@sys@svg@replace{@id}{#1}%
 \pgf@sys@svg@replace{@type}{#2}%
-\pgf@sys@svg@replace{xlink:href}{\#\pgfsys@id@ref{#1}{#2}}%
+\pgf@sys@svg@replace{href}{\#\pgfsys@id@ref{#1}{#2}}%
 \pgf@sys@svg@replace{idref}{\pgfsys@id@ref{#1}{#2}}%
 }
 \def\pgfsys@animation@restart@always{\pgf@sys@svg@replace{restart}{always}}
@@ -1527,7 +1527,7 @@
 
 \def\pgfsys@marker@use#1{%
   \pgf@sys@svg@ref@defs{pgfs#1}%
-  \pgf@sys@svg@node{use}{xlink:href="\#pgfs#1"}{}%
+  \pgf@sys@svg@node{use}{href="\#pgfs#1"}{}%
 }
 
 \def\pgfsys@marker@at@begin@usedpath#1{\def\pgf@sys@svg@marker@begin{#1}\let\pgf@sys@svg@marker@begin@use\pgfutil@empty}
@@ -1544,7 +1544,7 @@
   \global\advance\pgf@sys@svg@objectcount by1\relax%
   \edef\pgf@sys@svg@marker@id{pgf\the\pgf@sys@svg@objectcount}%
   \pgf@sys@svg@node{marker}{id="\pgf@sys@svg@marker@id" markerUnits="userSpaceOnUse" orient="auto" overflow="visible"}{%
-    \pgf@sys@svg@node{use}{xlink:href="\#pgfs#1"#2}{}
+    \pgf@sys@svg@node{use}{href="\#pgfs#1"#2}{}
   }
   \edef#3{marker-#4="url(\#\pgf@sys@svg@marker@id)" }%
 }

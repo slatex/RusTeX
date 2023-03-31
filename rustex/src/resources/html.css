@@ -136,6 +136,7 @@ a { color: inherit; text-decoration: inherit; }
     font-style: normal;
     font-weight: 400;
     font-variant: normal;
+    --temp-width:0
 }
 
 .monospaced {
@@ -234,7 +235,7 @@ a { color: inherit; text-decoration: inherit; }
     margin-left: auto;
     margin-right: auto;
 }
-.hbox-no-space > .space-in-hbox{
+.hbox-no-space > .space-in-hbox, .hbox-no-space > span > .space-in-hbox, .hbox-no-space > span > span > .space-in-hbox {
     display:none;
 }
 .hbox > .text, .hbox > span > .text, .hbox > span > span > .text, .hbox > span > span > span > .text { display:inline-block} /* line-height:0 */
@@ -338,6 +339,20 @@ hr {width: 100%;}
     height: 100%;
     text-align: center;
     justify-content: center;
-    align-content: center;
+    /*align-content: center;*/
     flex-wrap: wrap;
+}
+svg, foreignObject {
+    overflow: visible;
+}
+.pdfmatrix {
+    transform-origin: bottom left;
+    display: inline-block;
+}
+.withwidth {
+    width: var(--temp-width);
+    min-width: var(--temp-width);
+}
+.withwidth > span {
+    --document-width: var(--temp-width);
 }

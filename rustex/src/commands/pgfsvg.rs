@@ -73,7 +73,18 @@ impl WhatsitTrait for PGFEscape {
                     }
                     let wd = self.bx.width();
                     let ht = self.bx.height() + self.bx.depth();
-                    if FIX {
+                    let finwd = if FIX {
+                        fo.style("width".into(),dimtohtml(wd + 655360));
+                        fo.style("height".into(),dimtohtml(ht + 655360));
+                        fo.style("translate".into(),"0 " + dimtohtml(-self.bx.height() - 327680));
+                        wd + 655360
+                    } else {
+                        fo.style("width".into(),dimtohtml(wd));
+                        fo.style("height".into(),dimtohtml(ht));
+                        fo.style("translate".into(),"0 " + dimtohtml(-self.bx.height()));
+                        wd
+                    };
+                    /*if FIX {
                         fo.style("width".into(),dimtohtml(wd + 655360));
                         fo.style("height".into(),dimtohtml(ht + 655360));
                         fo.style("translate".into(),dimtohtml(-305834) + " " +
@@ -81,10 +92,14 @@ impl WhatsitTrait for PGFEscape {
                     } else {
                         fo.style("width".into(),dimtohtml(wd));
                         fo.style("height".into(),dimtohtml(ht));
-                    }
+                    } */
+                    let oldsize = colon.state.currsize;
+                    colon.state.currsize = finwd;
+                    fo.style("--document-width".into(),dimtohtml(finwd));
                     htmlnode!(colon,HTML_NS:div,None,"foreign",htmlparent!(fo),div => {
                         self.bx.as_html(&ColonMode::H,colon,htmlparent!(div))
-                    })
+                    });
+                    colon.state.currsize = oldsize;
                 })
             }
             _ => self.bx.as_html(mode,colon,node_top)
@@ -198,9 +213,9 @@ impl WhatsitTrait for PGFBox {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,HTML_NS:div,None,"",node_top,div => {
-            div.style("display".into(),"inline-block".into());
-            withwidth!(colon,self.maxx-self.minx,div,inner,{
+        htmlnode!(colon,HTML_NS:div,None,"",node_top,idiv => {
+            idiv.style("display".into(),"inline-block".into());
+            withwidth!(colon,self.maxx-self.minx,idiv,inner => {
                 htmlnode!(colon,SVG_NS:svg,self.sourceref,"",htmlparent!(inner),svg => {
                     let mut vb : HTMLStr = numtohtml(self.minx); //numtostr(HTMLSCALE * self.minx,"").into();
                     vb += " ";
@@ -597,7 +612,7 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
                 "clip-path","fill-rule","opacity","stroke-opacity","fill-opacity",
                 "transform","stroke-dasharray","stroke-dashoffset","stroke-width",
                 "stroke","fill","id","marker-start","marker-end","d","fill",
-                "visibility","stroke-linecap","stroke-linejoin","xlink:href",
+                "visibility","stroke-linecap","stroke-linejoin","href",
                 "fx","fy","stroke-miterlimit","patternUnits","patternTransform",
                 "markerUnits","orient","overflow","attributeName","from","to",
                 "animateTransform","animateMotion","type",
