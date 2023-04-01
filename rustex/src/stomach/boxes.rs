@@ -286,7 +286,7 @@ impl WhatsitTrait for HBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"contents",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
@@ -862,7 +862,7 @@ impl WhatsitTrait for VBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"contents",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

@@ -111,23 +111,15 @@
     src: url('https://fonts.cdnfonts.com/s/267/lmsans10-boldoblique.otf');
 }
 
-@font-face {
-    font-family: 'cmr17';
-    src: url('file:///home/jazzpirate/Documents/Cmr17.woff2') format('woff2'),
-    url('file:///home/jazzpirate/Documents/Cmr17.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ----------------------------------------------------- CSS -------------------------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 * { position:relative;}
-span {display: contents}
-div {display: inherit; white-space: normal}
+div {white-space: normal}
 a { color: inherit; text-decoration: inherit; }
+
+.contents {display:contents}
 
 /* ---------------------------------------------------- Fonts ------------------------------------------------------- */
 

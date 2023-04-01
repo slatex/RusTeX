@@ -21,7 +21,8 @@ pub struct Paragraph {
     pub _width:i32,
     pub _height:i32,
     pub _depth:i32,
-    lines : Option<Vec<(i32,i32)>>
+    lines : Option<Vec<(i32,i32)>>,
+    pub finallines:usize
 }
 
 impl WhatsitTrait for Paragraph {
@@ -46,7 +47,6 @@ impl WhatsitTrait for Paragraph {
         ret.push(Whatsit::Par(np))
     }
     fn as_html(mut self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlliteral!(colon,node_top,"\n");
         if self.children.is_empty() {return ()};
         if self.children.len() == 1 {
             match self.children.first() {
@@ -54,6 +54,7 @@ impl WhatsitTrait for Paragraph {
                 _ => ()
             }
         }
+        htmlliteral!(colon,node_top,"\n");
         htmlnode!(colon,div,self.get_ref(),"paragraph",node_top,node => {
             match self.lines.as_ref().unwrap().last() {
                 Some((a,b)) if *a != 0 => {
@@ -134,7 +135,11 @@ impl WhatsitTrait for Paragraph {
                         for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
                     });
                 } else {
-                    colon.state.currsize = wd;
+                    //colon.state.currsize = wd;
+                    withwidth!(colon,wd,node,inner => {
+                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+                    });
+                    /*
                     let pctg = ((fullwidth as f32) / (currsize as f32) * 100.0).to_string();
                     let str = "calc(".to_string() + &pctg + "% - " + &dimtohtml(negwd).to_string() + ")";
                     node.style("width".into(),str.clone().into());
@@ -142,6 +147,7 @@ impl WhatsitTrait for Paragraph {
                     //htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
                     for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
                     //})
+                     */
                 }
             }
             colon.state.currsize = currsize;
@@ -170,7 +176,7 @@ impl Paragraph {
             _width:self._width,
             _height:self._height,
             _depth:self._depth,
-            lines:self.lines
+            lines:self.lines,finallines:self.finallines
         };
         (np,self.children)
     }
@@ -374,7 +380,7 @@ impl Paragraph {
                 }
                 Whatsit::Math(mg) if mg.limits => {
                     currentwidth = 0;
-                    currentheight += currentlineheight;
+                    currentheight += currentlineheight + currentdepth;
                     currentheight += 2*mg.height();
                     currentlineheight = 0;
                     currentdepth = 0;
@@ -385,16 +391,16 @@ impl Paragraph {
                     let width = wi.width();
                     if currentwidth + width > hgoal {
                         currentwidth = 0;
-                        currentheight += currentlineheight;
+                        currentheight += currentlineheight + currentdepth;
                         currentlineheight = 0;
                         currentdepth = 0;
                         currline += 1;
                         hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                     }
-                    currentlineheight = max(currentlineheight,match wi {
-                        Whatsit::Char(_) => max(wi.height(),lineheight),
-                        _ => wi.height()
-                    });
+                    currentlineheight = max(
+                        currentlineheight,
+                        max(wi.height(),lineheight)
+                    );
                     currentdepth = max(currentdepth,wi.depth());
                     currentwidth += width
                 }
@@ -402,10 +408,11 @@ impl Paragraph {
         }
         self._height = currentheight + currentlineheight;
         self._depth = currentdepth;
+        self.finallines = currline + 1;
     }
     pub fn new(parskip:i32) -> Paragraph { Paragraph {
         parskip,children:vec!(),
         leftskip:None,rightskip:None,hsize:None,lineheight:None,
-        _width:0,_height:0,_depth:0,lines:None
+        _width:0,_height:0,_depth:0,lines:None,finallines:0
     }}
 }

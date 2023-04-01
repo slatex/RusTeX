@@ -3,7 +3,7 @@ use crate::interpreter::{Interpreter, TeXMode};
 use crate::ontology::Token;
 use crate::utils::{TeXError, TeXString};
 use std::str::FromStr;
-use crate::commands::{TokReference, PrimitiveTeXCommand, AssignableValue};
+use crate::commands::{TokReference, PrimitiveTeXCommand, AssignableValue, TokenList};
 use crate::{TeXErr,FileEnd,log};
 use crate::catcodes::CategoryCode::BeginGroup;
 use crate::commands::primitives::{HANGINDENT, PARSHAPE};
@@ -19,6 +19,9 @@ impl Interpreter<'_> {
     pub fn insert_every(&mut self,tr:&TokReference) {
         let i = tr.index - 1;
         let insert = self.state.toks_prim.get(&i);
+        if unsafe {crate::LOG} {
+            log!("Insert Every: {}",TokenList(&insert));
+        }
         self.push_tokens(insert)
     }
 
@@ -326,6 +329,7 @@ impl Interpreter<'_> {
             },
             BoxMode::V => {
                 if insertevery { self.insert_every(&crate::commands::registers::EVERYVBOX) };
+                self.stomach.reset_par(&mut self.state);
                 TeXMode::InternalVertical
             },
             BoxMode::M => TeXMode::Math,

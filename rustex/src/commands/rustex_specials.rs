@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use crate::commands::{Conditional, NumericCommand, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
-use crate::{htmlannotate, htmlliteral, htmlparent, TeXErr};
+use crate::{htmlannotate, htmlliteral, htmlparent, log, TeXErr};
 use crate::interpreter::dimensions::Numeric;
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
@@ -292,8 +292,7 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
         use std::io::{self, Write};
         let prev = int.preview();
         unsafe {crate::LOG = true}
-        //println!("BREAK! {}",prev);
-        io::stdout().flush().unwrap();
+        log!("BREAK! {}",prev);
         Ok(())
     },
     expandable: true,

@@ -76,6 +76,7 @@ pub struct Interpreter<'a> {
 }
 use crate::{TeXErr,FileEnd};
 use crate::commands::primitives::{ENDTEMPLATE, LEFT, RIGHT};
+use crate::commands::registers::PREVGRAF;
 use crate::interpreter::params::InterpreterParams;
 
 pub fn string_to_tokens(s : TeXString) -> Vec<Token> {
@@ -488,6 +489,7 @@ impl Interpreter<'_> {
         self.insert_every(&crate::commands::registers::EVERYPAR);
         let parskip = self.state.skips_prim.get(&(crate::commands::registers::PARSKIP.index - 1));
         self.stomach.borrow_mut().start_paragraph(parskip.base);
+        self.state.registers_prim.set((PREVGRAF.index - 1),0,true);
         if indent != 0 {
             self.stomach_add(Indent {
                 dim: indent,
@@ -534,6 +536,7 @@ impl Interpreter<'_> {
             self.insert_every(&crate::commands::registers::EVERYMATH);
             m
         };
+        self.state.registers_prim.set((PREVGRAF.index - 1),10,true);
         self.state.displaymode.set(display,false);
         let ret = Interpreter::build_mathgroup(self.read_math_group(bm,true)?,display);
         self.state.mode = _oldmode;

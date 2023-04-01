@@ -1,7 +1,7 @@
 use std::borrow::BorrowMut;
 pub use crate::stomach::whatsits::Whatsit;
 use crate::{Interpreter, log, TeXErr};
-use crate::commands::{DefMacro, registers};
+use crate::commands::{DefMacro, PrimitiveTeXCommand, registers, Signature, TokenList};
 use crate::fonts::{ArcFont, Font};
 use crate::interpreter::state::{GroupType, State};
 use crate::stomach::groups::{ColorChange, EndGroup, GroupClose, WIGroup, WIGroupCloseTrait, WIGroupTrait};
@@ -13,6 +13,7 @@ use std::sync::{Arc, mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use crate::commands::registers::PREVGRAF;
 use crate::interpreter::params::InterpreterParams;
+use crate::ontology::Token;
 use crate::stomach::boxes::{HBox, TeXBox};
 
 pub mod whatsits;
@@ -236,7 +237,6 @@ pub trait Stomach : Send {
 
     fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
         self.flush()?;
-        state.registers_prim.set((PREVGRAF.index - 1),0,true);
         let mut p = self.end_paragraph_loop()?;
         let hangindent = state.hangindent.get();
         let hangafter = state.hangafter.get();
@@ -246,6 +246,7 @@ pub trait Stomach : Send {
             println!("here")
         }*/
         p.close(state,hangindent,hangafter,parshape);
+        state.registers_prim.set((PREVGRAF.index - 1),p.finallines as i32,true);
         self.add_inner_actually(Whatsit::Par(p))?;
         self.reset_par(state);
         Ok(())
@@ -809,33 +810,56 @@ impl NoShipoutRoutine {
             floatcmd:None
         }
     }
+    fn get_macro(state: &mut State, s:&str,v: &mut Vec<TeXStr>) {
+        use crate::commands::PrimitiveTeXCommand;
+        match state.commands.get(&s.into()) {
+            None => (),
+            Some(cmd) => match &*cmd.orig {
+                PrimitiveTeXCommand::Def(df) => for t in &df.ret {
+                    v.push(t.cmdname())
+                },
+                _ => ()
+            }
+        }
+    }
+    fn clear(state: &mut State, s:&str) {
+        let empty = DefMacro {
+            protected:false,long:false,sig:Signature{elems:vec!(),endswithbrace:false,arity:0},ret:vec!()
+        };
+        state.commands.set(s.into(),Some(PrimitiveTeXCommand::Def(empty).as_command()),true)
+    }
     fn do_floats(&mut self, state: &mut State, params:&dyn InterpreterParams) -> Result<(), TeXError> {
         use crate::commands::PrimitiveTeXCommand;
         use crate::catcodes::CategoryCode::*;
-        //for s in &self.floatlist { println!("{}",s)}
-        let inserts = std::mem::take(&mut state.inserts).into_iter().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
-        let cmd = state.commands.get(&"@freelist".into()).unwrap();
-        let floatregs : Vec<i32> = match &*cmd.orig {
-            PrimitiveTeXCommand::Def(df) if *df != *self.floatcmd.as_ref().unwrap() => {
-                let mut freefloats: Vec<TeXStr> = vec!();
-                for tk in &df.ret {
-                    match (tk.catcode, tk.cmdname()) {
-                        (_, s) if &s == "@elt" => (),
-                        (Escape, o) => freefloats.push(o.clone()),
-                        _ => ()
-                    }
-                }
-                self.floatlist.iter().filter(|(x,_)| !freefloats.contains(x)).map(|(_,i)| *i).collect()
-            }
-            _ => vec!()
-        };
         use crate::stomach::simple::*;
         use crate::interpreter::dimensions::*;
+        use std::collections::HashSet;
+
+        let inserts = std::mem::take(&mut state.inserts).into_iter().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
         if !inserts.is_empty() {
             self.add(state,params,Whatsit::Inserts(Insert(inserts)))?;
             self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
         }
-        if !floatregs.is_empty() {
+
+        let mut macrs: Vec<TeXStr> = vec!();
+        NoShipoutRoutine::get_macro(state,"@currlist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@toplist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@midlist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@botlist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@deferlist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@dbltoplist",&mut macrs);
+        NoShipoutRoutine::get_macro(state,"@dbldeferlist",&mut macrs);
+        if !macrs.is_empty() {
+            let elt: TeXStr = "@elt".into();
+            macrs = macrs.into_iter().filter(|tk| *tk != elt).collect();
+            NoShipoutRoutine::clear(state,"@currlist");
+            NoShipoutRoutine::clear(state,"@toplist");
+            NoShipoutRoutine::clear(state,"@midlist");
+            NoShipoutRoutine::clear(state,"@botlist");
+            NoShipoutRoutine::clear(state,"@deferlist");
+            NoShipoutRoutine::clear(state,"@dbltoplist");
+            NoShipoutRoutine::clear(state,"@dbldeferlist");
+            let floatregs : HashSet<i32> = self.floatlist.iter().filter(|(x,_)| macrs.contains(x)).map(|(_,i)| *i).collect();
             state.commands.set("@freelist".into(),
                                Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true);
             self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
@@ -845,6 +869,7 @@ impl NoShipoutRoutine {
                 self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             }
         }
+
         Ok(())
     }
     fn get_float_list(&mut self, state: &State) -> Vec<(TeXStr,i32)> {

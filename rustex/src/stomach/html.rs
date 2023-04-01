@@ -84,7 +84,7 @@ macro_rules! withwidth {
              let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
              $node.style("--temp-width".into(),_withwidth_str.into());
              $node.classes.push("withwidth".into());
-             htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
+             htmlnode!($colon,span,None,"contents",htmlparent!($node),$inner => {
                 $e
              });
              $colon.state.currsize = _withwidth_currsize;
@@ -613,6 +613,7 @@ impl HTMLAnnotation {
                 _ => ()
             }
         }
+        self.classes.push("contents".into());
         HTMLNode {
             name: self.name.clone(),
             namespace:self.namespace,
