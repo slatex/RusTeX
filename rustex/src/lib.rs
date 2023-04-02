@@ -15,7 +15,7 @@ pub const STACK_SIZE : usize = 16 * 1024 * 1024;
 pub static mut LOG : bool = false;
 static STORE_IN_FILE : bool = false;
 static COPY_TOKENS_FULL : bool = true;
-static INSERT_RUSTEX_ATTRS: bool = true;
+static INSERT_RUSTEX_ATTRS: bool = false;
 
 #[macro_export]
 macro_rules! log {

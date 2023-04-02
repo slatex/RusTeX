@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use crate::commands::{Conditional, NumericCommand, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
 use crate::commands::conditionals::dotrue;
-use crate::{htmlannotate, htmlliteral, htmlparent, log, TeXErr};
-use crate::interpreter::dimensions::Numeric;
+use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent, log, TeXErr};
+use crate::interpreter::dimensions::{Numeric, pt};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, GroupClose, WIGroup};
-use crate::stomach::html::{HTMLAnnotation, HTMLChild, HTMLColon, HTMLParent, HTMLSCALE, HTMLStr};
+use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::WhatsitTrait;
@@ -122,10 +122,20 @@ pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
 };
 
 #[derive(PartialEq,Clone)]
+enum Sized {
+    None,
+    Plus(i32),
+    Minus(i32),
+    Times(f32)
+}
+
+#[derive(PartialEq,Clone)]
 struct AnnotateBegin {
     sourceref:Option<SourceFileReference>,
     attrs:HashMap<String,String>,
-    styles:HashMap<String,String>
+    styles:HashMap<String,String>,
+    classes:Vec<String>,
+    block:bool,sized:Sized
 }
 impl ExternalWhatsitGroup for AnnotateBegin {
     fn get_ref(&self,ch : &Vec<Whatsit>) -> Option<SourceFileReference> {
@@ -181,12 +191,38 @@ impl ExternalWhatsitGroup for AnnotateBegin {
     fn as_html(&self,ch:Vec<Whatsit>, mode: &ColonMode, colon:&mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         //println!("-----------------------------------------------------------------------------\n\n{}",self.as_xml_internal(&ch,"".to_string()));
         match mode {
+            ColonMode::H | ColonMode::V | ColonMode::P if self.block => htmlnode!(colon,div,self.get_ref(&ch),"",node_top,d => {
+                for (k,v) in &self.attrs {
+                    d.attr(k.into(),v.into())
+                }
+                for (k,v) in &self.styles {
+                    d.style(k.into(),v.into())
+                }
+                for c in &self.classes {
+                    d.classes.push(c.into());
+                }
+                let str : Option<HTMLStr> = match self.sized {
+                    Sized::None => None,
+                    Sized::Plus(i) => Some(<&str as Into<HTMLStr>>::into("calc(var(--document-width) + ") + dimtohtml(i) + ")"),
+                    Sized::Minus(i) => Some(<&str as Into<HTMLStr>>::into("calc(var(--document-width) - ") + dimtohtml(i) + ")"),
+                    Sized::Times(f) => Some(<&str as Into<HTMLStr>>::into("calc(var(--document-width) * ") + f.to_string().as_str() + ")")
+                };
+                htmlnode!(colon,div,None,"withwidth",htmlparent!(d),d2 => {
+                    if let Some(str) = str { d2.style("--temp-width".into(),str) }
+                    htmlnode!(colon,span,None,"contents",htmlparent!(d2),inner => {
+                        for c in ch { c.as_html(mode,colon,htmlparent!(inner))}
+                    });
+                });
+            }),
             ColonMode::H | ColonMode::V | ColonMode::P => htmlannotate!(colon,span,self.get_ref(&ch),node_top,a => {
                 for (k,v) in &self.attrs {
                     a.attr(k.into(),v.into())
                 }
                 for (k,v) in &self.styles {
                     a.style(k.into(),v.into())
+                }
+                for c in &self.classes {
+                    a.classes.push(c.into());
                 }
                 for c in ch {
                     c.as_html(mode,colon,htmlparent!(a))
@@ -198,6 +234,9 @@ impl ExternalWhatsitGroup for AnnotateBegin {
                 }
                 for (k,v) in &self.styles {
                     a.style(k.into(),v.into())
+                }
+                for c in &self.classes {
+                    a.classes.push(c.into());
                 }
                 for c in ch {
                     c.as_html(mode,colon,htmlparent!(a))
@@ -223,12 +262,13 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
     _get: |tk, int| {
         let tks = int.read_balanced_argument(true,false,false,false)?;
         let str = int.tokens_to_string(&tks).to_string().trim().to_string();
-        let mut annotate = AnnotateBegin {sourceref:int.update_reference(tk),attrs:HashMap::new(),styles:HashMap::new()};
+        let mut annotate = AnnotateBegin {sourceref:int.update_reference(tk),attrs:HashMap::new(),styles:HashMap::new(),classes:vec!(),block:false,sized:Sized::None};
         let mut index = 0;
         'outer: loop {
             if str.as_bytes().get(index).is_none() { break }
             let mut attr : Vec<u8> = vec!();
             let mut isstyle = false;
+            let mut isclass = false;
             loop {
                 match str.as_bytes().get(index) {
                     None => break 'outer,
@@ -236,6 +276,17 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
                         index += 1;
                         isstyle = true;
                         attr = vec!()
+                    }
+                    Some(61) if isstyle && attr == vec!(99,108,97,115,115) => {
+                        index += 1;
+                        isclass = true;
+                        match str.as_bytes().get(index) {
+                            Some(34) /* " */ => {
+                                index += 1;
+                                break
+                            }
+                            _ => TeXErr!("Expected \" after = in \\rustex@annotateHTML")
+                        }
                     }
                     Some(61) /* = */ => {
                         index += 1;
@@ -247,32 +298,65 @@ pub static ANNOTATE_BEGIN: SimpleWhatsit = SimpleWhatsit {
                             _ => TeXErr!("Expected \" after = in \\rustex@annotateHTML")
                         }
                     }
-                    Some(32) if attr.is_empty() => index += 1,
+                    Some(32) => index += 1,
                     Some(o) => {
                         attr.push(*o);
                         index += 1
                     }
                 }
             }
-            let mut value : Vec<u8> = vec!();
-            loop {
-                match str.as_bytes().get(index) {
-                    None => break 'outer,
-                    Some(34) => {
-                        index +=1;
-                        break
-                    }
-                    Some(o) => {
-                        value.push(*o);
-                        index += 1
+            if attr== vec!(114,117,115,116,101,120,58,115,105,122,101,100) { // rustex:sized
+                //while *str.as_bytes().get(index) == Some(32) { index += 1}
+                let sign = str.as_bytes().get(index);
+                index += 1;
+                let mut value: Vec<u8> = vec!();
+                loop {
+                    match str.as_bytes().get(index) {
+                        None => TeXErr!("Expected value after rustex:sized= in \\rustex@annotateHTML"),
+                        Some(34) => {
+                            index += 1;
+                            break
+                        }
+                        Some(o) => {
+                            value.push(*o);
+                            index += 1
+                        }
                     }
                 }
+                let num = std::str::from_utf8(value.as_slice()).unwrap();
+                match (sign,num.parse::<f64>()) {
+                    (Some(43),Ok(f)) => annotate.sized = Sized::Plus((pt(f) / (HTMLSCALE as f64)).round() as i32),
+                    (Some(45),Ok(f)) => annotate.sized = Sized::Minus((pt(f) / (HTMLSCALE as f64)).round() as i32),
+                    (Some(42),Ok(f)) => annotate.sized = Sized::Times(f as f32),
+                    (_,Err(_)) => TeXErr!("Expected numeric value after rustex:sized= in \\rustex@annotateHTML"),
+                    (_,_) => TeXErr!("Expected '+','-' or '*' after rustex:sized= in \\rustex@annotateHTML")
+                }
             }
-            if isstyle {
-                annotate.styles.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(),std::str::from_utf8(value.as_slice()).unwrap().to_string());
-            } else {
-                let key = std::str::from_utf8(attr.as_slice()).unwrap().to_string();
-                annotate.attrs.insert(key,std::str::from_utf8(value.as_slice()).unwrap().to_string());
+            else {
+                let mut value: Vec<u8> = vec!();
+                loop {
+                    match str.as_bytes().get(index) {
+                        None => break 'outer,
+                        Some(34) => {
+                            index += 1;
+                            break
+                        }
+                        Some(o) => {
+                            value.push(*o);
+                            index += 1
+                        }
+                    }
+                }
+                if attr == vec!(114,117,115,116,101,120,58,98,108,111,99,107) { // rustex:block
+                    if value == vec!(116,114,117,101) { annotate.block = true}
+                } else if isclass {
+                    annotate.classes.push(std::str::from_utf8(value.as_slice()).unwrap().to_string());
+                } else if isstyle {
+                    annotate.styles.insert(std::str::from_utf8(attr.as_slice()).unwrap().to_string(), std::str::from_utf8(value.as_slice()).unwrap().to_string());
+                } else {
+                    let key = std::str::from_utf8(attr.as_slice()).unwrap().to_string();
+                    annotate.attrs.insert(key, std::str::from_utf8(value.as_slice()).unwrap().to_string());
+                }
             }
         }
         Ok(Whatsit::GroupOpen(WIGroup::External(Arc::new(annotate),vec!())))

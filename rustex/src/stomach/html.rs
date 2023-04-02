@@ -613,7 +613,7 @@ impl HTMLAnnotation {
                 _ => ()
             }
         }
-        self.classes.push("contents".into());
+        if self.namespace != MATHML_NS {self.classes.push("contents".into())}
         HTMLNode {
             name: self.name.clone(),
             namespace:self.namespace,
