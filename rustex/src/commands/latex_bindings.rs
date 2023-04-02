@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use crate::commands::rustex_specials::HTMLLiteral;
-use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
+use crate::commands::{ParamToken, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
 use crate::stomach::whatsits::WhatsitTrait;
 use crate::{TeXErr, TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::RELAX;
 use crate::interpreter::params::CommandListener;
-use crate::interpreter::TeXMode;
+use crate::interpreter::{string_to_tokens, TeXMode};
+use crate::interpreter::state::State;
 use crate::stomach::html::HTMLStr;
 use crate::stomach::math::{CustomMathChar, GroupedMath, MathGroup, MathKernel, MathOp};
 use crate::stomach::Whatsit;
@@ -29,7 +30,7 @@ pub static URL: SimpleWhatsit = SimpleWhatsit {
 
 pub struct UrlListener();
 impl CommandListener for UrlListener {
-    fn apply(&self, name: &TeXStr, _cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, _cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         if name.to_string() == "Url" && file.to_string().ends_with("url.sty") {
             Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&URL)).as_command()))
         } else {
@@ -80,7 +81,7 @@ lazy_static! {
 }
 pub struct NotListener();
 impl CommandListener for NotListener {
-    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         match cmd {
             Some(tc) => match *tc.orig {
                 PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
@@ -110,7 +111,7 @@ pub static CANCEL: PrimitiveExecutable = PrimitiveExecutable {
 };
 pub struct CancelListener();
 impl CommandListener for CancelListener {
-    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         match cmd {
             Some(tc) => match *tc.orig {
                 PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
@@ -145,7 +146,7 @@ pub static MAPSTO: SimpleWhatsit = SimpleWhatsit {
 
 pub struct MapstoListener();
 impl CommandListener for MapstoListener {
-    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         match cmd {
             Some(tc) => match *tc.orig {
                 PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
@@ -202,7 +203,7 @@ pub static UNDERBRACE: SimpleWhatsit = SimpleWhatsit {
 
 pub struct UnderbraceListener();
 impl CommandListener for UnderbraceListener {
-    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         match cmd {
             Some(tc) => match *tc.orig {
                 PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
@@ -256,7 +257,7 @@ pub static OVERBRACE: SimpleWhatsit = SimpleWhatsit {
 
 pub struct OverbraceListener();
 impl CommandListener for OverbraceListener {
-    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String) -> Option<Option<TeXCommand>> {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
         match cmd {
             Some(tc) => match *tc.orig {
                 PrimitiveTeXCommand::Primitive(e) if *e == RELAX => None,
@@ -273,6 +274,80 @@ impl CommandListener for OverbraceListener {
     }
 }
 
+pub struct MarginParListener();
+impl CommandListener for MarginParListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, line: &String,state:&mut State) -> Option<Option<TeXCommand>> {
+        match (name,file) {
+            (n,f) if n.to_string() == "marginpar" && f.to_string().ends_with("latex.ltx") => {
+                let tksP = vec!(
+                    Token::cs("@ifnextchar"),
+                    Token::with_cat(91,CategoryCode::Other),
+                    Token::cs("rustex!marginpar!bracket"),Token::cs("rustex!marginpar!nobracket")
+                );
+                let marginpar = self.def_cmd(tksP,true,false,vec!());
+
+                let tksBr = vec!(Token::cs("rustex!marginpar!nobracket"));
+                let sigBr = vec!(
+                    ParamToken::Token(Token::with_cat(91,CategoryCode::Other)),
+                    ParamToken::Param(1),
+                    ParamToken::Token(Token::with_cat(93,CategoryCode::Other)),
+                );
+                let bracket = self.def_cmd(tksBr,false,false,sigBr);
+                state.commands.set("rustex!marginpar!bracket".into(),Some(bracket),true);
+
+                let sigNoBr = vec!(ParamToken::Param(1));
+                let tksNoBr = vec!(
+                    /* \par\begingroup\setbox1\hbox{#1}\ht1=0pt\setbox1\hbox{\kern\dimexpr-\wd1-8pt\relax\box1}\ht1=0pt\relax\box1\endgroup */
+                    Token::cs("par"),
+                    Token::cs("begingroup"),
+                    Token::cs("setbox"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::cs("hbox"),
+                    Token::with_cat(123,CategoryCode::BeginGroup), // {
+                    Token::with_cat(35,CategoryCode::Parameter), // #
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::with_cat(125,CategoryCode::EndGroup), // }
+                    Token::cs("ht"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::with_cat(61,CategoryCode::Other), // =
+                    Token::with_cat(48,CategoryCode::Other), // 0
+                    Token::with_cat(112,CategoryCode::Letter), // p
+                    Token::with_cat(116,CategoryCode::Letter), // t
+                    Token::cs("setbox"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::cs("hbox"),
+                    Token::with_cat(123,CategoryCode::BeginGroup), // {
+                    Token::cs("kern"),
+                    Token::cs("dimexpr"),
+                    Token::with_cat(45,CategoryCode::Other), // -
+                    Token::cs("wd"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::with_cat(45,CategoryCode::Other), // -
+                    Token::with_cat(56,CategoryCode::Other), // 8
+                    Token::with_cat(112,CategoryCode::Letter), // p
+                    Token::with_cat(116,CategoryCode::Letter), // t
+                    Token::cs("box"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::with_cat(125,CategoryCode::EndGroup), // }
+                    Token::cs("ht"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::with_cat(61,CategoryCode::Other), // =
+                    Token::with_cat(48,CategoryCode::Other), // 0
+                    Token::with_cat(112,CategoryCode::Letter), // p
+                    Token::with_cat(116,CategoryCode::Letter), // t
+                    Token::cs("box"),
+                    Token::with_cat(49,CategoryCode::Other), // 1
+                    Token::cs("endgroup")
+                );
+                let nobracket = self.def_cmd(tksNoBr,false,true,sigNoBr);
+                state.commands.set("rustex!marginpar!nobracket".into(),Some(nobracket),true);
+                Some(Some(marginpar))
+            }
+            _ => None
+        }
+    }
+}
+
 pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
     vec!(
         Box::new(UrlListener()),
@@ -281,7 +356,8 @@ pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
         Box::new(MapstoListener()),
         Box::new(UnderbraceListener()),
         Box::new(OverbraceListener()),
+        Box::new(MarginParListener())
     )
 }
 
-// TODO sout, tableofcontents?, underbrace, overbrace, sqrt,
+// TODO sout, tableofcontents?, sqrt,

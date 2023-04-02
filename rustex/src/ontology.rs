@@ -5,6 +5,7 @@ use ansi_term::ANSIGenericString;
 use crate::catcodes::CategoryCode;
 use crate::commands::PrimitiveTeXCommand;
 use crate::COPY_TOKENS_FULL;
+use crate::interpreter::Interpreter;
 use crate::utils::{TeXString,TeXStr};
 
 #[derive(Clone)]
@@ -83,6 +84,16 @@ impl Display for Token {
     }
 }
 impl Token {
+    pub fn cs(s:&str) -> Token { Token {
+        char:92,
+        catcode:CategoryCode::Escape,
+        name_opt:s.into(),
+        reference:None,
+        expand:true
+    }}
+    pub fn with_cat(char:u8,catcode:CategoryCode) -> Token { Token {
+        char,catcode,name_opt:trivial_name(char),reference:None,expand:true
+    }}
     pub fn deexpand(self) -> Token {
         Token {
             char:self.char,

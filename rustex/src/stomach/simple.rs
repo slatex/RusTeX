@@ -709,6 +709,8 @@ impl WhatsitTrait for Raise {
             ColonMode::H | ColonMode::V | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(self.dim));
+                node.style("margin-top".into(),dimtohtml(self.dim));
+                node.style("margin-bottom".into(),dimtohtml(-self.dim));
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::M =>

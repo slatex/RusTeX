@@ -1,5 +1,15 @@
 pub trait CommandListener : Sync {
-    fn apply(&self,name:&TeXStr,cmd: &Option<TeXCommand>,file:&TeXStr,line:&String) -> Option<Option<TeXCommand>>;
+    fn apply(&self,name:&TeXStr,cmd: &Option<TeXCommand>,file:&TeXStr,line:&String,state:&mut State) -> Option<Option<TeXCommand>>;
+    fn def_cmd(&self,ret:Vec<Token>,protected:bool,long:bool,pars:Vec<ParamToken>) -> TeXCommand {
+        let mut arity = 0;
+        for t in &pars { if let ParamToken::Param(i) = t { arity = max(arity,*i)}}
+        let sig = Signature {
+            elems:pars,endswithbrace:false,arity
+        };
+        PrimitiveTeXCommand::Def(DefMacro {
+            protected,long,sig,ret
+        }).as_command()
+    }
 }
 
 pub trait InterpreterParams {
@@ -43,8 +53,11 @@ impl DefaultParams {
     }
 }
 
+use std::cmp::max;
 use ansi_term::Colour::*;
-use crate::commands::TeXCommand;
+use crate::commands::{DefMacro, ParamToken, PrimitiveTeXCommand, Signature, TeXCommand};
+use crate::interpreter::state::State;
+use crate::ontology::Token;
 use crate::utils::{TeXError, TeXStr};
 
 impl InterpreterParams for DefaultParams {

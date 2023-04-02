@@ -468,7 +468,7 @@ impl Interpreter<'_> {
         let file = self.current_file();
         let line = self.mouths.current_line();
         for cl in self.params.command_listeners() {
-            match cl.apply(&cmdname,&proc,&file,&line) {
+            match cl.apply(&cmdname,&proc,&file,&line,&mut self.state) {
                 Some(r) => {
                     self.state.commands.set(cmdname,r,globally);
                     return ()
