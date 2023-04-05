@@ -1,6 +1,6 @@
 # RusTeX
 
-A (somewhat experimental) implementation of a TeX engine in rust, used to covert LaTeX documents to xhtml.
+A (somewhat experimental) implementation of a TeX engine in rust, used to convert LaTeX documents to xhtml.
 
 ## Usage
 
