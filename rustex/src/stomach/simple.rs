@@ -9,7 +9,7 @@ use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, round, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
 use crate::stomach::colon::ColonMode;
-use crate::stomach::html::{dimtohtml, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
+use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
@@ -1085,8 +1085,20 @@ impl WhatsitTrait for HAlign {
                     }
                 })
             }
-            ColonMode::M =>
-                htmlnode!(colon,mtable,self.sourceref,"halign",node_top,table => {
+            ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
+                //let oldwd = colon.state.currsize;
+                let mut wd = self.width();
+                if wd == 0 {wd = 2048};
+                //colon.state.currsize = wd;
+                mt.style("width".into(),dimtohtml(wd));
+                htmlnode!(colon,HTML_NS:span,None,"contents",htmlparent!(mt),span => {
+                    span.forcefont = true;
+                    htmlliteral!(colon,htmlparent!(span),"\n");
+                    self.as_html(&ColonMode::H,colon,htmlparent!(span));
+                    htmlliteral!(colon,htmlparent!(span),"\n");
+                });
+            }),
+                /*htmlnode!(colon,mtable,self.sourceref,"halign",node_top,table => {
                     table.style("align".into(),"center".into());
                     if self.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
@@ -1094,11 +1106,6 @@ impl WhatsitTrait for HAlign {
                     for row in self.rows {
                         HAlign::do_row(mode, colon, &mut table,row)
                     }
-                }),
-            /*    htmlnode!(colon,mtext,None,"",node_top,mt => {
-                    htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                        self.as_html(&ColonMode::H,colon,htmlparent!(span))
-                    })
                 }),*/
             _ => ()//TeXErr!("TODO")
         }
@@ -1124,30 +1131,47 @@ macro_rules! dobox {
     ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
         match $mode {
             ColonMode::M => htmlnode!($sel,mrow,None,"",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,div,None,"hbox",htmlparent!($node_parent),$nodename => $e)
+            _ => htmlnode!($sel,div,None,"hbox",htmlparent!($node_parent),$nodename => {
+                /*$nodename.style("height".into(),"0".into());
+                $nodename.style("max-height".into(),"0".into());*/
+                $e
+            })
         }
     })
 }
 impl HAlign {
     fn do_cell(mode: &ColonMode, colon: &mut HTMLColon, row:&mut HTMLNode,mut vs:Vec<Whatsit>,skip:Skip,num:usize) {
         docell!(mode,colon,row,cell => {
-            cell.style("margin-right".into(),dimtohtml(skip.base));
             if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
-            let mut alignment = (false,false);
+            let mut alignment = (0,0);
+            let mut repush = vec!();
             loop {
                 match vs.pop() {
-                    Some(Whatsit::Simple(SimpleWI::VRule(v))) => cell.style("border-right".into(),dimtohtml(v.width()) + " solid"),
-                    Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_))) => alignment.1 = true,
+                    Some(Whatsit::Simple(SimpleWI::VRule(v))) if v.width() <= 393216 => {
+                        let wd = dimtohtml(v.width());
+                        cell.style("border-right".into(),wd + " solid")
+                    },
+                    Some(o@Whatsit::Simple(SimpleWI::VRule(_))) => {vs.push(o);break}
+                    Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_))) => alignment.1 = 1,
+                    Some(Whatsit::Simple(SimpleWI::HFill(_))) => alignment.1 = 2,
+                    Some(o) if !o.has_ink() => repush.push(o),
                     Some(o) => {vs.push(o);break}
                     None => break
                 }
             }
+            for c in repush.into_iter().rev() {vs.push(c)}
             let mut incell : bool = false;
             dobox!(mode,colon,cell,bx => {
                 let mut inspace = false;
                 for w in vs { match w {
-                    Whatsit::Simple(SimpleWI::VRule(v)) if !incell => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
-                    Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::HFill(_)) if !incell => alignment.0 = true,
+                    Whatsit::Simple(SimpleWI::VRule(v)) if !incell && v.width() <= 393216 => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),
+                    o@Whatsit::Simple(SimpleWI::VRule(_)) => {
+                        inspace = false;
+                        incell = true;
+                        o.as_html(mode,colon,htmlparent!(bx))
+                    }
+                    Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => alignment.0 = 1,
+                    Whatsit::Simple(SimpleWI::HFill(_)) => alignment.0 = 2,
                     Whatsit::Space(_) if !inspace => {
                         incell = true;
                         inspace = true;
@@ -1169,18 +1193,22 @@ impl HAlign {
                             }
                         }
                     }
+                    o if !o.has_ink() => {o.as_html(mode,colon,htmlparent!(bx))}
                     o => {
                         inspace = false;
                         incell = true;
                         o.as_html(mode,colon,htmlparent!(bx))
                     }
                 }}
+                HSkip {skip,sourceref:None}.as_html(mode,colon,htmlparent!(bx));
             });
             match alignment {
-                (true,true) => cell.style("text-align".into(),"center".into()),
-                (true,false) => cell.style("text-align".into(),"right".into()),
+                (0,0) => cell.style("text-align".into(),"left".into()),
+                (a,b) if a == b => cell.style("text-align".into(),"center".into()),
+                (a,b) if a > b => cell.style("text-align".into(),"right".into()),
                 _ => cell.style("text-align".into(),"left".into()),
             }
+            //cell.style("margin-right".into(),dimtohtml(skip.base));
         })
     }
     fn do_row(mode: &ColonMode, colon: &mut HTMLColon, table:&mut HTMLNode,row:AlignBlock) {
@@ -1209,7 +1237,8 @@ impl HAlign {
                         Whatsit::Simple(SimpleWI::VSkip(sk)) if aboveborder => {
                             table.style("margin-top".into(),dimtohtml(sk.height()))
                         }
-                        _ => {}
+                        o => {
+                        }
                     }
                 }
             }

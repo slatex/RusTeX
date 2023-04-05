@@ -352,6 +352,8 @@ impl Paragraph {
             for (i,l) in parshape {
                 ilsr.push((i,l - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))
             }
+            /*self.leftskip.unwrap().stretch = None;
+            self.rightskip.unwrap().stretch = None;*/
             ilsr
         } else if hangindent != 0 && hangafter != 0 {
             vec!((0,self.hsize.unwrap() - (self.leftskip.unwrap().base + self.rightskip.unwrap().base)))

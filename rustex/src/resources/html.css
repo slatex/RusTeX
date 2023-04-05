@@ -272,7 +272,7 @@ mtext {
     word-spacing: initial;
     display: inline-flex;
 }
-mrow {}
+
 .displaymath {
     position: relative;
 }
@@ -287,6 +287,9 @@ mrow {}
 }
 mi { position: relative}
 mo {position: relative}
+msub > :nth-child(2), msup > :nth-child(2) {font-size:inherit}
+mfrac > * {font-size: inherit}
+mover > :not(:first-child), munder > :not(:first-child) {font-size:inherit}
 
 /* --------------------------------------------------- Spacing ------------------------------------------------------ */
 
@@ -311,11 +314,22 @@ mo {position: relative}
 /* --------------------------------------------------- Tables ------------------------------------------------------- */
 
 .halign{
-    display:table;
+    display:inline-table;
     border-collapse:collapse;
 }
 .row{display: table-row}
-.cell{display: table-cell;padding: 0}
+.cell{display: table-cell}
+
+/*
+.halign{
+    display:inline-flex;
+    border-collapse:collapse;
+    flex-direction: column;
+    height: min-content;
+}
+.row{display: inline-flex;flex-direction: row;height: min-content}
+.cell{display: inline-block;flex:1;height:min-content}
+*/
 
 /* --------------------------------------------------- Others ------------------------------------------------------- */
 

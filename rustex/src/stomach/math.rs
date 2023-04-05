@@ -6,7 +6,7 @@ use crate::{htmlannotate, htmlliteral, htmlnode, htmlparent};
 use crate::fonts::convert::convert;
 use crate::interpreter::dimensions::{MuSkip, numtostr};
 use crate::references::SourceFileReference;
-use crate::stomach::boxes::{TeXBox, VBoxType};
+use crate::stomach::boxes::{TeXBox, VBox, VBoxType};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTMLAnnotation, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, MATHML_NS, FontInfo};
 use crate::stomach::Whatsit;
@@ -110,8 +110,18 @@ impl WhatsitTrait for MathGroup {
                                 ret.push(vb.as_whatsit());
                                 return
                             },
-                            o@Whatsit::Simple(SimpleWI::HAlign(_)) => {
-                                ret.push(o);
+                            o@Whatsit::Simple(SimpleWI::HAlign(_)) if self.limits => {
+                                let bx = VBox {
+                                    children: vec!(o),
+                                    tp: VBoxType::DMCenter,
+                                    spread: 0,
+                                    _width: None,
+                                    _height: None,
+                                    _depth: None,
+                                    _to: None,
+                                    rf: None,
+                                };
+                                ret.push(bx.as_whatsit());
                                 return
                             }
                             Whatsit::Box(b) => {
@@ -336,6 +346,14 @@ impl MathKernel {
         match self {
             MathKernel::MathOp(_) => true,
             MathKernel::MathChar(mc) if mc.class == 1 => true,
+            MathKernel::Group(gm) if gm.0.len() == 1 => MathKernel::is_largeop_o(gm.0.first().unwrap()),
+            _ => false
+        }
+    }
+    fn is_largeop_o(wi:&Whatsit) -> bool {
+        match wi {
+            Whatsit::Math(mg) if mg.subscript.is_none() && mg.superscript.is_none() =>
+                mg.kernel.is_largeop(),
             _ => false
         }
     }

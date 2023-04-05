@@ -690,7 +690,7 @@ impl WhatsitTrait for VBox {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::V,&mut nch,None) }
                 if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
-                else if nch.len() == 1 {
+                /*else if nch.len() == 1 {
                     match nch.pop() {
                         Some(o@Whatsit::Simple(SimpleWI::HAlign(_))) => {
                             ret.push(o);
@@ -701,7 +701,7 @@ impl WhatsitTrait for VBox {
                         }
                         _ => unreachable!()
                     }
-                }
+                }*/
                 ret.push(VBox {
                     children: nch,
                     spread: self.spread,

@@ -253,7 +253,7 @@ impl Interpreter<'_> {
                     }
                 }),None)
             } else {
-                MaybeThread::Multi(std::thread::spawn(move || {
+                MaybeThread::Multi(std::thread::Builder::new().stack_size(crate::STACK_SIZE).spawn(move || {
                     for msg in receiver {
                         match msg {
                             StomachMessage::End => return colon.close(),
@@ -261,7 +261,7 @@ impl Interpreter<'_> {
                         }
                     }
                     return colon.close() // sender dropped => TeXError somewhere
-                }))
+                }).unwrap())
             };
             while self.has_next() {
                 colonthread.next();

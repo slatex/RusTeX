@@ -463,7 +463,7 @@ impl HTMLNode {
                 };
                 let ratio = (mi.at as f32) / (fi.at as f32);
                 if ratio != 1.0 {
-                    self.attr("mathsize".into(), ((ratio * 100.0).round().to_string() + "%").into())
+                    self.style("font-size".into(), ((ratio * 100.0).round().to_string() + "%").into())
                 }
                 mi
             }

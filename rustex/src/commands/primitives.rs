@@ -2067,6 +2067,7 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
                 _ => break
             }
         }
+        log!("VRule: width:{:?}, height:{:?}, depth:{:?}",width,height,depth);
         Ok(Whatsit::Simple(SimpleWI::VRule(VRule {
             height,width,depth,sourceref:int.update_reference(tk)
         })))
@@ -2091,6 +2092,7 @@ pub static HRULE: SimpleWhatsit = SimpleWhatsit {
                 _ => break
             }
         }
+        log!("HRule: width:{:?}, height:{:?}, depth:{:?}",width,height,depth);
         Ok(Whatsit::Simple(SimpleWI::HRule(HRule {
             width,height,depth,sourceref:int.update_reference(tk)
         })))
