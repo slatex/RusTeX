@@ -1,13 +1,16 @@
 use std::collections::HashMap;
-use crate::commands::rustex_specials::HTMLLiteral;
+use std::sync::Arc;
+use crate::commands::rustex_specials::{AnnotateBegin, HTMLLiteral};
 use crate::commands::{ParamToken, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
 use crate::stomach::whatsits::WhatsitTrait;
-use crate::{TeXErr, TeXString, Token};
+use crate::{interpreter, TeXErr, TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::RELAX;
 use crate::interpreter::params::CommandListener;
 use crate::interpreter::{string_to_tokens, TeXMode};
 use crate::interpreter::state::State;
+use crate::stomach::boxes::TeXBox;
+use crate::stomach::groups::WIGroup;
 use crate::stomach::html::HTMLStr;
 use crate::stomach::math::{CustomMathChar, GroupedMath, MathGroup, MathKernel, MathOp};
 use crate::stomach::Whatsit;
@@ -348,6 +351,63 @@ impl CommandListener for MarginParListener {
     }
 }
 
+pub static WRAPFIG: SimpleWhatsit = SimpleWhatsit {
+    name: "WF@wraphand",
+    modes: (|m| m == TeXMode::Horizontal),
+    _get: |tk,int| {
+        use crate::commands::rustex_specials::Sized;
+        let place = match int.state.commands.get(&"WF@place".into()) {
+            Some(tc) => {
+                match &*tc.orig {
+                    PrimitiveTeXCommand::Def(dm) =>
+                        interpreter::tokens_to_string(&dm.ret,int.state.catcodes.get_scheme()).0.last().map(|c| c.clone()).unwrap_or(114),
+                    _ => 114
+                }
+            }
+            _ => 114 // 'r'
+        };
+        let boxnum = match int.state.commands.get(&"WF@box".into()) {
+            Some(tc) => {
+                match &*tc.orig {
+                    PrimitiveTeXCommand::Char(tk) =>
+                        tk.char,
+                    _ => 0
+                }
+            }
+            _ => 0 // 'r'
+        };
+        match int.state.boxes.take(boxnum as u16) {
+            TeXBox::V(vb) => {
+                let mut ret = AnnotateBegin { sourceref: int.update_reference(tk), attrs: HashMap::new(), styles: HashMap::new(), classes: vec!(), block: false, sized: Sized::None };
+                match place {
+                    114 => ret.styles.insert("float".into(),"right".into()),
+                    _ => ret.styles.insert("float".into(),"left".into())
+                };
+                ret.styles.insert("margin".into(),"10px".into());
+                ret.styles.insert("display".into(),"inline-block".into());
+                Ok(Whatsit::Grouped(WIGroup::External(Arc::new(ret), vec!(vb.as_whatsit()))))
+            }
+            _ => Ok(Whatsit::Box(TeXBox::Void))
+        }
+    }
+};
+
+pub struct WrapfigListener();
+impl CommandListener for WrapfigListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, line: &String, state: &mut State) -> Option<Option<TeXCommand>> {
+        match (name, file) {
+            (n, f) if n.to_string() == "WFclear" && f.to_string().ends_with("wrapfig.sty") => {
+                let empty = self.def_cmd(vec!(),false,false,vec!());
+                state.commands.set("WF@putfigmaybe".into(),Some(empty.clone()),true);
+                state.commands.set("WF@floathand".into(),Some(empty.clone()),true);
+                state.commands.set("WF@wraphand".into(),Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&WRAPFIG)).as_command()),true);
+                Some(Some(empty))
+            }
+            _ => None
+        }
+    }
+}
+
 pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
     vec!(
         Box::new(UrlListener()),
@@ -356,7 +416,8 @@ pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
         Box::new(MapstoListener()),
         Box::new(UnderbraceListener()),
         Box::new(OverbraceListener()),
-        Box::new(MarginParListener())
+        Box::new(MarginParListener()),
+        Box::new(WrapfigListener())
     )
 }
 

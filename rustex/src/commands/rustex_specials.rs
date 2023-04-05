@@ -122,7 +122,7 @@ pub static NAMESPACE: SimpleWhatsit = SimpleWhatsit {
 };
 
 #[derive(PartialEq,Clone)]
-enum Sized {
+pub enum Sized {
     None,
     Plus(i32),
     Minus(i32),
@@ -130,12 +130,12 @@ enum Sized {
 }
 
 #[derive(PartialEq,Clone)]
-struct AnnotateBegin {
-    sourceref:Option<SourceFileReference>,
-    attrs:HashMap<String,String>,
-    styles:HashMap<String,String>,
-    classes:Vec<String>,
-    block:bool,sized:Sized
+pub struct AnnotateBegin {
+    pub sourceref:Option<SourceFileReference>,
+    pub attrs:HashMap<String,String>,
+    pub styles:HashMap<String,String>,
+    pub classes:Vec<String>,
+    pub block:bool,pub sized:Sized
 }
 impl ExternalWhatsitGroup for AnnotateBegin {
     fn get_ref(&self,ch : &Vec<Whatsit>) -> Option<SourceFileReference> {
