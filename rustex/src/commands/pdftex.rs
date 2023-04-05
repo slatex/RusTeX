@@ -1,5 +1,5 @@
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
-use crate::interpreter::{string_to_tokens, tokenize};
+use crate::interpreter::{string_to_tokens, TeXMode, tokenize};
 use crate::{Interpreter, pdf_to_img, Token, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::catcodes::CategoryCode;
@@ -575,7 +575,7 @@ pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrefximage",
-    modes: |_| {true},
+    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal},
     _get:|tk,int| {
         let num = int.read_number()?;
         let img = match int.state.pdfximages.get(num as usize) {

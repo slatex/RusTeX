@@ -287,7 +287,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
 
 pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
-    modes: |_| {true},
+    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal},
     _get: |tk, int| {
         let num = int.read_number()? as u16;
         Ok(PGFBox {
@@ -385,6 +385,7 @@ pub static PGF_FLUSH : PrimitiveExecutable = PrimitiveExecutable {
 use std::collections::HashMap;
 use std::sync::Arc;
 use crate::commands::pgfsvg::parsesvg::{parse_path, parse_transform, strtonum};
+use crate::interpreter::TeXMode;
 use crate::stomach::groups::GroupClose;
 
 
