@@ -162,6 +162,7 @@ impl FontTableStore {
                 ("cmex",CMEX,FontTableParam::Math),
                 ("lmex",CMEX,FontTableParam::Math),
                 ("tcrm",MATH_TC,FontTableParam::Math),
+                ("tctt",MATH_TC,FontTableParam::Math,FontTableParam::Monospaced),
                 ("tcbx",MATH_TC,FontTableParam::Math,FontTableParam::Bold),
                 ("tcss",MATH_TC,FontTableParam::Math,FontTableParam::SansSerif),
                 ("tcsl",MATH_TC,FontTableParam::Math,FontTableParam::Italic),
@@ -530,7 +531,7 @@ lazy_static! {
     ]);
 
     pub static ref CMEX : HashMap<u8,&'static str> = HashMap::from([
-        (8,"{"),(9,"}"),
+        (8,"{"),(9,"}"),(10,"⟨"),(11,"⟩"),
         (76,"⊕"),(77,"⊕"),
         (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
         (86,"⋀"),(87,"⋁"),
