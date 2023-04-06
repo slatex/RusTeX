@@ -375,7 +375,7 @@ impl WhatsitTrait for PrintChar {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let str: HTMLStr = self.charstr.into();
+        let str: HTMLStr = HTMLStr::from(self.charstr).html_escape();
         match mode {
             ColonMode::H => {
                 let maybetext = match match node_top {
