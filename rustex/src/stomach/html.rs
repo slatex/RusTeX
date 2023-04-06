@@ -85,7 +85,7 @@ macro_rules! withwidth {
              let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
              $node.style("--temp-width".into(),_withwidth_str.into());
              $node.classes.push("rustex-withwidth".into());
-             htmlnode!($colon,span,None,"contents",htmlparent!($node),$inner => {
+             htmlnode!($colon,span,None,"rustex-contents",htmlparent!($node),$inner => {
                 $e
              });
              $colon.state.currsize = _withwidth_currsize;
@@ -614,7 +614,7 @@ impl HTMLAnnotation {
                 _ => ()
             }
         }
-        if self.namespace != MATHML_NS {self.classes.push("contents".into())}
+        if self.namespace != MATHML_NS {self.classes.push("rustex-contents".into())}
         HTMLNode {
             name: self.name.clone(),
             namespace:self.namespace,

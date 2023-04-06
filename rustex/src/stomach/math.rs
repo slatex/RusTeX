@@ -492,7 +492,7 @@ impl WhatsitTrait for MKern {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, parent: &mut Option<HTMLParent>) {
-        htmlnode!(colon,mspace,None,"mkern",parent,node => {
+        htmlnode!(colon,mspace,None,"rustex-mkern",parent,node => {
             if self.sk.base < 0 {
                 node.style("margin-left".into(),(self.sk.get_em().to_string() + "em").into());
             }

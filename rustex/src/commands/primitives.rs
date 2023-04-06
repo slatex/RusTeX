@@ -774,6 +774,8 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
     name:"immediate",
     expandable:false,
     _apply:|_,int| {
+        Ok(())
+        /*
         use crate::commands::pdftex::*;
         let next = int.read_command_token()?;
         match *int.get_command(&next.cmdname())?.orig {
@@ -788,6 +790,7 @@ pub static IMMEDIATE : PrimitiveExecutable = PrimitiveExecutable {
             }
             _ => TeXErr!("TODO: \\immediate ...")
         }
+         */
     }
 };
 

@@ -209,7 +209,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
                 };
                 htmlnode!(colon,div,None,"rustex-withwidth",htmlparent!(d),d2 => {
                     if let Some(str) = str { d2.style("--temp-width".into(),str) }
-                    htmlnode!(colon,span,None,"contents",htmlparent!(d2),inner => {
+                    htmlnode!(colon,span,None,"rustex-contents",htmlparent!(d2),inner => {
                         for c in ch { c.as_html(mode,colon,htmlparent!(inner))}
                     });
                 });

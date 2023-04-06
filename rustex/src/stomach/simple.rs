@@ -829,7 +829,7 @@ impl WhatsitTrait for VKern {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref,"vkern",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"rustex-kern",node_top,node => {
             node.style("margin-bottom".into(),dimtohtml(self.dim));
         })
     }
@@ -867,7 +867,7 @@ impl WhatsitTrait for HKern {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         //colon.state.add_kern(self.dim);
-        htmlnode!(colon,div,self.get_ref(),"hkern",node_top,node => {
+        htmlnode!(colon,div,self.get_ref(),"rustex-kern",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
         });
     }
@@ -1091,7 +1091,7 @@ impl WhatsitTrait for HAlign {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"contents",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"rustex-contents",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

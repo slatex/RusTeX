@@ -22,7 +22,7 @@ pub static URL: SimpleWhatsit = SimpleWhatsit {
     modes: |_| { true },
     _get: |_, int| {
         let tks = int.read_balanced_argument(true,false,false,true)?;
-        let mut str : TeXString = "<span class=\"contents monospaced\">".into();
+        let mut str : TeXString = "<span class=\"rustex-contents rustex-monospaced\">".into();
         str += HTMLStr::from(int.tokens_to_string(&tks).to_string()).html_escape().to_string();
         str += "</span>";
         let endgroup = Token::new(92,CategoryCode::Escape,Some("endgroup".into()),None,true);
