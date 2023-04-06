@@ -446,7 +446,7 @@ pub trait Stomach : Send {
                     match pc.font.file.ligs.get(&(pc2.char,pc.char)) {
                         Some(u) => {
                             let nc = PrintChar {
-                                char:*u,
+                                char:*u,charstr:pc2.font.file.chartable.as_ref().map(|ct| ct.get_char(*u,params)).unwrap_or("???"),
                                 sourceref:pc.sourceref.clone(),
                                 font:pc2.font.clone()
                             };

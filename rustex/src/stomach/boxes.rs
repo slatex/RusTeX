@@ -255,7 +255,12 @@ impl WhatsitTrait for HBox {
                             cont.style("margin-bottom".into(),dimtohtml(dp))
                         }
                         if let Some(ht) = self._height {
-                            cont.style("height".into(),dimtohtml(ht))
+                            if ht < 0 {
+                                cont.style("margin-bottom".into(),dimtohtml(ht));
+                                cont.style("height".into(),"0".into());
+                            } else {
+                                cont.style("height".into(),dimtohtml(ht));
+                            }
                         }
                         if let Some(wd) = width {
                             let iwd = self.inner_width();
@@ -729,9 +734,13 @@ impl WhatsitTrait for VBox {
                             node.attr("rustex:height".into(),dimtohtml(self.height()));
                         }
                         match self._height {
-                            Some(v) => {
-                                node.style("height".into(),dimtohtml(v));
-                                node.style("min-height".into(),dimtohtml(v))
+                            Some(ht) => {
+                                if ht < 0 {
+                                    node.style("margin-bottom".into(),dimtohtml(ht));
+                                    node.style("height".into(),"0".into());
+                                } else {
+                                    node.style("height".into(),dimtohtml(ht));
+                                }
                             }
                             _ => ()
                         }
@@ -824,9 +833,13 @@ impl WhatsitTrait for VBox {
                         conta.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
                     htmlnode!(colon,div,None,innercls,htmlparent!(conta),cont => {
-                        if let Some(h) = self._height {
-                            cont.style("height".into(),dimtohtml(h));
-                            cont.style("min-height".into(),dimtohtml(h));
+                        if let Some(ht) = self._height {
+                            if ht < 0 {
+                                cont.style("margin-bottom".into(),dimtohtml(ht));
+                                cont.style("height".into(),"0".into());
+                            } else {
+                                cont.style("height".into(),dimtohtml(ht));
+                            }
                         }
                         if let Some(d) = self._depth {
                             cont.style("margin-bottom".into(),dimtohtml(d))
@@ -901,11 +914,16 @@ impl VBox {
                 node.attr("rustex:height".into(),dimtohtml(self.height()));
                 node.attr("rustex:depth".into(),dimtohtml(self.depth()));
             }
-            if let Some(h) = self._to {
+            if let Some(ht) = self._to {
                 if crate::INSERT_RUSTEX_ATTRS {
-                    node.attr("rustex:to".into(),dimtohtml(h));
+                    node.attr("rustex:to".into(),dimtohtml(ht));
                 }
-                node.style("height".into(),dimtohtml(h));
+                if ht < 0 {
+                    node.style("margin-bottom".into(),dimtohtml(ht));
+                    node.style("height".into(),"0".into());
+                } else {
+                    node.style("height".into(),dimtohtml(ht));
+                }
                 //node.style("min-height".into(),dimtohtml(h));
             }
             //if let Some(d) = self._depth {node.style("margin-bottom".into(),dimtohtml(d))}
@@ -915,7 +933,12 @@ impl VBox {
     fn html_v_inner(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
         if let Some(ht) = self._height {
             htmlnode!(colon,div,None,"rustex-vbox-height-container",node_top,inner => {
-                inner.style("height".into(),dimtohtml(ht));
+                if ht < 0 {
+                    inner.style("margin-bottom".into(),dimtohtml(ht));
+                    inner.style("height".into(),"0".into());
+                } else {
+                    inner.style("height".into(),dimtohtml(ht));
+                }
                 if withwidth {inner.style("width".into(),"100%".into())}
                 self.html_v_inner_i(colon,htmlparent!(inner),withwidth);
             })
@@ -929,11 +952,16 @@ impl VBox {
                 node.attr("rustex:height".into(),dimtohtml(self.height()));
                 node.attr("rustex:depth".into(),dimtohtml(self.depth()));
             }
-            if let Some(h) = self._to {
+            if let Some(ht) = self._to {
                 if crate::INSERT_RUSTEX_ATTRS {
-                    node.attr("rustex:to".into(),dimtohtml(h));
+                    node.attr("rustex:to".into(),dimtohtml(ht));
                 }
-                node.style("height".into(),dimtohtml(h));
+                if ht < 0 {
+                    node.style("margin-bottom".into(),dimtohtml(ht));
+                    node.style("height".into(),"0".into());
+                } else {
+                    node.style("height".into(),dimtohtml(ht));
+                }
                 //node.style("min-height".into(),dimtohtml(h));
             }
             //if let Some(d) = self._depth {node.style("margin-bottom".into(),dimtohtml(d))}

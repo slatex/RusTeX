@@ -575,7 +575,8 @@ pub struct MathChar {
     pub family:u32,
     pub position:u32,
     pub font:ArcFont,
-    pub sourceref:Option<SourceFileReference>
+    pub sourceref:Option<SourceFileReference>,
+    pub charstr:&'static str
 }
 impl MathChar {
     pub fn as_html_inner(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, stretchy:bool) {
@@ -588,9 +589,8 @@ impl MathChar {
             _ => None
         };
         let charstr : HTMLStr = match &self.font.file.chartable {
-            Some(ct) => {
-                let str = ct.get_char(self.position as u8);
-                HTMLStr::from(convert(str,&ct.params))
+            Some(ct) =>  {
+                HTMLStr::from(convert(self.charstr,&ct.params))
             }
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
@@ -739,13 +739,7 @@ impl WhatsitTrait for Radical {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let charstr : HTMLStr = match &self.small.font.file.chartable {
-            Some(ct) => ct.get_char(self.small.position as u8).into(),
-            None => {
-                //println!("Here! {} in {}",mc.position,mc.font.name);
-                "???".into()
-            }
-        };
+        let charstr : HTMLStr = self.small.charstr.into();
         if charstr.to_string() == "√" {
             htmlnode!(colon,msqrt,self.get_ref(),"",node_top,mt => {
                 self.body.as_html(mode,colon,htmlparent!(mt));

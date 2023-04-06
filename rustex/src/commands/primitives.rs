@@ -3235,7 +3235,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                     let font = int.state.currfont.get();
                     let sourceref = int.update_reference(&next);
                     break PrintChar {
-                        char:next.char,
+                        char:next.char,charstr:font.file.chartable.as_ref().map(|ct| ct.get_char(next.char,int.params)).unwrap_or("???"),
                         font,sourceref
                     }
                 }
@@ -3246,7 +3246,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                     // TODO do this properly!
                     let font = int.state.currfont.get();
                     break PrintChar {
-                        char:32,font,sourceref
+                        char:32,font,sourceref,charstr:" "
                     }
                 }
                 CategoryCode::EndGroup => {
@@ -3254,7 +3254,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
                     int.requeue(next);
                     let font = int.state.currfont.get();
                     break PrintChar {
-                        char:32,font,sourceref
+                        char:32,font,sourceref,charstr:" "
                     }
                 }
                 _ => int.do_top(next,int.state.mode == TeXMode::RestrictedHorizontal)
@@ -3262,6 +3262,7 @@ pub static ACCENT: SimpleWhatsit = SimpleWhatsit {
         };
         Ok(Accent {
             sourceref: int.update_reference(tk),
+            accstr:fnt.file.chartable.as_ref().map(|ct| ct.get_char(num as u8,int.params)).unwrap_or("???"),
             font: fnt,
             char: pc,
             acc: num

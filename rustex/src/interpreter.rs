@@ -383,7 +383,7 @@ impl Interpreter<'_> {
                 let font = self.state.currfont.get();
                 let sourceref = self.update_reference(&next);
                 self.stomach_add(crate::stomach::Whatsit::Char(PrintChar {
-                    char:next.char,
+                    char:next.char,charstr:font.file.chartable.as_ref().map(|ct| ct.get_char(next.char,self.params)).unwrap_or("???"),
                     font,sourceref
                 }))
             }
@@ -458,7 +458,8 @@ impl Interpreter<'_> {
             FontStyle::Scriptscript => self.state.scriptscriptfonts.get(&(fam as usize)),
         };
         crate::stomach::math::MathChar {
-            class:cls,family:fam,position:pos,font,
+            class:cls,family:fam,position:pos,charstr:font.file.chartable.as_ref().map(|ct| ct.get_char(pos as u8,self.params)).unwrap_or("???"),
+            font,
             sourceref:match &tk {
                 Some(tk) => self.update_reference(tk),
                 _ => None

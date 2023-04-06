@@ -66,9 +66,10 @@ macro_rules! setwidth {
 #[macro_export]
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident => $e:expr) => ({
-     if $wd == 0 {
+     if $wd <= 0 {
          $node.style("width".into(),"0".into());
          $node.style("min-width".into(),"0".into());
+         if ($wd < 0) {$node.style("margin-right".into(),dimtohtml($wd))}
          let mut $inner = &mut $node;
          $e
      } else {

@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use crate::interpreter::params::InterpreterParams;
 use crate::utils::TeXStr;
 
 #[derive(PartialEq,Copy,Clone)]
@@ -17,11 +18,11 @@ impl FontTable {
     pub fn default(&self,u:u8) -> String {
         std::format!("?{}?{}?",self.name,u)
     }
-    pub fn get_char(&self,u:u8) -> &'static str {
+    pub fn get_char(&self,u:u8,p:&dyn InterpreterParams) -> &'static str {
         match self.table.get(&u) {
             Some(c) => c,
             None => {
-                //println!("Unknown character {} in font {}",u,self.name);
+                p.write_other(&*std::format!("Unknown character {} in font {}",u,&self.name));
                 "???"
             }
         }
@@ -529,6 +530,7 @@ lazy_static! {
     ]);
 
     pub static ref CMEX : HashMap<u8,&'static str> = HashMap::from([
+        (8,"{"),(9,"}"),
         (76,"⊕"),(77,"⊕"),
         (80,"∑"),(81,"∏"),(82,"∫"),(83,"⋃"),(84,"⋂"),
         (86,"⋀"),(87,"⋁"),
@@ -668,7 +670,8 @@ lazy_static! {
         (66,"▷"),(67,"◁"),(68,"⊵"),(69,"⊴"),
         (72,"▼"),(73,"▶"),(74,"◀"),
         (78,"▲"),
-        (88,"✓")
+        (88,"✓"),
+        (93,"∡"),(94,"∢")
     ]);
     pub static ref FEYMR : HashMap<u8,&'static str> = HashMap::from([
         (0,"€"),(32," "),(101,"€")

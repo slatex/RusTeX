@@ -287,7 +287,8 @@ pub struct Accent {
     pub sourceref:Option<SourceFileReference>,
     pub font : ArcFont,
     pub char:PrintChar,
-    pub acc:i32
+    pub acc:i32,
+    pub accstr:&'static str
 }
 impl WhatsitTrait for Accent {
     fn as_whatsit(self) -> Whatsit { Whatsit::Accent(self) }
@@ -302,16 +303,10 @@ impl WhatsitTrait for Accent {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let ch = match &self.char.font.file.chartable {
-            Some(ct) => Some(ct.get_char(self.char.char)),
-            _ => None
-        };
-        let acc = match &self.font.file.chartable {
-            Some(ct) => Some(ct.get_char(self.acc as u8)),
-            _ => None
-        };
+        let ch = self.char.charstr;
+        let acc = self.accstr;
         match (ch,acc) {
-            (Some(ch),Some(acc)) => match ACCENTS.get(&(ch,acc)) {
+            (ch,acc) if ch != "???" && acc != "???" => match ACCENTS.get(&(ch,acc)) {
                 Some(s) =>
                     {
                         htmlliteral!(colon,node_top,>{*s}<);
@@ -351,7 +346,8 @@ lazy_static! {
 pub struct PrintChar {
     pub char : u8,
     pub font : ArcFont,
-    pub sourceref:Option<SourceFileReference>
+    pub sourceref:Option<SourceFileReference>,
+    pub charstr: &'static str
 }
 impl WhatsitTrait for PrintChar {
     fn as_whatsit(self) -> Whatsit { Whatsit::Char(self) }
@@ -379,15 +375,7 @@ impl WhatsitTrait for PrintChar {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let str: HTMLStr = match &self.font.file.chartable {
-            Some(ct) => {
-                let ch = ct.get_char(self.char).to_string();
-                if ch == " " {
-                    "&#160;".into()
-                } else {HTMLStr::from(ch).html_escape()}
-            }
-            None => self.as_xml_internal("".to_string()).into()
-        };
+        let str: HTMLStr = self.charstr.into();
         match mode {
             ColonMode::H => {
                 let maybetext = match match node_top {
