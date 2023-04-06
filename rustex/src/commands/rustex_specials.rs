@@ -207,7 +207,7 @@ impl ExternalWhatsitGroup for AnnotateBegin {
                     Sized::Minus(i) => Some(<&str as Into<HTMLStr>>::into("calc(var(--document-width) - ") + dimtohtml(i) + ")"),
                     Sized::Times(f) => Some(<&str as Into<HTMLStr>>::into("calc(var(--document-width) * ") + f.to_string().as_str() + ")")
                 };
-                htmlnode!(colon,div,None,"withwidth",htmlparent!(d),d2 => {
+                htmlnode!(colon,div,None,"rustex-withwidth",htmlparent!(d),d2 => {
                     if let Some(str) = str { d2.style("--temp-width".into(),str) }
                     htmlnode!(colon,span,None,"contents",htmlparent!(d2),inner => {
                         for c in ch { c.as_html(mode,colon,htmlparent!(inner))}

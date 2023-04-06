@@ -575,7 +575,7 @@ impl WhatsitTrait for PDFMatrixSave {
             _ => false
         }).next() {
             Some(Whatsit::Simple(SimpleWI::PDFMatrix(matrix))) => {
-                htmlnode!(colon,div,self.get_ref(),"pdfmatrix",node_top,m => {
+                htmlnode!(colon,div,self.get_ref(),"rustex-pdfmatrix",node_top,m => {
                     let mut tf : HTMLStr = "matrix(".into();
                     tf += matrix.scale.to_string();
                     tf += ",";

@@ -83,7 +83,7 @@ macro_rules! withwidth {
          } else {
              let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
              $node.style("--temp-width".into(),_withwidth_str.into());
-             $node.classes.push("withwidth".into());
+             $node.classes.push("rustex-withwidth".into());
              htmlnode!($colon,span,None,"contents",htmlparent!($node),$inner => {
                 $e
              });
@@ -288,11 +288,11 @@ impl HTMLColon {
         match std::mem::take(&mut self.state.kern) {
             0 => {}
             v => if self.state.current_namespace == HTML_NS {
-                htmlnode!(self,div,None,"hkern",parent,node => {
+                htmlnode!(self,div,None,"rustex-kern",parent,node => {
                     node.style("margin-left".into(),dimtohtml(v));
                 });
             } else if self.state.current_namespace == MATHML_NS {
-                htmlnode!(self,mspace,None,"mkern",parent,node => {
+                htmlnode!(self,mspace,None,"rustex-mkern",parent,node => {
                     let val = ((v as f32) / (65536.0 * 18.0));
                     if val < 0.0 {
                         node.style("margin-left".into(),(val.to_string() + "em").into());
@@ -322,7 +322,7 @@ impl HTMLColon {
             //self.ret += "\n    <script type=\"text/javascript\" id=\"MathJax-script\" src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/mml-chtml.js\"></script>";
             ret += "\n  </head>\n  <body style=\"max-width:";
             ret += &dimtohtml(self.pagewidth).to_string();
-            ret += "\">\n    <div class=\"body\" id=\"rustexbody\" style=\"font-size:";
+            ret += "\">\n    <div class=\"rustex-body\" id=\"rustexbody\" style=\"font-size:";
             let fontsize = match &self.base.basefont.as_ref() {
                 Some(f) => match f.at {
                     Some(i) => i,
@@ -468,9 +468,9 @@ impl HTMLNode {
                 mi
             }
             Some(ref mi) => {
-                self.classes.push("resetfont".into());
+                self.classes.push("rustex-reset-font".into());
                 if mi.params.contains(&FontTableParam::Monospaced) {
-                    self.classes.push("monospaced".into())
+                    self.classes.push("rustex-monospaced".into())
                 }
                 if mi.params.contains(&FontTableParam::Italic) {
                     self.style("font-style".into(),"italic".into())
@@ -479,18 +479,18 @@ impl HTMLNode {
                     self.style("font-weight".into(),"bold".into())
                 }
                 if mi.params.contains(&FontTableParam::Blackboard) {
-                    self.classes.push("blackboard".into())
+                    self.classes.push("rustex-blackboard".into())
                     //self.style("font-family".into(),"msbm".into())
                 }
                 if mi.params.contains(&FontTableParam::Capital) {
                     self.style("font-variant".into(),"small-caps".into())
                 }
                 if mi.params.contains(&FontTableParam::SansSerif) {
-                    self.classes.push("sansserif".into())
+                    self.classes.push("rustex-sans-serif".into())
                     //self.style("font-family".into(),"sans-serif".into())
                 }
                 if mi.params.contains(&FontTableParam::Script) {
-                    self.classes.push("script".into())
+                    self.classes.push("rustex-script-font".into())
                     //self.style("font-family".into(),"URW Chancery L, cursive".into())
                 }
                 self.style("font-size".into(),((100.0 * (mi.at as f32) / (fi.at as f32)).round().to_string() + "%").into());

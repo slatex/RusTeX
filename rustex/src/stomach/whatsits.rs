@@ -253,7 +253,7 @@ impl WhatsitTrait for SpaceChar {
     fn has_ink(&self) -> bool { false }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H => htmlnode!(colon,div,self.get_ref(),"space-in-hbox",node_top,node => {htmlliteral!(colon,htmlparent!(node),<&str as Into<HTMLStr>>::into("&#160;"))}),
+            ColonMode::H => htmlnode!(colon,div,self.get_ref(),"rustex-space-in-hbox",node_top,node => {htmlliteral!(colon,htmlparent!(node),<&str as Into<HTMLStr>>::into("&#160;"))}),
             _ => {
                 let str: HTMLStr = if self.nonbreaking { "&#160;".into() } else { " ".into() };
                 htmlliteral!(colon,node_top,str);
@@ -268,7 +268,7 @@ impl WhatsitTrait for SpaceChar {
                     _ => None
                 };
                 match maybetext {
-                    Some(n) if n.classes.contains(&"text".into()) =>
+                    Some(n) if n.classes.contains(&"rustex-text".into()) =>
                         n.children.push(HTMLChild::Str(str.into())),
                     _ => htmlnode!(colon,span,None,"text",node_top,span => {
                         htmlliteral!(colon,htmlparent!(span),str);
@@ -399,13 +399,13 @@ impl WhatsitTrait for PrintChar {
                     _ => None
                 };;
                 match maybetext {
-                    Some(n) if n.classes.contains(&"text".into()) =>{
+                    Some(n) if n.classes.contains(&"rustex-text".into()) =>{
                         n.children.push(HTMLChild::Str(str.into()));
                         /*n.style("height".into(),"".into());
                         n.style("width".into(),"".into());
                         n.style("line-height".into(),"".into());*/
                     }
-                    _ => htmlnode!(colon,span,None,"text",node_top,span => {
+                    _ => htmlnode!(colon,span,None,"rustex-text",node_top,span => {
                         let h = self.font.get_height(self.char as u16);
                         /*span.ht = h;
                         span.style("height".into(),dimtohtml(h));

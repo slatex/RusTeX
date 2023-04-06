@@ -96,7 +96,7 @@ impl WhatsitTrait for PGFEscape {
                     let oldsize = colon.state.currsize;
                     colon.state.currsize = finwd;
                     fo.style("--document-width".into(),dimtohtml(finwd));
-                    htmlnode!(colon,HTML_NS:div,None,"foreign",htmlparent!(fo),div => {
+                    htmlnode!(colon,HTML_NS:div,None,"rustex-foreign",htmlparent!(fo),div => {
                         self.bx.as_html(&ColonMode::H,colon,htmlparent!(div))
                     });
                     colon.state.currsize = oldsize;

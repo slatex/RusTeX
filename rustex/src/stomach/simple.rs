@@ -319,7 +319,7 @@ impl WhatsitTrait for VRule {
                     None => "#000000".into()
                 });
             }),
-            _ => htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
+            _ => htmlnode!(colon,div,self.sourceref.clone(),"rustex-hvrule-container",node_top,m => {
                 m.style("height".into(),dimtohtml(self.height() + self.depth()));
                 let width = self.width();
                 if 3.1*(width as f32) > (colon.textwidth as f32) {
@@ -328,7 +328,7 @@ impl WhatsitTrait for VRule {
                     m.style("width".into(),dimtohtml(self.width()));
                     m.style("min-width".into(),dimtohtml(self.width()));
                 }
-                htmlnode!(colon,div,self.sourceref.clone(),"vrule",htmlparent!(m),n => {
+                htmlnode!(colon,div,self.sourceref.clone(),"rustex-vrule",htmlparent!(m),n => {
                     n.style("width".into(),"100%".into());
                     n.style("height".into(),dimtohtml(self.height() + self.depth()));
                     n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
@@ -373,11 +373,11 @@ impl WhatsitTrait for HRule {
         if self.width.unwrap_or(10) != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref.clone(),"hvrulecontainer",node_top,m => {
+        htmlnode!(colon,div,self.sourceref.clone(),"rustex-hvrule-container",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
             let width = self.width();
             setwidth!(colon,width,m);
-        htmlnode!(colon,div,self.sourceref.clone(),"hrule",htmlparent!(m),n => {
+        htmlnode!(colon,div,self.sourceref.clone(),"rustex-hrule",htmlparent!(m),n => {
             n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
             n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
@@ -423,7 +423,7 @@ impl WhatsitTrait for VSkip {
         }
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref,"vskip",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"rustex-vskip",node_top,node => {
             node.style("margin-bottom".into(),dimtohtml(self.skip.base));
         })
     }
@@ -462,11 +462,11 @@ impl WhatsitTrait for HSkip {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::P =>
-                htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
+                htmlnode!(colon,div,self.sourceref,"rustex-hskip",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
             ColonMode::M =>
-                htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                htmlnode!(colon,mspace,self.sourceref,"rustex-mskip",node_top,a => {
                     if self.skip.base < 0 {
                         a.style("margin-left".into(),dimtohtml(self.skip.base));
                     }
@@ -510,14 +510,14 @@ impl WhatsitTrait for MSkip {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::M =>
-                htmlnode!(colon,mspace,self.sourceref,"mskip",node_top,a => {
+                htmlnode!(colon,mspace,self.sourceref,"rustex-mskip",node_top,a => {
                     if self.skip.base < 0 {
                         a.style("margin-left".into(),(self.skip.get_em().to_string() + "em").into());
                     }
                     a.attr("width".into(),(self.skip.get_em().to_string() + "em").into()) // 1179648
                 }),
             ColonMode::H | ColonMode::P =>
-                htmlnode!(colon,div,self.sourceref,"hskip",node_top,node => {
+                htmlnode!(colon,div,self.sourceref,"rustex-hskip",node_top,node => {
                     node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
             _ => ()//TeXErr!("TODO")
@@ -707,14 +707,14 @@ impl WhatsitTrait for Raise {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P =>
-                htmlnode!(colon,div,self.sourceref,"raise",node_top,node => {
+                htmlnode!(colon,div,self.sourceref,"rustex-raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(self.dim));
                 node.style("margin-top".into(),dimtohtml(self.dim));
                 node.style("margin-bottom".into(),dimtohtml(-self.dim));
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::M =>
-                htmlnode!(colon,mpadded,self.sourceref,"raise",node_top,node => {
+                htmlnode!(colon,mpadded,self.sourceref,"rustex-raise",node_top,node => {
                     node.attr("voffset".into(),dimtohtml(-self.dim));
                     self.content.as_html(mode,colon,htmlparent!(node))
             }),
@@ -791,7 +791,7 @@ impl WhatsitTrait for MoveRight {
         }
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref,"moveright",node_top,node => {
+        htmlnode!(colon,div,self.sourceref,"rustex-moveright",node_top,node => {
             node.style("margin-left".into(),dimtohtml(self.dim));
             self.content.as_html(mode,colon,htmlparent!(node))
         })
@@ -1076,7 +1076,7 @@ impl WhatsitTrait for HAlign {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
-                htmlnode!(colon,table,self.sourceref,"halign",node_top,table => {
+                htmlnode!(colon,table,self.sourceref,"rustex-halign",node_top,table => {
                     if self.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
                     }
@@ -1114,16 +1114,16 @@ impl WhatsitTrait for HAlign {
 macro_rules! docell {
     ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
         match $mode {
-            ColonMode::M => htmlnode!($sel,mtd,None,"cell",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,td,None,"cell",htmlparent!($node_parent),$nodename => $e)
+            ColonMode::M => htmlnode!($sel,mtd,None,"rustex-cell",htmlparent!($node_parent),$nodename => $e),
+            _ => htmlnode!($sel,td,None,"rustex-cell",htmlparent!($node_parent),$nodename => $e)
         }
     })
 }
 macro_rules! dorow {
     ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
         match $mode {
-            ColonMode::M => htmlnode!($sel,mtr,None,"row",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,tr,None,"row",htmlparent!($node_parent),$nodename => $e)
+            ColonMode::M => htmlnode!($sel,mtr,None,"rustex-row",htmlparent!($node_parent),$nodename => $e),
+            _ => htmlnode!($sel,tr,None,"rustex-row",htmlparent!($node_parent),$nodename => $e)
         }
     })
 }
@@ -1131,7 +1131,7 @@ macro_rules! dobox {
     ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
         match $mode {
             ColonMode::M => htmlnode!($sel,mrow,None,"",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,div,None,"hbox",htmlparent!($node_parent),$nodename => {
+            _ => htmlnode!($sel,div,None,"rustex-hbox",htmlparent!($node_parent),$nodename => {
                 /*$nodename.style("height".into(),"0".into());
                 $nodename.style("max-height".into(),"0".into());*/
                 $e
@@ -1584,7 +1584,7 @@ macro_rules! trivial {
             fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
                 match mode {
                     ColonMode::H | ColonMode::V | ColonMode::P => {
-                        htmlnode!(colon,div,self.0,(stringify!($e)),node_top)
+                        htmlnode!(colon,div,self.0,("rustex-".to_string() + &stringify!($e)),node_top)
                     }
                     _ => ()
                 }
