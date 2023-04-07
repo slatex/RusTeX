@@ -291,7 +291,7 @@ impl WhatsitTrait for HBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"rustex-contents",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
@@ -822,17 +822,17 @@ impl WhatsitTrait for VBox {
                 }
             }
             ColonMode::V | ColonMode::H | ColonMode::P => {
-                let (outercls,innercls,cls) = if self.tp == VBoxType::Center {
-                    ("rustex-vcenter-container-outer","rustex-vcenter-container","rustex-vcenter")
+                let (innercls,cls) = if self.tp == VBoxType::Center {
+                    ("rustex-vcenter-container","rustex-vcenter")
                 } else {
-                    ("rustex-vbox-container-outer","rustex-vbox-container","rustex-vbox")
+                    ("rustex-vbox-container","rustex-vbox")
                 };
-                htmlnode!(colon,div,None,outercls,node_top,conta => {
+                //htmlnode!(colon,div,None,outercls,node_top,conta => {
+                    htmlnode!(colon,div,None,innercls,node_top,cont => {
                     if crate::INSERT_RUSTEX_ATTRS {
-                        conta.attr("rustex:width".into(),dimtohtml(self.width()));
-                        conta.attr("rustex:height".into(),dimtohtml(self.height()));
+                        cont.attr("rustex:width".into(),dimtohtml(self.width()));
+                        cont.attr("rustex:height".into(),dimtohtml(self.height()));
                     }
-                    htmlnode!(colon,div,None,innercls,htmlparent!(conta),cont => {
                         if let Some(ht) = self._height {
                             if ht < 0 {
                                 cont.style("margin-bottom".into(),dimtohtml(ht));
@@ -858,7 +858,7 @@ impl WhatsitTrait for VBox {
                             })
                         }
                     });
-                });
+                //});
             }
             ColonMode::M if self.children.is_empty() => {
                 htmlnode!(colon,mi,None,"rustex-dummy",node_top);
@@ -875,7 +875,7 @@ impl WhatsitTrait for VBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"rustex-contents",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

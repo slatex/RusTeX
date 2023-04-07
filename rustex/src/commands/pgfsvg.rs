@@ -383,6 +383,7 @@ pub static PGF_FLUSH : PrimitiveExecutable = PrimitiveExecutable {
 // <path id="" d="" marker-start="url()" marker-end="url()"/>
 // <use xlink:href="" marker-start="url(...)" marker-end="url(...)"/>
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::Arc;
 use crate::commands::pgfsvg::parsesvg::{parse_path, parse_transform, strtonum};
 use crate::interpreter::TeXMode;
@@ -615,15 +616,13 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
                 "stroke","fill","id","marker-start","marker-end","d","fill",
                 "visibility","stroke-linecap","stroke-linejoin","href",
                 "fx","fy","stroke-miterlimit","patternUnits","patternTransform",
-                "markerUnits","orient","overflow","attributeName","from","to",
-                "animateTransform","animateMotion","type",
+                "markerUnits","orient","overflow","attributeName","from","to","stop-color","style",
+                "animateTransform","animateMotion","type","gradientTransform","offset","width","height",
                 "dur","restart","repeatCount","repeatDur","begin","end"))? {
-                None => { // \#pgfcp\the \pgf@sys@svg@objectcount
-                    // gradientTransform="rotate(90)"\
-                    // offset="0.0" stop-color=" #feb053 "\relax
-                    // width="100.0" height="100.0" style="fill:url(\#pgfsh10); stroke:none"\relax
+                None => {
                     if !int.preview().to_string().starts_with("\\relax") {
-                        //println!("missing: >>{}",int.preview());
+                        int.params.write_other(&*std::format!("missing: >>{}",int.preview()));
+                        std::io::stdout().flush();
                         print!("");
                     }
                     break 'attr

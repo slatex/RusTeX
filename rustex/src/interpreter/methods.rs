@@ -67,8 +67,30 @@ impl Interpreter<'_> {
                     if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
-                        self.requeue(next);
-                        break
+
+                        match &*cmd.orig {
+                            PrimitiveTeXCommand::Char(tk) => {
+                                let ret2 = ret.clone() + str::from_utf8(crate::utils::as_ascii(&tk.char).as_slice()).unwrap();
+                                if kws.iter().any(|x| x.starts_with(&ret2)) {
+                                    kws = kws.iter().filter(|s| s.starts_with(&ret2)).map(|x| *x).collect();
+                                    ret = ret2;
+                                    tokens.push(next);
+                                    //if kws.is_empty() { break }
+                                    if kws.len() == 1 && kws.contains(&ret.as_str()) { break }
+                                } else {
+                                    if kws.len() == 1 && kws.contains(&ret.as_str()) {
+                                        self.requeue(next);
+                                    } else {
+                                        tokens.push(next);
+                                    }
+                                    break
+                                }
+                            }
+                            _ => {
+                                self.requeue(next);
+                                break
+                            }
+                        }
                     }
                 },
                 _ => {
@@ -112,8 +134,13 @@ impl Interpreter<'_> {
                     if cmd.expandable(true) {
                         cmd.expand(next,self)?;
                     } else {
-                        self.requeue(next);
-                        return Ok(from_utf8(ret.as_slice()).unwrap().to_owned())
+                        match &*cmd.orig {
+                            PrimitiveTeXCommand::Char(tk) => ret.push(tk.char),
+                            _ => {
+                                self.requeue(next);
+                                return Ok(from_utf8(ret.as_slice()).unwrap().to_owned())
+                            }
+                        }
                     }
                 },
                 CategoryCode::Space | CategoryCode::EOL if !quoted => return Ok(from_utf8(ret.as_slice()).unwrap().to_owned()),

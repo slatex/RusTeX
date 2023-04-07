@@ -193,11 +193,9 @@ a { color: inherit; text-decoration: inherit; }
 }
 
 .rustex-vbox-container { display:inline-block; width: min-content; height: min-content }
-.rustex-vbox-container-outer { display:contents; width: min-content; height: min-content }
 .rustex-vtop-container { display:inline-block;; width: min-content; height: min-content }
 .rustex-vtop-container-outer { display:contents; width: min-content; height: min-content }
 .rustex-vcenter-container { display:inline-block; width: min-content; height: min-content }
-.rustex-vcenter-container-outer { display:contents; width: min-content; height: min-content }
 
 .rustex-display-vcenter {
     text-align:center;

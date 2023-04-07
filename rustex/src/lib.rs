@@ -84,7 +84,7 @@ mod tests {
     }
     fn csstest_i() {
         thread::sleep(time::Duration::from_millis(50));
-        let pathstr = "/home/jazzpirate/work/Software/sTeX/RusTeX/rustex/";
+        let pathstr = "/home/jazzpirate/work/Software/sTeX/RusTeX/test/";
         let infile = pathstr.to_string() + "test.tex";
         let path = Path::new(&infile);
 
