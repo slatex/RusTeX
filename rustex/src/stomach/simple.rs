@@ -246,7 +246,18 @@ impl WhatsitTrait for PDFXImage {
             _ => ret.push(self.as_whatsit())
         }
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        if *mode == ColonMode::M {
+            return HBox {
+                children: vec!(self.as_whatsit()),
+                spread: 0,
+                _width: None,
+                _height: None,
+                _depth: None,
+                _to: None,
+                rf: None,
+            }.as_html(mode, colon, node_top)
+        }
         match self.image {
             Some(ref img) => {
                 let target_width = 5 * ((HTMLSCALE as f64) * round(self.width())).round() as u32;

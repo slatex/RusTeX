@@ -2,7 +2,7 @@ use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit,
 use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth, INSERT_RUSTEX_ATTRS};
 use crate::interpreter::dimensions::numtostr;
 use crate::references::SourceFileReference;
-use crate::stomach::boxes::TeXBox;
+use crate::stomach::boxes::{HBox, TeXBox};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, WIGroup, WIGroupTrait};
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, numtohtml, SVG_NS};
@@ -212,7 +212,18 @@ impl WhatsitTrait for PGFBox {
         self.content = nc;
         ret.push(self.as_whatsit())
     }
-    fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+        if *mode == ColonMode::M {
+            return HBox {
+                children: vec!(self.as_whatsit()),
+                spread: 0,
+                _width: None,
+                _height: None,
+                _depth: None,
+                _to: None,
+                rf: None,
+            }.as_html(mode, colon, node_top)
+        }
         htmlnode!(colon,HTML_NS:div,None,"",node_top,idiv => {
             idiv.style("display".into(),"inline-block".into());
             withwidth!(colon,self.maxx-self.minx,idiv,inner => {
@@ -287,7 +298,7 @@ pub fn get_dimen(s:&str,int:&Interpreter) -> Result<i32,TeXError> {
 
 pub static TYPESETPICTUREBOX: SimpleWhatsit = SimpleWhatsit {
     name:"rustex!pgf!typesetpicturebox",
-    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal},
+    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath},
     _get: |tk, int| {
         let num = int.read_number()? as u16;
         Ok(PGFBox {

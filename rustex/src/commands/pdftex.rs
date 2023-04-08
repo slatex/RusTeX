@@ -575,7 +575,7 @@ pub static PDFRESTORE: SimpleWhatsit = SimpleWhatsit {
 
 pub static PDFREFXIMAGE: SimpleWhatsit = SimpleWhatsit {
     name:"pdfrefximage",
-    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal},
+    modes: |m| {m == TeXMode::Horizontal || m == TeXMode::RestrictedHorizontal || m == TeXMode::Math || m == TeXMode::Displaymath},
     _get:|tk,int| {
         let num = int.read_number()?;
         let img = match int.state.pdfximages.get(num as usize) {
