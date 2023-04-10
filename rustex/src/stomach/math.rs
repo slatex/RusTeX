@@ -623,7 +623,10 @@ impl MathChar {
                     } else {
                         a.attr("stretchy".into(),"false".into());
                     }
-                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        a.attr("rustex:font".into(),(&self.font.file.name).into()) ;
+                        a.attr("rustex:charpos".into(),self.position.to_string().into());
+                    }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }
@@ -645,7 +648,10 @@ impl MathChar {
                     } else {
                         a.attr("stretchy".into(),"false".into());
                     }
-                    if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        a.attr("rustex:font".into(),(&self.font.file.name).into()) ;
+                        a.attr("rustex:charpos".into(),self.position.to_string().into());
+                    }
                     htmlliteral!(colon,htmlparent!(a),>charstr<)
                 })
             }

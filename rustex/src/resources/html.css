@@ -247,13 +247,17 @@ a { color: inherit; text-decoration: inherit; }
 
 /* ---------------------------------------------------- Rules ------------------------------------------------------- */
 
-.rustex-vrule, .rustex-hrule {
+.rustex-vrule {
+    display:inline-block;
+}
+.rustex-hrule {
     display:block;
 }
-/* inline-block makes the vrule jump out? */
-.rustex-hvrule-container {
-    display:inline-table;
-}
+.rustex-vrule-container {
+    display:inline-block;
+}.rustex-hrule-container {
+     display:block;
+ }
 
 /* ----------------------------------------------------- Math ------------------------------------------------------- */
 
@@ -269,6 +273,7 @@ mtext {
     word-spacing: initial;
     display: inline-flex;
 }
+mtext > {display:initial}
 
 .rustex-display-math-container {
     text-align:center;
@@ -306,7 +311,7 @@ mover > :not(:first-child), munder > :not(:first-child) {font-size:inherit}
 .rustex-VFil, .rustex-VFill { display:none }
 
 /* --------------------------------------------------- Tables ------------------------------------------------------- */
-
+tbody {display:table-row-group}
 .rustex-halign{
     display:inline-table;
     border-collapse:collapse;

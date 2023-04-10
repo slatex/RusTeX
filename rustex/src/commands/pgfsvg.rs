@@ -741,12 +741,17 @@ pub static PGF_BEGIN: SimpleWhatsit = SimpleWhatsit {
     name: "rustex!pgf!begin",
     modes: |_| { true },
     _get: |tk, int| {
-        //let _attrs : HashMap<&'static str,TeXStr> = HashMap::new();
+        let mut attrs : HashMap<&'static str,TeXStr> = HashMap::new();
+        let kws = vec!("overflow","preserveAspectRatio","id","x","y","width","height","viewBox");
         'attr: loop {
-            match int.read_keyword(vec!("overflow","preserveAspectRatio","id","x","y","width","height","viewBox"))? {
+            match int.read_keyword(kws.clone())? {
                 None => break 'attr,
                 Some(s) => {
+                    int.read_eq();
                     let r = int.read_string()?;
+                    int.params.write_other(&*std::format!("SVG: {} = {}",s,r));
+                    std::io::stdout().flush();
+                    attrs.insert(kws.iter().find(|p| **p == r).unwrap(),r.into());
                     //println!("SVG: {} = {}",s,r);
                     //print!("")
                 }
@@ -754,7 +759,7 @@ pub static PGF_BEGIN: SimpleWhatsit = SimpleWhatsit {
         }
         let bg = PGFBegin {
             sourceref: int.update_reference(tk),
-            attrs: Default::default()
+            attrs
         };
         Ok(Whatsit::GroupOpen(WIGroup::External(Arc::new(bg),vec!())))
     },

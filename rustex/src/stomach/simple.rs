@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use base64::Engine;
 use image::DynamicImage;
 use image::imageops::FilterType;
-use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, round, Skip};
+use crate::interpreter::dimensions::{dimtostr, MuSkip, numtostr, round, Skip, SkipDim};
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox, VBox};
 use crate::stomach::colon::ColonMode;
@@ -14,6 +14,7 @@ use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
 use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token};
+use crate::fonts::ArcFont;
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -297,6 +298,7 @@ pub struct VRule {
     pub height:Option<i32>,
     pub width:Option<i32>,
     pub depth:Option<i32>,
+    pub font:ArcFont,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for VRule {
@@ -319,7 +321,7 @@ impl WhatsitTrait for VRule {
     fn normalize(self, _: &ColonMode, ret: &mut Vec<Whatsit>, _: Option<f32>) {
         /*if self.width() != 0 && (self.height.unwrap_or(10) != 0 || self.depth() != 0) {*/ ret.push(self.as_whatsit());//}
     }
-    fn as_html(self, m: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(mut self, m: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match m {
             ColonMode::M => htmlnode!(colon,mspace,self.sourceref.clone(),"vrule",node_top,n => {
                 if self.height() != 0 {n.attr("height".into(),dimtohtml(self.height()))}
@@ -330,7 +332,7 @@ impl WhatsitTrait for VRule {
                     None => "#000000".into()
                 });
             }),
-            _ => htmlnode!(colon,div,self.sourceref.clone(),"rustex-hvrule-container",node_top,m => {
+            _ => htmlnode!(colon,div,self.sourceref.clone(),"rustex-vrule-container",node_top,m => {
                 m.style("height".into(),dimtohtml(self.height() + self.depth()));
                 let width = self.width();
                 if 3.1*(width as f32) > (colon.textwidth as f32) {
@@ -341,14 +343,24 @@ impl WhatsitTrait for VRule {
                 }
                 htmlnode!(colon,div,self.sourceref.clone(),"rustex-vrule",htmlparent!(m),n => {
                     n.style("width".into(),"100%".into());
-                    n.style("height".into(),dimtohtml(self.height() + self.depth()));
-                    n.style("min-height".into(),dimtohtml(self.height() + self.depth()));
                     n.style("background".into(),match &colon.state.currcolor {
                         Some(c) => HTMLStr::from("#") + c,
                         None => "#000000".into()
                     });
-                    if self.depth() != 0 {
-                        n.style("margin-bottom".into(),dimtohtml(-self.depth()))
+                    match (self.depth,self.height) {
+                        (None,None) => {
+                            n.style("vertical-align".into(),"text-bottom".into());
+                            n.style("height".into(),dimtohtml(self.font.get_at()));
+                        }
+                        (None,_) => {
+                            n.style("margin-bottom".into(),"-0.5ex".into());
+                            let retstr: HTMLStr = "calc(0.5ex + ".into();
+                            n.style("height".into(),retstr + dimtohtml(self.height() + self.depth()) + ")");
+                        }
+                        _ => {
+                            n.style("height".into(),dimtohtml(self.height() + self.depth()));
+                            n.style("margin-bottom".into(),dimtohtml(-self.depth()));
+                        }
                     }
                 })
             })
@@ -364,8 +376,11 @@ pub struct HRule {
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HRule {
-    fn get_par_width(&self) -> Option<i32> { Some(self.width()) }
-    fn get_par_widths(&self) -> Vec<i32> { vec!(self.width()) }
+    fn get_par_width(&self) -> Option<i32> { if self.width() == 0 {None} else {Some(self.width())} }
+    fn get_par_widths(&self) -> Vec<i32> { match self.get_par_width() {
+        Some(w) => vec!(w),
+        _ => vec!()
+    } }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
     fn as_whatsit(self) -> Whatsit {
         Whatsit::Simple(SimpleWI::HRule(self))
@@ -384,10 +399,13 @@ impl WhatsitTrait for HRule {
         if self.width.unwrap_or(10) != 0 && (self.height() != 0 || self.depth() != 0) { ret.push(self.as_whatsit())}
     }
     fn as_html(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        htmlnode!(colon,div,self.sourceref.clone(),"rustex-hvrule-container",node_top,m => {
+        htmlnode!(colon,div,self.sourceref.clone(),"rustex-hrule-container",node_top,m => {
             m.style("height".into(),dimtohtml(self.height() + self.depth()));
-            let width = self.width();
-            setwidth!(colon,width,m);
+            if self.width() != 0 {
+                setwidth!(colon,self.width(),m);
+            } else {
+                m.style("width".into(),"100%".into());
+            }
         htmlnode!(colon,div,self.sourceref.clone(),"rustex-hrule",htmlparent!(m),n => {
             n.style("width".into(),"100%".into());
             n.style("height".into(),dimtohtml(self.height() + self.depth()));
@@ -725,9 +743,11 @@ impl WhatsitTrait for Raise {
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::M =>
-                htmlnode!(colon,mpadded,self.sourceref,"rustex-raise",node_top,node => {
-                    node.attr("voffset".into(),dimtohtml(-self.dim));
-                    self.content.as_html(mode,colon,htmlparent!(node))
+                htmlnode!(colon,mrow,self.sourceref,"rustex-raise",node_top,node => {
+                node.style("bottom".into(),dimtohtml(self.dim));
+                node.style("margin-top".into(),dimtohtml(self.dim));
+                node.style("margin-bottom".into(),dimtohtml(-self.dim));
+                self.content.as_html(mode,colon,htmlparent!(node))
             }),
             _ => ()//TeXErr!("TODO")
         }
@@ -1165,6 +1185,11 @@ impl HAlign {
                     Some(o@Whatsit::Simple(SimpleWI::VRule(_))) => {vs.push(o);break}
                     Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_))) => alignment.1 = 1,
                     Some(Whatsit::Simple(SimpleWI::HFill(_))) => alignment.1 = 2,
+                    Some(ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk))) => match sk.skip.stretch {
+                        Some(SkipDim::Fil(_)) => alignment.1 = 1,
+                        Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.1 = 2,
+                        _ => repush.push(o.clone()),
+                    },
                     Some(o) if !o.has_ink() => repush.push(o),
                     Some(o) => {vs.push(o);break}
                     None => break
@@ -1183,6 +1208,11 @@ impl HAlign {
                     }
                     Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => alignment.0 = 1,
                     Whatsit::Simple(SimpleWI::HFill(_)) => alignment.0 = 2,
+                    ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk)) => match sk.skip.stretch {
+                        Some(SkipDim::Fil(_)) => alignment.0 = 1,
+                        Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.0 = 2,
+                        _ => o.clone().as_html(mode,colon,htmlparent!(bx))
+                    },
                     Whatsit::Space(_) if !inspace => {
                         incell = true;
                         inspace = true;

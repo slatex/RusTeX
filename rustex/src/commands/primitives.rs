@@ -2072,7 +2072,7 @@ pub static VRULE: SimpleWhatsit = SimpleWhatsit {
         }
         log!("VRule: width:{:?}, height:{:?}, depth:{:?}",width,height,depth);
         Ok(Whatsit::Simple(SimpleWI::VRule(VRule {
-            height,width,depth,sourceref:int.update_reference(tk)
+            height,width,depth,sourceref:int.update_reference(tk),font:int.state.currfont.get()
         })))
     }
 };
