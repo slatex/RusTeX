@@ -80,6 +80,7 @@ impl FontTableStore {
                 // stix -------------------------------------------------------------------
                 ("t-stixgeneral",STANDARD_TEXT_EC,FontTableParam::Text),
                 ("t-stixtext",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("t-stixtextsc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
                 ("t-stixtext-italic",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("t-stixtext-bold",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
                 ("ts-stixgeneral",STIX_TS_GENERAL,FontTableParam::Text),
@@ -495,10 +496,14 @@ lazy_static! {
         (122,"z"),(123,"ı"),(124,"ȷ")
     ]);
     pub static ref STIX_MATH_EX : HashMap<u8,&'static str> = HashMap::from([
+        (12,"{"),(13,"}"),
+        (16,"⟨"),(17,"⟩"),
         (177,"∏"),(178,"∐"),(179,"∑"),(180,"⋀"),(181,"⋁"),(182,"⋂"),(183,"⋃"),
         (199,"∏"),(200,"∐"),(201,"∑"),(202,"⋀"),(203,"⋁"),(204,"⋂"),(205,"⋃"),
         (226,"⌊"),(227,"⌋"),(228,"⌈"),(229,"⌉"),
         (234,"⟨"),(235,"⟩"),(240,"|"),(241,"‖"),
+        (243,"|"),
+        (245,"⦀"),
         (249,"√")
     ]);
     pub static ref STIX_TS_GENERAL : HashMap<u8,&'static str> = HashMap::from([

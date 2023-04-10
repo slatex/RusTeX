@@ -274,6 +274,10 @@ mtext {
     display: inline-flex;
 }
 mtext > {display:initial}
+mtext * {
+    font-size: inherit;
+    writing-mode: initial;
+}
 
 .rustex-display-math-container {
     text-align:center;
@@ -315,6 +319,7 @@ tbody {display:table-row-group}
 .rustex-halign{
     display:inline-table;
     border-collapse:collapse;
+    width: min-content;
 }
 .rustex-row{display: table-row}
 .rustex-cell{display: table-cell}
@@ -333,10 +338,10 @@ tbody {display:table-row-group}
 /* --------------------------------------------------- Others ------------------------------------------------------- */
 
 .rustex-raise {
-    display: inline-block;
+    display: inline-flex;
 }
 .rustex-moveright {
-    display: inline-block;
+    display: inline-flex;
 }
 hr {width: 100%;}
 .rustex-foreign {

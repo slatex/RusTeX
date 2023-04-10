@@ -1185,10 +1185,13 @@ impl HAlign {
                     Some(o@Whatsit::Simple(SimpleWI::VRule(_))) => {vs.push(o);break}
                     Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_))) => alignment.1 = 1,
                     Some(Whatsit::Simple(SimpleWI::HFill(_))) => alignment.1 = 2,
-                    Some(ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk))) => match sk.skip.stretch {
-                        Some(SkipDim::Fil(_)) => alignment.1 = 1,
-                        Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.1 = 2,
-                        _ => repush.push(o.clone()),
+                    Some(ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk))) => {
+                        match sk.skip.stretch {
+                            Some(SkipDim::Fil(_)) => alignment.1 = 1,
+                            Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.1 = 2,
+                            _ => ()
+                        }
+                        repush.push(o.clone());
                     },
                     Some(o) if !o.has_ink() => repush.push(o),
                     Some(o) => {vs.push(o);break}
@@ -1208,11 +1211,14 @@ impl HAlign {
                     }
                     Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => alignment.0 = 1,
                     Whatsit::Simple(SimpleWI::HFill(_)) => alignment.0 = 2,
-                    ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk)) => match sk.skip.stretch {
-                        Some(SkipDim::Fil(_)) => alignment.0 = 1,
-                        Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.0 = 2,
-                        _ => o.clone().as_html(mode,colon,htmlparent!(bx))
-                    },
+                    ref o@Whatsit::Simple(SimpleWI::HSkip(ref sk)) => {
+                        match sk.skip.stretch {
+                            Some(SkipDim::Fil(_)) => alignment.0 = 1,
+                            Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.0 = 2,
+                            _ => ()
+                        }
+                        o.clone().as_html(mode,colon,htmlparent!(bx));
+                    }
                     Whatsit::Space(_) if !inspace => {
                         incell = true;
                         inspace = true;
@@ -1244,10 +1250,18 @@ impl HAlign {
                 HSkip {skip,sourceref:None}.as_html(mode,colon,htmlparent!(bx));
             });
             match alignment {
-                (0,0) => cell.style("text-align".into(),"left".into()),
-                (a,b) if a == b => cell.style("text-align".into(),"center".into()),
-                (a,b) if a > b => cell.style("text-align".into(),"right".into()),
-                _ => cell.style("text-align".into(),"left".into()),
+                (a,b) if a == b && a != 0 => {
+                    cell.style("text-align".into(),"center".into());
+                    //cell.style("justify-items".into(),"center".into());
+                }
+                (a,b) if a > b => {
+                    cell.style("text-align".into(),"right".into());
+                    //cell.style("justify-items".into(),"right".into());
+                },
+                _ => {
+                    cell.style("text-align".into(),"left".into());
+                    //cell.style("justify-items".into(),"left".into())
+                }
             }
             //cell.style("margin-right".into(),dimtohtml(skip.base));
         })

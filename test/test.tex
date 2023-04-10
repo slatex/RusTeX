@@ -88,6 +88,53 @@ Sed facilisis eget enim in varius.}
   \let\rustexBREAK\relax
 \fi
 
+\def\forkindep{\mathrel{\raise0.2ex\hbox{\ooalign{%
+  \rustexBREAK\hidewidth$\rustexBREAK\vert\rustexBREAK$\hidewidth\rustexBREAK\cr\raise-0.9ex\hbox{$\smile$}}}}} 
+
+\def\forkindepb{\mathrel{\hbox{\ooalign{%
+\hidewidth$\vert$\hidewidth\cr\hbox{$\smile$}}}}}
+
+%\def\ooalign#1{\begingroup
+%  \newdimen\ooaligndimenI
+%  \ooaligndimenI=0pt
+%  \setbox0\hbox\bgroup
+%    \def\cr{\egroup\setbox1\lastbox
+%      \ifdim\wd1>\ooaligndimenI
+%        \global\ooaligndimenI\wd1\relax
+%      \fi
+%      \hbox to0pt{\unhbox1}\hbox\bgroup
+%    }
+%    \let\crcr\cr
+%    \hbox\bgroup
+%      #1
+%    \egroup\setbox1\lastbox
+%    \ifdim\wd1>\ooaligndimenI
+%      \global\ooaligndimenI\wd1\relax
+%    \fi
+%    \hbox to0pt{\unhbox1}%
+%  \egroup
+%  \hbox to\ooaligndimenI{\hss\unhbox0\hss}%
+%\endgroup}
+
+
+$A \forkindep_C B$
+
+\[ A\forkindep_C B\]
+
+$A \forkindepb_C B$
+
+\[ A\forkindepb_C B\]
+
+\begingroup
+\baselineskip0pt
+\lineskiplimit-\maxdimen
+\halign{
+  $>$#$<$&$>$#$<$\cr
+  a& b\cr
+  c& d\crcr
+}
+\endgroup
+
 \iffalse
 \begin{flushright}
   \begin{varwidth}{0.5\textwidth} \lorem\lorem\lorem \end{varwidth}
@@ -549,7 +596,7 @@ have \cs{vfil} above.}
   \end{itemize}
 }
 
-\section{\cs{[v|h]bar}}
+\section{\cs{[v|h]rule}}
 
 \block{\cs{hrule} in \cs{vbox} in \cs{hbox}}{
   \showh{ \showv{ \hrule width 50pt height 75pt depth 25 pt } }
@@ -561,10 +608,17 @@ have \cs{vfil} above.}
 
 \block{\cs{vrule} in \cs{hbox}}{
   \showh{ \vrule width 50pt height 75pt depth 25pt }
+  \showh{ foo \vrule foo}
 }
 
 \block{\cs{vrule} in Para}{
   \showpar{ \vrule width 50pt height 75pt depth 25pt }
+  \showpar{ \vrule width 10pt height 0.1pt \gray{lorem bla}
+   \vrule width 10pt }
+}
+
+\block{\cs{hrule} in \cs{vbox}}{
+  \showv{ \hrule }
 }
 
 \section{Math}
