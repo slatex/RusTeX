@@ -792,6 +792,7 @@ impl WhatsitTrait for VBox {
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
+                    span.style("display".into(),"inline-flex".into());
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

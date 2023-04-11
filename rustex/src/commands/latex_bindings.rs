@@ -350,6 +350,52 @@ impl CommandListener for MarginParListener {
         }
     }
 }
+pub struct LaTeXListener();
+impl CommandListener for LaTeXListener {
+    fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
+        if name.to_string() == "LaTeX " && file.to_string().ends_with("latex.ltx") {
+            let tks = vec!(
+                /* L\kern-.3em\raise.5ex\hbox{%
+\check@mathfonts\fontsize\sf@size\z@\math@fontsfalse\selectfont A}\makeatother
+\kern-.15em\TeX*/
+                Token::with_cat(76,CategoryCode::Letter), // L
+                Token::cs("kern"),
+                Token::with_cat(45,CategoryCode::Other), // -
+                Token::with_cat(46,CategoryCode::Other), // .
+                Token::with_cat(51,CategoryCode::Other), // 3
+                Token::with_cat(101,CategoryCode::Letter), // e
+                Token::with_cat(109,CategoryCode::Letter), // m
+                Token::cs("raise"),
+                Token::with_cat(46,CategoryCode::Other), // .
+                Token::with_cat(53,CategoryCode::Other), // 5
+                Token::with_cat(101,CategoryCode::Letter), // e
+                Token::with_cat(120,CategoryCode::Letter), // x
+                Token::cs("hbox"),
+                Token::with_cat(123,CategoryCode::BeginGroup), // {
+                Token::cs("check@mathfonts"),
+                Token::cs("fontsize"),
+                Token::cs("sf@size"),
+                Token::cs("z@"),
+                Token::cs("math@fontsfalse"),
+                Token::cs("selectfont"),
+                Token::with_cat(65,CategoryCode::Letter), // A
+                Token::with_cat(125,CategoryCode::EndGroup), // }
+                Token::cs("kern"),
+                Token::with_cat(45,CategoryCode::Other), // -
+                Token::with_cat(46,CategoryCode::Other), // .
+                Token::with_cat(49,CategoryCode::Other), // 1
+                Token::with_cat(53,CategoryCode::Other), // 5
+                Token::with_cat(101,CategoryCode::Letter), // e
+                Token::with_cat(109,CategoryCode::Letter), // m
+                Token::cs("TeX")
+            );
+            let cm = self.def_cmd(tks,false,true,vec!());
+            Some(Some(cm))
+        } else {
+            None
+        }
+    }
+}
 
 pub static WRAPFIG: SimpleWhatsit = SimpleWhatsit {
     name: "WF@wraphand",
@@ -417,7 +463,8 @@ pub fn all_listeners() -> Vec<Box<dyn CommandListener>> {
         Box::new(UnderbraceListener()),
         Box::new(OverbraceListener()),
         Box::new(MarginParListener()),
-        Box::new(WrapfigListener())
+        Box::new(WrapfigListener()),
+        Box::new(LaTeXListener())
     )
 }
 

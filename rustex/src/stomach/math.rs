@@ -576,7 +576,7 @@ pub struct MathChar {
     pub position:u32,
     pub font:ArcFont,
     pub sourceref:Option<SourceFileReference>,
-    pub charstr:&'static str
+    pub charstr:HTMLStr
 }
 impl MathChar {
     pub fn as_html_inner(self, _: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, stretchy:bool) {
@@ -590,7 +590,7 @@ impl MathChar {
         };
         let charstr : HTMLStr = match &self.font.file.chartable {
             Some(ct) =>  {
-                HTMLStr::from(convert(self.charstr,&ct.params))
+                HTMLStr::from(convert(&self.charstr.to_string(),&ct.params))
             }
             None => {
                 //println!("Here! {} in {}",mc.position,mc.font.name);
@@ -608,6 +608,42 @@ impl MathChar {
             6 => "punctuation",
             _ => "",
         }).into();
+        if (self.class == 0 || self.class == 7) {
+            htmlnode!(colon,mi,self.sourceref,"",node_top,a => {
+                a.fontinfo = Some(mimoinfo);
+                if crate::INSERT_RUSTEX_ATTRS {
+                    a.attr("rustex:font".into(),(&self.font.file.name).into()) ;
+                    a.attr("rustex:charpos".into(),self.position.to_string().into());
+                }
+                htmlliteral!(colon,htmlparent!(a),>charstr<)
+            });
+        } else {
+            htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
+                match KERNS.get(&self.class) {
+                  Some((l,r)) => {
+                        a.attr("lspace".into(),(l.to_string() + "em").into());
+                        a.attr("rspace".into(),(r.to_string() + "em").into());
+                    },
+                    _ => {
+                        a.attr("lspace".into(),"0em".into());
+                        a.attr("rspace".into(),"0em".into());
+                    }
+                };
+                a.fontinfo = Some(mimoinfo);
+                if stretchy {
+                    a.attr("stretchy".into(),"true".into());
+                } else {
+                    a.attr("stretchy".into(),"false".into());
+                }
+                if crate::INSERT_RUSTEX_ATTRS {
+                    a.attr("rustex:font".into(),(&self.font.file.name).into()) ;
+                    a.attr("rustex:charpos".into(),self.position.to_string().into());
+                }
+                htmlliteral!(colon,htmlparent!(a),>charstr<)
+            })
+        }
+
+        /*
         match (maybemimo,self.class) {
             (Some(n),0|7) if String::from(&n.name) == "mi" && n.fontinfo.is_some() && n.fontinfo.as_ref().unwrap() == &mimoinfo => {
                 n.children.push(HTMLChild::Str(charstr.html_escape()))
@@ -631,31 +667,9 @@ impl MathChar {
                 })
             }
             (_,_) => {
-                htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
-                    match KERNS.get(&self.class) {
-                      Some((l,r)) => {
-                            a.attr("lspace".into(),(l.to_string() + "em").into());
-                            a.attr("rspace".into(),(r.to_string() + "em").into());
-                        },
-                        _ => {
-                            a.attr("lspace".into(),"0em".into());
-                            a.attr("rspace".into(),"0em".into());
-                        }
-                    };
-                    a.fontinfo = Some(mimoinfo);
-                    if stretchy {
-                        a.attr("stretchy".into(),"true".into());
-                    } else {
-                        a.attr("stretchy".into(),"false".into());
-                    }
-                    if crate::INSERT_RUSTEX_ATTRS {
-                        a.attr("rustex:font".into(),(&self.font.file.name).into()) ;
-                        a.attr("rustex:charpos".into(),self.position.to_string().into());
-                    }
-                    htmlliteral!(colon,htmlparent!(a),>charstr<)
-                })
             }
-        }
+           }
+         */
     }
 }
 impl WhatsitTrait for MathChar {
@@ -680,6 +694,8 @@ impl WhatsitTrait for MathChar {
                     MathKernel::MathClose(o) if self.class == 5 => {self.class = 0; o.merge(self.as_whatsit())}
                     MathKernel::MathPunct(o) if self.class == 6 => {self.class = 0; o.merge(self.as_whatsit())}
                     MathKernel::MathOrd(o) if self.class == 0 || self.class == 7 => {self.class = 0; o.merge(self.as_whatsit())}
+                    MathKernel::MathChar(mc) if mc.class == self.class || ((mc.class == 0 || mc.class == 7) && (self.class == 0 || self.class == 7)) =>
+                        mc.charstr = mc.charstr.clone() + self.charstr,
                     _ =>
                         ret.push(self.as_whatsit())
                 }
@@ -745,7 +761,7 @@ impl WhatsitTrait for Radical {
         ret.push(self.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
-        let charstr : HTMLStr = self.small.charstr.into();
+        let charstr = &self.small.charstr;
         if charstr.to_string() == "√" {
             htmlnode!(colon,msqrt,self.get_ref(),"",node_top,mt => {
                 self.body.as_html(mode,colon,htmlparent!(mt));

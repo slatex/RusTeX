@@ -579,7 +579,9 @@ impl Interpreter<'_> {
             kws.push("filll");
         }
         let istrue = self.read_keyword(vec!("true"))?.is_some();
-        match self.read_keyword(kws)? {
+        let kw = self.read_keyword(kws)?;
+        if kw.is_some() {self.skip_ws()};
+        match kw {
             Some(s) if s == "mm" => Ok(SkipDim::Pt(self.make_true(mm(f),istrue))),
             Some(s) if s == "in" => Ok(SkipDim::Pt(self.make_true(inch(f),istrue))),
             Some(s) if s == "sp" => Ok(SkipDim::Pt(self.make_true(f,istrue))),

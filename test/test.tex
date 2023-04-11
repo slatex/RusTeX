@@ -6,9 +6,7 @@
 \usepackage[most]{tcolorbox}
 \usepackage{mdframed}
 
-\def\mymath{\alpha + \mathop{\red\int}_{t=1}^\infty \mathop{\blue\sum}_{x=0}^N f(t,x)^t_x
-  \alpha + \mathop{\red\int}_{t=1}^\infty \left\{\mathop{\blue\sum}_{x=0}^N f(t,x)^t_x\right. }
-
+% ------------------------------------------------------------------
 
 \def\red{\textcolor{red}}
 \def\blue{\textcolor{blue}}
@@ -83,230 +81,11 @@ Sed facilisis eget enim in varius.}
 
 \usepackage{ded}
 
+% ------------------------------------------------------------------
+
 \begin{document}
 \ifx\rustexBREAK\undefined
   \let\rustexBREAK\relax
-\fi
-
-\def\forkindep{\mathrel{\raise0.2ex\hbox{\ooalign{%
-  \rustexBREAK\hidewidth$\rustexBREAK\vert\rustexBREAK$\hidewidth\rustexBREAK\cr\raise-0.9ex\hbox{$\smile$}}}}} 
-
-\def\forkindepb{\mathrel{\hbox{\ooalign{%
-\hidewidth$\vert$\hidewidth\cr\hbox{$\smile$}}}}}
-
-%\def\ooalign#1{\begingroup
-%  \newdimen\ooaligndimenI
-%  \ooaligndimenI=0pt
-%  \setbox0\hbox\bgroup
-%    \def\cr{\egroup\setbox1\lastbox
-%      \ifdim\wd1>\ooaligndimenI
-%        \global\ooaligndimenI\wd1\relax
-%      \fi
-%      \hbox to0pt{\unhbox1}\hbox\bgroup
-%    }
-%    \let\crcr\cr
-%    \hbox\bgroup
-%      #1
-%    \egroup\setbox1\lastbox
-%    \ifdim\wd1>\ooaligndimenI
-%      \global\ooaligndimenI\wd1\relax
-%    \fi
-%    \hbox to0pt{\unhbox1}%
-%  \egroup
-%  \hbox to\ooaligndimenI{\hss\unhbox0\hss}%
-%\endgroup}
-
-
-$A \forkindep_C B$
-
-\[ A\forkindep_C B\]
-
-$A \forkindepb_C B$
-
-\[ A\forkindepb_C B\]
-
-\begingroup
-\baselineskip0pt
-\lineskiplimit-\maxdimen
-\halign{
-  $>$#$<$&$>$#$<$\cr
-  a& b\cr
-  c& d\crcr
-}
-\endgroup
-
-\iffalse
-\begin{flushright}
-  \begin{varwidth}{0.5\textwidth} \lorem\lorem\lorem \end{varwidth}
-\end{flushright}
-
-\setbox0\vbox{foo}\the\wd0
-
-\setbox0\hbox{$\vcenter{foo}$}\the\wd0
-
-\noindent foo \setbox0\vbox{foo}\the\wd0
-
-\noindent foo \setbox0\hbox{$\vcenter{foo}$}\the\wd0
-
-\par
-
-\includegraphics[scale=0.15]{example_triangle_1.png}\ifhmode H\else V\fi
-
-
-\begin{tikzpicture}[xscale=2.5,yscale=1.7]
-  \node[draw,rounded corners] (dm) at (0,0) {\shortstack{Domain\\Model}};
-  \node[draw,rounded corners] (lm) at (0,1) {\shortstack{Learner\\Model}};
-  \node[draw,rounded corners] (fm) at (1,0) {\shortstack{Formulation\\Model}};
-  \node[draw,rounded corners] (im) at (1,1) {\shortstack{Didactic\\Model}};
-  \draw[->] (lm) -- (dm);
-  \draw[->] (fm) -- (dm);
-  \draw[->] (im) -- (dm);
-  \draw[->] (im) -- (fm);
-\end{tikzpicture}\ifhmode H\else V\fi
-
-\definecolor{bubblegreen}{RGB}{103,184,104}
-\definecolor{bubblegray}{RGB}{241,240,240}
-
-\newcommand{\bubble}[4]{%
-  \tcbox[
-    on line,
-    arc=2mm,
-    colback=#1,
-    colframe=#1,
-    #2,top=0pt,left=1pt,right=1pt,bottom=0pt
-  ]{\color{#3}\begin{varwidth}{0.5\textwidth}#4\end{varwidth}}%
-}
-
-\noindent \bubble{bubblegreen}{rounded corners}{white}{%
-  foo \rustexBREAK%
-}\rustexBREAK\par
-
-\vbox{
-  \noindent \lorem\lorem\lorem \par
-  \setbox0\lastbox
-  \hbox{\the\wd0, \ifvbox0V\else H\fi}
-  \setbox0\hbox{\unhbox0}
-  \hbox{\the\wd0, \ifvbox0V\else H\fi}
-
-  \rustexBREAK
-  \noindent Foo \par
-  \begingroup
-  \setbox0\lastbox
-  \hbox{\the\wd0, \ifvbox0V\else H\fi}
-  \setbox0\hbox{\unhbox0}
-  \hbox{\the\wd0, \ifvbox0V\else H\fi}
-  \endgroup
-}
-\fi
-
-\iffalse
-
-\makeatletter
-\newcommand{\oset}[3][0ex]{
-	\mathrel{\mathop{#3}\limits^{\vbox to#1{\kern-2\ex@\hbox{$\scriptstyle#2$}}}}
-}
-\makeatother
-
-$\oset[-.45ex]\Rightarrow\equiv$
-
-\fi
-
-\iffalse
-$ a \begin{array}{l} \alpha+\beta \\ \alpha \end{array} b $
-$ a \begin{array}{c} \alpha+\beta \\ \alpha \end{array} b $
-$ a \begin{array}{r} \alpha+\beta \\ \alpha \end{array} b $
-
-\begin{itemize}
-  \item We prove $\neg(\forall X.P(X))\vdash_{\mathcal{ND}^1}\exists X.\neg P(X)$.
-  \begin{displaynd}
-    \ian{\ian{\ibn{\neg\forall X. P(X)}
-                          {\ian{\ian{\ian{\ibn{[\neg\exists X. \neg P(X)]^1}
-                                                {\ian{[\neg P(X)]^2}
-                                                        {\exists X \neg P(X)}
-                                                        {\exists I}}
-                                                {F}
-                                                {FI}}
-                                         {\neg\neg P(X)}
-                                         {\neg I^2}}
-                                 {P(X)}
-                                 {\neg E}}
-                                 {\forall X. P(X)}
-                          {\forall I}} 
-                          {F}
-                          {FI}}
-                   {\neg\neg\exists X.\neg P(X)}
-                   {\neg I^1}}
-           {\exists X. \neg P(X)}
-           {\neg E}
-  \end{displaynd}
-\end{itemize}
-
-\begin{center}\small
-  \begin{tabular}{c|c}
-  \textbf{Abstract Syntax} & \textbf{Scala Syntax} \\\hline\hline
-  Symbol References $S$ & \lstinline*OMID(S : ContentPath)*  \\
-  Module References $M$ & \rustexBREAK \lstinline*OMMOD(M : MPath)*\rustexBREAK = \lstinline*OMID(M)*\rustexBREAK  \\
-  Constant References $C$ & \lstinline*OMS(C : GlobalName)* = \lstinline*OMID(C)*  \\
-  Variable References $V$ & \lstinline*OMV(V : LocalName)*  \\\hline
-  Applications $f({a_1,\ldots,a_n})$ & \lstinline*OMA(f : Term, args : List[Term])* \\
-  Binding Applications $f{{con}}{{arg}}$ & \lstinline*OMBIND(f : Term, con : Context, arg: Term)* \\\hline
-  Context $G=\{{vars}\}$ & \lstinline*Context(vars : List[VarDecl])* \\
-  Variable Declaration $v[:t][:=d]$ & \lstinline*VarDecl(v : LocalName, t : Option[Term], d : Option[Term])* \\ 
-  \end{tabular}
-\end{center}
-
-\noindent left: \the\leftskip; right: \the\rightskip
-
-\begin{center}
-  \noindent left: \the\leftskip; right: \the\rightskip
-
-  \begin{tabular}{l|l}
-    left & right \\
-    \the\leftskip & \the\rightskip 
-  \end{tabular}
-  
-  \begin{tabular}{c|c}
-    left & right \\
-    \the\leftskip & \the\rightskip 
-  \end{tabular}
-
-  \begin{tabular}{c|c}
-    left & right \\
-    \vbox{\noindent \the\leftskip} & \the\rightskip 
-  \end{tabular}
-
-  \begin{tabular}{c|c}
-    left & right \\
-    \hbox{\vbox{\noindent \the\leftskip}\hss} & \the\rightskip 
-  \end{tabular}
-
-  \begin{tabular}{c|c}
-    left & right \\
-    \hbox to 0pt{\vbox{\noindent \the\leftskip}} & \the\rightskip 
-  \end{tabular}
-
-\end{center}
-
-\fi
-
-\iffalse
-
-\hbox{\hbox{testa}\lower10pt\hbox{testb}\hbox{testc}}
-\hbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-\hbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-\hbox{\hbox{testa}\raise10pt\hbox{testb}\hbox{testc}}
-%\hbox{\hbox{testa}\moveleft10pt\hbox{testb}\hbox{testc}}
-%\hbox{\hbox{testa}\moveright10pt\hbox{testb}\hbox{testc}}
-\hbox{
-\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-\vbox{\moveleft20pt\hbox{testa}\hbox{testb}\moveright30pt\hbox{testc}}
-\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-}
-\hbox{
-\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-\vbox{\moveright-20pt\hbox{testa}\hbox{testb}\moveleft-30pt\hbox{testc}}
-\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
-}
 \fi
 
 %% ---------------------------------------------------------------
@@ -623,6 +402,9 @@ have \cs{vfil} above.}
 
 \section{Math}
 
+\def\mymath{\alpha + \mathop{\red\int}_{t=1}^\infty \mathop{\blue\sum}_{x=0}^N f(t,x)^t_x
+  \alpha + \mathop{\red\int}_{t=1}^\infty \left\{\mathop{\blue\sum}_{x=0}^N f(t,x)^t_x\right. }
+
 \block{\$ in Para}{
   \showpar{$\mymath$}
 }
@@ -642,7 +424,9 @@ have \cs{vfil} above.}
 }
 
 \block{Composed Symbols}{
-  \[\Longrightarrow\]
+  \def\forkindep{\mathrel{\raise0.2ex\hbox{\ooalign{%
+    \hidewidth$\vert$\hidewidth\cr\raise-0.9ex\hbox{$\smile$}}}}} 
+  \[\Longrightarrow\qquad A \forkindep_C B\]
 }
 
 \block{Symbol classes}{
@@ -801,6 +585,184 @@ bla bla \LaTeX{} bla bla
             automation of appropriate behavior in complex situations}''\hfill\cite{LugStu:aisscps93}
   \\\hline
 \end{tabular}
+
+\section{Other Stuff}
+
+
+\iffalse
+\begin{flushright}
+  \begin{varwidth}{0.5\textwidth} \lorem\lorem\lorem \end{varwidth}
+\end{flushright}
+
+\setbox0\vbox{foo}\the\wd0
+
+\setbox0\hbox{$\vcenter{foo}$}\the\wd0
+
+\noindent foo \setbox0\vbox{foo}\the\wd0
+
+\noindent foo \setbox0\hbox{$\vcenter{foo}$}\the\wd0
+
+\par
+
+\includegraphics[scale=0.15]{example_triangle_1.png}\ifhmode H\else V\fi
+
+
+\begin{tikzpicture}[xscale=2.5,yscale=1.7]
+  \node[draw,rounded corners] (dm) at (0,0) {\shortstack{Domain\\Model}};
+  \node[draw,rounded corners] (lm) at (0,1) {\shortstack{Learner\\Model}};
+  \node[draw,rounded corners] (fm) at (1,0) {\shortstack{Formulation\\Model}};
+  \node[draw,rounded corners] (im) at (1,1) {\shortstack{Didactic\\Model}};
+  \draw[->] (lm) -- (dm);
+  \draw[->] (fm) -- (dm);
+  \draw[->] (im) -- (dm);
+  \draw[->] (im) -- (fm);
+\end{tikzpicture}\ifhmode H\else V\fi
+
+\definecolor{bubblegreen}{RGB}{103,184,104}
+\definecolor{bubblegray}{RGB}{241,240,240}
+
+\newcommand{\bubble}[4]{%
+  \tcbox[
+    on line,
+    arc=2mm,
+    colback=#1,
+    colframe=#1,
+    #2,top=0pt,left=1pt,right=1pt,bottom=0pt
+  ]{\color{#3}\begin{varwidth}{0.5\textwidth}#4\end{varwidth}}%
+}
+
+\noindent \bubble{bubblegreen}{rounded corners}{white}{%
+  foo \rustexBREAK%
+}\rustexBREAK\par
+
+\vbox{
+  \noindent \lorem\lorem\lorem \par
+  \setbox0\lastbox
+  \hbox{\the\wd0, \ifvbox0V\else H\fi}
+  \setbox0\hbox{\unhbox0}
+  \hbox{\the\wd0, \ifvbox0V\else H\fi}
+
+  \rustexBREAK
+  \noindent Foo \par
+  \begingroup
+  \setbox0\lastbox
+  \hbox{\the\wd0, \ifvbox0V\else H\fi}
+  \setbox0\hbox{\unhbox0}
+  \hbox{\the\wd0, \ifvbox0V\else H\fi}
+  \endgroup
+}
+\fi
+
+\iffalse
+
+\makeatletter
+\newcommand{\oset}[3][0ex]{
+	\mathrel{\mathop{#3}\limits^{\vbox to#1{\kern-2\ex@\hbox{$\scriptstyle#2$}}}}
+}
+\makeatother
+
+$\oset[-.45ex]\Rightarrow\equiv$
+
+\fi
+
+\iffalse
+$ a \begin{array}{l} \alpha+\beta \\ \alpha \end{array} b $
+$ a \begin{array}{c} \alpha+\beta \\ \alpha \end{array} b $
+$ a \begin{array}{r} \alpha+\beta \\ \alpha \end{array} b $
+
+\begin{itemize}
+  \item We prove $\neg(\forall X.P(X))\vdash_{\mathcal{ND}^1}\exists X.\neg P(X)$.
+  \begin{displaynd}
+    \ian{\ian{\ibn{\neg\forall X. P(X)}
+                          {\ian{\ian{\ian{\ibn{[\neg\exists X. \neg P(X)]^1}
+                                                {\ian{[\neg P(X)]^2}
+                                                        {\exists X \neg P(X)}
+                                                        {\exists I}}
+                                                {F}
+                                                {FI}}
+                                         {\neg\neg P(X)}
+                                         {\neg I^2}}
+                                 {P(X)}
+                                 {\neg E}}
+                                 {\forall X. P(X)}
+                          {\forall I}} 
+                          {F}
+                          {FI}}
+                   {\neg\neg\exists X.\neg P(X)}
+                   {\neg I^1}}
+           {\exists X. \neg P(X)}
+           {\neg E}
+  \end{displaynd}
+\end{itemize}
+
+\begin{center}\small
+  \begin{tabular}{c|c}
+  \textbf{Abstract Syntax} & \textbf{Scala Syntax} \\\hline\hline
+  Symbol References $S$ & \lstinline*OMID(S : ContentPath)*  \\
+  Module References $M$ & \rustexBREAK \lstinline*OMMOD(M : MPath)*\rustexBREAK = \lstinline*OMID(M)*\rustexBREAK  \\
+  Constant References $C$ & \lstinline*OMS(C : GlobalName)* = \lstinline*OMID(C)*  \\
+  Variable References $V$ & \lstinline*OMV(V : LocalName)*  \\\hline
+  Applications $f({a_1,\ldots,a_n})$ & \lstinline*OMA(f : Term, args : List[Term])* \\
+  Binding Applications $f{{con}}{{arg}}$ & \lstinline*OMBIND(f : Term, con : Context, arg: Term)* \\\hline
+  Context $G=\{{vars}\}$ & \lstinline*Context(vars : List[VarDecl])* \\
+  Variable Declaration $v[:t][:=d]$ & \lstinline*VarDecl(v : LocalName, t : Option[Term], d : Option[Term])* \\ 
+  \end{tabular}
+\end{center}
+
+\noindent left: \the\leftskip; right: \the\rightskip
+
+\begin{center}
+  \noindent left: \the\leftskip; right: \the\rightskip
+
+  \begin{tabular}{l|l}
+    left & right \\
+    \the\leftskip & \the\rightskip 
+  \end{tabular}
+  
+  \begin{tabular}{c|c}
+    left & right \\
+    \the\leftskip & \the\rightskip 
+  \end{tabular}
+
+  \begin{tabular}{c|c}
+    left & right \\
+    \vbox{\noindent \the\leftskip} & \the\rightskip 
+  \end{tabular}
+
+  \begin{tabular}{c|c}
+    left & right \\
+    \hbox{\vbox{\noindent \the\leftskip}\hss} & \the\rightskip 
+  \end{tabular}
+
+  \begin{tabular}{c|c}
+    left & right \\
+    \hbox to 0pt{\vbox{\noindent \the\leftskip}} & \the\rightskip 
+  \end{tabular}
+
+\end{center}
+
+\fi
+
+\iffalse
+
+\hbox{\hbox{testa}\lower10pt\hbox{testb}\hbox{testc}}
+\hbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+\hbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+\hbox{\hbox{testa}\raise10pt\hbox{testb}\hbox{testc}}
+%\hbox{\hbox{testa}\moveleft10pt\hbox{testb}\hbox{testc}}
+%\hbox{\hbox{testa}\moveright10pt\hbox{testb}\hbox{testc}}
+\hbox{
+\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+\vbox{\moveleft20pt\hbox{testa}\hbox{testb}\moveright30pt\hbox{testc}}
+\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+}
+\hbox{
+\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+\vbox{\moveright-20pt\hbox{testa}\hbox{testb}\moveleft-30pt\hbox{testc}}
+\vbox{\hbox{testa}\hbox{testb}\hbox{testc}}
+}
+\fi
+
 
 \vfill
 

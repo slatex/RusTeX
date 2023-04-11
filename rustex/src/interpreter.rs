@@ -458,7 +458,7 @@ impl Interpreter<'_> {
             FontStyle::Scriptscript => self.state.scriptscriptfonts.get(&(fam as usize)),
         };
         crate::stomach::math::MathChar {
-            class:cls,family:fam,position:pos,charstr:font.file.chartable.as_ref().map(|ct| ct.get_char(pos as u8,self.params)).unwrap_or("???"),
+            class:cls,family:fam,position:pos,charstr:font.file.chartable.as_ref().map(|ct| ct.get_char(pos as u8,self.params)).unwrap_or("???").into(),
             font,
             sourceref:match &tk {
                 Some(tk) => self.update_reference(tk),

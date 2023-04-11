@@ -194,7 +194,6 @@ a { color: inherit; text-decoration: inherit; }
 
 .rustex-vbox-container { display:inline-block; width: min-content; height: min-content }
 .rustex-vtop-container { display:inline-block;; width: min-content; height: min-content }
-.rustex-vtop-container-outer { display:contents; width: min-content; height: min-content }
 .rustex-vcenter-container { display:inline-block; width: min-content; height: min-content }
 
 .rustex-display-vcenter {
@@ -311,8 +310,8 @@ mover > :not(:first-child), munder > :not(:first-child) {font-size:inherit}
 .rustex-Hss {
     display:none;
 }
-.rustex-HFil, .rustex-HFill { display:none }
-.rustex-VFil, .rustex-VFill { display:none }
+.rustex-HFil, .rustex-HFill { display:inline-block;margin-left: auto;margin-right: auto }
+.rustex-VFil, .rustex-VFill { display:block;margin-top: auto;margin-bottom: auto }
 
 /* --------------------------------------------------- Tables ------------------------------------------------------- */
 tbody {display:table-row-group}
