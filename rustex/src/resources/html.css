@@ -248,6 +248,7 @@ a { color: inherit; text-decoration: inherit; }
 
 .rustex-vrule {
     display:inline-block;
+    vertical-align: text-bottom;
 }
 .rustex-hrule {
     display:block;

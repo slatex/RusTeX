@@ -43,7 +43,8 @@ macro_rules! TeXErr {
 
 #[macro_export]
 macro_rules! FileEnd {
-    () => (TeXErr!("File ended unexpectedly"))
+    () => (TeXErr!("File ended unexpectedly"));
+    ($tk:expr) => (TeXErr!($tk => "File ended unexpectedly"));
 }
 
 #[macro_use]

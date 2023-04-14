@@ -3029,31 +3029,69 @@ pub static LEADERS: SimpleWhatsit = SimpleWhatsit {
         match int.read_keyword(vec!("Width","Height","Depth"))? {
             Some(_) => TeXErr!("TODO: \\leaders with dimesion"),
             None => {
-                let cmdtk = int.read_command_token()?;
-                let cmd = int.get_command(&cmdtk.cmdname())?;
-                let content = match &*cmd.orig {
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == HBOX => {
-                        Whatsit::Box((HBOX._get)(&cmdtk,int)?)
+                let content = loop {
+                    let cmdtk = int.read_command_token()?;
+                    let cmd = int.get_command(&cmdtk.cmdname())?;
+                    if cmd.expandable(true) {
+                        cmd.expand(cmdtk,int);
+                    } else {
+                        match &*cmd.orig {
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == HBOX => {
+                                break Whatsit::Box((HBOX._get)(&cmdtk,int)?)
+                            }
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == VBOX => {
+                                break Whatsit::Box((VBOX._get)(&cmdtk,int)?)
+                            }
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == BOX => {
+                                break Whatsit::Box((BOX._get)(&cmdtk,int)?)
+                            }
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == COPY => {
+                                break Whatsit::Box((COPY._get)(&cmdtk,int)?)
+                            }
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == HRULE => {
+                                break (HRULE._get)(&cmdtk,int)?
+                            }
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == VRULE => {
+                                break (VRULE._get)(&cmdtk,int)?
+                            }
+                            _ => return TeXErr!(cmdtk => "Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
+                        }
                     }
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == VBOX => {
-                        Whatsit::Box((VBOX._get)(&cmdtk,int)?)
+                };
+                let glue = loop {
+                    let cmdtk = int.read_command_token()?;
+                    let cmd = int.get_command(&cmdtk.cmdname())?;
+                    if cmd.expandable(true) {
+                        cmd.expand(cmdtk, int);
+                    } else {
+                        match (int.state.mode,&*cmd.orig) {
+                            (TeXMode::Horizontal|TeXMode::RestrictedHorizontal|TeXMode::Math|TeXMode::Displaymath,
+                            PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == HSKIP =>
+                                break (HSKIP._get)(&cmdtk,int)?,
+                            (TeXMode::Horizontal|TeXMode::RestrictedHorizontal|TeXMode::Math|TeXMode::Displaymath,
+                                PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == HFIL =>
+                                break (HFIL._get)(&cmdtk,int)?,
+                            (TeXMode::Horizontal|TeXMode::RestrictedHorizontal|TeXMode::Math|TeXMode::Displaymath,
+                                PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == HFILL =>
+                                break (HFILL._get)(&cmdtk,int)?,
+                            (TeXMode::Horizontal|TeXMode::RestrictedHorizontal|TeXMode::Math|TeXMode::Displaymath,_) =>
+                                return TeXErr!(cmdtk => "Expected \\hskip, \\hfil, or \\hfill after \\leaders"),
+                            (TeXMode::Vertical|TeXMode::InternalVertical,
+                                PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == VSKIP =>
+                                break (VSKIP._get)(&cmdtk,int)?,
+                            (TeXMode::Vertical|TeXMode::InternalVertical,
+                                PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == VFIL =>
+                                break (VFIL._get)(&cmdtk,int)?,
+                            (TeXMode::Vertical|TeXMode::InternalVertical,
+                                PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r))) if **r == VFILL =>
+                                break (VFILL._get)(&cmdtk,int)?,
+                            _ =>
+                                return TeXErr!(cmdtk => "Expected \\vskip, \\vfil, or \\vfill after \\leaders"),
+                        }
                     }
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == BOX => {
-                        Whatsit::Box((BOX._get)(&cmdtk,int)?)
-                    }
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Box(r)) if **r == COPY => {
-                        Whatsit::Box((COPY._get)(&cmdtk,int)?)
-                    }
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == HRULE => {
-                        (HRULE._get)(&cmdtk,int)?
-                    }
-                    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(r)) if **r == VRULE => {
-                        (VRULE._get)(&cmdtk,int)?
-                    }
-                    _ => TeXErr!(cmdtk => "Expected \\hbox, \\vbox, \\box, \\copy, \\hrule or \\vrule after \\leaders")
                 };
                 Ok(Whatsit::Simple(SimpleWI::Leaders(Leaders {
-                    bx: Box::new(content),
+                    bx: Box::new(content),glue:Box::new(glue),
                     sourceref: int.update_reference(tk)
                 })))
             }

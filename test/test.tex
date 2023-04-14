@@ -388,6 +388,15 @@ have \cs{vfil} above.}
 \block{\cs{vrule} in \cs{hbox}}{
   \showh{ \vrule width 50pt height 75pt depth 25pt }
   \showh{ foo \vrule foo}
+  \showh{\vrule \showv{\showh{}}\vrule}
+  \hbox{\vrule}
+  \vskip10pt
+}
+
+\block{\cs{vrule} in Para without parameters}{
+  \vskip10pt \noindent Here \vrule bla\par
+  \noindent \vrule \par
+  \noindent Here\par\vskip10pt
 }
 
 \block{\cs{vrule} in Para}{
