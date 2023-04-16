@@ -449,12 +449,9 @@ impl WhatsitTrait for VRule {
                         Some(c) => HTMLStr::from("#") + c,
                         None => "#000000".into()
                     });
-                    match (mode,self.depth,self.height) {
-                        (ColonMode::P,None,None) => {
-                            n.style("vertical-align".into(),"text-bottom".into());
-                            n.style("height".into(),dimtohtml(self.font.get_at()));
-                        }
-                        (ColonMode::P,None,_) => {
+                    n.style("vertical-align".into(),"baseline".into());
+                    match (mode,self.depth) {
+                        (ColonMode::P,None) => {
                             n.style("margin-bottom".into(),"-0.5ex".into());
                             let retstr: HTMLStr = "calc(0.5ex + ".into();
                             n.style("height".into(),retstr + dimtohtml(self.height() + self.depth()) + ")");

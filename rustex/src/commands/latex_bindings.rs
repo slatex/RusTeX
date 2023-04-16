@@ -353,7 +353,8 @@ impl CommandListener for MarginParListener {
 pub struct LaTeXListener();
 impl CommandListener for LaTeXListener {
     fn apply(&self, name: &TeXStr, cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
-        if name.to_string() == "LaTeX " && file.to_string().ends_with("latex.ltx") {
+        let filestr = file.to_string();
+        if name.to_string() == "LaTeX " && (filestr.ends_with("latex.ltx") || filestr.ends_with("ltugboat.cls")) {
             let tks = vec!(
                 /* L\kern-.3em\raise.5ex\hbox{%
 \check@mathfonts\fontsize\sf@size\z@\math@fontsfalse\selectfont A}\makeatother
