@@ -224,7 +224,7 @@ a { color: inherit; text-decoration: inherit; }
     margin-right: auto;
 }
 .rustex-hbox-no-space > .rustex-space-in-hbox, .rustex-hbox-no-space > span > .rustex-space-in-hbox, .rustex-hbox-no-space > span > span > .rustex-space-in-hbox {
-    display:none;
+    margin:0;
 }
 .rustex-hbox > .rustex-text, .rustex-hbox > span > .rustex-text, .rustex-hbox > span > span > .rustex-text, .rustex-hbox > span > span > span > .rustex-text { display:inline-block} /* line-height:0 */
 
