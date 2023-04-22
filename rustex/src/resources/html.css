@@ -278,6 +278,12 @@ mtext * {
     font-size: inherit;
     writing-mode: initial;
 }
+.rustex-math-escape {
+    display: inline-flex;
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+}
 
 .rustex-display-math-container {
     text-align:center;

@@ -42,11 +42,11 @@ impl WhatsitTrait for MathGroup {
     fn height(&self) -> i32 {
         self.kernel.height() + match &self.superscript {
             None => 0,
-            Some(k) if self.limits => (k.height() * 3) / 2,
+            Some(k) if self.limits && self.kernel.is_largeop() => (k.height() * 3) / 2,
             Some(k) => k.height() / 2
         } + match &self.subscript {
             None => 0,
-            Some(k) if self.limits => (k.height() * 3) / 2,
+            Some(k) if self.limits && self.kernel.is_largeop() => (k.height() * 3) / 2,
             Some(k) => k.height() / 2
         }
     }
@@ -708,7 +708,7 @@ impl WhatsitTrait for MathChar {
     fn as_whatsit(self) -> Whatsit {
         MathKernel::MathChar(self).as_whatsit()
     }
-    fn width(&self) -> i32 { self.font.get_width(self.position as u16) }
+    fn width(&self) -> i32 { self.font.get_width(self.position as u16) + (65536) }
     fn height(&self) -> i32 { self.font.get_height(self.position as u16) }
     fn depth(&self) -> i32 { self.font.get_depth(self.position as u16) }
     fn as_xml_internal(&self, prefix: String) -> String {

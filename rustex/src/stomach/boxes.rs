@@ -237,7 +237,7 @@ impl WhatsitTrait for HBox {
         }
     }
 
-    fn as_html( mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
                 //let parwidth = self.get_par_width();
@@ -248,16 +248,22 @@ impl WhatsitTrait for HBox {
                     },
                     _ => htmlnode!(colon,div,None,"rustex-hbox-container",node_top,cont => {
                         withlinescale!(colon,self.lineheight,cont,{
-                        if let Some(dp) = self._depth {
-                            cont.style("margin-bottom".into(),dimtohtml(dp))
-                        }
                         if let Some(ht) = self._height {
                             if ht < 0 {
-                                cont.style("margin-bottom".into(),dimtohtml(ht));
+                                if let Some(dp) = self._depth {
+                                    let nd = dp + ht;
+                                    self._depth = None;
+                                    cont.style("margin-bottom".into(),dimtohtml(nd))
+                                } else {
+                                    cont.style("margin-bottom".into(),dimtohtml(ht))
+                                }
                                 cont.style("height".into(),"0".into());
                             } else {
                                 cont.style("height".into(),dimtohtml(ht));
                             }
+                        }
+                        if let Some(dp) = self._depth {
+                            cont.style("margin-bottom".into(),dimtohtml(dp))
                         }
                         if self._to.is_some() && self._to.unwrap() <= 0 && self._width.is_none() {
                             let wd = if let Some(wd) = self._to {wd} else {unreachable!()};
@@ -296,8 +302,7 @@ impl WhatsitTrait for HBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                    span.style("display".into(),"inline-flex".into());
+                htmlnode!(colon,HTML_NS:span,None,"rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
@@ -673,7 +678,7 @@ impl WhatsitTrait for VBox {
         }
     }
 
-    fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
+    fn as_html(mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::V | ColonMode::H | ColonMode::P if self.tp == VBoxType::DMCenter => {
                 htmlnode!(colon,div,None,"rustex-display-vcenter",node_top,div => {
@@ -758,7 +763,13 @@ impl WhatsitTrait for VBox {
                     }
                         if let Some(ht) = self._height {
                             if ht < 0 {
-                                cont.style("margin-bottom".into(),dimtohtml(ht));
+                                if let Some(d) = self._depth {
+                                    let nd = d + ht;
+                                    self._depth = None;
+                                    cont.style("margin-bottom".into(),dimtohtml(nd));
+                                } else {
+                                    cont.style("margin-bottom".into(),dimtohtml(ht));
+                                }
                                 cont.style("height".into(),"0".into());
                             } else {
                                 cont.style("height".into(),dimtohtml(ht));
@@ -798,8 +809,7 @@ impl WhatsitTrait for VBox {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"",htmlparent!(mt),span => {
-                    span.style("display".into(),"inline-flex".into());
+                htmlnode!(colon,HTML_NS:span,None,"rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));

@@ -132,6 +132,28 @@ pub enum AlignBlock {
     Noalign(Vec<Whatsit>),
     Block(Vec<(Vec<Whatsit>,Skip,usize)>)
 }
+impl AlignBlock {
+    fn height(&self,lineheight:Option<i32>) -> i32 {
+        let mut ht = 0;
+        match self {
+            AlignBlock::Noalign(v) => for c in v.iter_wi() {
+                ht += c.height()
+            },
+            AlignBlock::Block(ls) => {
+                for (v,_,_) in ls {
+                    for c in v.iter_wi() {
+                        let h = c.height();
+                        if h > ht { ht = h }
+                    }
+                }
+                if let Some(lht) = lineheight {
+                    ht = max(ht,(lht * 3) / 2);
+                }
+            }
+        }
+        ht
+    }
+}
 
 // -------------------------------------------------------------------------------------------------
 pub enum ExternalParam{
@@ -1128,26 +1150,7 @@ impl WhatsitTrait for HAlign {
     fn height(&self) -> i32 {
         let mut height:i32 = 0;
         for b in &self.rows {
-            match b {
-                AlignBlock::Noalign(v) => {
-                    for c in v.iter_wi() {
-                        height += c.height();
-                    }
-                }
-                AlignBlock::Block(ls) => {
-                    let mut ht:i32 = 0;
-                    for (v,_,_) in ls {
-                        for c in v.iter_wi() {
-                            let h = c.height();
-                            if h > ht { ht = h }
-                        }
-                    }
-                    if let Some(lht) = self.lineheight {
-                        ht = max(ht,(lht * 3) / 2);
-                    }
-                    height += ht
-                }
-            }
+            height += b.height(self.lineheight);
         }
         height
     }
@@ -1233,11 +1236,19 @@ impl WhatsitTrait for HAlign {
                         table.attr("rustex:height".into(),dimtohtml(height));
                     }
                     withlinescale!(colon,self.lineheight,table,{
+                        if self.lineheight == Some(0) {
+                            table.style("margin-bottom".into(),"-100%".into())
+                        }
                     if self.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
                     }
+                    let mut bottom:i32 = 0;
                     for row in self.rows {
-                        HAlign::do_row(mode, colon, &mut table,row)
+                        let ht = row.height(self.lineheight);
+                        HAlign::do_row(mode, colon, &mut table,row,&mut bottom);
+                        if self.lineheight == Some(0) {
+                            bottom += ht;
+                        }
                     }
                     })
                 })
@@ -1248,7 +1259,7 @@ impl WhatsitTrait for HAlign {
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
                 mt.style("width".into(),dimtohtml(wd));
-                htmlnode!(colon,HTML_NS:span,None,"rustex-contents",htmlparent!(mt),span => {
+                htmlnode!(colon,HTML_NS:span,None,"rustex-contents rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
@@ -1297,7 +1308,7 @@ macro_rules! dobox {
     })
 }
 impl HAlign {
-    fn do_cell(mode: &ColonMode, colon: &mut HTMLColon, row:&mut HTMLNode,mut vs:Vec<Whatsit>,skip:Skip,num:usize) {
+    fn do_cell(mode: &ColonMode, colon: &mut HTMLColon, row:&mut HTMLNode,mut vs:Vec<Whatsit>,skip:Skip,num:usize,bottom:i32) {
         docell!(mode,colon,row,cell => {
             if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
             let mut alignment = (0,0);
@@ -1327,8 +1338,8 @@ impl HAlign {
             for c in repush.into_iter().rev() {vs.push(c)}
             let mut incell : bool = false;
             dobox!(mode,colon,cell,bx => {
-                if colon.state.line_scale <= 0.0 {
-                    bx.style("height".into(),"0".into());
+                if bottom > 0 {
+                    bx.style("bottom".into(),dimtohtml(bottom));
                 }
                 let mut inspace = false;
                 for w in vs { match w {
@@ -1395,7 +1406,7 @@ impl HAlign {
             //cell.style("margin-right".into(),dimtohtml(skip.base));
         })
     }
-    fn do_row(mode: &ColonMode, colon: &mut HTMLColon, table:&mut HTMLNode,row:AlignBlock) {
+    fn do_row(mode: &ColonMode, colon: &mut HTMLColon, table:&mut HTMLNode,row:AlignBlock,bottom:&mut i32) {
         match row {
             AlignBlock::Noalign(mut v) => {
                 let mut aboveborder = true;
@@ -1430,7 +1441,7 @@ impl HAlign {
                 if cells.iter().any(|c| {c.0.iter().any(|e| e.has_ink())}) {
                     dorow!(mode,colon,table,row => {
                         for (mut vs,skip,num) in cells {
-                            HAlign::do_cell(mode,colon,&mut row,vs,skip,num)
+                            HAlign::do_cell(mode,colon,&mut row,vs,skip,num,*bottom)
                         }
                     })}
             }
