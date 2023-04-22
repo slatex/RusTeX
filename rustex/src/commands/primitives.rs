@@ -7,7 +7,7 @@ use crate::interpreter::state::{FontStyle, GroupType, State};
 use crate::utils::{TeXError, TeXStr, TeXString};
 use crate::{log,TeXErr,FileEnd};
 use crate::VERSION_INFO;
-use crate::stomach::whatsits::{Accent, PrintChar, SpaceChar, WhatsitTrait};
+use crate::stomach::whatsits::{Accent, lineheight, PrintChar, SpaceChar, WhatsitTrait};
 
 pub static SPACE: SimpleWhatsit = SimpleWhatsit {
     name:" ",
@@ -1757,7 +1757,8 @@ pub static HBOX: ProvidesBox = ProvidesBox {
                 _height: None,
                 _depth: None,
                 _to:to,
-                rf : int.update_reference(tk)
+                rf : int.update_reference(tk),
+                lineheight:Some(lineheight(&int.state))
             }))
         }
     }
@@ -2945,9 +2946,11 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             Some(_) => Some(int.read_dimension()?),
             None => None
         };
+        let lht = lineheight(&int.state);
         let (skip,template,rows) = do_align(int,BoxMode::H,BoxMode::V)?;
         Ok(Whatsit::Simple(SimpleWI::HAlign(HAlign {
-            skip,template,rows,sourceref:int.update_reference(tk)
+            skip,template,rows,sourceref:int.update_reference(tk),
+            lineheight:Some(lineheight(&int.state))
         })))
     }
 };

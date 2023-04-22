@@ -12,7 +12,7 @@ use crate::interpreter::dimensions::{numtostr, Skip};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::{Colon, ColonBase, ColonMode};
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::WhatsitTrait;
+use crate::stomach::whatsits::{lineheight, WhatsitTrait};
 use crate::utils::TeXStr;
 
 pub static HTMLSCALE : f32 = 1.5;
@@ -32,20 +32,25 @@ pub static RUSTEX_NS : &str = "http://kwarc.info/ns/RusTeX";
 pub struct HTMLState {
     pub current_namespace:&'static str,
     pub top:Vec<HTMLChild>,
-    pub currsize:i32,
+    pub currsize:i32,pub fontsize:i32,
     //pub squaresize:bool,
     pub currcolor:Option<HTMLStr>,
-    kern:i32
+    //kern:i32,
+    pub line_height:i32,pub line_scale:f32
 }
 impl HTMLState {
     pub fn new() -> HTMLState { HTMLState {
         current_namespace:HTML_NS,
-        top:vec!(),//squaresize:false,
-        currsize:0,currcolor:None,kern:0
+        top:vec!(),fontsize:0,//squaresize:false,
+        currsize:0,currcolor:None,//kern:0,
+        line_height:0,line_scale:1.0
     }}
-    pub fn add_kern(&mut self,v : i32) {
-        self.kern = self.kern + v;
+    pub fn lineheight(&self) -> f32 {
+        (self.line_height as f32) / (self.fontsize as f32)
     }
+    /*pub fn add_kern(&mut self,v : i32) {
+        self.kern = self.kern + v;
+    }*/
 }
 
 #[macro_export]
@@ -64,6 +69,25 @@ macro_rules! setwidth {
 }
 
 #[macro_export]
+macro_rules! withlinescale {
+    ($colon:ident,$lineheight:expr,$node:expr,$e:expr) => ({
+        if let Some(_lineheight) = $lineheight {
+            let _newscale = (_lineheight as f32) / ($colon.state.fontsize as f32);
+            if _newscale == $colon.state.line_scale { $e } else {
+                let _oldlinescale = $colon.state.line_scale;
+                let _oldlineheight = $colon.state.line_height;
+                $colon.state.line_scale = _newscale;
+                $colon.state.line_height = _lineheight;
+                $node.style("line-height".into(),_newscale.to_string().into());
+                $e;
+                $colon.state.line_scale = _oldlinescale;
+                $colon.state.line_height = _oldlineheight;
+            }
+        } else { $e }
+    })
+}
+
+#[macro_export]
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident => $e:expr) => ({
      if $wd <= 0 {
@@ -74,7 +98,6 @@ macro_rules! withwidth {
          $e
      } else {
          let _withwidth_currsize = $colon.state.currsize;
-         $colon.state.currsize = $wd;
          let _withwidth_pctg = (($wd as f32) / (_withwidth_currsize as f32));
          if _withwidth_pctg == 1.0 {
              $node.style("width".into(),"var(--document-width)".into());
@@ -85,35 +108,19 @@ macro_rules! withwidth {
              let _withwidth_str = "calc(".to_string() + &_withwidth_pctg.to_string() + " * var(--document-width))";
              $node.style("--temp-width".into(),_withwidth_str.into());
              $node.classes.push("rustex-withwidth".into());
+            $colon.state.currsize = $wd;
              htmlnode!($colon,span,None,"rustex-contents",htmlparent!($node),$inner => {
                 $e
              });
              $colon.state.currsize = _withwidth_currsize;
          }
      }
-     /*let _withwidth_currsize = $colon.state.currsize;
-     let _withwidth_newsize = $wd;//if $wd == 0 {8192} else {$wd};
-     $colon.state.currsize = _withwidth_newsize;
-     let _withwidth_pctg = if _withwidth_currsize == 0 {
-         let _withwidth_pctg_str = ((_withwidth_newsize as f32) / ($colon.textwidth as f32) /* * 100.0 */).to_string();
-         "calc(".to_string() + &_withwidth_pctg_str + " * var(--document-width))"
-     } else {
-         let _withwidth_pctg_str = ((_withwidth_newsize as f32) / (_withwidth_currsize as f32) * 100.0 ).to_string();
-         _withwidth_pctg_str + "%"
-     };
-     $node.style("width".into(),_withwidth_pctg.clone().into());
-     $node.style("min-width".into(),_withwidth_pctg.into());
-     $node.classes.push("withheight".into());
-     htmlnode!($colon,span,None,"",htmlparent!($node),$inner => {
-        $e
-     });
-     $colon.state.currsize = _withwidth_currsize;*/
  });
 }
 #[macro_export]
 macro_rules! htmlnode {
     ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
-        $sel.do_kern($node_parent);
+        //$sel.do_kern($node_parent);
         let mut _node_newnode = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
@@ -126,7 +133,7 @@ macro_rules! htmlnode {
         }
     });
     ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr) => ({
-        $sel.do_kern($node_parent);
+        //$sel.do_kern($node_parent);
         let mut _node_newnode = HTMLNode::new($ns,stringify!($node).into(),$sref);
         _node_newnode.classes.push($name.into());
         match $node_parent {
@@ -140,7 +147,7 @@ macro_rules! htmlnode {
     });
     ($sel:ident,$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
-            $sel.do_kern($node_parent);
+            //$sel.do_kern($node_parent);
             let mut $nodename = HTMLNode::new($sel.state.current_namespace,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             $e
@@ -156,7 +163,7 @@ macro_rules! htmlnode {
     );
     ($sel:ident,$ns:tt:$node:ident,$sref:expr,$name:tt,$node_parent:expr,$nodename:ident => $e:expr) => (
         {
-            $sel.do_kern($node_parent);
+            //$sel.do_kern($node_parent);
             let mut $nodename = HTMLNode::new($ns,stringify!($node).into(),$sref);
             $nodename.classes.push($name.into());
             let _node_oldns = $sel.state.current_namespace;
@@ -177,7 +184,7 @@ macro_rules! htmlnode {
 #[macro_export]
 macro_rules! htmlliteral {
     ($sel:ident,$node_parent:expr,$e:expr) => ({
-        $sel.do_kern($node_parent);
+        //$sel.do_kern($node_parent);
         let _ret : HTMLStr = $e.into();
         match $node_parent {
             Some(e) => {
@@ -189,7 +196,7 @@ macro_rules! htmlliteral {
         }
     });
     ($sel:ident,$node_parent:expr,>$e:tt<) => ({
-        $sel.do_kern($node_parent);
+        //$sel.do_kern($node_parent);
         let _ret : HTMLStr = $e.into();
         match $node_parent {
             Some(e) => {
@@ -245,7 +252,7 @@ pub struct HTMLColon {
     doheader:bool,
     pub state:HTMLState,
     pub namespaces : HashMap<String,String>,
-    pagewidth:i32,pub textwidth:i32,lineheight:Skip
+    pagewidth:i32,pub textwidth:i32
 }
 //unsafe impl Send for HTMLColon {}
 
@@ -269,9 +276,17 @@ impl Colon<String> for HTMLColon {
                 s if s.to_string() == "000000" => None,
                 s => Some(s.clone().into())
             };
+            self.state.fontsize = match &self.base.basefont.as_ref() {
+                Some(f) => match f.at {
+                    Some(i) => i,
+                    None => 655360
+                }
+                None => 655360
+            };
             self.pagewidth = int.state.dimensions_prim.get(&(crate::commands::registers::PDFPAGEWIDTH.index - 1));
             self.textwidth = int.state.dimensions_prim.get(&(crate::commands::registers::HSIZE.index - 1));
-            self.lineheight = int.state.skips_prim.get(&(crate::commands::registers::BASELINESKIP.index - 1));
+            self.state.line_height = lineheight(&int.state);//int.state.skips_prim.get(&(crate::commands::registers::BASELINESKIP.index - 1));
+            self.state.line_scale = self.state.lineheight();
 
             let base = self.base_mut();
             base.basefont = Some(basefont);
@@ -285,24 +300,6 @@ impl Colon<String> for HTMLColon {
     }
 }
 impl HTMLColon {
-    pub fn do_kern(&mut self,parent: &mut Option<HTMLParent>) {
-        match std::mem::take(&mut self.state.kern) {
-            0 => {}
-            v => if self.state.current_namespace == HTML_NS {
-                htmlnode!(self,div,None,"rustex-kern",parent,node => {
-                    node.style("margin-left".into(),dimtohtml(v));
-                });
-            } else if self.state.current_namespace == MATHML_NS {
-                htmlnode!(self,mspace,None,"rustex-mkern",parent,node => {
-                    let val = ((v as f32) / (65536.0 * 18.0));
-                    if val < 0.0 {
-                        node.style("margin-left".into(),(val.to_string() + "em").into());
-                    }
-                    node.attr("width".into(),(val.to_string() + "em").into());
-                });
-            }
-        }
-    }
     fn header(&self) -> String {
         let mut ret : String = "".to_string();
         if self.doheader {
@@ -324,14 +321,7 @@ impl HTMLColon {
             ret += "\n  </head>\n  <body style=\"max-width:";
             ret += &dimtohtml(self.pagewidth).to_string();
             ret += "\">\n    <div class=\"rustex-body\" id=\"rustexbody\" style=\"font-size:";
-            let fontsize = match &self.base.basefont.as_ref() {
-                Some(f) => match f.at {
-                    Some(i) => i,
-                    None => 655360
-                }
-                None => 655360
-            };
-            ret += &dimtohtml(fontsize).to_string();
+            ret += &dimtohtml(self.state.fontsize).to_string();
             //ret += ";width:var(--current-width)";
             ret += ";max-width:";
             ret += &dimtohtml(self.textwidth).to_string();
@@ -345,7 +335,7 @@ impl HTMLColon {
             ret += padding.as_str();
             //ret += &dimtohtml(((self.pagewidth - self.textwidth) as f32 / 2.0).round() as i32).to_string();
             ret += ";line-height:";
-            ret += &(self.lineheight.base as f32 / fontsize as f32).to_string();
+            ret += &(self.state.line_scale).to_string();
             if crate::INSERT_RUSTEX_ATTRS {
                 ret += ";\"";
                 ret += " rustex:font=\"";
@@ -366,8 +356,7 @@ impl HTMLColon {
             doheader,
             namespaces:HashMap::new(),
             pagewidth: 0,
-            textwidth: 0,
-            lineheight: Skip {base:0, stretch: None, shrink: None }
+            textwidth: 0
         };
         ret.namespaces.insert("xhtml".into(),HTML_NS.into());
         ret.namespaces.insert("mml".into(),MATHML_NS.into());

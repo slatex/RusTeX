@@ -42,9 +42,11 @@ impl WhatsitTrait for MathGroup {
     fn height(&self) -> i32 {
         self.kernel.height() + match &self.superscript {
             None => 0,
+            Some(k) if self.limits => (k.height() * 3) / 2,
             Some(k) => k.height() / 2
         } + match &self.subscript {
             None => 0,
+            Some(k) if self.limits => (k.height() * 3) / 2,
             Some(k) => k.height() / 2
         }
     }
@@ -147,11 +149,11 @@ impl WhatsitTrait for MathGroup {
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::P | ColonMode::V if self.limits => htmlnode!(colon,div,None,"rustex-display-math-container",node_top,div =>{
-                if crate::INSERT_RUSTEX_ATTRS {
-                    div.attr("rustex:width".into(),dimtohtml(self.width()));
-                    div.attr("rustex:height".into(),dimtohtml(self.height()));
-                }
                 htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",htmlparent!(div),node=> {
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        node.attr("rustex:width".into(),dimtohtml(self.width()));
+                        node.attr("rustex:height".into(),dimtohtml(self.height()));
+                    }
                     node.attr("displaystyle".into(),"true".into());
                     htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                         self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
@@ -165,6 +167,10 @@ impl WhatsitTrait for MathGroup {
                 })
             }),
             ColonMode::H | ColonMode::P | ColonMode::V => htmlnode!(colon,MATHML_NS:math,self.get_ref(),"",node_top,node=> {
+                if crate::INSERT_RUSTEX_ATTRS {
+                    node.attr("rustex:width".into(),dimtohtml(self.width()));
+                    node.attr("rustex:height".into(),dimtohtml(self.height()));
+                }
                 htmlnode!(colon,mrow,None,"",htmlparent!(node),mrow => {
                     self.as_html(&ColonMode::M,colon,htmlparent!(mrow));
                     /*if mrow.children.len() == 1 {
@@ -177,9 +183,15 @@ impl WhatsitTrait for MathGroup {
             }),
             ColonMode::M => {
                 let rf = self.get_ref();
+                let width = self.width();
+                let height = self.height();
                 match (self.subscript,self.superscript) {
                     (None,None) => self.kernel.as_html(mode,colon,node_top),
                     (None,Some(ss)) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,mover,rf,"",node_top,msup => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msup.attr("rustex:width".into(),dimtohtml(width));
+                        msup.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msup.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -188,6 +200,10 @@ impl WhatsitTrait for MathGroup {
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                     (None,Some(ss)) => htmlnode!(colon,msup,rf,"",node_top,msup => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msup.attr("rustex:width".into(),dimtohtml(width));
+                        msup.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msup.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -196,6 +212,10 @@ impl WhatsitTrait for MathGroup {
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                     (Some(ss),None) if self.limits && self.kernel.is_largeop() => htmlnode!(colon,munder,rf,"",node_top,msup => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msup.attr("rustex:width".into(),dimtohtml(width));
+                        msup.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msup.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -204,6 +224,10 @@ impl WhatsitTrait for MathGroup {
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                     (Some(ss),None) => htmlnode!(colon,msub,rf,"",node_top,msup => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msup.attr("rustex:width".into(),dimtohtml(width));
+                        msup.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msup.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msup));
                     if msup.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
@@ -212,6 +236,10 @@ impl WhatsitTrait for MathGroup {
                     if msup.children.len() < 3 { htmlnode!(colon,mrow,None,"",htmlparent!(msup)) }
                 }),
                     (Some(subk),Some(supk)) if self.limits && is_large_op(&self.kernel) => htmlnode!(colon,munderover,rf,"",node_top,msub => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msub.attr("rustex:width".into(),dimtohtml(width));
+                        msub.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msub.attr("displaystyle".into(),"true".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
@@ -223,6 +251,10 @@ impl WhatsitTrait for MathGroup {
                     if msub.children.len() < 5 { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }
                 }),
                     (Some(subk),Some(supk)) => htmlnode!(colon,msubsup,rf,"",node_top,msub => {
+                        if crate::INSERT_RUSTEX_ATTRS {
+                        msub.attr("rustex:width".into(),dimtohtml(width));
+                        msub.attr("rustex:height".into(),dimtohtml(height));
+                    }
                     msub.attr("displaystyle".into(),"false".into());
                     self.kernel.as_html(mode,colon,htmlparent!(msub));
                     if msub.children.is_empty() { htmlnode!(colon,mrow,None,"",htmlparent!(msub)) }

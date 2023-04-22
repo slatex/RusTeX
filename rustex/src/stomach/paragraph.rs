@@ -1,11 +1,11 @@
 use std::cmp::max;
-use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
+use crate::{htmlliteral, htmlnode, htmlparent, withlinescale, withwidth};
 use crate::interpreter::dimensions::{Skip, SkipDim};
 use crate::interpreter::state::State;
 use crate::references::SourceFileReference;
 use crate::stomach::{StomachGroup, Whatsit};
 use crate::stomach::colon::ColonMode;
-use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
+use crate::stomach::whatsits::{HasWhatsitIter, lineheight, WhatsitTrait};
 use crate::stomach::groups::WIGroupTrait;
 use crate::stomach::html::{dimtohtml, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
 use crate::stomach::simple::SimpleWI;
@@ -124,33 +124,25 @@ impl WhatsitTrait for Paragraph {
              */
             let wd = self.width();
             let fullwidth = wd + negwd;
-            let currsize = colon.state.currsize;
-            if wd == 0 {
-                node.style("width".into(),"0px".into());
-                node.style("max-width".into(),"0px".into());
-                for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
-            } else {
-                if negwd <= 0 {
-                    withwidth!(colon,wd,node,inner => {
-                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
-                    });
-                } else {
-                    //colon.state.currsize = wd;
-                    withwidth!(colon,wd,node,inner => {
-                        for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
-                    });
-                    /*
-                    let pctg = ((fullwidth as f32) / (currsize as f32) * 100.0).to_string();
-                    let str = "calc(".to_string() + &pctg + "% - " + &dimtohtml(negwd).to_string() + ")";
-                    node.style("width".into(),str.clone().into());
-                    node.style("min-width".into(),str.clone().into());
-                    //htmlnode!(colon,span,None,"",htmlparent!(node),inner => {
+            //let currsize = colon.state.currsize;
+            withlinescale!(colon,self.lineheight,node,{
+                if wd == 0 {
+                    node.style("width".into(),"0px".into());
+                    node.style("max-width".into(),"0px".into());
                     for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
-                    //})
-                     */
+                } else {
+                    if negwd <= 0 {
+                        withwidth!(colon,wd,node,inner => {
+                            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
+                        });
+                    } else {
+                        withwidth!(colon,wd,node,inner => {
+                            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+                        });
+                    }
                 }
-            }
-            colon.state.currsize = currsize;
+            });
+            //colon.state.currsize = currsize;
         });
         htmlliteral!(colon,node_top,"\n");
     }
@@ -231,6 +223,15 @@ impl Paragraph {
                             currline += 1;
                             hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                         }
+                        Whatsit::Math(mg) if mg.limits => {
+                            currentwidth = 0;
+                            currentheight += currentlineheight;
+                            currentheight += 2*mg.height();
+                            currentlineheight = 0;
+                            currentdepth = 0;
+                            currline += 2;
+                            hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
+                        }
                         wi => {
                             let width = wi.width();
                             if currentwidth + width > hgoal {
@@ -244,10 +245,10 @@ impl Paragraph {
                                 currline += 1;
                                 hgoal = lines.get(currline).unwrap_or(lines.last().unwrap()).1;
                             }
-                            currentlineheight = max(currentlineheight,match wi {
-                                Whatsit::Char(_) => max(wi.height(),lineheight),
-                                _ => wi.height()
-                            });
+                            currentlineheight = max(
+                                currentlineheight,
+                                max(wi.height() + wi.depth(),lineheight)
+                            );
                             currentdepth = max(currentdepth,wi.depth());
                             currentwidth += width;
                             presplit.last_mut().unwrap().push(wi)
@@ -344,7 +345,7 @@ impl Paragraph {
         self.rightskip.get_or_insert(state.skips_prim.get(&(crate::commands::registers::RIGHTSKIP.index - 1)));
         self.leftskip.get_or_insert(state.skips_prim.get(&(crate::commands::registers::LEFTSKIP.index - 1)));
         self.hsize.get_or_insert(state.dimensions_prim.get(&(crate::commands::registers::HSIZE.index - 1)));
-        self.lineheight.get_or_insert(state.skips_prim.get(&(crate::commands::registers::BASELINESKIP.index - 1)).base);
+        self.lineheight.get_or_insert(lineheight(state));
         self._width = self.hsize.unwrap() - (self.leftskip.unwrap().base  + self.rightskip.unwrap().base);
 
         self.lines.get_or_insert(if !parshape.is_empty() {
@@ -369,7 +370,7 @@ impl Paragraph {
         let mut currentdepth : i32 = 0;
         let mut currline : usize = 0;
         let mut hgoal = lines.first().unwrap().1;
-        let lineheight = self.lineheight.unwrap() + (2 * 65536);
+        let lineheight = self.lineheight.unwrap() ;//+ (2 * 65536);
         for wi in self.children.iter_wi() {
             match wi {
                 Whatsit::Simple(SimpleWI::Penalty(p)) if p.penalty <= -10000 => {
@@ -382,7 +383,7 @@ impl Paragraph {
                 }
                 Whatsit::Math(mg) if mg.limits => {
                     currentwidth = 0;
-                    currentheight += currentlineheight + currentdepth;
+                    currentheight += currentlineheight;
                     currentheight += 2*mg.height();
                     currentlineheight = 0;
                     currentdepth = 0;
@@ -393,7 +394,7 @@ impl Paragraph {
                     let width = wi.width();
                     if currentwidth + width > hgoal {
                         currentwidth = 0;
-                        currentheight += currentlineheight + currentdepth;
+                        currentheight += currentlineheight;
                         currentlineheight = 0;
                         currentdepth = 0;
                         currline += 1;
@@ -401,7 +402,7 @@ impl Paragraph {
                     }
                     currentlineheight = max(
                         currentlineheight,
-                        max(wi.height(),lineheight)
+                        max(wi.height() + wi.depth(),lineheight)
                     );
                     currentdepth = max(currentdepth,wi.depth());
                     currentwidth += width

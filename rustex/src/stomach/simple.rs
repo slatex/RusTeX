@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::io::Cursor;
 use std::path::PathBuf;
 use base64::Engine;
@@ -13,7 +13,7 @@ use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, H
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
-use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token};
+use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token, withlinescale};
 use crate::fonts::ArcFont;
 use crate::utils::TeXStr;
 
@@ -257,6 +257,7 @@ impl WhatsitTrait for PDFXImage {
                 _depth: None,
                 _to: None,
                 rf: None,
+                lineheight:None
             }.as_html(mode, colon, node_top)
         }
         match self.image {
@@ -817,7 +818,8 @@ impl WhatsitTrait for Raise {
                         _height: bx._height,
                         _depth: bx._depth,
                         _to: bx._to,
-                        rf: bx.rf
+                        rf: bx.rf,
+                        lineheight:bx.lineheight
                     }),
                     dim:self.dim,
                     sourceref:self.sourceref
@@ -905,7 +907,8 @@ impl WhatsitTrait for MoveRight {
                         _height: bx._height,
                         _depth: bx._depth,
                         _to: bx._to,
-                        rf: bx.rf
+                        rf: bx.rf,
+                        lineheight:bx.lineheight
                     }),
                     dim:self.dim,
                     sourceref:self.sourceref
@@ -1088,6 +1091,7 @@ pub struct HAlign {
     pub skip:Skip,
     pub template:Vec<(Vec<Token>,Vec<Token>,Skip)>,
     pub rows:Vec<AlignBlock>,
+    pub lineheight:Option<i32>,
     pub sourceref:Option<SourceFileReference>
 }
 impl WhatsitTrait for HAlign {
@@ -1137,6 +1141,9 @@ impl WhatsitTrait for HAlign {
                             let h = c.height();
                             if h > ht { ht = h }
                         }
+                    }
+                    if let Some(lht) = self.lineheight {
+                        ht = max(ht,(lht * 3) / 2);
                     }
                     height += ht
                 }
@@ -1211,20 +1218,28 @@ impl WhatsitTrait for HAlign {
         ret.push(HAlign {
             skip:self.skip,
             template:self.template,
-            rows:nrows,
+            rows:nrows,lineheight:self.lineheight,
             sourceref:self.sourceref
         }.as_whatsit())
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
+                let width = self.width();
+                let height = self.height();
                 htmlnode!(colon,table,self.sourceref,"rustex-halign",node_top,table => {
+                    if crate::INSERT_RUSTEX_ATTRS {
+                        table.attr("rustex:width".into(),dimtohtml(width));
+                        table.attr("rustex:height".into(),dimtohtml(height));
+                    }
+                    withlinescale!(colon,self.lineheight,table,{
                     if self.skip.base != 0 {
                         table.style("margin-top".into(),dimtohtml(self.skip.base))
                     }
                     for row in self.rows {
                         HAlign::do_row(mode, colon, &mut table,row)
                     }
+                    })
                 })
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
@@ -1312,6 +1327,9 @@ impl HAlign {
             for c in repush.into_iter().rev() {vs.push(c)}
             let mut incell : bool = false;
             dobox!(mode,colon,cell,bx => {
+                if colon.state.line_scale <= 0.0 {
+                    bx.style("height".into(),"0".into());
+                }
                 let mut inspace = false;
                 for w in vs { match w {
                     Whatsit::Simple(SimpleWI::VRule(v)) if !incell && v.width() <= 393216 => cell.style("border-left".into(),dimtohtml(v.width()) + " solid"),

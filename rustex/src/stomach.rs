@@ -563,7 +563,7 @@ pub trait Stomach : Send {
                     ch.push(HBox {
                         spread:0,
                         _width:None,_height:None,_depth:None,rf:None,_to:None,
-                        children:c
+                        children:c,lineheight:halign.lineheight
                     }.as_whatsit());
                     ch.push(HSkip {
                         skip:halign.skip,sourceref:None
@@ -575,7 +575,8 @@ pub trait Stomach : Send {
                     }
                 }*/
                 self.base_mut().buffer.push(HAlign{
-                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
+                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref,
+                    lineheight:halign.lineheight
                 }.as_whatsit());
                 let tb = TeXBox::H(HBox {
                     children: ch,
@@ -583,14 +584,15 @@ pub trait Stomach : Send {
                     _width: None,
                     _height: None,
                     _depth: None,_to:None,
-                    rf: None
+                    rf: None,lineheight:halign.lineheight
                 });
                 self.base_mut().buffer.push(tb.as_whatsit());
                 true
             }
             Some(AlignBlock::Noalign(mut v)) => {
                 self.base_mut().buffer.push(HAlign{
-                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref
+                    skip:halign.skip,template:halign.template,rows:halign.rows,sourceref:halign.sourceref,
+                    lineheight:halign.lineheight
                 }.as_whatsit());
                 for w in v.into_iter().rev() { self.base_mut().buffer.push(w) }
                 true

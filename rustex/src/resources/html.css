@@ -209,8 +209,8 @@ a { color: inherit; text-decoration: inherit; }
 .rustex-hbox, .rustex-hbox-no-space {
     display:inline-flex;
     white-space: pre;
-    width: fit-content;
-    height: fit-content;
+    width: min-content;
+    height: min-content;
     align-items: baseline;
     /*
     vertical-align: bottom;

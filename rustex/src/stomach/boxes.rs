@@ -1,6 +1,6 @@
 use std::cmp::max;
 use crate::interpreter::dimensions::dimtostr;
-use crate::{htmlliteral, htmlnode, htmlparent, withwidth};
+use crate::{htmlliteral, htmlnode, htmlparent, withlinescale, withwidth};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
@@ -94,11 +94,12 @@ pub struct HBox {
     pub _height:Option<i32>,
     pub _depth:Option<i32>,
     pub _to:Option<i32>,
-    pub rf : Option<SourceFileReference>
+    pub rf : Option<SourceFileReference>,
+    pub lineheight:Option<i32>
 }
 
 impl HBox {
-    pub fn new_trivial(v:Vec<Whatsit>) -> Self {HBox {children:v,spread:0,_depth:None,_height:None,_width:None,_to:None,rf:None}}
+    pub fn new_trivial(v:Vec<Whatsit>) -> Self {HBox {children:v,spread:0,_depth:None,_height:None,_width:None,_to:None,rf:None,lineheight:None}}
 }
 
 impl WhatsitTrait for HBox {
@@ -114,7 +115,7 @@ impl WhatsitTrait for HBox {
             None => {
                 let mut w = 0;
                 for c in self.children.iter_wi() {
-                    let ht = c.height();
+                    let ht = c.height();// + c.depth();
                     if ht > w { w = ht }
                 }
                 w
@@ -188,14 +189,6 @@ impl WhatsitTrait for HBox {
                 let mut nch : Vec<Whatsit> = vec!();
                 for c in self.children { c.normalize(&ColonMode::H,&mut nch,scale) }
                 if nch.is_empty() && (self._width.is_none() || self._width == Some(0)) { return () }
-                /*else if nch.len() == 1 {
-                    match nch.pop() {
-                        Some(o) => {
-                            nch.push(o)
-                        }
-                        _ => TeXErr!("Should be unreachable!")
-                    }
-                }*/
                 ret.push(HBox {
                     children: nch,
                     spread: self.spread,
@@ -203,7 +196,8 @@ impl WhatsitTrait for HBox {
                     _height: self._height,
                     _depth: self._depth,
                     _to:self._to,
-                    rf: self.rf
+                    rf: self.rf,
+                    lineheight:self.lineheight
                 }.as_whatsit())
             }
             ColonMode::H => {
@@ -220,7 +214,8 @@ impl WhatsitTrait for HBox {
                         _height: self._height,
                         _depth: self._depth,
                         _to:self._to,
-                        rf: self.rf
+                        rf: self.rf,
+                        lineheight:self.lineheight
                     }.as_whatsit())
                // }
             }
@@ -235,7 +230,8 @@ impl WhatsitTrait for HBox {
                     _height: self._height,
                     _depth: self._depth,
                     _to:self._to,
-                    rf: self.rf
+                    rf: self.rf,
+                    lineheight:self.lineheight
                 }.as_whatsit())
             }
         }
@@ -245,12 +241,13 @@ impl WhatsitTrait for HBox {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
                 let parwidth = self.get_par_width();
-                let width = self._width.or(if self.width() <= 0 {Some(0)} else {parwidth});
+                let width = self._width;//.or(if self.width() <= 0 {Some(0)} else {parwidth});
                 match (self._height,self._depth,width,self._to) {
                     (None,None,None,None) => {
                         self.html_inner(colon,node_top,false);
                     },
                     _ => htmlnode!(colon,div,None,"rustex-hbox-container",node_top,cont => {
+                        withlinescale!(colon,self.lineheight,cont,{
                         if let Some(dp) = self._depth {
                             cont.style("margin-bottom".into(),dimtohtml(dp))
                         }
@@ -279,6 +276,7 @@ impl WhatsitTrait for HBox {
                             self.html_inner(colon,htmlparent!(cont),false);
                             //colon.state.currsize = oldwidth;
                         }
+                        });
                     })
                 }
             }
@@ -292,6 +290,7 @@ impl WhatsitTrait for HBox {
                 });
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
+                withlinescale!(colon,self.lineheight,mt,{
                 //let oldwd = colon.state.currsize;
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
@@ -305,6 +304,7 @@ impl WhatsitTrait for HBox {
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 });
                 //colon.state.currsize = oldwd;
+                    })
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
         }

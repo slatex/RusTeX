@@ -8,7 +8,7 @@ use crate::stomach::groups::{ExternalWhatsitGroup, ExternalWhatsitGroupEnd, WIGr
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr, numtohtml, SVG_NS};
 use crate::stomach::simple::{ExternalParam, ExternalWhatsit, SimpleWI};
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::WhatsitTrait;
+use crate::stomach::whatsits::{lineheight, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
 static FIX : bool = true;
@@ -222,6 +222,7 @@ impl WhatsitTrait for PGFBox {
                 _depth: None,
                 _to: None,
                 rf: None,
+                lineheight:None
             }.as_html(mode, colon, node_top)
         }
         htmlnode!(colon,HTML_NS:div,None,"",node_top,idiv => {

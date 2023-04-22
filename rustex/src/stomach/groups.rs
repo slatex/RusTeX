@@ -212,9 +212,12 @@ impl WhatsitTrait for FontChange {
                         a.attr("rustex:fontfile".into(),(&self.font.file.filepath).into());
                     }
                     a.fontinfo = Some(FontInfo::new(&self.font));
+                    let oldsize = colon.state.fontsize;
+                    colon.state.fontsize = self.font.get_at();
                     for c in self.children {
                         c.as_html(mode,colon,htmlparent!(a))
                     }
+                    colon.state.fontsize = oldsize;
                     //colon.state.currsize = _oldsize;
                 })
             }

@@ -9,6 +9,19 @@ use crate::interpreter::params::InterpreterParams;
 use crate::interpreter::state::State;
 use crate::stomach::html::{dimtohtml, HTMLNode};
 
+fn lineheight_i(baselineskip:i32,lineskip:i32,lineskiplimit:i32,fontsize:i32) -> i32 {
+    if baselineskip >= (lineskiplimit+fontsize) {baselineskip} else {
+        fontsize + lineskip
+    }
+}
+pub fn lineheight(state:&State) -> i32 {
+    let bls = state.skips_prim.get(&(crate::commands::registers::BASELINESKIP.index - 1)).base;
+    let ls = state.skips_prim.get(&(crate::commands::registers::LINESKIP.index - 1)).base;
+    let lim = state.dimensions_prim.get(&(crate::commands::registers::LINESKIPLIMIT.index - 1));
+    let fnt = state.currfont.get().get_at();
+    lineheight_i(bls,ls,lim,fnt)
+}
+
 pub trait HasWhatsitIter {
     fn iter_wi(&self) -> WhatsitIter;
 }
