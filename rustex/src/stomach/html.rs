@@ -15,7 +15,7 @@ use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{lineheight, WhatsitTrait};
 use crate::utils::TeXStr;
 
-pub static HTMLSCALE : f32 = 1.5;
+pub static HTMLSCALE : f32 = 2.0;
 
 pub fn dimtohtml(num:i32) -> HTMLStr {
     numtostr((HTMLSCALE * (num as f32)).round() as i32,"px").into()
