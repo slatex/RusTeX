@@ -95,8 +95,8 @@ pub trait WhatsitTrait {
     fn normalize(self,mode:&ColonMode,ret:&mut Vec<Whatsit>,scale:Option<f32>);
     fn as_html(self,mode:&ColonMode,colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>);
     fn get_ref(&self) -> Option<SourceFileReference>;
-    fn get_par_width(&self) -> Option<i32>;
-    fn get_par_widths(&self) -> Vec<i32>;
+    //fn get_par_width(&self) -> Option<i32>;
+    //fn get_par_widths(&self) -> Vec<i32>;
 }
 
 use crate::stomach::boxes::TeXBox;
@@ -165,8 +165,8 @@ impl WhatsitTrait for Whatsit {
         pass_on!(self,as_xml_internal,prefix)
     }
     fn has_ink(&self) -> bool { pass_on!(self,has_ink) }
-    fn get_par_width(&self) -> Option<i32> { pass_on!(self,get_par_width)}
-    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,get_par_widths)}
+    //fn get_par_width(&self) -> Option<i32> { pass_on!(self,get_par_width)}
+    //fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,get_par_widths)}
 }
 
 #[derive(Clone)]
@@ -239,8 +239,8 @@ impl WhatsitTrait for Arc<ExecutableWhatsit> {
     }
     fn has_ink(&self) -> bool { false }
     fn as_html(self, _: &ColonMode, _: &mut HTMLColon, _: &mut Option<HTMLParent>) {}
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -291,8 +291,8 @@ impl WhatsitTrait for SpaceChar {
             }
         }
     }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -332,8 +332,8 @@ impl WhatsitTrait for Accent {
         self.char.as_html(mode,colon,node_top) // TODO
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 lazy_static! {
@@ -421,8 +421,8 @@ impl WhatsitTrait for PrintChar {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -463,6 +463,6 @@ impl WhatsitTrait for Insert {
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_lists(&self.0)
     }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }

@@ -82,8 +82,8 @@ impl WhatsitTrait for TeXBox {
         pass_on!(self,(),as_html,mode,colon,node_top)
     }
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on!(self,None,get_ref) }
-    fn get_par_width(&self) -> Option<i32> { pass_on!(self,None,get_par_width) }
-    fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,vec!(),get_par_widths) }
+    //fn get_par_width(&self) -> Option<i32> { pass_on!(self,None,get_par_width) }
+    //fn get_par_widths(&self) -> Vec<i32> { pass_on!(self,vec!(),get_par_widths) }
 }
 
 #[derive(Clone)]
@@ -240,7 +240,7 @@ impl WhatsitTrait for HBox {
     fn as_html( mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
             ColonMode::H | ColonMode::V | ColonMode::P => {
-                let parwidth = self.get_par_width();
+                //let parwidth = self.get_par_width();
                 let width = self._width;//.or(if self.width() <= 0 {Some(0)} else {parwidth});
                 match (self._height,self._depth,width,self._to) {
                     (None,None,None,None) => {
@@ -312,7 +312,7 @@ impl WhatsitTrait for HBox {
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
-    fn get_par_width(&self) -> Option<i32> {
+    /*fn get_par_width(&self) -> Option<i32> {
         self._width.or({
             let mut ret : Option<i32> = None;
             for c in &self.children {
@@ -327,6 +327,8 @@ impl WhatsitTrait for HBox {
         })
     }
     fn get_par_widths(&self) -> Vec<i32> { self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!()) }
+
+     */
 }
 
 enum FilLevel {
@@ -469,6 +471,7 @@ pub struct VBox {
 }
 
 impl WhatsitTrait for VBox {
+    /*
     fn get_par_width(&self) -> Option<i32> {
         self._width.or({
             let mut ret : Option<i32> = None;
@@ -486,7 +489,7 @@ impl WhatsitTrait for VBox {
     }
     fn get_par_widths(&self) -> Vec<i32> {
         self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!())
-    }
+    }*/
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
@@ -699,6 +702,8 @@ impl WhatsitTrait for VBox {
                                     VBox::ch_as_html(self.children,colon,&mut inner);
                                 })
                             }
+                            _ => VBox::ch_as_html(self.children,colon,&mut node),
+                            /*
                             _ => {
                                 match self.get_par_width() {
                                     None => VBox::ch_as_html(self.children,colon,&mut node),
@@ -707,12 +712,14 @@ impl WhatsitTrait for VBox {
                                     })
                                 }
                             }
+
+                             */
                         }
                     });
                 });
             }
             ColonMode::V | ColonMode::H | ColonMode::P if matches!(self.tp,VBoxType::Top(_)) => {
-                let width = self._width.or(if self.width() <= 0 {Some(0)} else {self.get_par_width()});
+                let width = self._width.or(if self.width() <= 0 {Some(0)} else {None});//self.get_par_width()});
                 match width {
                     None => htmlnode!(colon,div,None,"rustex-vtop-container",node_top,cont => {
                         self.html_t_inner(colon,htmlparent!(cont),false);
@@ -723,7 +730,7 @@ impl WhatsitTrait for VBox {
                 }
             }
             ColonMode::V | ColonMode::H | ColonMode::P if matches!(self.tp,VBoxType::V) => {
-                let width = self._width.or(if self.width() <= 0 {Some(0)} else {self.get_par_width()});
+                let width = self._width.or(if self.width() <= 0 {Some(0)} else {None});//self.get_par_width()});
                 match width {
                     /*(None,None) => self.html_inner(colon,node_top,false),*/
                     None => htmlnode!(colon,div,None,"rustex-vbox-container",node_top,cont => {
@@ -760,7 +767,7 @@ impl WhatsitTrait for VBox {
                         if let Some(d) = self._depth {
                             cont.style("margin-bottom".into(),dimtohtml(d))
                         }
-                        let width = self._width.or(if self.width() == 0 {Some(0)} else {self.get_par_width()});
+                        let width = self._width.or(if self.width() == 0 {Some(0)} else {None});//self.get_par_width()});
                         match width {
                             Some(w) => withwidth!(colon,w,cont,inner => {
                                 htmlnode!(colon,div,None,cls,htmlparent!(inner),node => {

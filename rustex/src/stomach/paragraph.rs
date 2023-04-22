@@ -146,14 +146,14 @@ impl WhatsitTrait for Paragraph {
         });
         htmlliteral!(colon,node_top,"\n");
     }
-    fn get_par_width(&self) -> Option<i32> { Some(
+    /*fn get_par_width(&self) -> Option<i32> { Some(
         self.width() +
             self.leftskip.map(|s| s.base).unwrap_or(0) +
             self.rightskip.map(|s| s.base).unwrap_or(0)
     ) }
     fn get_par_widths(&self) -> Vec<i32> { vec!(self.width() +
         self.leftskip.map(|s| s.base).unwrap_or(0) +
-        self.rightskip.map(|s| s.base).unwrap_or(0)) }
+        self.rightskip.map(|s| s.base).unwrap_or(0)) }*/
 }
 
 impl Paragraph {

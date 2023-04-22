@@ -32,8 +32,8 @@ impl WhatsitTrait for HTMLLiteral {
         htmlliteral!(colon,node_top,self.str)
     }
     fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for HTMLLiteral {
     fn name(&self) -> TeXStr { "htmlliteral".into() }
@@ -71,8 +71,8 @@ impl WhatsitTrait for HTMLNamespace {
         colon.namespaces.insert(self.abbr.to_string(),self.ns.to_string());
     }
     fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for HTMLNamespace {
     fn name(&self) -> TeXStr { "htmlnamespace".into() }

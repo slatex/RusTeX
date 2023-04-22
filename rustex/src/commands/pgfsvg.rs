@@ -106,8 +106,8 @@ impl WhatsitTrait for PGFEscape {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 //unsafe impl Send for PGFEscape {}
 //unsafe impl Sync for PGFEscape {}
@@ -262,8 +262,8 @@ impl WhatsitTrait for PGFBox {
         });
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone()}
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for PGFBox {
     fn name(&self) -> TeXStr { "pgfbox".into() }
@@ -337,8 +337,8 @@ impl WhatsitTrait for PGFLiteral {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { None }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 impl ExternalWhatsit for PGFLiteral {
     fn name(&self) -> TeXStr { "pgfliteral".into() }

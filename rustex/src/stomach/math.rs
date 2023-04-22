@@ -285,8 +285,8 @@ impl WhatsitTrait for MathGroup {
             _ => Some(start)
         }
     }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 fn is_large_op(k:&MathKernel) -> bool {
@@ -421,8 +421,8 @@ impl WhatsitTrait for MathKernel {
         pass_on_kernel!(self,as_html,mode,colon,node_top)
     }
     fn get_ref(&self) -> Option<SourceFileReference> { pass_on_kernel!(self,get_ref)}
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -495,8 +495,8 @@ impl WhatsitTrait for GroupedMath {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { SourceFileReference::from_wi_list(&self.0) }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -536,8 +536,8 @@ impl WhatsitTrait for MKern {
         })*/
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -597,8 +597,8 @@ impl WhatsitTrait for CustomMathChar {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -739,8 +739,8 @@ impl WhatsitTrait for MathChar {
         self.as_html_inner(mode,colon,node_top,false)
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -767,8 +767,8 @@ impl WhatsitTrait for Delimiter {
         self.small.as_html(mode,colon,node_top)
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -803,8 +803,8 @@ impl WhatsitTrait for Radical {
         }
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 macro_rules! mathgroupkernel {
@@ -872,8 +872,8 @@ macro_rules! mathgroupkernel {
                     self.content.clone().as_html(mode,colon,htmlparent!(node))
                 })
             }
-            fn get_par_width(&self) -> Option<i32> { None }
-            fn get_par_widths(&self) -> Vec<i32> { vec!() }
+            //fn get_par_width(&self) -> Option<i32> { None }
+            //fn get_par_widths(&self) -> Vec<i32> { vec!() }
         }
     )
 }
@@ -1003,8 +1003,8 @@ impl WhatsitTrait for Overline {
         })
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -1044,8 +1044,8 @@ impl WhatsitTrait for Underline {
         })
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -1089,8 +1089,8 @@ impl WhatsitTrait for MathAccent {
         })
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
 
 #[derive(Clone)]
@@ -1170,6 +1170,6 @@ impl WhatsitTrait for Above {
         })
     }
     fn get_ref(&self) -> Option<SourceFileReference> { self.sourceref.clone() }
-    fn get_par_width(&self) -> Option<i32> { None }
-    fn get_par_widths(&self) -> Vec<i32> { vec!() }
+    //fn get_par_width(&self) -> Option<i32> { None }
+    //fn get_par_widths(&self) -> Vec<i32> { vec!() }
 }
