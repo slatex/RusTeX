@@ -1,5 +1,5 @@
-use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit};
-use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth, INSERT_RUSTEX_ATTRS};
+use crate::commands::{PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TokenList};
+use crate::{Interpreter, htmlliteral, htmlnode, TeXErr, htmlparent, withwidth, INSERT_RUSTEX_ATTRS, log};
 use crate::interpreter::dimensions::numtostr;
 use crate::references::SourceFileReference;
 use crate::stomach::boxes::{HBox, TeXBox};
@@ -378,6 +378,7 @@ pub static PGF_FLUSH : PrimitiveExecutable = PrimitiveExecutable {
             }
             _ => TeXErr!("\\pgf@sys@svgpath wrongly defined")
         }
+        log!("PGF FLUSH: {}",TokenList(&rf.2));
         Ok(())
     }
 };
@@ -656,6 +657,7 @@ pub static PGF_G_BEGIN: SimpleWhatsit = SimpleWhatsit {
             sourceref: int.update_reference(tk),
             attrs,tag:keystr.into()
         };
+        log!("PGFG: {:?}   =   {:?}",bg.attrs.keys().collect::<Vec<_>>(),bg.attrs.values().collect::<Vec<_>>());
         Ok(Whatsit::GroupOpen(WIGroup::External(Arc::new(bg),vec!())))
     },
 };

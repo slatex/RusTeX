@@ -12,16 +12,18 @@
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
 
-\let\pgfsys@beginpicture\relax\let\pgfsys@endpicture\relax
 \expandafter\let\csname pgfsys@hbox\expandafter\endcsname\csname rustex!pgf!hbox\endcsname
 \expandafter\let\csname pgfsys@typesetpicturebox\expandafter\endcsname\csname rustex!pgf!typesetpicturebox\endcsname
 
-\expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
+%\expandafter\let\expandafter\pgfsysprotocol@literal\csname rustex!pgf!literal\endcsname
 
 \def\pgfsys@invoke#1{\pgf@sys@fail{svg code in preamble}}
-\def\pgfsys@body@invoke#1{\csname rustex!pgf!literal\endcsname{#1}}
+\def\pgfsys@body@invoke#1{#1}
 
 \def\pgfsyspdfmark#1#2#3{}
+
+\def\pgf@sys@svg@negate@i#1{\ifx#1-\else-#1\fi}
+\def\pgf@sys@svg@negate{\expandafter\pgf@sys@svg@negate@i}
 
 {\catcode`\%=12
 \gdef\pgf@sys@svg@percentchar{%}
@@ -35,7 +37,7 @@
 \def\pgf@sys@svg@make@defs#1{\pgf@sys@fail{svg defs}}
 \def\pgf@sys@svg@ref@defs#1{\pgf@sys@fail{svg defs}}
 \let\pgf@sys@svgpath=\pgfutil@empty
-\def\pgf@sys@svgnum#1{%
+\protected\def\pgf@sys@svgnum@i#1{%
   {%
     \pgf@x=#1\relax%
     \edef\temp{\expandafter\Pgf@geT\the\pgf@x\space}%
@@ -43,21 +45,27 @@
     \xdef\pgf@sys@svgpath{\the\pgfutil@toks@}%
   }%
 }
+\protected\def\pgf@sys@svgnum#1{%
+    \pgf@sys@svg@addto@protocol{\pgf@sys@svgnum@i{#1}}%
+}
 
-\def\pgf@sys@addtosvgpath#1{\pgfutil@g@addto@macro\pgf@sys@svgpath{#1\space}}
+\protected\def\pgf@sys@svg@addto@protocol#1{\expandafter\pgfsysprotocol@literal\expanded{{#1}}}
+
+\protected\def\pgf@sys@addto@svgpath#1{\pgfutil@g@addto@macro\pgf@sys@svgpath{#1 }}
+\protected\def\pgf@sys@addtosvgpath#1{\pgf@sys@svg@addto@protocol{\pgf@sys@addto@svgpath{#1}}}
 \protected\def\pgf@sys@flushsvgpath{\csname rustex!pgf!flushpath\endcsname}
 
-\def\pgf@sys@svg@node@begin#1#2{%
-    \csname rustex!pgf!gbegin\endcsname{#1}#2\relax%
+\protected\def\pgf@sys@svg@node@begin#1#2{%
+    \pgf@sys@svg@addto@protocol{\csname rustex!pgf!gbegin\endcsname{#1}#2\relax\ignorespaces}%
 }
-\def\pgf@sys@svg@node@end#1{%
-    \csname rustex!pgf!gend\endcsname{#1}%
+\protected\def\pgf@sys@svg@node@end#1{%
+    \pgf@sys@svg@addto@protocol{\csname rustex!pgf!gend\endcsname{#1}}%
 }
-\def\pgf@sys@svg@node#1#2#3{%
+\protected\def\pgf@sys@svg@node#1#2#3{%
     \pgf@sys@svg@node@begin{#1}{#2}#3\pgf@sys@svg@node@end{#1}%
 }
-\def\pgf@sys@svg@node@beging#1{%
-    \csname rustex!pgf!gbegin\endcsname{g}#1\relax%
+\protected\def\pgf@sys@svg@node@beging#1{%
+    \pgf@sys@svg@addto@protocol{\csname rustex!pgf!gbegin\endcsname{g}#1\relax\ignorespaces}%
     \global\advance\pgf@sys@svg@scopecount by1\relax%
 }
 
@@ -187,7 +195,7 @@
         \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \fi%
     \else%
-      \pgf@sys@svg@node@beging{transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \pgf@sys@svg@node@beging{transform="matrix(#1,\pgf@sys@svg@negate#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
     \fi}}
 \def\pgfsys@transformshift#1#2{%
   {\pgf@x=#1\pgf@y=#2%
@@ -269,6 +277,10 @@
   \endgroup%
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%
 }
+
+\protected\def\pgfsys@beginpicture{\begingroup\pgf@sys@svg@node@begin{g}{}}
+\protected\def\pgfsys@endpicture{\pgf@sys@svg@node@end{g}\endgroup}
+
 \newif\ifpgfsys@svg@close@strokenone
 \def\pgfsys@begin@idscope{%
   \begingroup%
@@ -1126,7 +1138,7 @@
   \else%
     {%
       \pgf@x=#5\pgf@y=#6%
-      \edef\pgf@temp{ transform="matrix(#1,#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \edef\pgf@temp{ transform="matrix(#1,\pgf@sys@svg@negate#2,#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \ifx\pgf@temp\pgf@sys@svg@idmat@stext%
         \let\pgf@temp\pgfutil@empty%
       \fi%

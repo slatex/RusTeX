@@ -73,6 +73,11 @@ impl Display for TeXStr {
         write!(f,"{}",display(self.0.deref()))
     }
 }
+impl Debug for TeXStr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self,f)
+    }
+}
 
 fn is_ascii(u:&u8) -> bool {
     32 <= *u && *u <= 126
