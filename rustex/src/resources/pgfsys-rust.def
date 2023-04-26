@@ -23,7 +23,7 @@
 \def\pgfsyspdfmark#1#2#3{}
 
 \def\pgf@sys@svg@negate@i#1{\ifx#1-\else-#1\fi}
-\def\pgf@sys@svg@negate{\expandafter\pgf@sys@svg@negate@i}
+\def\pgf@sys@svg@negate#1{\expandafter\pgf@sys@svg@negate@i\expanded{#1}}
 
 {\catcode`\%=12
 \gdef\pgf@sys@svg@percentchar{%}
@@ -195,7 +195,7 @@
         \pgf@sys@svg@node@beging{transform="translate(\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \fi%
     \else%
-      \pgf@sys@svg@node@beging{transform="matrix(#1,\pgf@sys@svg@negate#2,\pgf@sys@svg@negate#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \pgf@sys@svg@node@beging{transform="matrix(#1,\pgf@sys@svg@negate{#2},\pgf@sys@svg@negate{#3},#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
     \fi}}
 \def\pgfsys@transformshift#1#2{%
   {\pgf@x=#1\pgf@y=#2%
@@ -1138,7 +1138,7 @@
   \else%
     {%
       \pgf@x=#5\pgf@y=#6%
-      \edef\pgf@temp{ transform="matrix(#1,\pgf@sys@svg@negate#2,\pgf@sys@svg@negate#3,#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
+      \edef\pgf@temp{ transform="matrix(#1,\pgf@sys@svg@negate{#2},\pgf@sys@svg@negate{#3},#4,\pgf@sys@tonumber{\pgf@x},\pgf@sys@tonumber{\pgf@y})"}%
       \ifx\pgf@temp\pgf@sys@svg@idmat@stext%
         \let\pgf@temp\pgfutil@empty%
       \fi%
