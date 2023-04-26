@@ -490,12 +490,13 @@ impl Interpreter<'_> {
         self.stomach.close_group()
     }
     pub fn get_whatsit_group(&mut self,tp:GroupType) -> Result<Vec<Whatsit>,TeXError> {
+        let ret = self.stomach.pop_group(&mut self.state)?;
         let ag = self.state.pop(tp)?;
         match ag {
             Some(v) => self.push_tokens(v),
             _ => ()
         }
-        self.stomach.pop_group(&mut self.state)
+        Ok(ret)
     }
     pub fn insert_afterassignment(&mut self) {
         match self.state.afterassignment.take() {

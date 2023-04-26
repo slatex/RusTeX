@@ -379,7 +379,7 @@ pub static BREAK: PrimitiveExecutable = PrimitiveExecutable {
         log!("BREAK! {}",prev);
         Ok(())
     },
-    expandable: true,
+    expandable: false,
     name: "rustexBREAK"
 };
 

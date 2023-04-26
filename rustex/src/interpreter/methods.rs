@@ -357,6 +357,7 @@ impl Interpreter<'_> {
             BoxMode::V => {
                 if insertevery { self.insert_every(&crate::commands::registers::EVERYVBOX) };
                 self.stomach.reset_par(&mut self.state);
+                //log!("Parshape: {:?}",self.state.parshape.get());
                 TeXMode::InternalVertical
             },
             BoxMode::M => TeXMode::Math,
