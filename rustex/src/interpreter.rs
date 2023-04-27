@@ -753,6 +753,7 @@ impl Interpreter<'_> {
                     }
                 }
                 AlignmentTab => {
+                    //self.skip_ws();
                     let align = self.state.borrow_mut().aligns.pop();
                     self.state.borrow_mut().aligns.push(None);
                     match align {

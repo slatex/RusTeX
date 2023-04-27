@@ -323,6 +323,8 @@ impl HTMLColon {
             ret += "\">\n    <div class=\"rustex-body\" id=\"rustexbody\" style=\"font-size:";
             ret += &dimtohtml(self.state.fontsize).to_string();
             let textwidthstr = ((self.textwidth as f32) / (self.pagewidth as f32)).to_string();
+            ret += ";max-width:";
+            ret += &dimtohtml(self.pagewidth).to_string();
             ret += ";--document-width:calc(";
             ret += &textwidthstr;
             ret += " * min(100vw,";

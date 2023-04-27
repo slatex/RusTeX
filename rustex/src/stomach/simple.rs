@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::cmp::{max, min};
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use std::path::PathBuf;
 use base64::Engine;
 use image::DynamicImage;
@@ -1230,28 +1230,26 @@ impl WhatsitTrait for HAlign {
             ColonMode::H | ColonMode::V | ColonMode::P => {
                 let width = self.width();
                 let height = self.height();
-                htmlnode!(colon,table,self.sourceref,"rustex-halign",node_top,table => {
+                let inner = |colon:&mut HTMLColon,node_top:&mut Option<HTMLParent>| {
+                    htmlnode!(colon,table,self.sourceref,"rustex-halign",node_top,table => {
                     if crate::INSERT_RUSTEX_ATTRS {
                         table.attr("rustex:width".into(),dimtohtml(width));
                         table.attr("rustex:height".into(),dimtohtml(height));
                     }
                     withlinescale!(colon,self.lineheight,table,{
-                        if self.lineheight == Some(0) {
-                            table.style("margin-bottom".into(),"-100%".into())
-                        }
-                    if self.skip.base != 0 {
-                        table.style("margin-top".into(),dimtohtml(self.skip.base))
-                    }
-                    let mut bottom:i32 = 0;
-                    for row in self.rows {
-                        let ht = row.height(self.lineheight);
-                        HAlign::do_row(mode, colon, &mut table,row,&mut bottom);
-                        if self.lineheight == Some(0) {
-                            bottom += ht;
-                        }
-                    }
+                        let mut st = HAlignHTMLState::new(self.lineheight);
+                        st.margin_top = self.skip.base;
+                        for row in self.rows { HAlign::do_row(row,&mut st); }
+                        st.as_html(colon,&mut table);
                     })
                 })
+                };
+                if self.lineheight == Some(0) {
+                    htmlnode!(colon,div,None,"rustex-vbox",node_top,vb => {
+                        vb.style("height".into(),"0".into());
+                        inner(colon,htmlparent!(vb))
+                    });
+                } else { inner(colon,node_top)}
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 //let oldwd = colon.state.currsize;
@@ -1266,48 +1264,236 @@ impl WhatsitTrait for HAlign {
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 });
             }),
-                /*htmlnode!(colon,mtable,self.sourceref,"halign",node_top,table => {
-                    table.style("align".into(),"center".into());
-                    if self.skip.base != 0 {
-                        table.style("margin-top".into(),dimtohtml(self.skip.base))
-                    }
-                    for row in self.rows {
-                        HAlign::do_row(mode, colon, &mut table,row)
-                    }
-                }),*/
             _ => ()//TeXErr!("TODO")
         }
     }
 }
-macro_rules! docell {
-    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
-        match $mode {
-            ColonMode::M => htmlnode!($sel,mtd,None,"rustex-cell",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,td,None,"rustex-cell",htmlparent!($node_parent),$nodename => $e)
-        }
-    })
+enum Alignment {
+    Left,Right,Center
 }
-macro_rules! dorow {
-    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
-        match $mode {
-            ColonMode::M => htmlnode!($sel,mtr,None,"rustex-row",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,tr,None,"rustex-row",htmlparent!($node_parent),$nodename => $e)
-        }
-    })
+struct HTMLAlignRow {
+    cols:Vec<HTMLAlignCol>,
+    border_bottom:i32
 }
-macro_rules! dobox {
-    ($mode:expr,$sel:ident,$node_parent:expr,$nodename:ident => $e:expr) => ({
-        match $mode {
-            ColonMode::M => htmlnode!($sel,mrow,None,"",htmlparent!($node_parent),$nodename => $e),
-            _ => htmlnode!($sel,div,None,"rustex-hbox",htmlparent!($node_parent),$nodename => {
-                /*$nodename.style("height".into(),"0".into());
-                $nodename.style("max-height".into(),"0".into());*/
-                $e
-            })
-        }
-    })
+impl HTMLAlignRow {
+    fn new() -> HTMLAlignRow { HTMLAlignRow {cols:vec!(),border_bottom:0}}
+    fn as_html(self,colon: &mut HTMLColon, table: &mut HTMLNode) {
+        htmlnode!(colon,tr,None,"rustex-row",htmlparent!(table),row => {
+            if self.border_bottom > 0 {
+                row.style("border-bottom".into(),dimtohtml(self.border_bottom) + " solid");
+            }
+            for c in self.cols {
+                c.as_html(colon,&mut row);
+            }
+        });
+    }
 }
+struct HTMLAlignCol {
+    wis:Vec<Whatsit>,
+    margin_bottom:i32,
+    margin_top:i32,bottom:i32,
+    border_left:i32,border_right:i32,
+    padding_left:i32,
+    padding_right:i32,num:usize,align:Alignment
+}
+impl HTMLAlignCol {
+    fn as_html(self,colon: &mut HTMLColon, row: &mut HTMLNode) {
+        htmlnode!(colon,td,None,"rustex-cell",htmlparent!(row),cell => {
+            if self.num > 1 {cell.attr("colspan".into(),self.num.to_string().into())}
+            if self.border_left > 0 {cell.style("border-left".into(),dimtohtml(self.border_left) + " solid")}
+            if self.border_right > 0 {cell.style("border-right".into(),dimtohtml(self.border_right) + " solid")}
+            if self.padding_left > 0 {cell.style("padding-left".into(),dimtohtml(self.padding_left))}
+            if self.padding_right > 0 {cell.style("padding-right".into(),dimtohtml(self.padding_right))}
+            match self.align {
+                Alignment::Center => cell.style("text-align".into(),"center".into()),
+                Alignment::Right => cell.style("text-align".into(),"right".into()),
+                _ => ()
+            }
+            htmlnode!(colon,div,None,"rustex-hbox",htmlparent!(cell),bx => {
+                if self.bottom > 0 { bx.style("bottom".into(),dimtohtml(self.bottom))}
+                if self.margin_top != 0 {bx.style("margin-top".into(),dimtohtml(self.margin_top))}
+                if self.margin_bottom != 0 {bx.style("margin-bottom".into(),dimtohtml(self.margin_bottom))}
+                for c in self.wis {
+                    c.as_html(&ColonMode::H,colon,htmlparent!(bx));
+                }
+            });
+        });
+    }
+}
+struct HAlignHTMLState {
+    current_bottom:i32,lineheight:Option<i32>,margin_top:i32,border_top:i32,
+    rows:Vec<HTMLAlignRow>,current_margin_top:i32,
+    current_pre_padding_left:i32,
+    margin_left:i32,margin_right:i32
+}
+impl HAlignHTMLState {
+    fn new(lineheight:Option<i32>) -> HAlignHTMLState { HAlignHTMLState {
+        current_bottom:0,lineheight,rows:vec!(),
+        margin_top:0,border_top:0,current_margin_top:0,
+        margin_left:0,margin_right:0,
+        current_pre_padding_left:0
+    }}
+    fn as_html(self,colon: &mut HTMLColon, table: &mut HTMLNode) {
+        if self.margin_left != 0 {
+            table.style("margin-left".into(),dimtohtml(self.margin_left));
+        }
+        if self.margin_right != 0 {
+            table.style("margin-right".into(),dimtohtml(self.margin_right));
+        }
+        if self.margin_top != 0 {
+            table.style("margin-top".into(),dimtohtml(self.margin_top));
+        }
+        if self.border_top != 0 {
+            table.style("border-top".into(),dimtohtml(self.border_top) + " solid");
+        }
+        if self.current_margin_top != 0 {
+            table.style("margin-bottom".into(),dimtohtml(self.current_margin_top) + " solid");
+        }
+        for row in self.rows { row.as_html(colon,table)}
+    }
+}
+
 impl HAlign {
+    fn do_row(row:AlignBlock,st:&mut HAlignHTMLState) {
+        let ht = row.height(st.lineheight);
+        match row {
+            AlignBlock::Block(cells) => /*dorow!(mode,colon,table,row =>*/ {
+                let mut row = HTMLAlignRow::new();
+                for (mut vs,skip,num) in cells {
+                    HAlign::do_cell(vs,skip,num,st,&mut row)
+                }
+                st.rows.push(row);
+                st.current_margin_top = 0;
+                if st.current_pre_padding_left > 0 {
+                    st.margin_right = max(st.margin_right,st.current_pre_padding_left);
+                }
+            }/*)*/,
+            AlignBlock::Noalign(mut v) =>
+                HAlign::do_noalign(v,st)
+        }
+        if st.lineheight == Some(0) {
+            st.current_bottom += ht;
+        }
+    }
+    fn do_noalign(mut v : Vec<Whatsit>,st:&mut HAlignHTMLState) {
+        let isrow = !st.rows.is_empty();
+        let mut pre = 0;
+        let mut border = 0;
+        let mut post = 0;
+        for c in v.into_iter() { match c {
+            Whatsit::Simple(SimpleWI::HRule(hr)) if hr.height() > 0 =>
+                border += hr.height(),
+            Whatsit::Simple(SimpleWI::VSkip(sk)) =>
+                if border <= 0 {pre += sk.skip.base} else {post += sk.skip.base},
+            o => {
+                print!("")
+            }
+        }}
+        if pre != 0 {
+            if isrow {
+                for c in st.rows.last_mut().unwrap().cols.iter_mut() {
+                    c.margin_bottom += pre;
+                }
+            } else {
+                st.margin_top += pre;
+            }
+        }
+        if post != 0 {
+            st.current_margin_top += post;
+        }
+        if border != 0 {
+            if isrow {
+                st.rows.last_mut().unwrap().border_bottom += border;
+                //previous.style("border-bottom".into(),dimtohtml(border) + " solid")
+            } else {
+                st.border_top += border;
+                //previous.style("border-top".into(),dimtohtml(border) + " solid")
+            }
+        }
+    }
+    fn do_cell(mut vs:Vec<Whatsit>,skip:Skip,num:usize,st:&mut HAlignHTMLState,row:&mut HTMLAlignRow) {
+        let mut alignment = (0,0);
+        let mut pre_border_left = std::mem::take(&mut st.current_pre_padding_left);
+        let mut margin_left = 0;
+        let mut margin_right = 0;
+        let mut post_border_right = 0;
+        let mut border_right = 0;
+        let mut border_left = 0;
+
+        let mut repush = vec!();
+        loop {match vs.pop() {
+            Some(Whatsit::Simple(SimpleWI::VRule(v))) if v.width() <= 393216 =>
+                border_right += v.width(),
+            Some(Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_))) => alignment.1 = max(1,alignment.1),
+            Some(Whatsit::Simple(SimpleWI::HFill(_))) => alignment.1 = 2,
+            Some(Whatsit::Simple(SimpleWI::HSkip(sk))) => {
+                match sk.skip.stretch {
+                    Some(SkipDim::Fil(_)) => alignment.1 = max(1,alignment.1),
+                    Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.1 = 2,
+                    _ => ()
+                }
+                if border_right <= 0 {
+                    post_border_right += sk.skip.base
+                } else { margin_right += sk.skip.base}
+            },
+            Some(o) if !o.has_ink() => repush.push(o),
+            Some(o) => {vs.push(o);break}
+            None => break
+        }}
+        for c in repush.into_iter().rev() {vs.push(c)}
+
+        let mut incell : bool = false;
+        let mut cs = vec!();
+        for c in vs.into_iter() { match c {
+            o if incell => cs.push(o),
+            Whatsit::Simple(SimpleWI::VRule(v)) if v.width() <= 393216 =>
+                border_left += v.width(),
+            Whatsit::Simple(SimpleWI::HFil(_) | SimpleWI::Hss(_)) => alignment.0 = max(1,alignment.0),
+            Whatsit::Simple(SimpleWI::HFill(_)) => alignment.0 = 2,
+            Whatsit::Simple(SimpleWI::HSkip(sk)) => {
+                match sk.skip.stretch {
+                    Some(SkipDim::Fil(_)) => alignment.0 = max(1,alignment.0),
+                    Some(SkipDim::Fill(_) | SkipDim::Filll(_)) => alignment.0 = 2,
+                    _ => ()
+                }
+                if border_left <= 0 {
+                    pre_border_left += sk.skip.base
+                } else { margin_left += sk.skip.base}
+            },
+            o if !o.has_ink() => cs.push(o),
+            o => {cs.push(o);incell = true}
+        }}
+
+        if border_left <= 0 { margin_left += std::mem::take(&mut pre_border_left)}
+        if border_right <= 0 { margin_right += std::mem::take(&mut post_border_right)}
+        if pre_border_left > 0 {
+            if let Some(col) = row.cols.last_mut() {
+                if col.border_right == 0 {
+                    col.padding_right += pre_border_left;
+                }
+            } else {
+                st.margin_left = max(st.margin_left,pre_border_left);
+            }
+        }
+        if post_border_right > 0 {
+            st.current_pre_padding_left = post_border_right;
+        }
+        row.cols.push(HTMLAlignCol {
+            wis:cs,
+            margin_bottom:0,
+            margin_top:st.current_margin_top,
+            bottom:st.current_bottom,
+            padding_left: margin_left,
+            padding_right: margin_right,border_left,border_right,
+            num,
+            align: if alignment.0 == alignment.1 && alignment.0 != 0 {
+                Alignment::Center
+            } else if alignment.0 > alignment.1 {
+                Alignment::Right
+            } else {Alignment::Left}
+        });
+    }
+    /*
     fn do_cell(mode: &ColonMode, colon: &mut HTMLColon, row:&mut HTMLNode,mut vs:Vec<Whatsit>,skip:Skip,num:usize,bottom:i32) {
         docell!(mode,colon,row,cell => {
             if num > 1 { cell.attr("colspan".into(),num.to_string().into()) }
@@ -1447,6 +1633,8 @@ impl HAlign {
             }
         }
     }
+
+     */
 }
 
 #[derive(Clone)]
