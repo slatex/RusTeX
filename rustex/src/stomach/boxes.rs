@@ -301,7 +301,7 @@ impl WhatsitTrait for HBox {
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
-                mt.style("width".into(),dimtohtml(wd));
+                //mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
@@ -808,7 +808,7 @@ impl WhatsitTrait for VBox {
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
-                mt.style("width".into(),dimtohtml(wd));
+                //mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");

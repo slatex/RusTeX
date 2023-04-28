@@ -1256,7 +1256,7 @@ impl WhatsitTrait for HAlign {
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
                 //colon.state.currsize = wd;
-                mt.style("width".into(),dimtohtml(wd));
+                //mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"rustex-contents rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");

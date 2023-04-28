@@ -137,7 +137,7 @@ impl WhatsitTrait for Paragraph {
                         });
                     } else {
                         withwidth!(colon,wd,node,inner => {
-                            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(node)) }
+                            for c in self.children { c.as_html(&ColonMode::P,colon,htmlparent!(inner)) }
                         });
                     }
                 }
