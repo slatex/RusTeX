@@ -328,7 +328,7 @@ tbody {display:table-row-group}
     width: min-content;
 }
 .rustex-row{display: table-row}
-.rustex-cell{display: table-cell;vertical-align: baseline}
+.rustex-cell{display: table-cell;vertical-align: baseline;padding:0}
 
 /*
 .halign{

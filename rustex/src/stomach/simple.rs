@@ -147,7 +147,7 @@ impl AlignBlock {
                     }
                 }
                 if let Some(lht) = lineheight {
-                    ht = max(ht,(lht * 3) / 2);
+                    ht = max(ht,lht);
                 }
             }
         }
