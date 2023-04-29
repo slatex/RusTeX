@@ -131,6 +131,10 @@ a weaker \cs{hfil}; subtle spacing difference between \meta{to} and
 \noindent \showpar{\hbox spread50pt{Some Box Content}}
 
 \noindent \showpar{\setbox0\hbox to50pt{ Box }\wd0=100pt\ht0=50pt\dp0=25pt\box0}
+
+\noindent \showpar{\setbox0\hbox to50pt{ \showv{%
+\hbox{Content}\hbox{Content}\hbox{Content}\hbox{Content}%
+  } }\wd0=100pt\ht0=50pt\dp0=25pt\box0}
 }
 
 \subsection{VBoxes}
