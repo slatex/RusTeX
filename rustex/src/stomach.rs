@@ -839,8 +839,9 @@ impl NoShipoutRoutine {
 
         let inserts = std::mem::take(&mut state.inserts).into_iter().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
         if !inserts.is_empty() {
+            self.add(state,params,VSkip{ skip:Skip { base: 2*655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             self.add(state,params,Whatsit::Inserts(Insert(inserts)))?;
-            self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
+            self.add(state,params,VSkip{ skip:Skip { base: 2*655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
         }
 
         let mut macrs: Vec<TeXStr> = vec!();
@@ -864,11 +865,11 @@ impl NoShipoutRoutine {
             let floatregs : HashSet<i32> = self.floatlist.iter().filter(|(x,_)| macrs.contains(x)).map(|(_,i)| *i).collect();
             state.commands.set("@freelist".into(),
                                Some(PrimitiveTeXCommand::Def(self.floatcmd.as_ref().unwrap().clone()).as_command()),true);
-            self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
+            self.add(state,params,VSkip{ skip:Skip { base: 2*655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             for fnm in floatregs {
                 let bx = state.boxes.take(fnm as u16);
                 self.add(state,params,Whatsit::Float(bx))?;
-                self.add(state,params,VSkip{ skip:Skip { base: 655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
+                self.add(state,params,VSkip{ skip:Skip { base: 2*655360, stretch:None, shrink:None}, sourceref:None}.as_whatsit())?;
             }
         }
 

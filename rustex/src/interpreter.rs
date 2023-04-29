@@ -21,6 +21,7 @@ impl Display for TeXMode {
 
 use std::borrow::BorrowMut;
 use std::fmt::{Display, Formatter};
+use std::io::Write;
 use crate::ontology::{Expansion, Token};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use std::path::{Path, PathBuf};
@@ -74,7 +75,7 @@ pub struct Interpreter<'a> {
     pub stomach:&'a mut dyn Stomach,
     pub params:&'a dyn InterpreterParams
 }
-use crate::{TeXErr,FileEnd};
+use crate::{TeXErr, FileEnd, log};
 use crate::commands::primitives::{ENDTEMPLATE, LEFT, RIGHT};
 use crate::commands::registers::PREVGRAF;
 use crate::interpreter::params::InterpreterParams;
@@ -411,11 +412,12 @@ impl Interpreter<'_> {
             }
             (Letter | Other | MathShift,Vertical | InternalVertical) => self.switch_to_h(next),
             (AlignmentTab,_) => {
-                let align = self.state.borrow_mut().aligns.pop();
+                self.skip_ws();
+                let mut align = self.state.borrow_mut().aligns.pop();
                 self.state.borrow_mut().aligns.push(None);
                 match align {
-                    Some(Some(v)) => {
-                        self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                    Some(Some(mut v)) => {
+                        v.push(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
                         self.push_tokens(v);
                         Ok(())
                     }
@@ -753,12 +755,12 @@ impl Interpreter<'_> {
                     }
                 }
                 AlignmentTab => {
-                    //self.skip_ws();
-                    let align = self.state.borrow_mut().aligns.pop();
+                    self.skip_ws();
+                    let mut align = self.state.borrow_mut().aligns.pop();
                     self.state.borrow_mut().aligns.push(None);
                     match align {
-                        Some(Some(v)) => {
-                            self.requeue(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                        Some(Some(mut v)) => {
+                            v.push(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
                             self.push_tokens(v);
                             ()
                         }

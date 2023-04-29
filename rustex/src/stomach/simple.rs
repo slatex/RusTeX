@@ -137,12 +137,12 @@ impl AlignBlock {
         let mut ht = 0;
         match self {
             AlignBlock::Noalign(v) => for c in v.iter_wi() {
-                ht += c.height()
+                ht = c.height() //+ c.depth()
             },
             AlignBlock::Block(ls) => {
                 for (v,_,_) in ls {
                     for c in v.iter_wi() {
-                        let h = c.height();
+                        let h = c.height(); //+ c.depth();
                         if h > ht { ht = h }
                     }
                 }

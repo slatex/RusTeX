@@ -2656,7 +2656,7 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
 
 thread_local! {
     pub static ENDROW : Token = {
-        let mut endrow = Token::new(250,CategoryCode::Escape,Some("endtemplate".into()),None,false);
+        let mut endrow = Token::new(39,CategoryCode::Escape,Some("endtemplate".into()),None,false);
         endrow.name_opt = "relax".into();
         endrow
     };
@@ -2666,7 +2666,7 @@ thread_local! {
         endtemplate
     };
     pub static ENDTEMPLATESPAN : Token = {
-        let mut endtemplate = Token::new(38,CategoryCode::Escape,Some("endtemplatespan".into()),None,false);
+        let mut endtemplate = Token::new(40,CategoryCode::Escape,Some("endtemplatespan".into()),None,false);
         endtemplate.name_opt = "relax".into();
         endtemplate
     };
@@ -2747,6 +2747,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 columns.push((vec!(),vec!(),tabskip));
                 in_v = false
             }
+            CategoryCode::Space => (),
             CategoryCode::Parameter if !in_v => in_v = true,
             CategoryCode::Parameter => TeXErr!(next => "Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
@@ -2762,6 +2763,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             tabskip = int.read_skip()?;
                             columns.last_mut().unwrap().2 = tabskip;
                         }
+                        PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                         PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Parameter || tk.catcode == CategoryCode::AlignmentTab => {
                             int.requeue(tk.clone())
                         }
