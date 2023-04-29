@@ -237,8 +237,10 @@ a { color: inherit; text-decoration: inherit; }
     flex-direction: column;
     width: min-content;
     height: min-content;
-    justify-content: end;
+    justify-content: start;
 }
+.rustex-hbox-container > .rustex-hbox { margin-top:auto; }
+.rustex-hbox-container > .rustex-contents > .rustex-hbox { margin-top:auto; }
 
 .rustex-paragraph {
     text-align:justify;

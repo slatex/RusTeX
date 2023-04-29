@@ -836,6 +836,11 @@ impl NoShipoutRoutine {
         use crate::stomach::simple::*;
         use crate::interpreter::dimensions::*;
         use std::collections::HashSet;
+        /*match state.boxes.take(255) {
+            TeXBox::Void => (),
+            bx =>
+                self.add(state,params,bx.as_whatsit())
+        }*/
 
         let inserts = std::mem::take(&mut state.inserts).into_iter().map(|(_, x)| x).collect::<Vec<Vec<Whatsit>>>();
         if !inserts.is_empty() {

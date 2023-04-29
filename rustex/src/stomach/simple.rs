@@ -133,6 +133,23 @@ pub enum AlignBlock {
     Block(Vec<(Vec<Whatsit>,Skip,usize)>)
 }
 impl AlignBlock {
+    fn depth (&self) -> i32 {
+        let mut dp = 65536;
+        match self {
+            AlignBlock::Noalign(v) => for c in v.iter_wi() {
+                return c.depth();
+            },
+            AlignBlock::Block(ls) => {
+                for (v,_,_) in ls {
+                    for c in v.iter_wi() {
+                        let h = c.depth();
+                        if h > dp { dp = h }
+                    }
+                }
+            }
+        }
+        dp
+    }
     fn height(&self,lineheight:Option<i32>) -> i32 {
         let mut ht = 0;
         match self {
@@ -142,7 +159,7 @@ impl AlignBlock {
             AlignBlock::Block(ls) => {
                 for (v,_,_) in ls {
                     for c in v.iter_wi() {
-                        let h = c.height(); //+ c.depth();
+                        let h = c.height();
                         if h > ht { ht = h }
                     }
                 }
@@ -1148,9 +1165,12 @@ impl WhatsitTrait for HAlign {
         width + self.skip.base
     }
     fn height(&self) -> i32 {
+        if let Some(ht) = self.lineheight {
+            if ht <= 0 {return 0}
+        }
         let mut height:i32 = 0;
         for b in &self.rows {
-            height += b.height(self.lineheight);
+            height += b.height(self.lineheight) + b.depth();
         }
         height
     }
