@@ -247,7 +247,6 @@ impl WhatsitTrait for HBox {
                         self.html_inner(colon,node_top,false);
                     },
                     _ => htmlnode!(colon,div,None,"rustex-hbox-container",node_top,cont => {
-                        withlinescale!(colon,self.lineheight,cont,{
                         if let Some(ht) = self._height {
                             if ht < 0 {
                                 if let Some(dp) = self._depth {
@@ -282,7 +281,6 @@ impl WhatsitTrait for HBox {
                             self.html_inner(colon,htmlparent!(cont),false);
                             //colon.state.currsize = oldwidth;
                         }
-                        });
                     })
                 }
             }
@@ -424,6 +422,7 @@ impl HBox {
         }
         match (self._to,self.spread) {
             (None,0) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
+                        withlinescale!(colon,self.lineheight,node,{
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -434,27 +433,32 @@ impl HBox {
                 ch_as_html!(node);
                 for c in clss { node.classes.push(c)}
                 for (a,b) in styles {node.style(a,b)}
+                    })
             }),
             (Some(to),_) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
                 withwidth!(colon,to,node,nnode => {
+                        withlinescale!(colon,self.lineheight,nnode,{
                     if crate::INSERT_RUSTEX_ATTRS {
                         nnode.attr("rustex:width".into(),dimtohtml(self.width()));
                         nnode.attr("rustex:height".into(),dimtohtml(self.height()));
                         nnode.attr("rustex:to".into(),dimtohtml(to));
                     }
                     ch_as_html!(nnode);
+                        });
                 });
                 for c in clss { node.classes.push(c)}
                 for (a,b) in styles {node.style(a,b)}
             }),
             (_,spread) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
                 withwidth!(colon,self.width(),node,nnode => {
+                        withlinescale!(colon,self.lineheight,nnode,{
                     if crate::INSERT_RUSTEX_ATTRS {
                         nnode.attr("rustex:width".into(),dimtohtml(self.width()));
                         nnode.attr("rustex:height".into(),dimtohtml(self.height()));
                         nnode.attr("rustex:spread".into(),dimtohtml(spread));
                     }
                     ch_as_html!(nnode);
+                        });
                 });
                 for c in clss { node.classes.push(c)}
                 for (a,b) in styles {node.style(a,b)}

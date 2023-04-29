@@ -222,11 +222,15 @@ a { color: inherit; text-decoration: inherit; }
     display: inline-block;
     margin-left: auto;
     margin-right: auto;
+    line-height: 0;
 }
 .rustex-hbox-no-space > .rustex-space-in-hbox, .rustex-hbox-no-space > span > .rustex-space-in-hbox, .rustex-hbox-no-space > span > span > .rustex-space-in-hbox {
     margin:0;
 }
-.rustex-hbox > .rustex-text, .rustex-hbox > span > .rustex-text, .rustex-hbox > span > span > .rustex-text, .rustex-hbox > span > span > span > .rustex-text { display:inline-block} /* line-height:0 */
+.rustex-hbox > .rustex-text, .rustex-hbox > span > .rustex-text, .rustex-hbox > span > span > .rustex-text, .rustex-hbox > span > span > span > .rustex-text {
+    display:inline-block;
+    margin-bottom:1.2px;
+} /* line-height:0 */
 
 .rustex-hbox-container {
     display:inline-flex;
@@ -354,13 +358,15 @@ hr {width: 100%;}
     width: 100%;
     height: 100%;
     text-align: center;
-    justify-content: center;
+    justify-content: start;
     /*align-content: center;*/
     flex-wrap: wrap;
+    line-height: 1;
 }
 svg, foreignObject {
     overflow: visible;
 }
+foreignObject {display: flex;}
 .rustex-pdfmatrix {
     transform-origin: bottom left;
     display: inline-block;

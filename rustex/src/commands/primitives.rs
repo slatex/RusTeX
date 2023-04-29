@@ -1758,7 +1758,11 @@ pub static HBOX: ProvidesBox = ProvidesBox {
                 _depth: None,
                 _to:to,
                 rf : int.update_reference(tk),
-                lineheight:Some(lineheight(&int.state))
+                lineheight:match int.state.currfont.get().get_at() {
+                    0 => None,
+                    i => Some(i)
+                }
+                //lineheight:Some(lineheight(&int.state))
             }))
         }
     }

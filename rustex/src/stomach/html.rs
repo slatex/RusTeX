@@ -72,7 +72,7 @@ macro_rules! setwidth {
 macro_rules! withlinescale {
     ($colon:ident,$lineheight:expr,$node:expr,$e:expr) => ({
         if let Some(_lineheight) = $lineheight {
-            let _newscale = (_lineheight as f32) / ($colon.state.fontsize as f32);
+            let _newscale = if ($colon.state.fontsize == 0) {0.0} else {(_lineheight as f32) / ($colon.state.fontsize as f32)};
             if _newscale == $colon.state.line_scale { $e } else {
                 let _oldlinescale = $colon.state.line_scale;
                 let _oldlineheight = $colon.state.line_height;

@@ -11,7 +11,7 @@ use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{lineheight, WhatsitTrait};
 use crate::utils::{TeXError, TeXStr};
 
-static FIX : bool = true;
+static FIX : bool = false;
 
 pub static PGFSYSDRIVER : PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
@@ -81,7 +81,7 @@ impl WhatsitTrait for PGFEscape {
                     } else {
                         fo.style("width".into(),dimtohtml(wd));
                         fo.style("height".into(),dimtohtml(ht));
-                        fo.style("translate".into(),"0 " + dimtohtml(-self.bx.height()));
+                        fo.style("translate".into(),"0 " + dimtohtml(-ht));
                         wd
                     };
                     /*if FIX {
@@ -240,19 +240,10 @@ impl WhatsitTrait for PGFBox {
                     svg.attr("height".into(),dimtohtml(self.maxy-self.miny));
                     svg.attr("viewBox".into(),vb);
                     htmlnode!(colon,g,None,"",htmlparent!(svg),g => {
-                        if FIX {
-                            let mut tr : HTMLStr = "translate(0,".into();
-                            tr += numtohtml(self.maxy + self.miny);
-                            tr += ")";
-                            g.attr("transform".into(),tr);
-                        } else {
-                            let mut tr : HTMLStr = "translate(0,".into();
-                            tr += numtohtml(self.maxy);
-                            tr += ") scale(1,-1) translate(0,";
-                            tr += numtohtml(-self.miny);
-                            tr += ")";
-                            g.attr("transform".into(),tr);
-                        }
+                        let mut tr : HTMLStr = "translate(0,".into();
+                        tr += numtohtml(self.maxy + self.miny);
+                        tr += ")";
+                        g.attr("transform".into(),tr);
                         for c in self.content {
                             c.as_html(&ColonMode::External("svg".into()),colon,htmlparent!(g))
                         }
@@ -455,21 +446,17 @@ impl ExternalWhatsitGroup for PGFGBegin {
         }
         let mut newnode = HTMLNode::new(colon.state.current_namespace,(&self.tag).into(),self.sourceref.clone());
         for (k,v) in &self.attrs {
-            if FIX {
-                match k {
-                    k if k.to_string() == "stroke-width" => {
-                        newnode.attr(k.into(), strtonum(v))
-                    }
-                    k if k.to_string() == "d" => {
-                        newnode.attr(k.into(), parse_path(v))
-                    }
-                    k if k.to_string() == "transform" => {
-                        newnode.attr(k.into(),parse_transform(v))
-                    }
-                    _ => newnode.attr(k.into(), v.into())
+            match k {
+                k if k.to_string() == "stroke-width" => {
+                    newnode.attr(k.into(), strtonum(v))
                 }
-            } else {
-                newnode.attr(k.into(), v.into())
+                k if k.to_string() == "d" => {
+                    newnode.attr(k.into(), parse_path(v))
+                }
+                k if k.to_string() == "transform" => {
+                    newnode.attr(k.into(),parse_transform(v))
+                }
+                _ => newnode.attr(k.into(), v.into())
             }
         }
         for c in ch {
