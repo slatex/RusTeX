@@ -69,10 +69,8 @@ impl TokenMouth {
         }
     }
     fn pop_next(&mut self, _nocomment: bool) -> Token {
-        match &mut self.peek {
-            s@Some(_) => {
-                unsafe {std::mem::take(s).unwrap_unchecked() }
-            }
+        match std::mem::take(&mut self.peek) {
+            Some(tk) => tk,
             None => unsafe { self.iter.next().unwrap_unchecked() }
         }
     }

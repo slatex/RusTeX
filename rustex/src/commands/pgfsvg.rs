@@ -81,7 +81,11 @@ impl WhatsitTrait for PGFEscape {
                     } else {
                         fo.style("width".into(),dimtohtml(wd));
                         fo.style("height".into(),dimtohtml(ht));
-                        fo.style("translate".into(),"0 " + dimtohtml(-ht));
+                        if self.bx.depth() < 5*65536 {
+                            fo.style("translate".into(),"0 " + dimtohtml(-ht));
+                        } else {
+                            fo.style("translate".into(),"0 " + dimtohtml(-self.bx.height()));
+                        }
                         wd
                     };
                     /*if FIX {

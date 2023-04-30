@@ -31,6 +31,9 @@ impl Hash for TeXStr {
     }
 }
 impl TeXStr {
+    pub fn head(&self) -> Option<&u8> {
+        self.0.first()
+    }
     pub fn to_string(&self) -> String {
         display(self.iter())
     }
