@@ -2731,6 +2731,11 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     }
 
     int.state.push(int.stomach,GroupType::Box(betweenmode));
+    int.state.mode = match betweenmode {
+        BoxMode::H => TeXMode::RestrictedHorizontal,
+        BoxMode::V => TeXMode::InternalVertical,
+        _ => TeXErr!("Should be unreachable!")
+    };
 
     let mut tabskip = int.state.skips_prim.get(&(registers::TABSKIP.index - 1));
     let firsttabskip = tabskip;
@@ -2742,12 +2747,15 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
     loop {
         let next = int.next_token();
         match next.catcode {
-            CategoryCode::AlignmentTab if !in_v && columns.last().unwrap().0.is_empty() => recindex = Some(columns.len() - 1),
+            CategoryCode::AlignmentTab if !in_v && columns.last().unwrap().0.is_empty() => {
+                recindex = Some(columns.len() - 1);
+                int.skip_ws();
+            },
             CategoryCode::AlignmentTab => {
+                int.skip_ws();
                 columns.push((vec!(),vec!(),tabskip));
                 in_v = false
             }
-            CategoryCode::Space => (),
             CategoryCode::Parameter if !in_v => in_v = true,
             CategoryCode::Parameter => TeXErr!(next => "Misplaced # in alignment"),
             CategoryCode::Escape | CategoryCode::Active => {
@@ -2763,7 +2771,6 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                             tabskip = int.read_skip()?;
                             columns.last_mut().unwrap().2 = tabskip;
                         }
-                        PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                         PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Parameter || tk.catcode == CategoryCode::AlignmentTab => {
                             int.requeue(tk.clone())
                         }
@@ -2811,7 +2818,9 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                         Some(cmd) => {
                             if cmd.expandable(false) { cmd.expand(next,int)?} else {
                                 match &*cmd.orig {
-                                    PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::EndGroup => break 'table,
+                                    PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::EndGroup => {
+                                        break 'table
+                                    },
                                     PrimitiveTeXCommand::Char(tk) if tk.catcode == CategoryCode::Space => (),
                                     PrimitiveTeXCommand::Primitive(c) if **c == CRCR => (),
                                     PrimitiveTeXCommand::Primitive(c) if **c == NOALIGN => {
@@ -2837,10 +2846,15 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
         let mut columnindex : usize = 0;
         let mut row:Vec<(Vec<Whatsit>,Skip,usize)> = vec!();
         let mut cells:usize =1;
+        let _oldmode = int.state.mode;
+        int.state.mode = match tabmode {
+            BoxMode::H => TeXMode::RestrictedHorizontal,
+            BoxMode::V => TeXMode::InternalVertical,
+            _ => TeXErr!("Should be unreachable!")
+        };
 
         'row: loop {
             let mut doheader = true;
-            //inV = false;
             'preludeb: loop {
                 let next = int.next_token();
                 match next.catcode {
@@ -2878,18 +2892,12 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             if columns.len() <= columnindex {
                 match recindex {
                     Some(i) => columnindex = i,
-                    None => TeXErr!("Invalid column index in align")
+                    None => TeXErr!("Invalid column index in align: {}",columnindex)
                 }
             }
             if doheader {
                 int.push_tokens(columns.get(columnindex).unwrap().0.clone())
             }
-            let _oldmode = int.state.mode;
-            int.state.mode = match tabmode {
-                BoxMode::H => TeXMode::RestrictedHorizontal,
-                BoxMode::V => TeXMode::InternalVertical,
-                _ => TeXErr!("Should be unreachable!")
-            };
             if inspan { inspan = false }
             else {
                 cells = 1;
@@ -2927,7 +2935,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
             if !inspan {
                 let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                 row.push((ret, columns.get(columnindex).unwrap().2, cells));
-                int.state.mode = _oldmode;
+                //int.state.mode = _oldmode;
             }
             columnindex += 1
         }
