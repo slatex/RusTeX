@@ -299,7 +299,7 @@ mtext * {
     min-width: 100%;
 }
 mi { position: relative}
-mo {position: relative}
+mo {position: relative;padding-left: 0;padding-right: 0}
 msub > :nth-child(2), msup > :nth-child(2) {font-size:inherit}
 mfrac > * {font-size: inherit}
 mover > :not(:first-child), munder > :not(:first-child) {font-size:inherit}

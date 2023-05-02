@@ -235,9 +235,8 @@ pub trait Stomach : Send {
         self.base_mut().stomachgroups.push(StomachGroup::Par(Paragraph::new(parskip)))
     }
 
-    fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
-        self.flush()?;
-        let mut p = self.end_paragraph_loop()?;
+    #[inline(always)]
+    fn close_paragraph(&mut self,state:&mut State,mut p:Paragraph) -> Result<(),TeXError> {
         let hangindent = state.hangindent.get();
         let hangafter = state.hangafter.get();
         let parshape = state.parshape.get();
@@ -250,27 +249,36 @@ pub trait Stomach : Send {
         self.add_inner_actually(Whatsit::Par(p))?;
         self.reset_par(state);
         Ok(())
+
     }
 
-    fn end_paragraph_loop(&mut self) -> Result<Paragraph,TeXError> {
+    fn end_paragraph(&mut self,state:&mut State) -> Result<(),TeXError> {
+        self.flush()?;
+        self.end_paragraph_loop(state)
+    }
+
+    fn end_paragraph_loop(&mut self,state:&mut State) -> Result<(),TeXError> {
         if self.base().stomachgroups.len() < 2 {
             TeXErr!("Can't close paragraph in stomach!")
         } else {
             let ret = self.base_mut().stomachgroups.pop().unwrap();
             match ret {
-                StomachGroup::Par(p) => Ok(p),
+                StomachGroup::Par(p) => {
+                    self.close_paragraph(state,p);
+                    Ok(())
+                },
                 StomachGroup::TeXGroup(gt,v) => {
                     for c in v { self.add_inner_actually(c)? }
-                    let ret = self.end_paragraph_loop()?;
+                    self.end_paragraph_loop(state)?;
                     self.base_mut().stomachgroups.push(StomachGroup::TeXGroup(gt, vec!()));
-                    Ok(ret)
+                    Ok(())
                 }
                 StomachGroup::Other(g) => {
                     let ng = StomachGroup::Other(g.new_from());
                     self.add_inner_actually(Whatsit::Grouped(g))?;
-                    let ret = self.end_paragraph_loop()?;
+                    self.end_paragraph_loop(state)?;
                     self.base_mut().stomachgroups.push(ng);
-                    Ok(ret)
+                    Ok(())
                 }
                 _ => TeXErr!("TODO: end_paragraph_loop")
             }

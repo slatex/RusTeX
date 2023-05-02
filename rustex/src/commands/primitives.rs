@@ -1799,7 +1799,7 @@ pub static VTOP: ProvidesBox = ProvidesBox {
         let bx = (VBOX._get)(tk,int)?;
         match bx {
             TeXBox::V(mut vb) => {
-                let lineheight = int.state.skips_prim.get(&((BASELINESKIP.index - 1) as usize)).base;
+                let lineheight = (int.state.skips_prim.get(&((BASELINESKIP.index - 1) as usize)).base * 2) / 3;
                 vb.tp = VBoxType::Top(lineheight);
                 Ok(TeXBox::V(vb))
             }

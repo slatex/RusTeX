@@ -581,13 +581,10 @@ impl WhatsitTrait for CustomMathChar {
                 htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
                     match KERNS.get(&2) {
                       Some((l,r)) => {
-                            a.attr("lspace".into(),(l.to_string() + "em").into());
-                            a.attr("rspace".into(),(r.to_string() + "em").into());
+                            a.style("padding-left".into(),(l.to_string() + "em").into());
+                            a.style("padding-right".into(),(r.to_string() + "em").into());
                         },
-                        _ => {
-                            a.attr("lspace".into(),"0em".into());
-                            a.attr("rspace".into(),"0em".into());
-                        }
+                        _ => {}
                     };
                     a.fontinfo = Some(mimoinfo);
                     if crate::INSERT_RUSTEX_ATTRS { a.attr("rustex:font".into(),(&self.font.file.name).into()) }
@@ -653,13 +650,10 @@ impl MathChar {
             htmlnode!(colon,mo,self.sourceref,clsstr,node_top,a => {
                 match KERNS.get(&self.class) {
                   Some((l,r)) => {
-                        a.attr("lspace".into(),(l.to_string() + "em").into());
-                        a.attr("rspace".into(),(r.to_string() + "em").into());
+                        a.style("padding-left".into(),(l.to_string() + "em").into());
+                        a.style("padding-right".into(),(r.to_string() + "em").into());
                     },
-                    _ => {
-                        a.attr("lspace".into(),"0em".into());
-                        a.attr("rspace".into(),"0em".into());
-                    }
+                    _ => {}
                 };
                 a.fontinfo = Some(mimoinfo);
                 if stretchy {
@@ -864,8 +858,8 @@ macro_rules! mathgroupkernel {
                 htmlnode!(colon,mrow,self.sourceref,$cls,node_top,node => {
                     match KERNS.get(&$id) {
                       Some((l,r)) => {
-                        node.style("margin-left".into(),(l.to_string() + "em").into());
-                        node.style("margin-right".into(),(r.to_string() + "em").into());
+                        node.style("padding-left".into(),(l.to_string() + "em").into());
+                        node.style("padding-right".into(),(r.to_string() + "em").into());
                       },
                         _ => ()
                     };
@@ -954,14 +948,14 @@ use crate::stomach::groups::WIGroup;
 
 lazy_static! {
     static ref KERNS : HashMap<u32,(f32,f32)> = HashMap::from([
-        (0,(0.0,0.0)), // "ord",
+       // (0,(0.0,0.0)), // "ord",
         (1,(0.15,0.15)), // "largeop",
         (2,(0.15,0.15)), // "bin",
         (3,(0.2,0.2)), // "rel",
-        (4,(0.0,0.0)), // "open",
-        (5,(0.0,0.0)), // "close",
+       // (4,(0.0,0.0)), // "open",
+       // (5,(0.0,0.0)), // "close",
         (6,(0.0,0.15)), // "punct",
-        (7,(0.0,0.0)), // "ord",
+       // (7,(0.0,0.0)), // "ord",
         (8,(0.15,0.15))
     ]);
 }
@@ -1038,7 +1032,7 @@ impl WhatsitTrait for Underline {
         htmlnode!(colon,munder,self.sourceref.clone(),"underline",node_top,node => {
             self.content.clone().as_html(mode,colon,htmlparent!(node));
             htmlnode!(colon,mo,self.sourceref,"",htmlparent!(node),n => {
-                htmlliteral!(colon,htmlparent!(n),"―");
+                htmlliteral!(colon,htmlparent!(n),"_");
                 n.attr("accent".into(),"true".into())
             })
         })
