@@ -453,9 +453,9 @@ impl HTMLNode {
         let nfi = match &fi_o {
             None => fi,
             Some(ref mi) if self.namespace == MATHML_NS => {
-                if !mi.params.contains(&FontTableParam::Italic) {
+                /*if !mi.params.contains(&FontTableParam::Italic) {
                     self.attr("mathvariant".into(),"normal".into())
-                };
+                };*/
                 let ratio = (mi.at as f32) / (fi.at as f32);
                 if ratio != 1.0 {
                     self.style("font-size".into(), ((ratio * 100.0).round().to_string() + "%").into())

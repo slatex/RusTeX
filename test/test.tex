@@ -88,6 +88,27 @@ Sed facilisis eget enim in varius.}
   \let\rustexBREAK\relax
 \fi
 
+{
+\lineskiplimit-\maxdimen
+\baselineskip0pt\relax
+\lineskip0pt\relax
+
+\noindent \lorem \lorem
+
+\vskip20pt
+
+\halign{$>$#$<$&$>$#$<$\cr
+a& b\cr c& d\cr\omit&\omit\cr e&f\cr
+}
+}
+
+\showpar{Bla bla \raise10pt\hbox{bla bla} bla bla
+\raise-10pt\hbox{bla bla} bla bla}
+
+\showpar{\raise10pt\hbox{\lorem}}
+
+\showpar{\raise-10pt\hbox{\lorem}}
+
 %% ---------------------------------------------------------------
 
 \section{Boxes}
@@ -439,7 +460,10 @@ have \cs{vfil} above.}
 \block{Composed Symbols}{
   \def\forkindep{\mathrel{\raise0.2ex\hbox{\ooalign{%
     \hidewidth$\vert$\hidewidth\cr\raise-0.9ex\hbox{$\smile$}}}}} 
-  \[\Longrightarrow\qquad A \forkindep_C B\]
+  \[\Longrightarrow\qquad A \forkindep_C B \qquad
+    A \mathrel{\raise0.2ex\hbox{\ooalign{%
+      \hidewidth$\vert$\hidewidth\cr\hbox{$\smile$}}}}_C B
+  \]
 }
 
 \block{Symbol classes}{
@@ -575,27 +599,39 @@ bla bla \LaTeX{} bla bla
   third & fourth \crcr
 }}}
 
-\begin{tabular}{ll}
-  Tag der mündlichen Prüfung: & 18.10.2019 \\
+
+\begin{mdframed}
+  \halign{$>$#$<$&$>$#$<$\cr
+    a& b\cr c& d\cr\omit&\omit\cr e&f\cr
+  }
+\end{mdframed}
+
+
+\begin{tabular}{|l|l|}
+  Text & Text Text \\
    & \\
-  Vorsitzender der Promotionsorgans: & Prof. Dr.-Ing. Andreas Paul Fröba \\
-  Gutachter: & Prof. Dr. Michael Kohlhase \\
-   & assoz. Prof. Dr. Claudio Sacerdoti Coen
+  Text Text Text & Text Text Text Text \\
+  Text Text Text Text Text & Text Text Text Text Text Text \\
+  Text & Text Text Text Text Text
+\end{tabular}
+
+\begin{tabular}{|r|||c|}
+  Text & Text Text \\
+   & \\
+  Text Text Text & Text Text Text Text \\
+  Text Text Text Text Text & Text Text Text Text Text Text \\
+  Text & Text Text Text Text Text
 \end{tabular}
 
 \begin{tabular}{l|p{4.6cm}|p{4.6cm}}
-  &\textbf{Humanly} & \textbf{Rational}\\\hline
-  \textbf{Thinking} & 
-                ``\emph{The exciting new effort to make computers think \ldots
-                      machines with human-like minds}''\hfill\cite{Haugeland:aitvi85}&
-             ``\emph{The formalization of mental faculties in terms of
-                                                    computational models}''\hfill\cite{ChaMcD:itai85}
-  \\\hline
-  \textbf{Acting} & 
-              ``\emph{The art of creating machines that perform actions requiring
-              intelligence when performed by people}''\hfill\cite{Kurzweil:taoim90} &
-            ``\emph{The branch of CS concerned with the
-            automation of appropriate behavior in complex situations}''\hfill\cite{LugStu:aisscps93}
+  & Text& Text\\\hline
+  Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
+  Text Text Text Text Text Text Text Text Text &
+  Text Text Text Text Text Text Text
+  \\\hline\hline
+  Text Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
+  Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text &
+  Text Text Text Text Text Text Text
   \\\hline
 \end{tabular}
 

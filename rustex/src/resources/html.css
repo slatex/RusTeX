@@ -327,23 +327,31 @@ mover > :not(:first-child), munder > :not(:first-child) {font-size:inherit}
 /* --------------------------------------------------- Tables ------------------------------------------------------- */
 tbody {display:table-row-group}
 .rustex-halign{
-    display:inline-table;
+    display:inline-grid;
     border-collapse:collapse;
-    width: min-content;
+    width: fit-content;
+    grid-auto-rows: auto;
+    align-content: baseline;
 }
-.rustex-row{display: table-row}
-.rustex-cell{display: table-cell;vertical-align: baseline;padding:0}
-
-/*
-.halign{
+.rustex-cell {
     display:inline-flex;
-    border-collapse:collapse;
-    flex-direction: column;
-    height: min-content;
+    white-space: pre;
+    align-items: baseline;
+    width: 100%;
+    height: 100%;
 }
-.row{display: inline-flex;flex-direction: row;height: min-content}
-.cell{display: inline-block;flex:1;height:min-content}
-*/
+.rustex-noalign {
+    display:inline-flex;
+    flex-direction: column;
+    overflow: visible;
+    text-align: left;
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+}
+.rustex-cell > .rustex-space-in-hbox, .rustex-cell > span > .rustex-space-in-hbox, .rustex-cell > span > span > .rustex-space-in-hbox {
+    margin:0;
+}
 
 /* --------------------------------------------------- Others ------------------------------------------------------- */
 

@@ -1,5 +1,5 @@
-use std::cmp::max;
-use crate::interpreter::dimensions::dimtostr;
+use std::cmp::{max, Ordering};
+use crate::interpreter::dimensions::{dimtostr, SkipDim};
 use crate::{htmlliteral, htmlnode, htmlparent, withlinescale, withwidth};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
@@ -295,18 +295,12 @@ impl WhatsitTrait for HBox {
             }
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
                 withlinescale!(colon,self.lineheight,mt,{
-                //let oldwd = colon.state.currsize;
-                let mut wd = self.width();
-                if wd == 0 {wd = 2048};
-                //colon.state.currsize = wd;
-                //mt.style("width".into(),dimtohtml(wd));
                 htmlnode!(colon,HTML_NS:span,None,"rustex-math-escape",htmlparent!(mt),span => {
                     span.forcefont = true;
                     htmlliteral!(colon,htmlparent!(span),"\n");
                     self.as_html(&ColonMode::H,colon,htmlparent!(span));
                     htmlliteral!(colon,htmlparent!(span),"\n");
                 });
-                //colon.state.currsize = oldwd;
                     })
             }),
             _ => for c in self.children { c.as_html(mode,colon,node_top) }
@@ -333,18 +327,34 @@ impl WhatsitTrait for HBox {
 
      */
 }
-
-enum FilLevel {
-    None,Fil,Fill
+#[derive(PartialEq)]
+pub enum FilLevel {
+    None,Fil,Fill,Filll
+}
+#[derive(PartialEq)]
+pub enum Alignment {
+    L,R,C,S
 }
 impl FilLevel {
-    fn add(&mut self,other:FilLevel) {
+    pub fn add(&mut self,other:FilLevel) {
         use FilLevel::*;
         match (&self,other) {
             (None,o) => *self = o,
             (_,None) => (),
             (Fil,Fill) => *self = Fill,
+            (Fil,Filll) => *self = Filll,
+            (Fill,Filll) => *self = Filll,
             _ => (),
+        }
+    }
+    pub fn cmp(&self, other: &Self) -> Alignment {
+        use FilLevel::*;
+        use Alignment::*;
+        match (self,other) {
+            (None,None) => S,
+            (a,b) if a == b => C,
+            (None,_) | (Fil,Fill) | (Fill,Filll) => L,
+            _ => R
         }
     }
 }
@@ -375,8 +385,21 @@ impl HBox {
                             startfil.add(FilLevel::Fill);
                             self.children.remove(0);
                         }
+                        Whatsit::Simple(SimpleWI::HSkip(sk)) => {
+                            match sk.skip.stretch {
+                                Some(SkipDim::Fil(_)) => startfil.add(FilLevel::Fil),
+                                Some(SkipDim::Fill(_)) => startfil.add(FilLevel::Fill),
+                                Some(SkipDim::Filll(_)) => startfil.add(FilLevel::Filll),
+                                _ => ()
+                            }
+                            if sk.skip.base != 0 && sk.skip.base > -32768000 {
+                                repush.push(self.children.remove(0));
+                            } else {
+                                self.children.remove(0);
+                            }
+                        },
                         o if !o.has_ink() => {
-                            repush.push(self.children.remove(0))
+                            repush.push(self.children.remove(0));
                         }
                         _ => break
                     }
@@ -393,23 +416,36 @@ impl HBox {
                             endfil.add(FilLevel::Fill);
                             self.children.pop();
                         }
+                        Whatsit::Simple(SimpleWI::HSkip(sk)) => {
+                            match sk.skip.stretch {
+                                Some(SkipDim::Fil(_)) => endfil.add(FilLevel::Fil),
+                                Some(SkipDim::Fill(_)) => endfil.add(FilLevel::Fill),
+                                Some(SkipDim::Filll(_)) => endfil.add(FilLevel::Filll),
+                                _ => ()
+                            }
+                            if sk.skip.base != 0 && sk.skip.base > -32768000 {
+                                repush.push(self.children.pop().unwrap());
+                            } else {
+                                self.children.pop();
+                            }
+                        },
                         o if !o.has_ink() => {
-                            repush.push(self.children.pop().unwrap())
+                            repush.push(self.children.pop().unwrap());
                         }
                         _ => break
                     }
                 }
                 for c in repush.into_iter().rev() {self.children.push(c)}
-                match (startfil,endfil) {
-                    (FilLevel::None | FilLevel::Fil,FilLevel::Fill)|(FilLevel::None,FilLevel::Fil) =>{
+                match startfil.cmp(&endfil) {
+                    Alignment::L => {
                         styles.push(("justify-content".into(),"start".into()));
                         clss.push("rustex-hbox-no-space".into());
                     }
-                    (FilLevel::Fil,FilLevel::Fil)|(FilLevel::Fill,FilLevel::Fill) =>{
+                    Alignment::C => {
                         styles.push(("justify-content".into(),"center".into()));
                         clss.push("rustex-hbox-no-space".into());
                     }
-                    (FilLevel::Fil|FilLevel::Fill,FilLevel::None)|(FilLevel::Fill,FilLevel::Fil) =>{
+                    Alignment::R => {
                         styles.push(("justify-content".into(),"end".into()));
                         clss.push("rustex-hbox-no-space".into());
                     }
