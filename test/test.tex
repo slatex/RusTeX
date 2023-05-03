@@ -88,26 +88,6 @@ Sed facilisis eget enim in varius.}
   \let\rustexBREAK\relax
 \fi
 
-{
-\lineskiplimit-\maxdimen
-\baselineskip0pt\relax
-\lineskip0pt\relax
-
-\noindent \lorem \lorem
-
-\vskip20pt
-
-\halign{$>$#$<$&$>$#$<$\cr
-a& b\cr c& d\cr\omit&\omit\cr e&f\cr
-}
-}
-
-\showpar{Bla bla \raise10pt\hbox{bla bla} bla bla
-\raise-10pt\hbox{bla bla} bla bla}
-
-\showpar{\raise10pt\hbox{\lorem}}
-
-\showpar{\raise-10pt\hbox{\lorem}}
 
 %% ---------------------------------------------------------------
 
@@ -489,13 +469,88 @@ have \cs{vfil} above.}
   \[ \mathrm{max}\left\{ \vphantom{\frac AB} \right. \frac AB \left. \vphantom{\frac AB} \right\} := \begin{cases}A & \text{if }B <: A, \\ B & \text{if }A <: B, \\ \text{undefined} & \text{otherwise.}\end{cases} \]
 }
 
+\section{\cs{halign} and Line Height}
+
+\block{Simple}{
+  \halign{$>$#$<$&$>$#$<$\cr
+    a& b\cr c& d\cr\omit&\omit\cr e&f\cr
+  }
+}
+
+\block{Line height 0}{{
+  \lineskiplimit-\maxdimen
+  \baselineskip0pt\relax
+  \lineskip0pt\relax
+
+  \halign{$>$#$<$&$>$#$<$\cr
+  a& b\cr c& d\cr\omit&\omit\cr e&f\cr
+  }
+}}
+
+\block{Paragraph with line height 0}{{
+  \lineskiplimit-\maxdimen
+  \baselineskip0pt\relax
+  \lineskip0pt\relax
+
+  \noindent \lorem \lorem
+
+  \vskip10pt
+}}
+
+\showpar{\vbox{\halign{ 
+  \blue{cell\{} # \blue{\}} & 
+  \blue{cell\{} # \blue{\}} \cr
+  first & second \cr
+  third & fourth \crcr
+}}}
+
+\block{Table}{
+\begin{tabular}{|l|l|}
+  Text & Text Text \\
+   & \\
+  Text Text Text & Text Text Text Text \\
+  Text Text Text Text Text & Text Text Text Text Text Text \\
+  Text & Text Text Text Text Text
+\end{tabular}
+}
+
+\block{Text Alignment}{
+\begin{tabular}{|r|||c|}
+  Text & Text Text \\
+   & \\
+  Text Text Text & Text Text Text Text \\
+  Text Text Text Text Text & Text Text Text Text Text Text \\
+  Text & Text Text Text Text Text
+\end{tabular}
+}
+
+\block{Paragraph in Table}{
+\begin{tabular}{l|p{4.6cm}|p{4.6cm}}
+  & Text& Text\\\hline
+  Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
+  Text Text Text Text Text Text Text Text Text &
+  Text Text Text Text Text Text Text
+  \\\hline\hline
+  Text Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
+  Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text &
+  Text Text Text Text Text Text Text
+  \\\hline
+\end{tabular}
+}
 
 
 
 
 
+\section{Other Stuff}
 
-\section{Other foo}
+
+\showpar{Bla bla \raise10pt\hbox{bla bla} bla bla
+\raise-10pt\hbox{bla bla} bla bla}
+
+\showpar{\raise10pt\hbox{\lorem}}
+
+\showpar{\raise-10pt\hbox{\lorem}}
 
 anderer test { }{ }{ }{ }{ } foo
 
@@ -588,54 +643,6 @@ bla bla \LaTeX{} bla bla
     \lorem \lorem
   \end{mdframed}
 \end{exampleborderbox}
-
-
-\section{Tables}
-
-\showpar{\vbox{\halign{ 
-  \blue{cell\{} # \blue{\}} & 
-  \blue{cell\{} # \blue{\}} \cr
-  first & second \cr
-  third & fourth \crcr
-}}}
-
-
-\begin{mdframed}
-  \halign{$>$#$<$&$>$#$<$\cr
-    a& b\cr c& d\cr\omit&\omit\cr e&f\cr
-  }
-\end{mdframed}
-
-
-\begin{tabular}{|l|l|}
-  Text & Text Text \\
-   & \\
-  Text Text Text & Text Text Text Text \\
-  Text Text Text Text Text & Text Text Text Text Text Text \\
-  Text & Text Text Text Text Text
-\end{tabular}
-
-\begin{tabular}{|r|||c|}
-  Text & Text Text \\
-   & \\
-  Text Text Text & Text Text Text Text \\
-  Text Text Text Text Text & Text Text Text Text Text Text \\
-  Text & Text Text Text Text Text
-\end{tabular}
-
-\begin{tabular}{l|p{4.6cm}|p{4.6cm}}
-  & Text& Text\\\hline
-  Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
-  Text Text Text Text Text Text Text Text Text &
-  Text Text Text Text Text Text Text
-  \\\hline\hline
-  Text Text & Text Text Text Text Text Text Text Text Text Text Text Text Text
-  Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text &
-  Text Text Text Text Text Text Text
-  \\\hline
-\end{tabular}
-
-\section{Other Stuff}
 
 
 \iffalse
