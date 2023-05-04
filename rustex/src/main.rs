@@ -1,5 +1,6 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::env;
 use std::fmt::Display;
 use std::io::Write;
 use std::ops::Deref;
@@ -129,26 +130,36 @@ fn run() {
             }
         }
         Some(i) => {
-            let path = Path::new(&i);
+            let mut path = Path::new(&i).to_path_buf();
+            if !path.is_absolute() {
+                path = env::current_dir().unwrap().join(path);
+            }
             let mut stomach = NoShipoutRoutine::new();
             let p = DefaultParams::new(false,params.singlethreaded,None);
             let state = State::pdf_latex();
             let mut int = Interpreter::with_state(state,stomach.borrow_mut(),&p);
             let (success,s) = match params.text {
                 Some(s) =>
-                    int.do_string(path,s.as_str(),HTMLColon::new(true)),
+                    int.do_string(&*path,s.as_str(),HTMLColon::new(true)),
                 None => {
                     if !path.exists() {
                         println!("File {} not found", i)
                     }
-                    int.do_file(path, HTMLColon::new(true))
+                    int.do_file(&*path, HTMLColon::new(true))
                 }
             };
             match params.output {
                 None => if success {println!("\n\nSuccess!\n{}",s)} else {println!("\n\nFailed\n{}",s)},
                 Some(f) => {
-                    let mut file = std::fs::File::create(&f).unwrap();
-                    file.write_all(s.as_bytes()).expect("");
+                   /* let f = match f.strip_prefix("\"").and_then(|f| f.strip_suffix("\"")) {
+                        Some(s) => s.to_string(),
+                        _ => f
+                    };*/
+                    let mut path = Path::new(&f).to_path_buf();
+                    if !path.is_absolute() {
+                        path = env::current_dir().unwrap().join(path);
+                    }
+                    std::fs::write(path,s.as_bytes()).expect("");
                     if success {
                         println!("\n\nSuccess! \\o/\nResult written to {}", f)
                     } else {

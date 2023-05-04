@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::collections::HashMap;
+use std::io::Write;
 use crate::utils::{TeXError, TeXStr};
 use std::sync::Arc;
 use crate::fonts::{ArcFont, Font};
@@ -365,7 +366,7 @@ pub struct PrintChar {
 impl WhatsitTrait for PrintChar {
     fn as_whatsit(self) -> Whatsit { Whatsit::Char(self) }
     fn width(&self) -> i32 { self.font.get_width(self.char as u16) }
-    fn height(&self) -> i32 { (self.font.get_height(self.char as u16) * 6) / 5 }
+    fn height(&self) -> i32 {(max(self.font.get_height(self.char as u16),0) * 6) / 5 }
     fn depth(&self) -> i32 { self.font.get_depth(self.char as u16) }
     fn as_xml_internal(&self, _: String) -> String {
         fn is_ascii(u:u8) -> bool {

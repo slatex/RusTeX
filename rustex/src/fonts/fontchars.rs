@@ -68,8 +68,11 @@ impl FontTableStore {
                 ("rm-lmbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold),
                 ("rm-lmcsc",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Capital),
                 ("rm-lmssbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::SansSerif),
-                ("ptmrt",STANDARD_TEXT_CM,FontTableParam::Text),
-                ("ptmbt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Bold),
+                ("ptmrt",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("ptmrct",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
+                ("ptmrit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
+                ("ptmbt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
+                ("ptmbit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
                 ("cmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
                 ("cmmib",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic,FontTableParam::Bold),
                 ("lmmi",STANDARD_MATH_CM,FontTableParam::Math,FontTableParam::Italic),
@@ -129,6 +132,10 @@ impl FontTableStore {
                 ("ec-lmtto",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Italic),
                 ("ec-lmro",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
                 ("ec-lmtlc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
+                ("pcrrt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced),
+                ("pcrrot",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Italic),
+                ("pcrrct",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Monospaced,FontTableParam::Capital),
+                ("phvb",PHVB,FontTableParam::Text,FontTableParam::Bold,FontTableParam::SansSerif),
                 // -------------------------------------------------------------------------
                 ("jkpmnt",STANDARD_TEXT_EC,FontTableParam::Text),
                 ("jkpbnt",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold),
@@ -274,6 +281,42 @@ lazy_static! {
         (246,"ö"),(247,"œ"),(248,"ø"),(249,"ù"),(250,"ú"),(251,"û"),(252,"ü"),(253,"ý"),(254,"þ"),
         (255,"ß")
     ]);
+    pub static ref PHVB : HashMap<u8,&'static str> = HashMap::from([
+        (13,"\'"),(14,"¡"),(15,"¿"),
+        (18,"`"),(19," ́"),(20,"ˇ"),(21," ̆"),(22," ̄"),(23," ̇"),(24," ̧"),(25,"ß"),(26,"æ"),(27,"œ"),
+        (28,"ø"),(29,"Æ"),(30,"Œ"),(31,"Ø"),(32," "),(33,"!"),(34,"\""),(35,"#"),(36,"$"),(37,"%"),(38,"&"),(39,"’"),(40,"("),
+        (41,")"),(42,"*"),(43,"+"),(44,","),(45,"-"),(46,"."),(47,"/"),(48,"0"),(49,"1"),
+        (50,"2"),(51,"3"),(52,"4"),(53,"5"),(54,"6"),(55,"7"),(56,"8"),(57,"9"),(58,":"),(59,";"),
+        (60,"<"),(61,"="),(62,">"),(63,"?"),(64,"@"),(65,"A"),(66,"B"),(67,"C"),(68,"D"),(69,"E"),
+        (70,"F"),(71,"G"),(72,"H"),(73,"I"),(74,"J"),(75,"K"),(76,"L"),(77,"M"),(78,"N"),(79,"O"),
+        (80,"P"),(81,"Q"),(82,"R"),(83,"S"),(84,"T"),(85,"U"),(86,"V"),(87,"W"),(88,"X"),(89,"Y"),
+        (90,"Z"),(91,"["),(92,"\\"),(93,"]"),(94,"^"),(95,"_"),(96,"‘"),(97,"a"),(98,"b"),(99,"c"),
+        (100,"d"),(101,"e"),(102,"f"),(103,"g"),(104,"h"),(105,"i"),(106,"j"),(107,"k"),(108,"l"),
+        (109,"m"),(110,"n"),(111,"o"),(112,"p"),(113,"q"),(114,"r"),(115,"s"),(116,"t"),(117,"u"),
+        (118,"v"),(119,"w"),(120,"x"),(121,"y"),(122,"z"),(123,"{"),(124,"|"),(125,"}"),
+
+        (128,"^"),(129,"~"),(130,"Ç"),(131,"Í"),(132,"Î"),(133,"ã"),(134,"ë"),(135,"è"),
+        (136,"š"),(137,"ž"),
+
+/*
+        (127,"-"),(128,"Ă"),(129,"A̧"),(130,"Ć"),(131,"Č"),(132,"Ď"),(133,"Ě"),(134,"Ȩ"),
+        (135,"Ğ"),(136,"Ĺ"),(137,"L̛"),(138,"Ł"),(139,"Ń"),(140,"Ň"),
+        (142,"Ő"),(143,"Ŕ"),(144,"Ř"),(145,"Ś"),(146,"Š"),(147,"Ş"),(148,"Ť"),(149,"Ţ"),(150,"Ű"),
+        (151,"Ů"),(152,"Ÿ"),(153,"Ź"),(154,"Ž"),(155,"Ż"),(156,"IJ"),(157,"İ"),(158,"đ"),(159,"§"),
+        (160,"ă"),(161,"a̧"),(162,"ć"),(163,"č"),(164,"d̛"),(165,"ĕ"),(166,"ȩ"),(167,"ğ"),(168,"ĺ"),
+        (169,"l̛"),(170,"ł"),(171,"ń"),(172,"ň"),
+        (174,"ő"),(175,"ŕ"),(176,"ř"),(177,"ś"),(178,"š"),(179,"ş"),(180,"t̛"),(181,"ţ"),(182,"ű"),
+        (183,"ů"),(184,"ÿ"),(185,"ź"),(186,"ž"),(187,"ż"),(188,"ij"),(189,"¡"),(190,"¿"),(191,"£"),
+        (192,"À"),(193,"Á"),(194,"Â"),(195,"Ã"),(196,"Ä"),(197,"Å"),(198,"Æ"),(199,"Ç"),(200,"È"),
+        (201,"É"),(202,"Ê"),(203,"Ë"),(204,"Ì"),(205,"Í"),(206,"Î"),(207,"Ï"),(208,"Ð"),(209,"Ñ"),
+        (210,"Ò"),(211,"Ó"),(212,"Ô"),(213,"Õ"),(214,"Ö"),(215,"Œ"),(216,"Ø"),(217,"Ù"),(218,"Ú"),
+        (219,"Û"),(220,"Ü"),(221,"Ý"),(222,"Þ"),(223,"SS"),(224,"à"),(225,"á"),(226,"â"),(227,"ã"),
+        (228,"ä"),(229,"å"),(230,"æ"),(231,"ç"),(232,"è"),(233,"é"),(234,"ê"),(235,"ë"),(236,"ì"),
+        (237,"í"),(238,"î"),(239,"ï"),(240,"ð"),(241,"ñ"),(242,"ò"),(243,"ó"),(244,"ô"),(245,"õ"),
+        (246,"ö"),(247,"œ"),(248,"ø"),(249,"ù"),(250,"ú"),(251,"û"),(252,"ü"),(253,"ý"),(254,"þ"),
+        (255,"ß")*/
+    ]);
+
     pub static ref TS1_STIXTEXT : HashMap<u8,&'static str> = HashMap::from([
         (0,"`"),(1," ́"),(2,"^"),(3," ̃"),(4," ̈"),(5," ̋"),(6," ̊"),(7,"ˇ"),(8," ̆"),(9," ̄"),(10," ̇"),
         (11," ̧"),(12," ̨"),(13,","),
