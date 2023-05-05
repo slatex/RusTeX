@@ -251,7 +251,7 @@ impl FontFile {
             }*/
         }
         assert_eq!(state.i as u16,lf);
-        let chartable = FONT_TABLES.get(tablename.into());
+        let chartable = FONT_TABLES.get(tablename.into(),name.clone().into());
         match chartable {
             None => {
                 params.write_other(&*std::format!("Missing Font Table: {}",name));
