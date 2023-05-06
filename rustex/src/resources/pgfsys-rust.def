@@ -31,6 +31,9 @@
 {\catcode`\#=11
 \gdef\pgf@sys@svg@hash{#}
 }
+{\catcode`\"=12
+\gdef\pgf@sys@svg@quote{"}
+}
 
 \newcount\pgf@sys@svg@objectcount
 
@@ -278,7 +281,7 @@
   \global\pgf@sys@svg@scopecount=\pgf@sys@svg@thescopecount\relax%
 }
 
-\protected\def\pgfsys@beginpicture{\begingroup\pgf@sys@svg@node@begin{g}{}}
+\protected\def\pgfsys@beginpicture{\begingroup\let\grmn@active@dq@\pgf@sys@svg@quote\def\protect{}\pgf@sys@svg@node@begin{g}{}}
 \protected\def\pgfsys@endpicture{\pgf@sys@svg@node@end{g}\endgroup}
 
 \newif\ifpgfsys@svg@close@strokenone

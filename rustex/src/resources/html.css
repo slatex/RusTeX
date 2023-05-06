@@ -127,8 +127,9 @@ a { color: inherit; text-decoration: inherit; }
     font-style: normal;
     font-weight: 400;
     font-variant: normal;
-    --temp-width:0
 }
+
+.rustex-body {--temp-width:0}
 
 .rustex-monospaced {
     font-family: Latin Modern Mono, FreeMono,Courier New,monospace;

@@ -360,6 +360,8 @@ impl std::ops::Sub for Numeric {
             (BigInt(i),Int(j)) => BigInt(i-(j as i64)),
             (BigInt(i),BigInt(j)) => BigInt(i-j),
             (Int(i),BigInt(j)) => BigInt((i as i64)-j),
+            (Int(i),Dim(j)) => Int(i-j),
+            (BigInt(i),Dim(j)) => BigInt(i-(j as i64)),
             (Int(i),Int(j)) => Int(i-j),
             (Dim(i),Int(j)) => Int(i-j),
             (Dim(i),BigInt(j)) => BigInt((i as i64)-j),

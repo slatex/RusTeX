@@ -890,8 +890,8 @@ impl WhatsitTrait for Raise {
             ColonMode::H =>
                 htmlnode!(colon,div,self.sourceref,"rustex-raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(self.dim));
-                //node.style("margin-top".into(),dimtohtml(self.dim));
-                //node.style("margin-bottom".into(),dimtohtml(-self.dim));
+                node.style("margin-top".into(),dimtohtml(self.dim));
+                node.style("margin-bottom".into(),dimtohtml(-self.dim));
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::V | ColonMode::P =>

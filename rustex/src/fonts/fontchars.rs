@@ -57,7 +57,12 @@ impl FontTableStore {
                 ("ptmbi7t",PTM,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
                 ("phvr7t",PTM,FontTableParam::Text,FontTableParam::SansSerif),
                 ("phvb7t",PTM,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
-                ("phvro7t",PTM,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic)
+                ("phvro7t",PTM,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Italic),
+                ("fa5free0regular",FA5_FREE0_REGULAR,FontTableParam::Math),
+                ("fa5free2solid",FA5_FREE2_SOLID,FontTableParam::Math),
+                ("fa5free1regular",FA5_FREE1_REGULAR,FontTableParam::Math),
+                ("fa5free1solid",FA5_FREE1_SOLID,FontTableParam::Math),
+                ("fa5brands0",FA5_BRANDS0,FontTableParam::Math)
                 ;None
             ){
                 Some(t) => return Some(t),
@@ -866,4 +871,19 @@ lazy_static! {
     ]);
     pub static ref PSYR : HashMap<u8,&'static str> = HashMap::from([]);
     pub static ref MANFNT : HashMap<u8,&'static str> = HashMap::from([]);
+    pub static ref FA5_FREE0_REGULAR : HashMap<u8,&'static str> = HashMap::from([
+        (187,"◯")
+    ]);
+    pub static ref FA5_FREE2_SOLID : HashMap<u8,&'static str> = HashMap::from([
+        (72,"📱"),(73,"📱")
+    ]);
+    pub static ref FA5_FREE1_REGULAR : HashMap<u8,&'static str> = HashMap::from([
+        (35,"✉")
+    ]);
+    pub static ref FA5_FREE1_SOLID : HashMap<u8,&'static str> = HashMap::from([
+        (130,"🌎")
+    ]);
+    pub static ref FA5_BRANDS0 : HashMap<u8,&'static str> = HashMap::from([
+        (167,"(GITHUB)")
+    ]);
 }
