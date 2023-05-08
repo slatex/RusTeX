@@ -821,7 +821,8 @@ impl WhatsitTrait for PDFXForm {
 pub struct Raise {
     pub dim:i32,
     pub content:TeXBox,
-    pub sourceref:Option<SourceFileReference>
+    pub sourceref:Option<SourceFileReference>,
+    pub lineheight:i32
 }
 impl WhatsitTrait for Raise {
     //fn get_par_width(&self) -> Option<i32> { self.content.get_par_width() }
@@ -850,6 +851,7 @@ impl WhatsitTrait for Raise {
                 for c in bx.children { c.normalize(&ColonMode::H, &mut nch, scale) }
                 if nch.is_empty() && (bx._width.is_none() || bx._width == Some(0)) { return }
                 ret.push(Raise {
+                    lineheight:self.lineheight,
                     content: TeXBox::H(HBox {
                         children: nch,
                         spread: bx.spread,
@@ -868,6 +870,7 @@ impl WhatsitTrait for Raise {
                 for c in bx.children { c.normalize(&ColonMode::V, &mut nch, scale) }
                 if nch.is_empty() && (bx._height.is_none() || bx._height == Some(0)) { return }
                 ret.push(Raise {
+                    lineheight:self.lineheight,
                     content: TeXBox::V(VBox {
                         children: nch,
                         spread: bx.spread,
@@ -887,18 +890,13 @@ impl WhatsitTrait for Raise {
     }
     fn as_html(self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::H =>
+            ColonMode::V | ColonMode::P | ColonMode::H =>
                 htmlnode!(colon,div,self.sourceref,"rustex-raise",node_top,node => {
                 node.style("bottom".into(),dimtohtml(self.dim));
-                node.style("margin-top".into(),dimtohtml(self.dim));
-                node.style("margin-bottom".into(),dimtohtml(-self.dim));
-                self.content.as_html(mode,colon,htmlparent!(node))
-            }),
-            ColonMode::V | ColonMode::P =>
-                htmlnode!(colon,div,self.sourceref,"rustex-raise",node_top,node => {
-                node.style("bottom".into(),dimtohtml(self.dim));
-                node.style("margin-top".into(),dimtohtml(self.dim));
-                node.style("margin-bottom".into(),dimtohtml(-self.dim));
+                if self.lineheight > 0 {
+                    node.style("margin-top".into(),dimtohtml(self.dim));
+                    node.style("margin-bottom".into(),dimtohtml(-self.dim));
+                }
                 self.content.as_html(mode,colon,htmlparent!(node))
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
@@ -1139,6 +1137,7 @@ pub struct HAlign {
     pub template:Vec<(Vec<Token>,Vec<Token>,Skip)>,
     pub rows:Vec<AlignBlock>,
     pub lineheight:Option<i32>,
+    pub baselineskip:i32,
     pub sourceref:Option<SourceFileReference>
 }
 impl HAlign {
@@ -1261,7 +1260,7 @@ impl WhatsitTrait for HAlign {
             }
         }
         ret.push(HAlign {
-            skip:self.skip,
+            skip:self.skip,baselineskip:self.baselineskip,
             template:self.template,
             rows:nrows,lineheight:self.lineheight,
             sourceref:self.sourceref
@@ -1283,7 +1282,7 @@ impl WhatsitTrait for HAlign {
                         table.attr("rustex:height".into(),dimtohtml(height));
                     }
                     withlinescale!(colon,self.lineheight,table,{
-                        for row in self.rows { HAlign::do_row(colon,&mut table,colnums,row,self.lineheight); }
+                        for row in self.rows { HAlign::do_row(colon,&mut table,colnums,row,self.lineheight,self.baselineskip); }
                     })
                 });
             }
@@ -1303,7 +1302,7 @@ impl WhatsitTrait for HAlign {
 }
 
 impl HAlign {
-    fn do_row(colon: &mut HTMLColon, table: &mut HTMLNode,colnums:usize,row:AlignBlock,lht:Option<i32>) {
+    fn do_row(colon: &mut HTMLColon, table: &mut HTMLNode,colnums:usize,row:AlignBlock,lht:Option<i32>,baseline:i32) {
         match row {
             AlignBlock::Noalign(v) => {
                 htmlnode!(colon,div,None,"rustex-noalign",htmlparent!(table),bx => {
@@ -1402,13 +1401,11 @@ impl HAlign {
                         }
                         for c in clss { bx.classes.push(c)}
                         for (a,b) in styles {bx.style(a,b)}
+                        if baseline>0  {
+                            bx.style("min-height".into(),dimtohtml(baseline));
+                        }
                         if let Some(lht) = lht {
-                            if lht > 0 {
-                                bx.style("min-height".into(),dimtohtml(lht));
-                                for c in vs {
-                                    c.as_html(&ColonMode::H,colon,htmlparent!(bx))
-                                }
-                            } else {
+                            if lht <= 0 {
                                 bx.style("height".into(),"0".into());
                                 htmlnode!(colon,div,None,"rustex-hbox",htmlparent!(bx),ibx => {
                                     ibx.style("height".into(),dimtohtml(colon.state.fontsize));
@@ -1418,6 +1415,14 @@ impl HAlign {
                                     }
 
                                 });
+                            } else {
+                                for c in vs {
+                                    c.as_html(&ColonMode::H,colon,htmlparent!(bx))
+                                }
+                            }
+                        } else {
+                            for c in vs {
+                                c.as_html(&ColonMode::H,colon,htmlparent!(bx))
                             }
                         }
                     });

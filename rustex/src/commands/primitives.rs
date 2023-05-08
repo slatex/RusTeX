@@ -2206,7 +2206,7 @@ pub static LOWER: SimpleWhatsit = SimpleWhatsit {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
         Ok(Whatsit::Simple(SimpleWI::Raise(Raise {
-            dim:-dim,
+            dim:-dim,lineheight:lineheight(&int.state),
             content: bx,
             sourceref: int.update_reference(tk)
         })))
@@ -2223,7 +2223,7 @@ pub static RAISE: SimpleWhatsit = SimpleWhatsit {
         let dim = int.read_dimension()?;
         let bx = int.read_box()?;
         Ok(Whatsit::Simple(SimpleWI::Raise(Raise {
-            dim,
+            dim,lineheight:lineheight(&int.state),
             content: bx,
             sourceref: int.update_reference(tk)
         })))
@@ -2961,9 +2961,10 @@ pub static HALIGN: SimpleWhatsit = SimpleWhatsit {
             None => None
         };
         let lht = lineheight(&int.state);
+        let baselineskip = int.state.skips_prim.get(&(BASELINESKIP.index - 1)).base;
         let (skip,template,rows) = do_align(int,BoxMode::H,BoxMode::V)?;
         Ok(Whatsit::Simple(SimpleWI::HAlign(HAlign {
-            skip,template,rows,sourceref:int.update_reference(tk),
+            skip,template,rows,sourceref:int.update_reference(tk),baselineskip,
             lineheight:Some(lineheight(&int.state))
         })))
     }
