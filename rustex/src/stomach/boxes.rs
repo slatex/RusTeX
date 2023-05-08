@@ -7,7 +7,7 @@ use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, H
 use crate::stomach::math::{GroupedMath, MathKernel};
 use crate::stomach::simple::{Left, Right, SimpleWI};
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitTrait, WIDTH_CORRECTION};
+use crate::stomach::whatsits::{HasWhatsitIter, HEIGHT_CORRECTION, WhatsitIter, WhatsitTrait, WIDTH_CORRECTION};
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum VBoxType { V, Center, Top(i32), DMCenter }
@@ -516,25 +516,6 @@ pub struct VBox {
 }
 
 impl WhatsitTrait for VBox {
-    /*
-    fn get_par_width(&self) -> Option<i32> {
-        self._width.or({
-            let mut ret : Option<i32> = None;
-            for c in &self.children {
-                for w in c.get_par_widths() {
-                    match ret {
-                        Some(ow) if ow < w => ret = Some(w),
-                        None => ret = Some(w),
-                        _ => ()
-                    }
-                }
-            }
-            ret
-        })
-    }
-    fn get_par_widths(&self) -> Vec<i32> {
-        self.get_par_width().map(|i| vec!(i)).unwrap_or(vec!())
-    }*/
     fn get_ref(&self) -> Option<SourceFileReference> {
         SourceFileReference::from_wi_list(&self.children).or(self.rf.clone())
     }
@@ -652,69 +633,22 @@ impl WhatsitTrait for VBox {
     }
 
     fn normalize(self, mode: &ColonMode, ret: &mut Vec<Whatsit>, scale: Option<f32>) {
-        match mode {
-            ColonMode::H | ColonMode::External(_) | ColonMode::P | ColonMode::V => {
-                let mut nch : Vec<Whatsit> = vec!();
-                for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
-                if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
-                ret.push(VBox {
-                    children: nch,
-                    spread: self.spread,
-                    _width: self._width,
-                    _height: self._height,
-                    _depth: self._depth,
-                    _to:self._to,
-                    rf: self.rf,
-                    tp:self.tp
-                }.as_whatsit())
-            }
-            /*ColonMode::V => {
-                if self._width.is_none() && self._height.is_none() && self._depth.is_none() {
-                    for c in self.children { c.normalize(&ColonMode::V,ret,scale) }
-                } else {
-                    let mut nch : Vec<Whatsit> = vec!();
-                    for c in self.children { c.normalize(&ColonMode::V,&mut nch,scale) }
-                    if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) {return () }
-                    ret.push(VBox {
-                        children: nch,
-                        spread: self.spread,
-                        _width: self._width,
-                        _height: self._height,
-                        _depth: self._depth,
-                        _to:self._to,
-                        rf: self.rf,
-                        tp:self.tp
-                    }.as_whatsit())
-                }
-            }*/
-            ColonMode::M => {
-                use crate::stomach::simple::SimpleWI;
-                let mut nch : Vec<Whatsit> = vec!();
-                for c in self.children { c.normalize(&ColonMode::V,&mut nch,None) }
-                if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
-                /*else if nch.len() == 1 {
-                    match nch.pop() {
-                        Some(o@Whatsit::Simple(SimpleWI::HAlign(_))) => {
-                            ret.push(o);
-                            return
-                        }
-                        Some(o) => {
-                            nch.push(o)
-                        }
-                        _ => unreachable!()
-                    }
-                }*/
-                ret.push(VBox {
-                    children: nch,
-                    spread: self.spread,
-                    _width: self._width,
-                    _height: self._height,
-                    _depth: self._depth,
-                    _to:self._to,
-                    rf: self.rf,
-                    tp:self.tp
-                }.as_whatsit())
-            }
+        if *mode == ColonMode::M && self.is_mathy() {
+            for c in self.children { c.normalize(&ColonMode::M,ret,scale) }
+        } else {
+            let mut nch: Vec<Whatsit> = vec!();
+            for c in self.children { c.normalize(&ColonMode::V, &mut nch, scale) }
+            if nch.is_empty() && (self._height.is_none() || self._height == Some(0)) { return () }
+            ret.push(VBox {
+                children: nch,
+                spread: self.spread,
+                _width: self._width,
+                _height: self._height,
+                _depth: self._depth,
+                _to: self._to,
+                rf: self.rf,
+                tp: self.tp
+            }.as_whatsit())
         }
     }
 
@@ -863,6 +797,21 @@ impl WhatsitTrait for VBox {
 }
 
 impl VBox {
+    pub fn is_mathy(&self) -> bool {
+        let mut done = false;
+        WhatsitIter::new(&self.children).all(|c| match c {
+            Whatsit::Simple(SimpleWI::HAlign(ha)) if ha.is_mathy() && !done => {
+                done = true;
+                true
+            }
+            Whatsit::Math(mg) if mg.has_ink() && !done => {
+                done = true;
+                true
+            }
+            o if !o.has_ink() => true,
+            _ => return false
+        })
+    }
     fn html_t_inner(self, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>, withwidth:bool) {
         match (self._height,self._depth) {
             (None,None) => self.html_t_inner_i(colon, node_top, withwidth),

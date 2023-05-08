@@ -12,7 +12,7 @@ use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
 use crate::stomach::math::MathChar;
 use crate::stomach::Whatsit;
-use crate::stomach::whatsits::{HasWhatsitIter, WhatsitTrait};
+use crate::stomach::whatsits::{HasWhatsitIter, WhatsitIter, WhatsitTrait};
 use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token, withlinescale};
 use crate::fonts::ArcFont;
 use crate::utils::TeXStr;
@@ -372,10 +372,10 @@ impl WhatsitTrait for VRule {
     }
     fn as_html(mut self, mode: &ColonMode, colon: &mut HTMLColon, node_top: &mut Option<HTMLParent>) {
         match mode {
-            ColonMode::M => htmlnode!(colon,mspace,self.sourceref.clone(),"vrule",node_top,n => {
+            ColonMode::M => htmlnode!(colon,mspace,self.sourceref.clone(),"",node_top,n => {
                 if self.height() != 0 {n.attr("height".into(),dimtohtml(self.height()))}
                 if self.width() != 0 {n.attr("width".into(),dimtohtml(self.height()))}
-                if self.depth() != 0 {n.attr("depth".into(),dimtohtml(self.height()))}
+                if self.depth() != 0 {n.attr("depth".into(),dimtohtml(self.depth()))}
                 n.style("background".into(),match &colon.state.currcolor {
                     Some(c) => HTMLStr::from("#") + c,
                     None => "#000000".into()
@@ -1286,7 +1286,20 @@ impl WhatsitTrait for HAlign {
                     })
                 });
             }
+            ColonMode::M if self.is_mathy() => htmlnode!(colon,mtable,self.get_ref(),"",node_top,table => {
+                if self.lineheight == Some(0) {
+                    table.style("height".into(),dimtohtml(colon.state.fontsize));
+                }
+                if crate::INSERT_RUSTEX_ATTRS {
+                    table.attr("rustex:width".into(),dimtohtml(self.width()));
+                    table.attr("rustex:height".into(),dimtohtml(self.height()));
+                }
+                withlinescale!(colon,self.lineheight,table,{
+                    for row in self.rows { HAlign::do_math_row(colon,&mut table,row,self.lineheight,self.baselineskip); }
+                })
+            }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
+                println!("Here: {:?}",self.is_mathy());
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
                 htmlnode!(colon,HTML_NS:span,None,"rustex-contents rustex-math-escape",htmlparent!(mt),span => {
@@ -1302,6 +1315,41 @@ impl WhatsitTrait for HAlign {
 }
 
 impl HAlign {
+    fn is_strut(wi : &Whatsit) -> bool {
+        match wi {
+            Whatsit::Simple(SimpleWI::VRule(vr)) if vr.width() <= 10 => true,
+            _ => false
+        }
+    }
+    pub fn is_mathy(&self) -> bool {
+        self.rows.iter().all(|r| match r {
+            AlignBlock::Noalign(_) => true,
+            AlignBlock::Block(bl) =>
+                bl.iter().all(|(vs,_,_)| WhatsitIter::new(vs).all(|v|
+                    match v {
+                        Whatsit::Math(_) => true,
+                        o if !o.has_ink() || HAlign::is_strut(o)  => true,
+                        Whatsit::Simple(SimpleWI::VRule(vr)) if vr.width() == 0 => true,
+                        _ => return false
+                    }
+                ))
+        })
+    }
+    fn do_math_row(colon: &mut HTMLColon, table: &mut HTMLNode,row:AlignBlock,lht:Option<i32>,baseline:i32) {
+        match row {
+            AlignBlock::Noalign(v) => {}
+            AlignBlock::Block(v) => {
+                htmlnode!(colon,mtr,None,"",htmlparent!(table),row => {
+                    for (cs,_,num) in v {
+                        htmlnode!(colon,mtd,None,"",htmlparent!(row),col => {
+                            if num > 1 {col.attr("columnspan".into(),num.to_string().into())}
+                            for c in cs { c.as_html(&ColonMode::M,colon,htmlparent!(col))}
+                        })
+                    }
+                })
+            }
+        }
+    }
     fn do_row(colon: &mut HTMLColon, table: &mut HTMLNode,colnums:usize,row:AlignBlock,lht:Option<i32>,baseline:i32) {
         match row {
             AlignBlock::Noalign(v) => {
@@ -1311,12 +1359,13 @@ impl HAlign {
                         c.as_html(&ColonMode::V,colon,htmlparent!(bx));
                     }
                 });
-            }, // TODO
+            },
             AlignBlock::Block(v) => {
                 let mut curr = 0;
                 for (mut vs,skip,num) in v {
                     curr += num;
                     htmlnode!(colon,div,None,"rustex-cell",htmlparent!(table),bx => {
+                        //if is_math {bx.style("align-items".into(),"center".into())}
                         let mut clss : Vec<HTMLStr> = vec!();
                         let mut styles : Vec<(HTMLStr,HTMLStr)> = vec!();
                         if skip.base != 0 { bx.style("margin-right".into(),dimtohtml(skip.base)) }
@@ -1401,8 +1450,20 @@ impl HAlign {
                         }
                         for c in clss { bx.classes.push(c)}
                         for (a,b) in styles {bx.style(a,b)}
-                        if baseline>0  {
-                            bx.style("min-height".into(),dimtohtml(baseline));
+                        fn r#do(baseline:i32,vs:Vec<Whatsit>,bx:&mut HTMLNode,colon:&mut HTMLColon) {
+                            let mut min_height = baseline;
+                            for c in vs {
+                                if HAlign::is_strut(&c) {
+                                    if let Whatsit::Simple(SimpleWI::VRule(vr)) = c {
+                                        min_height = vr.height() + vr.depth();
+                                    }
+                                } else {
+                                    c.as_html(&ColonMode::H,colon,htmlparent!(bx))
+                                }
+                            }
+                            if min_height>0  {
+                                bx.style("min-height".into(),dimtohtml(min_height));
+                            }
                         }
                         if let Some(lht) = lht {
                             if lht <= 0 {
@@ -1413,18 +1474,9 @@ impl HAlign {
                                     for c in vs {
                                         c.as_html(&ColonMode::H,colon,htmlparent!(ibx))
                                     }
-
                                 });
-                            } else {
-                                for c in vs {
-                                    c.as_html(&ColonMode::H,colon,htmlparent!(bx))
-                                }
-                            }
-                        } else {
-                            for c in vs {
-                                c.as_html(&ColonMode::H,colon,htmlparent!(bx))
-                            }
-                        }
+                            } else { r#do(baseline,vs,&mut bx,colon) }
+                        } else { r#do(baseline,vs,&mut bx,colon) }
                     });
                 }
             }

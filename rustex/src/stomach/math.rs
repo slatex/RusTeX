@@ -107,14 +107,14 @@ impl WhatsitTrait for MathGroup {
                 match kernel {
                     MathKernel::Group(GroupedMath(ref mut v,_)) if v.len() == 1 => {
                         match v.pop().unwrap() {
-                            Whatsit::Box(TeXBox::V(mut vb)) if vb.tp == VBoxType::Center && self.limits => {
+                            Whatsit::Box(TeXBox::V(mut vb)) if vb.tp == VBoxType::Center && self.limits && !vb.is_mathy() => {
                                 vb.tp = VBoxType::DMCenter;
                                 ret.push(vb.as_whatsit());
                                 return
                             },
-                            o@Whatsit::Simple(SimpleWI::HAlign(_)) if self.limits => {
+                            Whatsit::Simple(SimpleWI::HAlign(ha)) if self.limits && !ha.is_mathy() => {
                                 let bx = VBox {
-                                    children: vec!(o),
+                                    children: vec!(ha.as_whatsit()),
                                     tp: VBoxType::DMCenter,
                                     spread: 0,
                                     _width: None,
