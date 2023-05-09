@@ -10,11 +10,12 @@ use crate::references::SourceFileReference;
 use crate::stomach::boxes::{Alignment, FilLevel, HBox, TeXBox, VBox};
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLSCALE, HTMLStr};
-use crate::stomach::math::MathChar;
+use crate::stomach::math::{GroupedMath, MathChar};
 use crate::stomach::Whatsit;
 use crate::stomach::whatsits::{HasWhatsitIter, WhatsitIter, WhatsitTrait};
 use crate::{htmlliteral, htmlnode, htmlparent, setwidth, Token, withlinescale};
 use crate::fonts::ArcFont;
+use crate::stomach::groups::WIGroupTrait;
 use crate::utils::TeXStr;
 
 #[derive(Clone)]
@@ -643,6 +644,12 @@ impl WhatsitTrait for HSkip {
         match mode {
             ColonMode::H | ColonMode::P =>
                 htmlnode!(colon,div,self.sourceref,"rustex-hskip",node_top,node => {
+                    match self.skip.stretch {
+                        Some(SkipDim::Fil(_) | SkipDim::Fill(_) | SkipDim::Filll(_)) => {
+                            node.style("margin-right".into(),"auto".into())
+                        }
+                        _ => ()
+                    }
                     node.style("margin-left".into(),dimtohtml(self.skip.base));
                 }),
             ColonMode::M =>
@@ -1335,6 +1342,19 @@ impl HAlign {
                 ))
         })
     }
+    fn has_char(v:&Vec<Whatsit>) -> bool {
+        v.iter().any(|c| match c {
+            Whatsit::Char(_) => true,
+            Whatsit::Math(_) => true,
+            Whatsit::Box(TeXBox::M(GroupedMath(vs,_))) => HAlign::has_char(vs),
+            Whatsit::Box(TeXBox::V(vb)) => HAlign::has_char(&vb.children),
+            Whatsit::Box(TeXBox::H(vb)) => HAlign::has_char(&vb.children),
+            Whatsit::Box(TeXBox::DM(GroupedMath(vs,_))) => HAlign::has_char(vs),
+            Whatsit::Grouped(gr) => HAlign::has_char(gr.children()),
+            Whatsit::Simple(_) => false,
+            _ => false // VRule, HRule, HSkip, VSkip, HKern, Vss
+        })
+    }
     fn do_math_row(colon: &mut HTMLColon, table: &mut HTMLNode,row:AlignBlock,lht:Option<i32>,baseline:i32) {
         match row {
             AlignBlock::Noalign(v) => {}
@@ -1379,6 +1399,8 @@ impl HAlign {
                                     startfil.add(FilLevel::Fil);
                                     vs.remove(0);
                                 }
+                                Whatsit::Simple(SimpleWI::VRule(vr)) if vr.height() < 10 && vr.height.is_some() => {vs.remove(0);}
+                                o if HAlign::is_strut(o) => repush.push(vs.remove(0)),
                                 Whatsit::Simple(SimpleWI::HSkip(sk)) => {
                                     match sk.skip.stretch {
                                         Some(SkipDim::Fil(_)) => startfil.add(FilLevel::Fil),
@@ -1387,7 +1409,10 @@ impl HAlign {
                                         _ => ()
                                     }
                                     if sk.skip.base != 0 && sk.skip.base > -32768000 {
-                                        repush.push(vs.remove(0));
+                                        if let Whatsit::Simple(SimpleWI::HSkip(mut sk)) = vs.remove(0) {
+                                            sk.skip.stretch = None;
+                                            repush.push(sk.as_whatsit());
+                                        }
                                     } else {
                                         vs.remove(0);
                                     }
@@ -1410,6 +1435,8 @@ impl HAlign {
                                     endfil.add(FilLevel::Fil);
                                     vs.pop();
                                 }
+                                Whatsit::Simple(SimpleWI::VRule(vr)) if vr.height() < 10 && vr.height.is_some() => {vs.pop();}
+                                o if HAlign::is_strut(o) => repush.push(vs.pop().unwrap()),
                                 Whatsit::Simple(SimpleWI::HSkip(sk)) => {
                                     match sk.skip.stretch {
                                         Some(SkipDim::Fil(_)) => endfil.add(FilLevel::Fil),
@@ -1418,7 +1445,10 @@ impl HAlign {
                                         _ => ()
                                     }
                                     if sk.skip.base != 0 && sk.skip.base > -32768000 {
-                                        repush.push(vs.pop().unwrap());
+                                        if let Whatsit::Simple(SimpleWI::HSkip(mut sk)) = vs.pop().unwrap() {
+                                            sk.skip.stretch = None;
+                                            repush.push(sk.as_whatsit());
+                                        }
                                     } else {
                                         vs.pop();
                                     }
@@ -1451,6 +1481,7 @@ impl HAlign {
                         for c in clss { bx.classes.push(c)}
                         for (a,b) in styles {bx.style(a,b)}
                         fn r#do(baseline:i32,vs:Vec<Whatsit>,bx:&mut HTMLNode,colon:&mut HTMLColon) {
+                            let has_char = HAlign::has_char(&vs);
                             let mut min_height = baseline;
                             for c in vs {
                                 if HAlign::is_strut(&c) {
@@ -1461,8 +1492,10 @@ impl HAlign {
                                     c.as_html(&ColonMode::H,colon,htmlparent!(bx))
                                 }
                             }
-                            if min_height>0  {
+                            if min_height>0 {
                                 bx.style("min-height".into(),dimtohtml(min_height));
+                            } else if !has_char {
+                                bx.style("line-height".into(),"0".into())
                             }
                         }
                         if let Some(lht) = lht {
