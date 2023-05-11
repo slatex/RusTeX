@@ -1306,7 +1306,7 @@ impl WhatsitTrait for HAlign {
                 })
             }),
             ColonMode::M => htmlnode!(colon,mtext,self.get_ref(),"",node_top,mt => {
-                println!("Here: {:?}",self.is_mathy());
+                //println!("Here: {:?}",self.is_mathy());
                 let mut wd = self.width();
                 if wd == 0 {wd = 2048};
                 htmlnode!(colon,HTML_NS:span,None,"rustex-contents rustex-math-escape",htmlparent!(mt),span => {
