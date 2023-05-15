@@ -159,6 +159,8 @@ impl FontTableStore {
                 ("ecss",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
                 ("ecsc",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic,FontTableParam::Capital),
                 ("ec-lmss",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
+                ("ec-qhvr",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif),
+                ("ec-qhvb",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
                 ("ecbi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
                 ("ecbl",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
                 ("ec-lmbxi",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
