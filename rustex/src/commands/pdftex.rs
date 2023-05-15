@@ -1,10 +1,11 @@
-use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList};
+use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList, PrimitiveAssignment};
 use crate::interpreter::{string_to_tokens, TeXMode, tokenize};
 use crate::{Interpreter, pdf_to_img, Token, VERSION_INFO};
 use crate::{log,TeXErr};
 use crate::catcodes::CategoryCode;
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::commands::conditionals::{dotrue,dofalse};
+use crate::commands::primitives::read_font;
 use crate::stomach::groups::{ColorChange, ColorEnd, LinkEnd, PDFLink, PDFMatrixSave, PDFRestore};
 use crate::stomach::simple::{PDFDest, PDFImageRule, PDFInfo, PDFLiteral, PDFMatrix, PDFXForm, PDFXImage, SimpleWI};
 use crate::stomach::whatsits::{ActionSpec, Whatsit, WhatsitTrait};
@@ -893,6 +894,17 @@ pub static PDFELAPSEDTIME: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {TeXErr!("TODO: \\pdfelapsedtime")}
 };
 
+pub static LETTERSPACEFONT: PrimitiveAssignment = PrimitiveAssignment {
+    name:"letterspacefont",
+    _assign: |rf,int,global| {
+        let cmd = int.read_command_token()?;
+        let font = read_font(int)?;
+        let val = int.read_number()?;
+        int.change_command(cmd.cmdname(),Some(PrimitiveTeXCommand::AV(AssignableValue::FontRef(font)).as_command()),global);
+        Ok(())
+    }
+};
+
 /*
   val pdfcreationdate = new PrimitiveCommandProcessor("pdfcreationdate") {}
   val pdfendthread = new PrimitiveCommandProcessor("pdfendthread") {}
@@ -1025,4 +1037,5 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),
     PrimitiveTeXCommand::Primitive(&PDFELAPSEDTIME),
+    PrimitiveTeXCommand::Ass(&LETTERSPACEFONT),
 ]}

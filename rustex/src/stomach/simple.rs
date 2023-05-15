@@ -1066,7 +1066,11 @@ impl WhatsitTrait for HKern {
         //colon.state.add_kern(self.dim);
         if *mode == ColonMode::M {
             htmlnode!(colon,mspace,self.get_ref(),"rustex-kern",node_top,node => {
-                node.style("width".into(),dimtohtml(self.dim));
+                if self.dim < 0 {
+                    node.style("margin-left".into(),dimtohtml(self.dim));
+                } else {
+                    node.style("width".into(),dimtohtml(self.dim));
+                }
             });
         } else {
             htmlnode!(colon,div,self.get_ref(),"rustex-kern",node_top,node => {

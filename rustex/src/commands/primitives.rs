@@ -4149,12 +4149,6 @@ pub static LEFTMARGINKERN: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {TeXErr!("TODO: \\leftmarginkern")}
 };
 
-pub static LETTERSPACEFONT: PrimitiveExecutable = PrimitiveExecutable {
-    name:"letterspacefont",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\letterspacefont")}
-};
-
 pub static QUITVMODE: PrimitiveExecutable = PrimitiveExecutable {
     name:"quitvmode",
     expandable:true,
@@ -4579,7 +4573,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&TOPMARKS),
     PrimitiveTeXCommand::Primitive(&EFCODE),
     PrimitiveTeXCommand::Primitive(&LEFTMARGINKERN),
-    PrimitiveTeXCommand::Primitive(&LETTERSPACEFONT),
     PrimitiveTeXCommand::Primitive(&QUITVMODE),
     PrimitiveTeXCommand::Primitive(&RIGHTMARGINKERN),
     PrimitiveTeXCommand::Primitive(&TAGCODE),
