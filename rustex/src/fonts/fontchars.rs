@@ -53,7 +53,9 @@ impl FontTableStore {
                 ("ptmr7t",PTM,FontTableParam::Text),
                 ("ptmrc7t",PTM,FontTableParam::Text,FontTableParam::Capital),
                 ("ptmri7t",PTM,FontTableParam::Text,FontTableParam::Italic),
+                ("ptmro7t",PTM,FontTableParam::Text,FontTableParam::Italic),
                 ("ptmb7t",PTM,FontTableParam::Text,FontTableParam::Bold),
+                ("ptmbc7t",PTM,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Capital),
                 ("ptmbi7t",PTM,FontTableParam::Text,FontTableParam::Bold,FontTableParam::Italic),
                 ("phvr7t",PTM,FontTableParam::Text,FontTableParam::SansSerif),
                 ("phvb7t",PTM,FontTableParam::Text,FontTableParam::SansSerif,FontTableParam::Bold),
@@ -87,6 +89,7 @@ impl FontTableStore {
                 ("rm-lmtt",STANDARD_TEXT_CM,FontTableParam::Text,FontTableParam::Monospaced),
                 ("cmti",STANDARD_TEXT_CM,FontTableParam::Italic),
                 ("cmsl",STANDARD_TEXT_CM,FontTableParam::Italic),
+                ("cmsltt",STANDARD_TEXT_CM,FontTableParam::Italic,FontTableParam::Monospaced),
                 ("eufm",STANDARD_TEXT_CM,FontTableParam::Fraktur),
                 ("cmbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold),
                 ("cmbxti",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::Italic),
@@ -95,6 +98,7 @@ impl FontTableStore {
                 ("rm-lmcsc",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Capital),
                 ("rm-lmssbx",STANDARD_TEXT_CM,FontTableParam::Math,FontTableParam::Bold,FontTableParam::SansSerif),
                 ("ptmrt",STANDARD_TEXT_EC,FontTableParam::Text),
+                ("ptmrc",PTMRC,FontTableParam::Text),
                 ("phvrc",PHVRC,FontTableParam::Text),
                 ("ptmrct",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Capital),
                 ("ptmrit",STANDARD_TEXT_EC,FontTableParam::Text,FontTableParam::Italic),
@@ -342,6 +346,19 @@ lazy_static! {
         (109,"m"),(110,"n"),(111,"o"),(112,"p"),(113,"q"),(114,"r"),(115,"s"),(116,"t"),(117,"u"),
         (118,"v"),(119,"w"),(120,"x"),(121,"y"),(122,"z"),(123,"-"),(124,"-"),
         (126," ̃"),(127," ̈")
+    ]);
+    pub static ref PTMRC : HashMap<u8,&'static str> = HashMap::from([
+        (0,"`"),(1," ́"),(2,"^"),(3," ̃"),(4," ̈"),(5," ̋"),(6," ̊"),(7,"ˇ"),(8," ̆"),(9," ̄"),(10," ̇"), //  ̃
+        (11," ̧"),(12," ̨"),(13,","),
+        (18,"„"),
+        (36,"$"),
+        (39,"’"),
+        (42,"*"),
+        (44,","),
+        (46,"."),(47,"/"),
+        (61,"-"),
+        (136,"š"),
+        (169,"©")
     ]);
     pub static ref PHVB : HashMap<u8,&'static str> = HashMap::from([
         (13,"\'"),(14,"¡"),(15,"¿"),

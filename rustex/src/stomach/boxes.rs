@@ -1,6 +1,6 @@
 use std::cmp::{max, Ordering};
 use crate::interpreter::dimensions::{dimtostr, SkipDim};
-use crate::{htmlliteral, htmlnode, htmlparent, withlinescale, withwidth};
+use crate::{htmlliteral, htmlnode, htmlparent, linescalebox, withlinescale, withwidth};
 use crate::references::SourceFileReference;
 use crate::stomach::colon::ColonMode;
 use crate::stomach::html::{dimtohtml, HTML_NS, HTMLChild, HTMLColon, HTMLNode, HTMLParent, HTMLStr};
@@ -458,7 +458,7 @@ impl HBox {
         }
         match (self._to,self.spread) {
             (None,0) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
-                        withlinescale!(colon,self.lineheight,node,{
+                        linescalebox!(colon,self.lineheight,node,{
                 if crate::INSERT_RUSTEX_ATTRS {
                     node.attr("rustex:width".into(),dimtohtml(self.width()));
                     node.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -473,7 +473,7 @@ impl HBox {
             }),
             (Some(to),_) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
                 withwidth!(colon,to,node,nnode => {
-                        withlinescale!(colon,self.lineheight,nnode,{
+                        linescalebox!(colon,self.lineheight,nnode,{
                     if crate::INSERT_RUSTEX_ATTRS {
                         nnode.attr("rustex:width".into(),dimtohtml(self.width()));
                         nnode.attr("rustex:height".into(),dimtohtml(self.height()));
@@ -487,7 +487,7 @@ impl HBox {
             }),
             (_,spread) => htmlnode!(colon,div,self.get_ref(),"rustex-hbox",node_top,node => {
                 withwidth!(colon,self.width(),node,nnode => {
-                        withlinescale!(colon,self.lineheight,nnode,{
+                        linescalebox!(colon,self.lineheight,nnode,{
                     if crate::INSERT_RUSTEX_ATTRS {
                         nnode.attr("rustex:width".into(),dimtohtml(self.width()));
                         nnode.attr("rustex:height".into(),dimtohtml(self.height()));

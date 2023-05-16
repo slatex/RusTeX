@@ -88,6 +88,26 @@ macro_rules! withlinescale {
 }
 
 #[macro_export]
+macro_rules! linescalebox {
+    ($colon:ident,$lineheight:expr,$node:expr,$e:expr) => ({
+        if let Some(_lineheight) = $lineheight {
+            let mut _newscale = if ($colon.state.fontsize == 0) {0.0} else {(_lineheight as f32) / ($colon.state.fontsize as f32)};
+            if _newscale != 0.0 {_newscale = 1.0};
+            if _newscale == $colon.state.line_scale { $e } else {
+                let _oldlinescale = $colon.state.line_scale;
+                let _oldlineheight = $colon.state.line_height;
+                $colon.state.line_scale = _newscale;
+                $colon.state.line_height = _lineheight;
+                $node.style("line-height".into(),_newscale.to_string().into());
+                $e;
+                $colon.state.line_scale = _oldlinescale;
+                $colon.state.line_height = _oldlineheight;
+            }
+        } else { $e }
+    })
+}
+
+#[macro_export]
 macro_rules! withwidth {
  ($colon:ident,$wd:expr,$node:expr,$inner:ident => $e:expr) => ({
      if $wd <= 0 {

@@ -1748,6 +1748,10 @@ pub static HBOX: ProvidesBox = ProvidesBox {
             _ => (0 as i32,None)
         };
         int.skip_ws();int.eat_relax();int.skip_ws();
+        let lineheight = match int.state.currfont.get().get_at() {
+            0 => None,
+            i => Some(i)
+        };
         let ret = int.read_whatsit_group(BoxMode::H,true)?;
         /*if ret.is_empty() {Ok(TeXBox::Void)} else*/ {
             Ok(TeXBox::H(HBox {
@@ -1758,11 +1762,7 @@ pub static HBOX: ProvidesBox = ProvidesBox {
                 _depth: None,
                 _to:to,
                 rf : int.update_reference(tk),
-                lineheight:match int.state.currfont.get().get_at() {
-                    0 => None,
-                    i => Some(i)
-                }
-                //lineheight:Some(lineheight(&int.state))
+                lineheight
             }))
         }
     }
