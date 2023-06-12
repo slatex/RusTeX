@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
 use crate::interpreter::dimensions::{dimtostr, Numeric};
 use crate::utils::{TeXError, TeXString,TeXStr};
-use crate::log;
+use crate::{FileEnd, log};
 use crate::commands::ProvidesWhatsit::Exec;
 
 pub struct PrimitiveExecutable {
@@ -698,6 +698,7 @@ impl PrimitiveTeXCommand {
         //if unsafe{crate::LOG} {
             log!("    >>{}",int.preview());
         //}
+
         let mut args : Vec<Vec<Token>> = Vec::with_capacity(d.sig.arity as usize);
         let mut iter = d.sig.elems.iter().peekable();
         loop {
@@ -713,16 +714,19 @@ impl PrimitiveTeXCommand {
                     match iter.peek() {
                         None if d.sig.endswithbrace => {
                             let mut retarg : Vec<Token> = Vec::with_capacity(50);
-                            loop {
-                                //int.assert_has_next()?;
-                                let next = int.next_token();
-                                match next.catcode {
-                                    CategoryCode::BeginGroup => {
-                                        int.requeue(next);
-                                        break
+                            'A: loop {
+                                while int.has_next() {
+                                    //int.assert_has_next()?;
+                                    let next = int.next_token();
+                                    match next.catcode {
+                                        CategoryCode::BeginGroup => {
+                                            int.requeue(next);
+                                            break 'A
+                                        }
+                                        _ => retarg.push(next)
                                     }
-                                    _ => retarg.push(next)
                                 }
+                                FileEnd!()
                             }
                             args.push(retarg)
                         },

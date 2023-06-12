@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::ops::Index;
 use std::sync::Arc;
+use itertools::Itertools;
 use crate::commands::rustex_specials::{AnnotateBegin, HTMLLiteral};
 use crate::commands::{ParamToken, PrimitiveExecutable, PrimitiveTeXCommand, ProvidesWhatsit, SimpleWhatsit, TeXCommand};
 use crate::stomach::whatsits::WhatsitTrait;
-use crate::{interpreter, TeXErr, TeXString, Token};
+use crate::{interpreter, log, TeXErr, TeXString, Token};
 use crate::catcodes::CategoryCode;
 use crate::commands::primitives::RELAX;
 use crate::interpreter::params::CommandListener;
@@ -18,23 +20,37 @@ use crate::stomach::Whatsit::Math;
 use crate::utils::TeXStr;
 
 pub static URL: SimpleWhatsit = SimpleWhatsit {
-    name: "Url",
+    name: "Url@FormatString",
     modes: |_| { true },
     _get: |_, int| {
-        let tks = int.read_balanced_argument(true,false,false,true)?;
-        let mut str : TeXString = "<span class=\"rustex-contents rustex-monospaced\">".into();
-        str += HTMLStr::from(int.tokens_to_string(&tks).to_string()).html_escape().to_string();
-        str += "</span>";
-        let endgroup = Token::new(92,CategoryCode::Escape,Some("endgroup".into()),None,true);
-        int.requeue(endgroup);
-        Ok(HTMLLiteral { str:str.into() }.as_whatsit())
+        log!("Url: {}",int.preview());
+        if let Some(tc) = int.state.commands.get(&("Url@String".into())) {
+            match &*tc.orig {
+                PrimitiveTeXCommand::Def(dm) => {
+                    let mut tks : Vec<Token> = Vec::new();
+                    tks.push(Token::new(92,CategoryCode::BeginGroup,None,None,true));
+                    for t in dm.ret.iter() {
+                        tks.push(t.clone());
+                    }
+                    tks.push(Token::new(92,CategoryCode::EndGroup,None,None,true));
+                    int.push_tokens(tks);
+                    let tks = int.read_balanced_argument(true,false,false,true)?;
+                    let mut str : TeXString = "<span class=\"rustex-contents rustex-monospaced\">".into();
+                    str += HTMLStr::from(int.tokens_to_string(&tks).to_string()).html_escape().to_string();
+                    str += "</span>";
+                    return Ok(HTMLLiteral { str:str.into() }.as_whatsit())
+                }
+                _ => ()
+            }
+        }
+        Ok(HTMLLiteral { str:"".into() }.as_whatsit())
     },
 };
 
 pub struct UrlListener();
 impl CommandListener for UrlListener {
     fn apply(&self, name: &TeXStr, _cmd: &Option<TeXCommand>, file: &TeXStr, _line: &String,_:&mut State) -> Option<Option<TeXCommand>> {
-        if name.to_string() == "Url" && file.to_string().ends_with("url.sty") {
+        if name.to_string() == "Url@FormatString" && file.to_string().ends_with("url.sty") {
             Some(Some(PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&URL)).as_command()))
         } else {
             None
