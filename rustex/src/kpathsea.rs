@@ -50,6 +50,12 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
             split[..split.len()-2].iter().map(|x| x.to_string() + ".").collect::<String>().to_uppercase() + &split[split.len()-2].to_uppercase(),
               split.last().unwrap().to_uppercase())
     };
+    if kpathsea.recdot {
+        match recurse_dot(&file,&ext,indir) {
+            Some((p,b)) => return Some((p,b)),
+            _ => ()
+        }
+    }
     match kpathsea.map.get(&ext) {
         Some(m) => match m.get(&file) {
             Some(f) => Some((f.clone(),true)),
@@ -61,8 +67,31 @@ pub fn kpsewhich(s : &str, indir : &Path) -> Option<(PathBuf,bool)> {
         _ => Some((default,false))
     }
 }
+fn recurse_dot(file : &str, ext:&str, indir : &Path) -> Option<(PathBuf,bool)> {
+    //let mut dirs : Vec<PathBuf> = vec!();
+    for entry in std::fs::read_dir(indir).unwrap() {
+        let p = entry.unwrap().path();
+        if p.is_dir() {
+            match recurse_dot(file,ext,&p) {
+                Some((p,b)) => return Some((p,b)),
+                _ => ()
+            }
+        } else if p.is_file() {
+            let f = p.file_name().unwrap().to_str().unwrap().to_uppercase();
+            if !f.starts_with(file) {return None}
+            if (ext != "" && f == file.to_string() + "." + ext) || (ext == "" && f == file) {
+                return Some((p,true))
+            }
+            if ext == "" && f == file.to_string() + ".TEX" {
+                return Some((p,true))
+            }
+        }
+    }
+    None
+}
 
 struct Kpathsea {
+    recdot: bool,
     pub map : HashMap<String,HashMap<String,PathBuf>>
 }
 impl Kpathsea {
@@ -134,10 +163,16 @@ impl Kpathsea {
         } else {
             std::env::vars().find(|x| x.0 == "HOME").unwrap().1
         };
+        let mut recdot = false;
         let dirs : Vec<String> = filestrs.into_iter().map(|x| Kpathsea::parse_string(x,&vars)).flatten().collect();
         let mut paths : Vec<(PathBuf,bool)> = vec!();
         for mut d in dirs {
-            if !d.starts_with(".") {
+            if d.starts_with(".") {
+                if d == ".//" {
+                    recdot = true
+                }
+            }
+            else {
                 let mut recurse : bool = false;
                 if d.starts_with("~") {
                     d = home.clone() + &d[1..]
@@ -156,7 +191,7 @@ impl Kpathsea {
         }
         let mut map : HashMap<String,HashMap<String,PathBuf>> = HashMap::new();
         for (path,recurse) in paths { Kpathsea::fill_map(&mut map,path,recurse) }
-        Kpathsea { map }
+        Kpathsea { map,recdot }
     }
     fn fill_map(map: &mut HashMap<String,HashMap<String,PathBuf>>, path : PathBuf, recurse: bool) {
         for entry in std::fs::read_dir(path).unwrap() {
