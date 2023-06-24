@@ -309,7 +309,7 @@ impl std::ops::Div for Numeric {
             (Dim(i),BigInt(j)) => Dim(round_f((i as f64)/(j as f64))),
             (BigDim(i),BigInt(j)) => Dim(round_f((i as f64)/(j as f64))),
             (Skip(sk),Int(i)) => Skip(sk / i),
-            _ => {}
+            _ => todo!("{}*{}",self,rhs)
         }
     }
 }
