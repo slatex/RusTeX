@@ -8,8 +8,9 @@ use std::sync::Arc;
 use std::vec::IntoIter;
 use crate::ontology::{Comment, Expansion, LaTeXFile, Token, LaTeXObject, EMPTY_NAME, trivial_name};
 use crate::catcodes::{CategoryCode, CategoryCodeScheme};
-use crate::commands::primitives::RELAX;
-use crate::commands::PrimitiveTeXCommand;
+use crate::commands::primitives::{CR, CRCR, ENDROW, ENDTEMPLATE, RELAX};
+use crate::commands::{PrimitiveTeXCommand, TokenList};
+use crate::commands::registers::EVERYCR;
 use crate::references::{SourceFileReference, SourceReference};
 use crate::utils::{TeXStr, TeXString};
 
@@ -539,7 +540,7 @@ impl StringMouth {
 
 use crate::interpreter::files::VFile;
 use crate::interpreter::params::InterpreterParams;
-use crate::STORE_IN_FILE;
+use crate::{log, STORE_IN_FILE};
 
 pub (in crate) struct Mouths {
     pub mouths: Vec<Mouth>,
@@ -776,13 +777,49 @@ impl Interpreter<'_> {
         self.mouths.push_tokens(tks)
     }
     pub fn next_token(&mut self) -> Token {
-        let ret = self.mouths.next_token(self.state.catcodes.get_scheme(),self.params);
-        match ret {
-            Ok(t) => t,
+        match self.mouths.next_token(self.state.catcodes.get_scheme(),self.params) {
             Err(_) => {
                 self.doeof();
                 self.next_token()
             }
+            Ok(t) => t
+        }
+    }
+    pub fn next_token_halign(&mut self) -> Token {
+        match self.mouths.next_token(self.state.catcodes.get_scheme(),self.params) {
+            Err(_) => {
+                self.doeof();
+                self.next_token()
+            }
+            Ok(t) if self.state.aligns.last().is_some() && self.state.aligns.last().unwrap().is_some() => match &t.catcode {
+                CategoryCode::AlignmentTab => {
+                    self.skip_ws();
+                    let mut v = self.state.borrow_mut().aligns.pop().unwrap().unwrap();
+                    self.state.borrow_mut().aligns.push(None);
+                    v.push(ENDTEMPLATE.try_with(|x| x.clone()).unwrap());
+                    log!("Pushing template {}",TokenList(&v));
+                    self.push_tokens(v);
+                    self.next_token()
+                }
+                CategoryCode::Active | CategoryCode::Escape => {
+                    match self.state.commands.get(&t.cmdname()) {
+                        Some(cmd) => {
+                            match &*cmd.orig {
+                                PrimitiveTeXCommand::Primitive(c) if **c == CR || **c == CRCR => {
+                                    let mut exp = Expansion::new(t,cmd.orig.clone());
+                                    (CR._apply)(&mut exp,self);
+                                    self.push_expansion(exp);
+                                    self.next_token()
+                                }
+                                _ => t
+                            }
+                        }
+                        _ => t
+                    }
+                }
+                _ => t
+            }
+            Ok(t) => t
         }
     }
     pub fn requeue(&mut self,token:Token) {

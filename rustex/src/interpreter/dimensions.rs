@@ -200,6 +200,7 @@ impl Add<MuSkip> for MuSkip {
 pub enum Numeric {
     Int(i32),
     Dim(i32),
+    BigDim(i64),
     Float(f64),
     Skip(Skip),
     BigInt(i64),
@@ -212,6 +213,7 @@ impl Numeric {
             BigInt(i) => BigInt(-i),
             Int(i) => Int(-i),
             Dim(i) => Dim(-i),
+            BigDim(i) => BigDim(-i),
             Float(f) => Float(-f),
             Skip(sk) => Skip(sk.negate()),
             MuSkip(sk) => MuSkip(sk.negate())
@@ -256,6 +258,7 @@ impl Numeric {
             BigInt(i) => i.to_string(),
             Int(i) => i.to_string(),
             Dim(i) => dimtostr(*i),
+            BigDim(i) => dimtostr(*i as i32),
             Float(f) => f.to_string(),
             Skip(sk) => sk.to_string(),
             MuSkip(ms) => ms.to_string()
@@ -267,6 +270,7 @@ impl Numeric {
             BigInt(i) => Int(*i as i32),
             Int(_) => self.clone(),
             Dim(i) => Int(*i),
+            BigDim(i) => Int(*i as i32),
             Float(f) => Int(round_f(*f)),
             Skip(sk) => Int(sk.base),
             MuSkip(ms) => Int(ms.base)
@@ -278,6 +282,7 @@ impl Numeric {
             BigInt(i) => *i as i32,
             Int(i) => *i,
             Dim(i) => *i,
+            BigDim(i) => *i as i32,
             Float(f) => round_f(*f),
             Skip(sk) => sk.base,
             MuSkip(ms) => ms.base
@@ -302,7 +307,9 @@ impl std::ops::Div for Numeric {
             (Dim(i),Skip(f)) => Dim(round_f((i as f64)/(f.base as f64 / 65536.0))),
             (Dim(i),Int(j)) => Dim(round_f((i as f64)/(j as f64))),
             (Dim(i),BigInt(j)) => Dim(round_f((i as f64)/(j as f64))),
-            _ => todo!("{}/{}",self,rhs)
+            (BigDim(i),BigInt(j)) => Dim(round_f((i as f64)/(j as f64))),
+            (Skip(sk),Int(i)) => Skip(sk / i),
+            _ => {}
         }
     }
 }
@@ -321,7 +328,7 @@ impl std::ops::Mul for Numeric {
             (Dim(i),Dim(f)) => Dim(round_f((i as f64) * (f as f64 / 65536.0))),
             (Dim(i),Skip(f)) => Dim(round_f((i as f64) * (f.base as f64 / 65536.0))),
             (Dim(i),Int(f)) => Dim(i * f),
-            (Dim(i),BigInt(f)) => Dim(i * (f as i32)),
+            (Dim(i),BigInt(f)) => BigDim((i as i64) * f),
             (Dim(i),Float(f)) => Dim(round_f((i as f64) * f)),
             (Skip(s),Int(j)) => Skip(s * j),
             _ => todo!("{}*{}",self,rhs)
@@ -336,6 +343,8 @@ impl std::ops::Add for Numeric {
             (Int(i),BigInt(j)) => BigInt((i as i64)+j),
             (BigInt(i),Int(j)) => BigInt((j as i64)+i),
             (BigInt(i),BigInt(j)) => BigInt(i+j),
+            (Dim(i),BigDim(j)) => BigDim((i as i64) + j),
+            (BigDim(i),Dim(j)) => BigDim((j as i64) + i),
             (Int(i),Int(j)) => Int(i+j),
             (Dim(i),Int(j)) => Int(i+j),
             (Dim(i),BigInt(j)) => BigInt((i as i64)+j),
@@ -364,6 +373,7 @@ impl std::ops::Sub for Numeric {
             (BigInt(i),Dim(j)) => BigInt(i-(j as i64)),
             (Int(i),Int(j)) => Int(i-j),
             (Dim(i),Int(j)) => Int(i-j),
+            (Dim(i),BigDim(j)) => Dim(((i as i64) - j ) as i32),
             (Dim(i),BigInt(j)) => BigInt((i as i64)-j),
             (Dim(i),Dim(j)) => Dim(i - j),
             (Skip(s),Skip(t)) => Skip(crate::interpreter::dimensions::Skip {

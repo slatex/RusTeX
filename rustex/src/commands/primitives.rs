@@ -1156,6 +1156,7 @@ pub static ETEXVERSION : NumericCommand = NumericCommand {
 fn expr_loop(int: &mut Interpreter,getnum : fn(&mut Interpreter) -> Result<Numeric,TeXError>) -> Result<Numeric,TeXError> {
     match expr_loop_main(int,getnum)? {
         Numeric::BigInt(i) => Ok(Numeric::Int(i as i32)),
+        Numeric::Dim(i) => Ok(Numeric::BigDim(i as i64)),
         o => Ok(o)
     }
 }
@@ -2646,6 +2647,7 @@ pub static CR: PrimitiveExecutable = PrimitiveExecutable {
                     Ok(_) => (),
                     _ => TeXErr!(tk.0.clone() => "Error inserting \\endrow")
                 };
+                log!("Pushing CR template {}",TokenList(&ret));
                 tk.2 = ret;
                 Ok(())
             }
@@ -2700,6 +2702,7 @@ pub static CRCR: PrimitiveExecutable = PrimitiveExecutable {
                 int.insert_every(&EVERYCR);
                 int.requeue(ENDROW.try_with(|x| x.clone()).unwrap());
                 tk.2 = v;
+                log!("Pushing CRCR template {}",TokenList(&tk.2));
                 Ok(())
             }
             _ => Ok(())
@@ -2912,17 +2915,20 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 let next = int.next_token();
                 match next.catcode {
                     CategoryCode::Escape if next.char == endtemplate.char && next == endtemplate => {
+                        log!("Breaking cell");
                         break 'cell
                     }
                     CategoryCode::Escape if next.char == endtemplatespan.char && next == endtemplatespan => {
                         cells += 1;
                         inspan = true;
+                        log!("Breaking span cell");
                         break 'cell
                     }
                     CategoryCode::Escape if next.char == endrow.char && next == endrow => {
                         let ret = int.get_whatsit_group(GroupType::Box(tabmode))?;
                         row.push((ret,columns.get(columnindex).unwrap().2,cells));
                         int.state.mode = _oldmode;
+                        log!("Breaking row");
                         break 'row
                     }
                     _ => int.do_top(next,true)?

@@ -717,7 +717,7 @@ impl PrimitiveTeXCommand {
                             'A: loop {
                                 while int.has_next() {
                                     //int.assert_has_next()?;
-                                    let next = int.next_token();
+                                    let next = int.next_token_halign();
                                     match next.catcode {
                                         CategoryCode::BeginGroup => {
                                             int.requeue(next);
@@ -751,7 +751,7 @@ impl PrimitiveTeXCommand {
                             let mut groups = 0;
                             let mut totalgroups = 0;
                             while int.has_next() {
-                                let next = int.next_token();
+                                let next = int.next_token_halign();
                                 match next.catcode {
                                     CategoryCode::BeginGroup if groups == 0 => {
                                         groups += 1;
