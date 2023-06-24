@@ -16,6 +16,7 @@ use crate::utils::{TeXStr, TeXString};
 
 pub enum Mouth {
     Token(TokenMouth),
+    Preamble(PreambleTokenMouth),
     Str(StringMouth),
     File(StringMouth),
     FileLike(StringMouth)
@@ -24,6 +25,7 @@ pub enum Mouth {
 impl Mouth {
     pub(crate) fn preview(&self) -> TeXString {
         match self {
+            Mouth::Preamble(tm) => tm.preview(),
             Mouth::Token(tm) => tm.preview(),
             Mouth::Str(tm) => tm.preview(),
             Mouth::File(tm) => tm.preview(),
@@ -32,6 +34,7 @@ impl Mouth {
     }
     pub(crate) fn has_next(&mut self,catcodes:&CategoryCodeScheme, nocomment : bool) -> bool {
         match self {
+            Mouth::Preamble(tm) => tm.has_next(nocomment),
             Mouth::Token(tm) => tm.has_next(nocomment),
             Mouth::Str(sm) => sm.has_next(catcodes,nocomment,false),
             Mouth::File(sm) => sm.has_next(catcodes,nocomment,false),
@@ -40,6 +43,7 @@ impl Mouth {
     }
     pub(crate) fn get_next(&mut self,catcodes:&CategoryCodeScheme) -> Token {
         match self {
+            Mouth::Preamble(tm) => tm.pop_next(false),
             Mouth::Token(tm) => tm.pop_next(true),
             Mouth::Str(sm) => sm.pop_next(catcodes,true),
             Mouth::File(sm) => sm.pop_next(catcodes,true),
@@ -51,6 +55,38 @@ impl Mouth {
 pub struct TokenMouth {
     iter: IntoIter<Token>,
     peek:Option<Token>
+}
+pub struct PreambleTokenMouth {
+    iter: IntoIter<Token>,
+    peek:Option<Token>
+}
+impl PreambleTokenMouth {
+    fn new(tokens:Vec<Token>) -> PreambleTokenMouth {
+        let tm = PreambleTokenMouth { iter:tokens.into_iter(),peek:None };
+        tm
+    }
+    fn has_next(&mut self, _nocomment: bool) -> bool {
+        match self.peek {
+            Some(_) => true,
+            _ => match self.iter.next() {
+                None => false,
+                s => {
+                    self.peek = s;
+                    true
+                }
+            }
+        }
+    }
+    fn pop_next(&mut self, _nocomment: bool) -> Token {
+        match std::mem::take(&mut self.peek) {
+            Some(tk) => tk,
+            None => unsafe { self.iter.next().unwrap_unchecked() }
+        }
+    }
+    fn preview(&self) -> TeXString {
+        let tks : Vec<Token> = self.iter.clone().collect();
+        crate::interpreter::tokens_to_string_default(&tks)
+    }
 }
 impl TokenMouth {
     fn new(tokens:Vec<Token>) -> TokenMouth {
@@ -623,6 +659,16 @@ impl Mouths {
             self.mouths.push(nm)
         }
     }
+    pub(in crate::interpreter) fn push_tokens_halign(&mut self, mut tks : Vec<Token>) {
+        if !tks.is_empty() {
+            match self.buffer.take() {
+                Some(t) => tks.push(t),
+                _ => ()
+            }
+            let nm = Mouth::Preamble(PreambleTokenMouth::new(tks));
+            self.mouths.push(nm)
+        }
+    }
     pub(in crate::interpreter::mouth) fn push_file(&mut self,file:&Arc<VFile>) {
         match self.buffer.take() {
             Some(t) => self.mouths.push(Mouth::Token(TokenMouth::new(vec!(t)))),
@@ -776,6 +822,9 @@ impl Interpreter<'_> {
     pub fn push_tokens(&mut self,tks:Vec<Token>) {
         self.mouths.push_tokens(tks)
     }
+    pub fn push_tokens_halign(&mut self,tks:Vec<Token>) {
+        self.mouths.push_tokens_halign(tks)
+    }
     pub fn next_token(&mut self) -> Token {
         match self.mouths.next_token(self.state.catcodes.get_scheme(),self.params) {
             Err(_) => {
@@ -784,6 +833,12 @@ impl Interpreter<'_> {
             }
             Ok(t) => t
         }
+    }
+    pub fn in_halign(&self) -> bool {
+        self.mouths.mouths.iter().any(|m| match m {
+            Mouth::Preamble(_) => true,
+            _ => false
+        })
     }
     pub fn next_token_halign(&mut self) -> Token {
         match self.mouths.next_token(self.state.catcodes.get_scheme(),self.params) {

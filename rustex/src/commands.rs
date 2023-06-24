@@ -698,7 +698,7 @@ impl PrimitiveTeXCommand {
         //if unsafe{crate::LOG} {
             log!("    >>{}",int.preview());
         //}
-
+        let in_halign = int.in_halign();
         let mut args : Vec<Vec<Token>> = Vec::with_capacity(d.sig.arity as usize);
         let mut iter = d.sig.elems.iter().peekable();
         loop {
@@ -717,7 +717,7 @@ impl PrimitiveTeXCommand {
                             'A: loop {
                                 while int.has_next() {
                                     //int.assert_has_next()?;
-                                    let next = int.next_token_halign();
+                                    let next = if in_halign {int.next_token_halign()} else {int.next_token()};
                                     match next.catcode {
                                         CategoryCode::BeginGroup => {
                                             int.requeue(next);
@@ -751,7 +751,7 @@ impl PrimitiveTeXCommand {
                             let mut groups = 0;
                             let mut totalgroups = 0;
                             while int.has_next() {
-                                let next = int.next_token_halign();
+                                let next = if in_halign {int.next_token_halign()} else {int.next_token()};
                                 match next.catcode {
                                     CategoryCode::BeginGroup if groups == 0 => {
                                         groups += 1;

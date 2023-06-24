@@ -2899,7 +2899,7 @@ fn do_align(int:&mut Interpreter,tabmode:BoxMode,betweenmode:BoxMode) -> Result<
                 }
             }
             if doheader {
-                int.push_tokens(columns.get(columnindex).unwrap().0.clone())
+                int.push_tokens_halign(columns.get(columnindex).unwrap().0.clone())
             }
             if inspan { inspan = false }
             else {
