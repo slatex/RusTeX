@@ -79,16 +79,24 @@ object RusTeXBridge {
     val actualpath = path + "/" + library_filename()
     val file = new File(actualpath)
     onlineCheck(file,"slatex/RusTeX"){
-      download("https://github.com/slatex/RusTeX/releases/download/latest/" + library_filename(), actualpath)
+      download("https://github.com/slatex/RusTeX/releases/download/latest/" + (ostype match {
+        case MacArm => "librustex_java_aarch64.dylib"
+        case _ => library_filename()
+      }), actualpath)
+      ostype match {
+        case MacArm =>
+          new File(path + "/librustex_java_aarch64.dylib").renameTo(file)
+        case _ =>
+      }
     }
     System.load(actualpath)
     val pdffile = new File(path + "/" + library_filename("pdfium"))
     onlineCheck(pdffile,"bblanchon/pdfium-binaries"){
-      val tgzname = {
-        val syspath = System.getProperty("os.name").toUpperCase()
-        "pdfium-" + (if (syspath.startsWith("WINDOWS")) "win"
-        else if (syspath.startsWith("MAC")) "mac"
-        else "linux") + "-x64.tgz"
+      val tgzname = ostype match {
+        case Windows => "pdfium-windows-x64.tgz"
+        case Mac86 => "pdfium-mac-x64.tgz"
+        case MacArm => "pdfium-mac-arm64.tgz"
+        case _ => "pdfium-linux-x64.tgz"
       }
       val tgzpath = path + "/" + tgzname
       download("https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F5145/" + tgzname, tgzpath)
@@ -122,12 +130,27 @@ object RusTeXBridge {
     }
     main_bridge = Some(b)
   }
+  private sealed trait OSType
+  private case object Windows extends OSType
+  private sealed trait Mac extends OSType
+  private case object Mac86 extends Mac
+  private case object MacArm extends Mac
+  private case object Linux extends OSType
 
-  private def library_filename(libname: String = "rustex_java") = {
+  private lazy val ostype = {
     val syspath = System.getProperty("os.name").toUpperCase()
-    if (syspath.startsWith("WINDOWS")) libname + ".dll"
-    else if (syspath.startsWith("MAC")) "lib" + libname + ".dylib"
-    else "lib" + libname + ".so"
+    if (syspath.startsWith("WINDOWS")) Windows
+    else if (syspath.startsWith("MAC")) {
+      if (System.getProperty("os.arch").toUpperCase().contains("AARCH")) MacArm
+      else Mac86
+    }
+    else Linux
+  }
+
+  private def library_filename(libname: String = "rustex_java") = ostype match {
+    case Windows => libname + ".dll"
+    case _:Mac => "lib" + libname + ".dylib"
+    case _ => "lib" + libname + ".so"
   }
 
   private def downloadString(uri:String): Option[String] = {
