@@ -126,7 +126,9 @@ object RusTeXBridge {
   private def library_filename(libname: String = "rustex_java") = {
     val syspath = System.getProperty("os.name").toUpperCase()
     if (syspath.startsWith("WINDOWS")) libname + ".dll"
-    else if (syspath.startsWith("MAC")) "lib" + libname + ".dylib"
+    else if (syspath.startsWith("MAC")) {
+      "lib" + libname + ".dylib"
+    }
     else "lib" + libname + ".so"
   }
 
