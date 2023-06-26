@@ -2,9 +2,9 @@ name: Test and Deploy
 
 on:
   push:
-    branches: [ master,yamltest ]
+    branches: [ master ]
   pull_request:
-    branches: [ master,yamltest ]
+    branches: [ master ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -73,43 +73,54 @@ jobs:
       with:
         name: bridge_windows
         path: ./rustexbridge/target/x86_64-pc-windows-msvc/release/rustex_java.dll
-  deploy_mac:
+  deploy_mac_x86:
     runs-on: macos-latest
     environment: production
     steps:
     - uses: actions/checkout@v3
     - name: rustups
-      run: rustup target add x86_64-apple-darwin && rustup target add aarch64-apple-darwin && rustup toolchain install stable-x86_64-apple-darwin && rustup toolchain install stable-aarch64-apple-darwin
+      run: rustup target add x86_64-apple-darwin && rustup toolchain install stable-x86_64-apple-darwin
     - name: Build
-      run: cd rustex && cargo build --release --target x86_64-apple-darwin && cargo build --release --target aarch64-apple-darwin
+      run: cd rustex && cargo build --release --target x86_64-apple-darwin
     - name: Build Java bridge
-      run: cd rustexbridge && cargo build --release --target x86_64-apple-darwin && cargo build --release --target aarch64-apple-darwin
-    - name: Upload Mac x86_64
+      run: cd rustexbridge && cargo build --release --target x86_64-apple-darwin
+    - name: Upload Mac
       uses: actions/upload-artifact@v3
       with:
-        name: mac-x86
+        name: mac_x86
         path: |
           ./rustex/target/x86_64-apple-darwin/release/librustex.rlib
           ./rustex/target/x86_64-apple-darwin/release/librustex.dylib
           ./rustex/target/x86_64-apple-darwin/release/rustex
     - uses: actions/upload-artifact@v3
       with:
-        name: bridge_mac-x86
+        name: bridge_mac_x86
         path: ./rustexbridge/target/x86_64-apple-darwin/release/librustex_java.dylib
-    - name: Upload Mac aarch64
-      uses: actions/upload-artifact@v3
-      with:
-        name: mac-aarch64
-        path: |
-          ./rustex/target/aarch64-apple-darwin/release/librustex.rlib
-          ./rustex/target/aarch64-apple-darwin/release/librustex.dylib
-          ./rustex/target/aarch64-apple-darwin/release/rustex
-    - uses: actions/upload-artifact@v3
-      with:
-        name: bridge_mac-aaarch64
-        path: ./rustexbridge/target/aarch64-apple-darwin/release/librustex_java.dylib
+  deploy_mac_aarch64:
+    runs-on: macos-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v3
+      - name: rustups
+        run: rustup target add aarch64-apple-darwin && rustup toolchain install stable-aarch64-apple-darwin
+      - name: Build
+        run: cd rustex && cargo build --release --target aarch64-apple-darwin
+      - name: Build Java bridge
+        run: cd rustexbridge && cargo build --release --target aarch64-apple-darwin
+      - name: Upload Mac
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac_aarch64
+          path: |
+            ./rustex/target/aarch64-apple-darwin/release/librustex.rlib
+            ./rustex/target/aarch64-apple-darwin/release/librustex.dylib
+            ./rustex/target/aarch64-apple-darwin/release/rustex
+      - uses: actions/upload-artifact@v3
+        with:
+          name: bridge_mac_aarch64
+          path: ./rustexbridge/target/aarch64-apple-darwin/release/librustex_java.dylib
   release:
-    needs: [deploy_linux,deploy_windows,deploy_mac]
+    needs: [deploy_linux,deploy_windows,deploy_mac_x86,deploy_mac_aarch64]
     runs-on: ubuntu-20.04
     environment: production
     steps:
@@ -124,12 +135,16 @@ jobs:
           path: ./
       - uses: actions/download-artifact@v2
         with:
-          name: bridge_mac-x86
+          name: bridge_mac_x86
           path: ./
+      - name: Rename file
+        run: mv ./librustex_java.dylib ./librustex_java_x86.dylib
       - uses: actions/download-artifact@v2
         with:
-          name: bridge_mac-aarch64
+          name: bridge_mac_aarch64
           path: ./
+      - name: Rename file
+        run: mv ./librustex_java.dylib ./librustex_java_aarch64.dylib
       - uses: actions/download-artifact@v2
         with:
           name: linux
@@ -140,12 +155,12 @@ jobs:
           path: ./windows
       - uses: actions/download-artifact@v2
         with:
-          name: mac-x86
-          path: ./mac-x86
+          name: mac_x86
+          path: ./mac_x86
       - uses: actions/download-artifact@v2
         with:
-          name: mac-aarch64
-          path: ./mac-aarch64
+          name: mac_aarch64
+          path: ./mac_aaarch64
       - uses: vimtor/action-zip@v1
         with:
           files: linux/
@@ -156,12 +171,12 @@ jobs:
           dest: windows.zip
       - uses: vimtor/action-zip@v1
         with:
-          files: mac-x86/
-          dest: mac-86.zip
+          files: mac_x86/
+          dest: mac_x86.zip
       - uses: vimtor/action-zip@v1
         with:
-          files: mac-aarch64/
-          dest: mac-aarch64.zip
+          files: mac_aarch64/
+          dest: mac_aarch64.zip
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -171,8 +186,8 @@ jobs:
           files: |
             ./linux.zip
             ./windows.zip
-            ./mac-x86.zip
-            ./mac-aarch64.zip
+            ./mac_x86.zip
+            ./mac_aarch64.zip
             ./librustex_java.so
             ./rustex_java.dll
             ./librustex_java.dylib
