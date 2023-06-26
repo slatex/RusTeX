@@ -135,16 +135,14 @@ jobs:
           path: ./
       - uses: actions/download-artifact@v2
         with:
-          name: bridge_mac_x86
-          path: ./
-      - name: Rename file
-        run: mv ./librustex_java.dylib ./librustex_java_x86.dylib
-      - uses: actions/download-artifact@v2
-        with:
           name: bridge_mac_aarch64
           path: ./
       - name: Rename file
         run: mv ./librustex_java.dylib ./librustex_java_aarch64.dylib
+      - uses: actions/download-artifact@v2
+        with:
+          name: bridge_mac_x86
+          path: ./
       - uses: actions/download-artifact@v2
         with:
           name: linux
@@ -191,3 +189,4 @@ jobs:
             ./librustex_java.so
             ./rustex_java.dll
             ./librustex_java.dylib
+            ./librustex_java_aarch64.dylib
