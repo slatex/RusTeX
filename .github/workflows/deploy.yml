@@ -2,9 +2,9 @@ name: Test and Deploy
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, yamltest ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, yamltest ]
 
 env:
   CARGO_TERM_COLOR: always
