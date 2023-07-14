@@ -34,7 +34,7 @@ md5 = "0.7.0"
 image = "0.24.5"
 base64 =  "0.21.0"
 clap = { version = "4.1.4", features = ["derive"] }
-pdfium-render = "0.8.1" #, features = ["static"] }
+pdfium-render = "0.8.6" #, features = ["static"] }
 ahash = "0.8.3"
 # serde = { version = "1.0.152", features = ["derive"] }
 #lru = "0.9.0"

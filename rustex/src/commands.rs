@@ -461,6 +461,10 @@ impl PrimitiveTeXCommand {
                     let s : TeXString = "superscript character ".into();
                     s + c.char.into()
                 }
+                CategoryCode::Parameter => {
+                    let s : TeXString = "macro parameter character ".into();
+                    s + c.char.into()
+                },
                 _ => todo!("{}",self)
             }
             Def(d) => {

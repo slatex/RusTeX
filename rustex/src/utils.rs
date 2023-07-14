@@ -11,13 +11,6 @@ use std::thread::JoinHandle;
 //pub fn u8toi16(i : u8) -> i16 { i16::from(i) }
 
 #[derive(Clone)]
-pub enum RusTeXStr {
-    U8(Vec<u8>),
-    Str(&'static str),
-    String(String)
-}
-
-#[derive(Clone)]
 pub struct TeXStr(Arc<Vec<u8>>);
 impl PartialEq for TeXStr {
     fn eq(&self, other: &Self) -> bool {
@@ -258,103 +251,11 @@ pub fn with_stack_size<A : 'static,B : 'static>(f : B) -> A  where B: FnOnce() -
     child.join().unwrap()
 }
 
-// -------------------------------------------------------------------------------------------------
-/*
-use kpathsea::Kpaths;
-thread_local! {
-    pub static kpaths : Option<Kpaths> = kpathsea::Kpaths::new();
-}
-
- */
 
 lazy_static! {
-    //pub static ref kpaths : Kpaths = kpathsea::Kpaths::new().unwrap();
     pub static ref PWD : PathBuf = std::env::current_dir().expect("No current directory!")
         .as_path().to_path_buf();
-    /*pub static ref TEXMF1 : PathBuf = kpsewhich("article.sty",&PWD).expect("article.sty not found")
-        .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();//.up().up().up().up();
-    pub static ref TEXMF2 : PathBuf = kpsewhich("pdftexconfig.tex",&PWD).expect("pdftexconfig.tex not found")
-        .as_path().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();
-     */
-    /*
-    kpsewhich("article.sty").getOrElse(
-    error("article.sty not found - do you have LaTeX installed?", None)
-  ).up.up.up.up :: kpsewhich("pdftexconfig.tex").getOrElse{???}.up.up.up.up :: Nil
-     */
 }
-/*
-pub fn kpsewhich(s : &str, indir : &Path) -> Option<PathBuf> {
-    //use std::process::Command;
-    //use std::{str,env};
-    use std::env;
-    if s.starts_with("nul:") && cfg!(target_os = "windows") {
-        Some(PathBuf::from(s))
-    } else if s.starts_with("nul:") {
-        Some(indir.to_path_buf().join(s))
-    } else if s.is_empty() {
-        None
-    } else {
-        env::set_current_dir(indir).expect("Could not switch to directory");
-        let ret = match kpaths.try_with(|x| match x {
-            Some(k) => k.find_file(s),
-            None => {
-                let rs : Vec<u8> = std::process::Command::new("kpsewhich")
-                    .arg(s).output().expect("kpsewhich not found!")
-                    .stdout;
-                match std::str::from_utf8(rs.as_slice()) {
-                    Ok(v) => Some(v.to_string()),
-                    Err(_) => panic!("utils.rs 34")
-                }
-            }
-        }).unwrap() {
-            Some(v) =>
-                PathBuf::from(v.trim_end()).canonicalize().unwrap_or_else(|_| indir.to_path_buf().join(s)),
-            None => indir.to_path_buf().join(s)
-        };
-        Some(ret)
-    }
-}
-
- */
-
-// -------------------------------------------------------------------------------------------------
-/*
-pub fn with_encoded_pointer<'a,S,T>(obj:&'a T,f: fn(i:i64) -> S) -> S {
-    let i = encode_pointer(obj);
-    f(i)
-}
-
-pub fn with_encoded_pointer_mut<'a,S,T>(obj:&'a mut T,f: fn(i:i64) -> S) -> S {
-    let i = encode_pointer_mut(obj);
-    f(i)
-}
-
-pub fn encode_pointer<'a,T>(obj:&'a T) -> i64 {
-    let bx = Box::new(obj);
-    unsafe { std::mem::transmute::<Box<&T>,*mut u8>(bx) as i64 }
-}
-
-pub fn decode_pointer<'a,T>(i:i64) -> &'a T {
-    unsafe {
-        let bx: Box<&T> = std::mem::transmute(i as *mut u8);
-        *bx
-    }
-}
-
-pub fn encode_pointer_mut<'a,T>(obj:&'a mut T) -> i64 {
-    let bx = Box::new(obj);
-    unsafe { std::mem::transmute::<Box<&mut T>,*mut u8>(bx) as i64 }
-}
-pub fn decode_pointer_mut<'a,T>(i:i64) -> &'a mut T {
-    unsafe {
-        let bx: Box<&mut T> = std::mem::transmute(i as *mut u8);
-        *bx
-    }
-}
-
- */
-
-// -------------------------------------------------------------------------------------------------
 
 use backtrace::Backtrace;
 
@@ -402,7 +303,7 @@ impl TeXError {
             }
         }
     }
-    pub fn print(&mut self) {
+    pub fn priant(&mut self) {
         self.backtrace.resolve();
         //println!("{}",self)
     }
