@@ -464,7 +464,7 @@ impl PrimitiveTeXCommand {
                 CategoryCode::Parameter => {
                     let s : TeXString = "macro parameter character ".into();
                     s + c.char.into()
-                },
+                }
                 _ => todo!("{}",self)
             }
             Def(d) => {
@@ -688,7 +688,7 @@ impl PrimitiveTeXCommand {
         }
     }
     fn do_def(&self, tk:Token, int:&mut Interpreter, d:&DefMacro,cmd:Arc<TeXCommand>) -> Result<Expansion,TeXError> {
-        /*if tk.cmdname().to_string() == "vC"
+        /*if tk.cmdname().to_string() == "@kernel@make@file@csname"
             {
             println!("Here! {} {}",int.current_line(),int.preview());
             for p in crate::utils::tex_stacktrace(int,Some(tk.clone())) {

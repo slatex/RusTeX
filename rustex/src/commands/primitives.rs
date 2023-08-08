@@ -857,6 +857,7 @@ pub static READ: PrimitiveAssignment = PrimitiveAssignment {
         }
         let newcmd = int.read_command_token()?;
         let toks = int.state.file_read(index,true)?;
+
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,
@@ -885,6 +886,7 @@ pub static READLINE: PrimitiveAssignment = PrimitiveAssignment {
             unsafe { crate::LOG = true }
         }*/
         let toks = int.state.file_read_line(index)?;
+
         let cmd = PrimitiveTeXCommand::Def(DefMacro {
             protected: false,
             long: false,

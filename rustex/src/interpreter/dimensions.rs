@@ -330,6 +330,11 @@ impl std::ops::Mul for Numeric {
             (Dim(i),Int(f)) => Dim(i * f),
             (Dim(i),BigInt(f)) => BigDim((i as i64) * f),
             (Dim(i),Float(f)) => Dim(round_f((i as f64) * f)),
+            (BigDim(i),Dim(f)) => Dim(round_f((i as f64) * (f as f64 / 65536.0))),
+            (BigDim(i),Skip(f)) => Dim(round_f((i as f64) * (f.base as f64 / 65536.0))),
+            (BigDim(i),Int(f)) => BigDim((i * (f as i64))),
+            (BigDim(i),BigInt(f)) => BigDim(i * f),
+            (BigDim(i),Float(f)) => Dim(round_f((i as f64) * f)),
             (Skip(s),Int(j)) => Skip(s * j),
             _ => todo!("{}*{}",self,rhs)
         }
