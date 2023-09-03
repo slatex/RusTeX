@@ -731,7 +731,7 @@ pub static PDFCREATIONDATE: PrimitiveExecutable = PrimitiveExecutable {
     expandable:true,
     _apply:|rf,int| {
         let dt = int.jobinfo.time;
-        let str = format!("{}{:02}{:02}{:02}{:02}{:02}{}",
+        let str = format!("D:{}{:02}{:02}{:02}{:02}{:02}{}'",
                           dt.year(),dt.month(),dt.day(),dt.hour(),dt.minute(),dt.second(),
                           dt.offset().to_string().replace(":","'"));
         rf.2 = crate::interpreter::string_to_tokens(str.into());
