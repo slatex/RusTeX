@@ -1,3 +1,4 @@
+use chrono::{Datelike, Timelike, TimeZone};
 use crate::commands::{AssignableValue, PrimitiveExecutable, Conditional, DimenReference, RegisterReference, NumericCommand, PrimitiveTeXCommand, TokReference, SimpleWhatsit, ProvidesWhatsit, TokenList, PrimitiveAssignment};
 use crate::interpreter::{string_to_tokens, TeXMode, tokenize};
 use crate::{Interpreter, pdf_to_img, Token, VERSION_INFO};
@@ -725,6 +726,19 @@ pub static PDFMDFIVESUM: PrimitiveExecutable = PrimitiveExecutable {
     }
 };
 
+pub static PDFCREATIONDATE: PrimitiveExecutable = PrimitiveExecutable {
+    name:"pdfcreationdate",
+    expandable:true,
+    _apply:|rf,int| {
+        let dt = int.jobinfo.time;
+        let str = format!("{}{:02}{:02}{:02}{:02}{:02}{}",
+                          dt.year(),dt.month(),dt.day(),dt.hour(),dt.minute(),dt.second(),
+                          dt.offset().to_string().replace(":","'"));
+        rf.2 = crate::interpreter::string_to_tokens(str.into());
+        Ok(())
+    }
+};
+
 pub static PDFESCAPESTRING: PrimitiveExecutable = PrimitiveExecutable {
     name:"pdfescapestring",
     expandable:true,
@@ -1034,6 +1048,7 @@ pub fn pdftex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PDFXFORM),
     PrimitiveTeXCommand::Primitive(&PDFXIMAGE),
     PrimitiveTeXCommand::Primitive(&PDFMDFIVESUM),
+    PrimitiveTeXCommand::Primitive(&PDFCREATIONDATE),
     PrimitiveTeXCommand::Primitive(&PDFSTRCMP),
     PrimitiveTeXCommand::Primitive(&PDFTEXREVISION),
     PrimitiveTeXCommand::Primitive(&PDFELAPSEDTIME),
