@@ -42,7 +42,7 @@ impl Interpreter<'_> {
         self.skip_ws();
         let next = self.next_token();
         match next.char {
-            61 => {
+            61 if next.catcode == CategoryCode::Other => {
                 let next = self.next_token();
                 match next.catcode {
                     CategoryCode::Space => {},
