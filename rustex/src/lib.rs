@@ -185,7 +185,7 @@ pub fn pdfium() -> Option<&'static Pdfium> {
                     let path = match &PDFIUM_PATH {
                         Some(s) => Pdfium::pdfium_platform_library_name_at_path(s),
                         _ => match std::env::current_exe() {
-                            Ok(p) => Pdfium::pdfium_platform_library_name_at_path(p.parent().unwrap().to_str().unwrap().to_string() + "/"),
+                            Ok(p) => Pdfium::pdfium_platform_library_name_at_path(&(p.parent().unwrap().to_str().unwrap().to_string() + "/")),
                             _ => Pdfium::pdfium_platform_library_name_at_path("./lib/")
                         }
                     };
