@@ -93,13 +93,13 @@ object RusTeXBridge {
     val pdffile = new File(path + "/" + library_filename("pdfium"))
     onlineCheck(pdffile,"bblanchon/pdfium-binaries"){
       val tgzname = ostype match {
-        case Windows => "pdfium-windows-x64.tgz"
+        case Windows => "pdfium-win-x64.tgz"
         case Mac86 => "pdfium-mac-x64.tgz"
         case MacArm => "pdfium-mac-arm64.tgz"
         case _ => "pdfium-linux-x64.tgz"
       }
       val tgzpath = path + "/" + tgzname
-      download("https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F5145/" + tgzname, tgzpath)
+      download("https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F6056/" + tgzname, tgzpath)
       val tgf = new File(tgzpath)
       val filein = new FileInputStream(tgf)
       val in = new TarArchiveInputStream(new GzipCompressorInputStream(filein))
