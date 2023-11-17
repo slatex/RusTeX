@@ -203,7 +203,7 @@ impl State {
     }
     pub fn stack_depth(&self) -> usize {
         let mut curr = &self.tp;
-        curr.ls.len()
+        curr.ls.len() - 1
     }
     pub fn new() -> State {
         let mut state = State {
