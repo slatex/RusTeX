@@ -4091,12 +4091,6 @@ pub static PARSHAPELENGTH: PrimitiveExecutable = PrimitiveExecutable {
     _apply:|_tk,_int| {TeXErr!("TODO: \\parshapelength")}
 };
 
-pub static PREDISPLAYDIRECTION: PrimitiveExecutable = PrimitiveExecutable {
-    name:"predisplaydirection",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\predisplaydirection")}
-};
-
 pub static SHOWGROUPS: PrimitiveExecutable = PrimitiveExecutable {
     name:"showgroups",
     expandable:true,
@@ -4399,6 +4393,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&BROKENPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PREDISPLAYPENALTY)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&PREDISPLAYDIRECTION)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DOUBLEHYPHENDEMERITS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&FINALHYPHENDEMERITS)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&ADJDEMERITS)),
@@ -4570,7 +4565,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&PARSHAPEDIMEN),
     PrimitiveTeXCommand::Primitive(&PARSHAPEINDENT),
     PrimitiveTeXCommand::Primitive(&PARSHAPELENGTH),
-    PrimitiveTeXCommand::Primitive(&PREDISPLAYDIRECTION),
     PrimitiveTeXCommand::Primitive(&SHOWGROUPS),
     PrimitiveTeXCommand::Primitive(&SHOWIFS),
     PrimitiveTeXCommand::Primitive(&SHOWTOKENS),
