@@ -78,7 +78,7 @@ pub struct State {
 
     pub registers_prim: store::StateStore<usize,i32,[i32;79]>,
     pub registers: store::StateStore<u16,i32,Vec<i32>>,
-    pub dimensions_prim: store::StateStore<usize,i32,[i32;33]>,
+    pub dimensions_prim: store::StateStore<usize,i32,[i32;34]>,
     pub dimensions: store::StateStore<u16,i32,Vec<i32>>,
     pub skips_prim: store::StateStore<usize,Skip,[Skip;17]>,
     pub skips: store::StateStore<u16,Skip,Vec<Skip>>,

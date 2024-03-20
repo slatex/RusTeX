@@ -240,11 +240,6 @@ pub static SAVINGVDISCARDS : RegisterReference = RegisterReference {
     index:48
 };
 
-pub static DISPLAYINDENT : RegisterReference = RegisterReference {
-    name: "displayindent",
-    index:49
-};
-
 pub static SYNCTEX : RegisterReference = RegisterReference {
     name: "synctex",
     index:50
@@ -569,6 +564,11 @@ pub static PDFVORIGIN : DimenReference = DimenReference {
     index:33
 };
 
+
+pub static DISPLAYINDENT : DimenReference = DimenReference {
+    name: "displayindent",
+    index:34
+};
 
 // Skips -------------------------------------------------------------------------------------------
 

@@ -4428,7 +4428,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYWIDOWPENALTIES)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&OUTPUTPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SAVINGVDISCARDS)),
-    PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&DISPLAYINDENT)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&SYNCTEX)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&POSTDISPLAYPENALTY)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimReg(&TRACINGSCANTOKENS)),
@@ -4470,6 +4469,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&HOFFSET)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&DISPLAYWIDTH)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&PREDISPLAYSIZE)),
+    PrimitiveTeXCommand::AV(AssignableValue::PrimDim(&DISPLAYINDENT)),
 
     PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&PARSKIP)),
     PrimitiveTeXCommand::AV(AssignableValue::PrimSkip(&ABOVEDISPLAYSKIP)),
