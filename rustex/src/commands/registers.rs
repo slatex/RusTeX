@@ -392,6 +392,12 @@ pub static PDFGENTOUNICODE : RegisterReference = RegisterReference {
     index:78
 };
 
+// ---------------------------------
+pub static PREDISPLAYDIRECTION : RegisterReference = RegisterReference {
+    name: "predisplaydirection",
+    index:79
+};
+
 
 // Dimensions --------------------------------------------------------------------------------------
 
