@@ -76,7 +76,7 @@ pub struct State {
     pub catcodes:store::LinkedCatScheme,
     pub commands: store::StateStore<TeXStr,Option<TeXCommand>,store::RusTeXMap<TeXStr,Option<TeXCommand>>>,
 
-    pub registers_prim: store::StateStore<usize,i32,[i32;78]>,
+    pub registers_prim: store::StateStore<usize,i32,[i32;79]>,
     pub registers: store::StateStore<u16,i32,Vec<i32>>,
     pub dimensions_prim: store::StateStore<usize,i32,[i32;33]>,
     pub dimensions: store::StateStore<u16,i32,Vec<i32>>,
