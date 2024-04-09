@@ -1934,8 +1934,24 @@ pub static TOKS: TokAssValue = TokAssValue {
     _assign: |_rf,int,global| {
         let num = int.read_number()? as u16;
         int.read_eq();
-        let r = int.read_balanced_argument(false,false,false,true)?;
-        int.state.toks.set(num,r.iter().map(|x| x.cloned()).collect(),global);
+        int.expand_until(false)?;
+        let next = int.next_token();
+        let toks = match next.catcode {
+            CategoryCode::BeginGroup => {
+                int.requeue(next);
+                int.read_balanced_argument(false,false,false,true)?
+            }
+            CategoryCode::Escape | CategoryCode::Active => {
+                let cmd = int.get_command(&next.cmdname())?;
+                match &*cmd.orig {
+                    PrimitiveTeXCommand::AV(AssignableValue::Toks(j)) => int.state.toks.get(j),
+                    PrimitiveTeXCommand::AV(AssignableValue::PrimToks(j)) => int.state.toks_prim.get(&(j.index - 1)),
+                    _ => TeXErr!("Expected balanced argument or token register in token assignment")
+                }
+            }
+            _ => TeXErr!("Expected balanced argument or token register in token assignment")
+        };
+        int.state.toks.set(num, toks.iter().map(|x| x.cloned()).collect(), global);
         Ok(())
     },
     _getvalue: |int| {
