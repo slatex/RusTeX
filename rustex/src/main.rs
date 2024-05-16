@@ -6,11 +6,16 @@ use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
 use rustex::interpreter::Interpreter;
-use rustex::interpreter::params::DefaultParams;
+use rustex::interpreter::params::{DefaultParams, NoOutput};
 use rustex::stomach::html::HTMLColon;
 use rustex::stomach::NoShipoutRoutine;
 
 use clap::Parser;
+use rustex::commands::pdftex::pdftex_commands;
+use rustex::commands::pgfsvg::pgf_commands;
+use rustex::commands::rustex_specials::rustex_special_commands;
+use rustex::stomach::colon::NoColon;
+use rustex::utils::PWD;
 
 #[derive(Parser,Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -33,7 +38,11 @@ struct Parameters {
 
     /// use only one thread
     #[clap(short, long)]
-    singlethreaded:bool
+    singlethreaded:bool,
+
+    /// process latex.ltx verbosely
+    #[clap(short, long)]
+    test:bool
 
 }
 static mut SKIP : bool = false;
@@ -49,6 +58,37 @@ fn run() {
     use rustex::interpreter::state::State;
     //use magick_rust::{MagickWand, magick_wand_genesis};
     use rustex::fonts::convert::*;
+
+    if params.test {
+        let state = rustex::utils::with_stack_size(|| {
+            use rustex::interpreter::params::DefaultParams;
+            println!("Testing latex.ltx...");
+            let mut state = State::new();
+            let pdftex_cfg = rustex::kpathsea::kpsewhich("pdftexconfig.tex", &PWD).expect("pdftexconfig.tex not found").0;
+            let latex_ltx = rustex::kpathsea::kpsewhich("latex.ltx", &PWD).expect("No latex.ltx found").0;
+            let p = DefaultParams::new(false, false, None);
+
+            for c in pdftex_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
+            }
+            for c in rustex_special_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
+            }
+
+            state = Interpreter::do_file_with_state(&pdftex_cfg, state, NoColon::new(), &p).1;
+            state = Interpreter::do_file_with_state(&latex_ltx, state, NoColon::new(), &p).1;
+            for c in pgf_commands() {
+                let c = c.as_command();
+                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
+            }
+            state
+        });
+        state.commands.get(&"eTeXversion".into()).expect("");
+        println!("\n\nSuccess! \\o/");
+        return
+    }
 
     match params.input {
         None => {
