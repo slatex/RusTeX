@@ -63,6 +63,7 @@ fn run() {
         let state = rustex::utils::with_stack_size(|| {
             use rustex::interpreter::params::DefaultParams;
             println!("Testing latex.ltx...");
+            unsafe {rustex::kpathsea::LOG = true};
             let mut state = State::new();
             let p = DefaultParams::new(false, false, None);
 

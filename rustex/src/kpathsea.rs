@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 static mut KPATHSEA : Option<Kpathsea> = None;
 
+pub static mut LOG : bool = false;
+
 fn check(pb : &PathBuf) -> Option<PathBuf> {
     match pb.parent() {
         Some(p) if p.is_dir() => {
@@ -157,6 +159,13 @@ impl Kpathsea {
             vars.get("TEXINPUTS").map(|x| x.clone())
         ).into_iter().flatten().collect();
         vars.insert("progname".to_string(),"pdflatex".to_string());
+        unsafe {
+            if LOG {
+                for s in &filestrs {
+                    println!("{s}");
+                }
+            }
+        }
         let home = if cfg!(target_os = "windows") {
             std::env::vars().find(|x| x.0 == "HOMEDRIVE").unwrap().1 +
                 &std::env::vars().find(|x| x.0 == "HOMEPATH").unwrap().1
@@ -165,6 +174,14 @@ impl Kpathsea {
         };
         let mut recdot = false;
         let dirs : Vec<String> = filestrs.into_iter().map(|x| Kpathsea::parse_string(x,&vars)).flatten().collect();
+        unsafe {
+            if LOG {
+                println!("--------------------------------------");
+                for s in &dirs {
+                    println!("{s}");
+                }
+            }
+        }
         let mut paths : Vec<(PathBuf,bool)> = vec!();
         for mut d in dirs {
             if d.starts_with(".") {
@@ -232,7 +249,12 @@ impl Kpathsea {
                     fin.append(&mut ret);
                     return fin
                 },
-                Some(';' | ':') => {
+                Some(';') => {
+                    i += 1;
+                    fin.append(&mut std::mem::take(&mut ret));
+                    ret.push("".to_string())
+                },
+                Some(':') if !cfg!(target_os = "windows") || chars.get(i+1) != Some(&'/') => {
                     i += 1;
                     fin.append(&mut std::mem::take(&mut ret));
                     ret.push("".to_string())
