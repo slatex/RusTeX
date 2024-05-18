@@ -129,11 +129,11 @@ impl Kpathsea {
         }
         let rs : Vec<String> = std::str::from_utf8(std::process::Command::new("kpsewhich")
             .args(vec!("-a","texmf.cnf")).output().expect("kpsewhich not found!")
-            .stdout.as_slice()).unwrap().split("\n").map(|x| x.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            .stdout.as_slice()).unwrap().split(|c| c=='\r' || c == '\n').map(|x| x.trim().to_string()).filter(|s| !s.is_empty()).collect();
         for r in rs {
             let p = PathBuf::from(r);
             if p.exists() {
-                let lines : Vec<String> = std::str::from_utf8(std::fs::read(p).unwrap().as_slice()).unwrap().split("\n").map(|x| x.trim().to_string()).collect();
+                let lines : Vec<String> = std::str::from_utf8(std::fs::read(p).unwrap().as_slice()).unwrap().split(|c| c=='\r' || c == '\n').map(|x| x.trim().to_string()).collect();
                 for l in lines {
                     if !l.starts_with("%") && !l.is_empty() {
                         let mut kb : Vec<String> = l.split("=").map(|x| x.trim().to_string()).collect();
@@ -150,10 +150,10 @@ impl Kpathsea {
             }
         }
         let mut filestrs : Vec<String> = vec!(
-            vars.get("VARTEXFONTS").map(|x| x.clone()),
-            vars.get("VFFONTS").map(|x| x.clone()),
-            vars.get("TFMFONTS").map(|x| x.clone()),
-            std::env::vars().find(|a| a.0 == "TEXINPUTS").map(|x| x.1.clone()),
+            vars.get("VARTEXFONTS").map(|x| x.replace("\\","/")),
+            vars.get("VFFONTS").map(|x| x.replace("\\","/")),
+            vars.get("TFMFONTS").map(|x| x.replace("\\","/")),
+            std::env::vars().find(|a| a.0 == "TEXINPUTS").map(|x| x.1.replace("\\","/")),
             vars.get("TEXINPUTS").map(|x| x.clone())
         ).into_iter().flatten().collect();
         vars.insert("progname".to_string(),"pdflatex".to_string());

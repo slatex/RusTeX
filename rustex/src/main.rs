@@ -86,7 +86,7 @@ fn run() {
             println!("Done.");
             state
         });
-        state.commands.get(&"documentclass".into()).expect("");
+        state.commands.get(&"documentclass".into()).expect("\\documentclass not defined. Something went wrong :((");
         println!("\n\nSuccess! \\o/");
         return
     }
