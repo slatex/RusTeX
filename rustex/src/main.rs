@@ -76,12 +76,12 @@ fn run() {
             }
 
             let pdftex_cfg = rustex::kpathsea::kpsewhich("pdftexconfig.tex", &PWD).expect("pdftexconfig.tex not found").0;
-            println!("pdftex.cfg: {}",pdftex_cfg.canonicalize().unwrap().display());
+            println!("pdftex.cfg: {}",pdftex_cfg.display());
             state = Interpreter::do_file_with_state(&pdftex_cfg, state, NoColon::new(), &p).1;
             println!("Done.");
 
             let latex_ltx = rustex::kpathsea::kpsewhich("latex.ltx", &PWD).expect("No latex.ltx found").0;
-            println!("latex.ltx: {}",latex_ltx.canonicalize().unwrap().display());
+            println!("latex.ltx: {}",latex_ltx.display());
             state = Interpreter::do_file_with_state(&latex_ltx, state, NoColon::new(), &p).1;
             println!("Done.");
             state
