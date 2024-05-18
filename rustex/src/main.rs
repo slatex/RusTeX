@@ -41,7 +41,7 @@ struct Parameters {
     singlethreaded:bool,
 
     /// process latex.ltx verbosely
-    #[clap(short, long)]
+    #[clap(long)]
     test:bool
 
 }
