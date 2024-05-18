@@ -64,8 +64,6 @@ fn run() {
             use rustex::interpreter::params::DefaultParams;
             println!("Testing latex.ltx...");
             let mut state = State::new();
-            let pdftex_cfg = rustex::kpathsea::kpsewhich("pdftexconfig.tex", &PWD).expect("pdftexconfig.tex not found").0;
-            let latex_ltx = rustex::kpathsea::kpsewhich("latex.ltx", &PWD).expect("No latex.ltx found").0;
             let p = DefaultParams::new(false, false, None);
 
             for c in pdftex_commands() {
@@ -77,15 +75,18 @@ fn run() {
                 state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
             }
 
+            let pdftex_cfg = rustex::kpathsea::kpsewhich("pdftexconfig.tex", &PWD).expect("pdftexconfig.tex not found").0;
+            println!("pdftex.cfg: {}",pdftex_cfg.canonicalize().unwrap().display());
             state = Interpreter::do_file_with_state(&pdftex_cfg, state, NoColon::new(), &p).1;
+            println!("Done.");
+
+            let latex_ltx = rustex::kpathsea::kpsewhich("latex.ltx", &PWD).expect("No latex.ltx found").0;
+            println!("latex.ltx: {}",latex_ltx.canonicalize().unwrap().display());
             state = Interpreter::do_file_with_state(&latex_ltx, state, NoColon::new(), &p).1;
-            for c in pgf_commands() {
-                let c = c.as_command();
-                state.commands.set_locally(unsafe {c.name().unwrap_unchecked()}, Some(c))
-            }
+            println!("Done.");
             state
         });
-        state.commands.get(&"eTeXversion".into()).expect("");
+        state.commands.get(&"documentclass".into()).expect("");
         println!("\n\nSuccess! \\o/");
         return
     }
