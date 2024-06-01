@@ -24,18 +24,18 @@ lto = true
 [dependencies]
 array-init = "2.1.0"
 lazy_static = "1.4.0"
-itertools = "0.12"
-pathdiff = "0.2.1"
-ansi_term = "0.12.1"
-backtrace = "0.3.69"
-chrono = "0.4.35"
-regex = "1.10.3"
-md5 = "0.7.0"
-image = "0.25.0"
-base64 =  "0.22.0"
-clap = { version = "4.5.3", features = ["derive"] }
-pdfium-render = "0.8.20" #, features = ["static"] }
-ahash = "0.8.11"
+itertools = "0.13"
+pathdiff = "0.2"
+ansi_term = "0.12"
+backtrace = "0.3"
+chrono = "0.4"
+regex = "1.10"
+md5 = "0.7"
+image = "0.25"
+base64 =  "0.22"
+clap = { version = "4.5", features = ["derive"] }
+pdfium-render = "0.8" #, features = ["static"] }
+ahash = "0.8"
 # serde = { version = "1.0.152", features = ["derive"] }
 #lru = "0.9.0"
 #qp-trie = "0.8.0"

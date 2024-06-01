@@ -98,11 +98,18 @@ struct Kpathsea {
 }
 impl Kpathsea {
     pub fn init() -> Kpathsea {
+        let loc = std::str::from_utf8(std::process::Command::new("kpsewhich")
+            .args(vec!("-var-value","SELFAUTOLOC")).output().expect("kpsewhich not found!")
+            .stdout.as_slice()).unwrap().trim().to_string();
+        let rs : Vec<String> = std::str::from_utf8(std::process::Command::new("kpsewhich")
+            .args(vec!("-a","texmf.cnf")).output().expect("kpsewhich not found!")
+            .stdout.as_slice()).unwrap().split(|c| c=='\r' || c == '\n').map(|x| x.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        if rs.is_empty() && loc.contains("miktex") { Self::miktex(loc) } else {Self::texlive(rs,loc)}
+    }
+
+    fn texlive(rs: Vec<String>,loc:String) -> Kpathsea {
         let mut vars = HashMap::<String,String>::new();
         {
-            let loc = std::str::from_utf8(std::process::Command::new("kpsewhich")
-                .args(vec!("-var-value","SELFAUTOLOC")).output().expect("kpsewhich not found!")
-                .stdout.as_slice()).unwrap().trim().to_string();
             let selfautoloc = PathBuf::from(loc);
             match selfautoloc.parent() {
                 Some(p) => {
@@ -129,9 +136,6 @@ impl Kpathsea {
             }
             vars.insert("SELFAUTOLOC".to_string(),selfautoloc.to_str().unwrap().to_string());
         }
-        let rs : Vec<String> = std::str::from_utf8(std::process::Command::new("kpsewhich")
-            .args(vec!("-a","texmf.cnf")).output().expect("kpsewhich not found!")
-            .stdout.as_slice()).unwrap().split(|c| c=='\r' || c == '\n').map(|x| x.trim().to_string()).filter(|s| !s.is_empty()).collect();
         for r in rs {
             let p = PathBuf::from(r);
             if p.exists() {
@@ -151,7 +155,7 @@ impl Kpathsea {
                 }
             }
         }
-        let mut filestrs : Vec<String> = vec!(
+        let filestrs : Vec<String> = vec!(
             vars.get("VARTEXFONTS").map(|x| x.replace("\\","/")),
             vars.get("VFFONTS").map(|x| x.replace("\\","/")),
             vars.get("TFMFONTS").map(|x| x.replace("\\","/")),
@@ -159,6 +163,28 @@ impl Kpathsea {
             vars.get("TEXINPUTS").map(|x| x.clone())
         ).into_iter().flatten().collect();
         vars.insert("progname".to_string(),"pdflatex".to_string());
+        Self::finalize(filestrs,vars)
+    }
+
+    fn miktex(loc:String) -> Kpathsea {
+        let pdftex_map = std::str::from_utf8(std::process::Command::new("kpsewhich")
+            .args(vec!("pdftex.map")).output().expect("kpsewhich not found!")
+            .stdout.as_slice()).unwrap().trim().to_string();
+        let miktex = Path::new(&loc).parent().unwrap().parent().unwrap().parent().unwrap();
+        let appdata = Path::new(&pdftex_map.split("MiKTeX").next().unwrap()).join("MiKTeX");
+        let mut filestrs: Vec<String> = vec!(
+            miktex.join("tex").join("generic").display().to_string().replace("\\","/") + "//",
+            miktex.join("tex").join("latex").display().to_string().replace("\\","/") + "//",
+            miktex.join("fonts").display().to_string().replace("\\","/") + "//",
+            appdata.join("fonts").display().to_string().replace("\\","/") + "//"
+        );
+        if let Some((_,tip)) = std::env::vars().find(|a| a.0 == "TEXINPUTS") {
+            filestrs.insert(0,tip.replace("\\","/"))
+        }
+        Self::finalize(filestrs,HashMap::default())
+    }
+
+    fn finalize(filestrs : Vec<String>,vars: HashMap::<String,String>) -> Kpathsea {
         unsafe {
             if LOG {
                 for s in &filestrs {
@@ -210,6 +236,8 @@ impl Kpathsea {
         for (path,recurse) in paths { Kpathsea::fill_map(&mut map,path,recurse) }
         Kpathsea { map,recdot }
     }
+
+
     fn fill_map(map: &mut HashMap<String,HashMap<String,PathBuf>>, path : PathBuf, recurse: bool) {
         for entry in std::fs::read_dir(path).unwrap() {
             let p = entry.unwrap().path();
