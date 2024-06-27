@@ -359,7 +359,7 @@ fn do_def(int:&mut Interpreter, global:bool, protected:bool, long:bool,edef:bool
     Ok(())
 }
 
-use crate::interpreter::dimensions::{dimtostr, MuSkip, Numeric, round_f, Skip};
+use crate::interpreter::dimensions::{dimtostr, MuSkip, Numeric, round_f, Skip, SkipDim};
 use crate::stomach::whatsits::{ExecutableWhatsit, Whatsit};
 use crate::stomach::math::{Above, Delimiter, GroupedMath, MathAccent, MathBin, MathChar, MathClose, MathGroup, MathInner, MathKernel, MathOp, MathOpen, MathOrd, MathPunct, MathRel, MKern, Overline, Radical, Underline};
 use crate::stomach::boxes::{BoxMode, TeXBox, HBox, VBox, VBoxType};
@@ -2191,6 +2191,7 @@ pub static HFIL: SimpleWhatsit = SimpleWhatsit {
         Ok(Whatsit::Simple(SimpleWI::HFil(HFil(int.update_reference(tk)))))
     }
 };
+
 
 pub static HFILL: SimpleWhatsit = SimpleWhatsit {
     name:"hfill",
@@ -4204,10 +4205,18 @@ pub static BIGSKIP: PrimitiveExecutable = PrimitiveExecutable {
 };
 
 
-pub static HFILNEG: PrimitiveExecutable = PrimitiveExecutable {
+pub static HFILNEG: SimpleWhatsit = SimpleWhatsit {
     name:"hfilneg",
-    expandable:true,
-    _apply:|_tk,_int| {TeXErr!("TODO: \\hfilneg")}
+    modes:|m| match m {
+        TeXMode::Horizontal | TeXMode::RestrictedHorizontal => true,
+        TeXMode::Math | TeXMode::Displaymath => true,
+        _ => false
+    },
+    _get: |tk,int| {
+        Ok(Whatsit::Simple(SimpleWI::HSkip(HSkip {
+            skip:Skip {base:0,stretch:None,shrink:Some(SkipDim::Fil(1))},sourceref:int.update_reference(tk)
+        })))
+    }
 };
 
 pub static MEDSKIP: PrimitiveExecutable = PrimitiveExecutable {
@@ -4288,6 +4297,7 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HSKIP)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFIL)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILL)),
+    PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&HFILNEG)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&PENALTY)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&LOWER)),
     PrimitiveTeXCommand::Whatsit(ProvidesWhatsit::Simple(&RAISE)),
@@ -4608,7 +4618,6 @@ pub fn tex_commands() -> Vec<PrimitiveTeXCommand> {vec![
     PrimitiveTeXCommand::Primitive(&BOTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITFIRSTMARK),
     PrimitiveTeXCommand::Primitive(&SPLITBOTMARK),
-    PrimitiveTeXCommand::Primitive(&HFILNEG),
     PrimitiveTeXCommand::Primitive(&INDENT),
     PrimitiveTeXCommand::Primitive(&INSERT),
     PrimitiveTeXCommand::Primitive(&ITALICCORR),
