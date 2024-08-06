@@ -393,6 +393,11 @@ pub static PREDISPLAYDIRECTION : RegisterReference = RegisterReference {
     index:79
 };
 
+pub static INTERACTIONMODE : RegisterReference = RegisterReference {
+    name: "interactionmode",
+    index:80
+};
+
 
 // Dimensions --------------------------------------------------------------------------------------
 
