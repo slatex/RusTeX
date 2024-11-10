@@ -34,14 +34,14 @@ jobs:
     - name: Build Java bridge
       run: cd rustexbridge && cargo build --release --target x86_64-unknown-linux-gnu
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: linux
         path: |
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.rlib
           ./rustex/target/x86_64-unknown-linux-gnu/release/librustex.so
           ./rustex/target/x86_64-unknown-linux-gnu/release/rustex
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: bridge_linux
         path: ./rustexbridge/target/x86_64-unknown-linux-gnu/release/librustex_java.so
@@ -61,7 +61,7 @@ jobs:
     - name: Build Java bridge
       run: cd rustexbridge && cargo build --release --target x86_64-pc-windows-msvc
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: windows
         path: |
@@ -69,7 +69,7 @@ jobs:
           ./rustex/target/x86_64-pc-windows-msvc/release/rustex.dll
           ./rustex/target/x86_64-pc-windows-msvc/release/rustex.dll.lib
           ./rustex/target/x86_64-pc-windows-msvc/release/rustex.exe
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: bridge_windows
         path: ./rustexbridge/target/x86_64-pc-windows-msvc/release/rustex_java.dll
@@ -85,14 +85,14 @@ jobs:
     - name: Build Java bridge
       run: cd rustexbridge && cargo build --release --target x86_64-apple-darwin
     - name: Upload Mac
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mac_x86
         path: |
           ./rustex/target/x86_64-apple-darwin/release/librustex.rlib
           ./rustex/target/x86_64-apple-darwin/release/librustex.dylib
           ./rustex/target/x86_64-apple-darwin/release/rustex
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: bridge_mac_x86
         path: ./rustexbridge/target/x86_64-apple-darwin/release/librustex_java.dylib
@@ -108,14 +108,14 @@ jobs:
       - name: Build Java bridge
         run: cd rustexbridge && cargo build --release --target aarch64-apple-darwin
       - name: Upload Mac
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mac_aarch64
           path: |
             ./rustex/target/aarch64-apple-darwin/release/librustex.rlib
             ./rustex/target/aarch64-apple-darwin/release/librustex.dylib
             ./rustex/target/aarch64-apple-darwin/release/rustex
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: bridge_mac_aarch64
           path: ./rustexbridge/target/aarch64-apple-darwin/release/librustex_java.dylib
@@ -125,37 +125,37 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: bridge_linux
           path: ./
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: bridge_windows
           path: ./
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: bridge_mac_aarch64
           path: ./
       - name: Rename file
         run: mv ./librustex_java.dylib ./librustex_java_aarch64.dylib
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: bridge_mac_x86
           path: ./
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: linux
           path: ./linux
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: windows
           path: ./windows
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: mac_x86
           path: ./mac_x86
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: mac_aarch64
           path: ./mac_aarch64
