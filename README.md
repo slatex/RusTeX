@@ -1,5 +1,7 @@
 # RusTeX
 
+This implementation is *deprecated* in favor of a reimplementation [here](https://github.com/FlexiFormal/RusTeX)
+
 A (somewhat experimental) implementation of a TeX engine in rust, used to convert LaTeX documents to xhtml.
 
 ## Usage
